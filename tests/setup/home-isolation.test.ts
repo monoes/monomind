@@ -35,9 +35,9 @@ function childEnv(home: string, tmp: string): NodeJS.ProcessEnv {
   return { ...env, HOME: home, USERPROFILE: home, TMPDIR: tmp, TMP: tmp, TEMP: tmp };
 }
 
-function runSuites(name: string, root: string, files: string[]) {
+function runSuites(name: string, root: string, files: string[], tmpUnderHome = false) {
   const home = join(base, name, 'home');
-  const tmp = join(base, name, 'tmp');
+  const tmp = tmpUnderHome ? join(home, 'tmp') : join(base, name, 'tmp');
   mkdirSync(home, { recursive: true });
   mkdirSync(tmp, { recursive: true });
   const report = join(base, name, 'report.json');
@@ -60,6 +60,14 @@ function runSuites(name: string, root: string, files: string[]) {
 }
 
 describe('test runs leave the real home alone (#347)', () => {
+  it('isolates the test home when TMPDIR is under the original HOME (#591)', () => {
+    const r = runSuites('home-rooted-tmp', REPO, ['tests/setup/env-isolation.test.ts'], true);
+    expect(r.summary?.numPassedTests ?? 0, r.output).toBeGreaterThan(0);
+    expect(r.status, r.output).toBe(0);
+    expect(r.projects).toEqual([]);
+    expect(r.registry).toBe(false);
+  }, 250_000);
+
   it('root suites that open the per-project memory store', () => {
     const r = runSuites('root', REPO, [
       'tests/security/memory-tools-validation.test.ts',

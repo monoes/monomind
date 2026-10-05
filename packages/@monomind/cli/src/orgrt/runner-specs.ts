@@ -11,6 +11,8 @@
  */
 
 import type { ProviderKind, RuntimeKind } from './daemon.js';
+import { FREEBUFF_UNSUPPORTED } from './freebuff-runner.js';
+import { kiloVersionRefusal } from './kilo-version.js';
 import type { RunnerAccess } from './runner-access.js';
 import type { RunnerFeatures } from './runner-features.js';
 
@@ -25,6 +27,10 @@ export interface RunnerSpec extends RunnerFeatures, RunnerAccess {
   installHint: string;
   /** Login/auth command appended to auth-class errors (§3.4 auth code). */
   loginHint?: string;
+  /** Installed binary is discoverable but automated execution is unavailable. */
+  executionUnsupportedReason?: string;
+  /** Version-specific readiness, independently from binary presence. */
+  executionPrerequisite?: (version: string | null) => string | undefined;
   /**
    * Whether this runner delivers real incremental (per-token/per-chunk)
    * `assistant` text as a turn streams, vs. only ever yielding a complete
@@ -60,6 +66,28 @@ export interface RunnerSpec extends RunnerFeatures, RunnerAccess {
 }
 
 export const BASE_SPECS: Array<Omit<RunnerSpec, keyof RunnerFeatures | keyof RunnerAccess>> = [
+  {
+    id: 'freebuff',
+    binary: 'freebuff',
+    binEnv: 'FREEBUFF_CLI_BIN',
+    installHint: 'npm install -g freebuff',
+    loginHint: 'freebuff login',
+    streamsIncrementally: false,
+    supportsFullAccess: false,
+    toolActivityFidelity: 'none',
+    executionUnsupportedReason: FREEBUFF_UNSUPPORTED,
+  },
+  {
+    id: 'kilo',
+    executionPrerequisite: kiloVersionRefusal,
+    binary: 'kilo',
+    binEnv: 'KILO_CLI_BIN',
+    installHint: 'npm install -g @kilocode/cli@7.8.3',
+    loginHint: 'kilo auth login',
+    streamsIncrementally: false,
+    supportsFullAccess: true,
+    toolActivityFidelity: 'full',
+  },
   {
     id: 'claude',
     binary: 'claude', // SDK locates its own CLI; PATH probe is best-effort

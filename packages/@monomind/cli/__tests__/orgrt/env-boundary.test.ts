@@ -14,9 +14,9 @@
  * child processes (a hermetic dump-env stub, never a real vendor CLI) and
  * reads what they actually received.
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AgentRunArgs, AgentRunner } from '../../src/orgrt/agent-runner.js';
@@ -37,6 +37,7 @@ import {
 import { DshAgentRunner } from '../../src/orgrt/dsh-runner.js';
 import { GrokAgentRunner } from '../../src/orgrt/grok-runner.js';
 import { HermesAgentRunner } from '../../src/orgrt/hermes-runner.js';
+import { KiloAgentRunner } from '../../src/orgrt/kilo-runner.js';
 import { KimiCodeAgentRunner } from '../../src/orgrt/kimicode-runner.js';
 import { OpencodeAgentRunner } from '../../src/orgrt/opencode-runner.js';
 import { PiAgentRunner } from '../../src/orgrt/pi-runner.js';
@@ -80,7 +81,11 @@ function stash(...keys: string[]) {
 beforeEach(() => {
   dumpDir = mkdtempSync(join(tmpdir(), 'o18-env-'));
   dumpFile = join(dumpDir, 'env.json');
-  stash('O18_DUMP_ENV_OUT');
+  stash('O18_DUMP_ENV_OUT', 'MONOMIND_HOME');
+  // Keep real storage validation while HOME may deliberately be /tmp or
+  // an unwritable sentinel. This private fixture is outside runner cwd and
+  // the sandbox-writable temporary roots, and never touches the real home.
+  process.env.MONOMIND_HOME = PROTECTED_INPUT_HOME;
   process.env.O18_DUMP_ENV_OUT = dumpFile;
 });
 
@@ -155,10 +160,32 @@ interface RunnerCase {
   teardown?: () => void;
 }
 
+const PROTECTED_INPUT_HOME = mkdtempSync(join(dirname(process.cwd()), '.o18-protected-inputs-'));
+afterAll(() => rmSync(PROTECTED_INPUT_HOME, { recursive: true, force: true }));
+
 const RUNNER_STATE = mkdtempSync(join(tmpdir(), 'o18-runner-state-'));
 afterAll(() => rmSync(RUNNER_STATE, { recursive: true, force: true }));
 
+// kilo checks `--version` before each turn and needs explicit full access with all three settings
+// sources; the stub answers the version probe and otherwise dumps its environment.
+const KILO_STUB = join(RUNNER_STATE, 'kilo-stub.mjs');
+writeFileSync(
+  KILO_STUB,
+  `#!/usr/bin/env node\nif (process.argv.includes('--version')) { console.log('7.8.3'); process.exit(0); }\nawait import(${JSON.stringify(STUB)});\n`,
+);
+chmodSync(KILO_STUB, 0o755);
+const kiloRunner = (): AgentRunner => ({
+  run: (args) =>
+    new KiloAgentRunner().run({
+      ...args,
+      access: 'full',
+      settingSources: ['user', 'project', 'local'],
+      env: { ...args.env, KILO_CLI_BIN: KILO_STUB },
+    }),
+});
+
 const VENDOR_RUNNERS: RunnerCase[] = [
+  { name: 'kilo', make: kiloRunner },
   { name: 'codex', make: () => new CodexAgentRunner(STUB) },
   { name: 'grok', make: () => new GrokAgentRunner(STUB) },
   { name: 'qwen', make: () => new QwenAgentRunner(STUB) },

@@ -1,0 +1,92 @@
+name: Claude SDK refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '35 7 * * 1'
+
+# The job that downloads and executes the newest Claude binary holds no write
+# access; a second job, which runs none of that code, opens the pull request.
+# A pull request opened with GITHUB_TOKEN does not start tests.yml: close and
+# reopen it (or push to its branch) to run the full suite before merging.
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-sdk-refresh
+  cancel-in-progress: false
+
+jobs:
+  compute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10
+      - name: Verify newest SDK tarballs and regenerate pins
+        run: node scripts/claude-sdk-maintenance.mjs --update
+      - name: Refresh workspace lockfile
+        run: pnpm install --lockfile-only --ignore-scripts
+      - name: Install test tools without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Build workspace dependencies used by pin verification
+        run: pnpm --filter "@monoes/monomindcli^..." run build
+      - name: Format regenerated pin data
+        run: pnpm exec biome format --write packages/@monomind/cli/src/utils/optional-deps-locks.ts
+      - name: Verify dependency lock and executable pin consistency
+        run: |
+          pnpm exec vitest run tests/scripts/claude-sdk-maintenance.test.mjs
+          pnpm --filter @monoes/monomindcli exec vitest run src/__tests__/optional-deps-pins.test.ts src/__tests__/optional-deps.test.ts
+      - name: Hand the regenerated files to the pull request job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: claude-sdk-pins
+          if-no-files-found: error
+          path: |
+            packages/@monomind/cli/package.json
+            packages/@monomind/cli/src/utils/optional-deps.ts
+            packages/@monomind/cli/src/utils/optional-deps-locks.ts
+            packages/@monomind/cli/src/orgrt/claude-sdk.ts
+            pnpm-lock.yaml
+
+  open-pr:
+    needs: compute
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: claude-sdk-pins
+      - name: Open a reviewed update PR
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
+        with:
+          branch: chore/claude-sdk-refresh
+          commit-message: 'chore(claude): refresh reviewed SDK and executable pins'
+          title: 'chore(claude): refresh reviewed SDK and executable pins'
+          add-paths: |
+            packages/@monomind/cli/package.json
+            packages/@monomind/cli/src/utils/optional-deps.ts
+            packages/@monomind/cli/src/utils/optional-deps-locks.ts
+            packages/@monomind/cli/src/orgrt/claude-sdk.ts
+            pnpm-lock.yaml
+          body: |
+            Refresh the SDK to npm's latest stable release so the bundled Claude model picker includes new models.
+
+            The refresh verifies npm tarball integrity before computing SDK and platform executable SHA-256 hashes, reads the bundled Claude version from the verified Linux executable, and regenerates both dependency lockfiles. Pin consistency tests passed in a read-only job.
+
+            Review the upstream release and resulting hashes before merging. This workflow never merges or publishes automatically. Workflow-token pull requests do not start the test workflow: close and reopen this one to run it.

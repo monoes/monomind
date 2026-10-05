@@ -6,13 +6,23 @@
  * comments). If a future kimi CLI changes the wire format, these tests fail
  * in CI instead of silently starving org agents at runtime.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { z } from 'zod';
 import { KimiCodeAgentRunner, parseStreamJsonLine, parseStreamJsonLines } from '../../src/orgrt/kimicode-runner.js';
 import type { AgentMessage, AgentRunArgs } from '../../src/orgrt/agent-runner.js';
+
+// Storage policy is covered by runner-inputs-599.test.ts; these runner unit
+// fixtures deliberately use the test worker's isolated temporary HOME.
+vi.mock('../../src/orgrt/runner-inputs.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/orgrt/runner-inputs.js')>();
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  return { ...actual, createRunnerInputDir: (runner: string) => fs.mkdtempSync(path.join(os.tmpdir(), `runner-fixture-${runner}-`)) };
+});
 
 // Captured verbatim from kimi 0.29.2: `kimi -p "Say the word OK and nothing
 // else" --output-format stream-json`

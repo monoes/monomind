@@ -1,3 +1,8 @@
+// Document schemas also restore their existing ID/string/array bounds and
+// positive safe-integer part/version/state-sequence rules; no fields are removed.
+// #594: SDK 0.3.289 restores existing Zod limits and field descriptions omitted
+// by 0.3.226: brief/context max4000, arrays min1, safe integer evidence exits,
+// recheck bounds and org_review.base help. Only tool hashes change; prompts stay frozen.
 // P3.6: how the document tools reach a session. buildOrgTools adds org_doc_* only when SessionOpts carries a
 // documents host, after every existing tool; the sections-ON tool list is pinned by its own sha (the
 // sections-OFF list stays pinned by org-loadouts-default-off.test.ts and the P3.0 goldens, untouched).
@@ -95,7 +100,7 @@ async function renderTools(opts: SessionOpts): Promise<{ name: string; descripti
 // P3.0 goldens). The sections-ON list: the sections-off list plus the four org_doc_* tools.
 // Change it only for an intentional change to those tools; the text is also in fixtures/sections-on/.
 // P3.16b re-pin (was 9354d469...): org_doc_decide's description now says a decision needs every part read. Sections-ON text only.
-const SECTIONS_ON_TOOLS_SHA = 'b7fad955148d79f41c078ee4be07ee3a594a91b2ffdb8612f99fdc3098b584db';
+const SECTIONS_ON_TOOLS_SHA = 'e7404523101d8aa6bc6c244f9139e62309aaa5c1848d479612bcc4ea2275a3fa';
 const DOC_TOOLS = ['org_doc_list', 'org_doc_read', 'org_doc_publish', 'org_doc_decide'];
 
 describe('org_doc_* registration', () => {

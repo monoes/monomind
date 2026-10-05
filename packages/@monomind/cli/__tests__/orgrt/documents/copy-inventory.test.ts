@@ -115,6 +115,16 @@ describe('copyInventoryFindings', () => {
     expect(inEval.errors).toEqual([]);
     expect(inEval.warnings.join()).toMatch(/coder.*opencode.*refused.*OPENCODE_URL/);
   });
+  it('kilo (full access only, refused in a sections org) and freebuff (no transport) fail validate with the reason, a warning in eval', () => {
+    for (const [rt, why] of [['kilo', /full access/i], ['freebuff', /no headless/i]] as const) {
+      const out = copyInventoryFindings(withRuntime(rt, false));
+      expect(out.errors.join(), rt).toMatch(new RegExp(`coder.*${rt}.*refused`));
+      expect(out.errors.join(), rt).toMatch(why);
+      const inEval = copyInventoryFindings(withRuntime(rt, true));
+      expect(inEval.errors, rt).toEqual([]);
+      expect(inEval.warnings.join(), rt).toMatch(new RegExp(`coder.*${rt}.*refused`));
+    }
+  });
   it('an endpoint role is exempt (it runs no agent)', () => {
     const d = sectionsRaw() as any;
     d.roles.push({ id: 'hook', title: 'Hook', type: 'specialist', reports_to: 'boss', kind: 'endpoint', runtime: 'codex' });

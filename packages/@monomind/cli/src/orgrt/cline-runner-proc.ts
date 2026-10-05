@@ -15,10 +15,9 @@
  * appears in argv. Windows passes it as the positional prompt.
  */
 
-import type { ChildProcess } from 'node:child_process';
+import { type ChildProcess, execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AgentRunArgs } from './agent-runner.js';
 import { killOnAbort } from './agent-runner.js';
@@ -31,14 +30,14 @@ import {
 } from './cline-runner-host.js';
 import type { ClineHost } from './cline-runner-types.js';
 import { spawnRunnerProcess } from './process-group-spawn.js';
+import { createRunnerInputDir, writeRunnerInput } from './runner-inputs.js';
 
 export const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 const KILL_GRACE_MS = 5000;
 /** cline requires a positional prompt to contain whitespace ("quoted"); the
  *  real prompt follows it on stdin (cline joins them with a blank line). */
 export const POSITIONAL_PROMPT = 'Complete the task below.';
-const FIFO_SCRIPT =
-  'f=$1; shift; p="$f.fifo"; mkfifo -m 600 "$p" || exit 127; cat -- "$f" > "$p" & exec "$@" < "$p"';
+const FIFO_SCRIPT = 'f=$1; shift; p="$f.fifo"; cat -- "$f" > "$p" & exec "$@" < "$p"';
 
 export interface ClineLaunch {
   child: ChildProcess;
@@ -71,9 +70,20 @@ export function launchCline(
     if (plat === 'win32') {
       argv = [...cliArgs, `${POSITIONAL_PROMPT}\n\n${opts.stdinPrompt}`];
     } else {
-      promptDir = mkdtempSync(join(tmpdir(), 'monomind-cline-'));
+      promptDir = createRunnerInputDir('cline', {
+        cwd: args.cwd,
+        env: { ...args.env, ...setup.env },
+      });
       const promptFile = join(promptDir, 'prompt.txt');
-      writeFileSync(promptFile, opts.stdinPrompt, { mode: 0o600 });
+      try {
+        writeRunnerInput(promptFile, opts.stdinPrompt);
+        // The child sees this directory read-only inside its authority mask.
+        // FIFO I/O works on a read-only mount, but creating the inode does not.
+        execFileSync('mkfifo', ['-m', '600', `${promptFile}.fifo`]);
+      } catch (error) {
+        rmSync(promptDir, { recursive: true, force: true });
+        throw error;
+      }
       command = '/bin/sh';
       argv = [
         '-c',
@@ -87,15 +97,21 @@ export function launchCline(
     }
   }
 
-  const proc = spawnRunnerProcess(
-    ...maskedCommand(args.authorityMask, command, argv),
-    {
-      cwd: args.cwd,
-      env: { ...setup.env, [CLINE_TURN_ENV]: marker },
-      stdio: [opts.interactive ? 'pipe' : 'ignore', 'pipe', 'pipe'],
-    },
-    args,
-  );
+  let proc: ReturnType<typeof spawnRunnerProcess>;
+  try {
+    proc = spawnRunnerProcess(
+      ...maskedCommand(args.authorityMask, command, argv),
+      {
+        cwd: args.cwd,
+        env: { ...setup.env, [CLINE_TURN_ENV]: marker },
+        stdio: [opts.interactive ? 'pipe' : 'ignore', 'pipe', 'pipe'],
+      },
+      args,
+    );
+  } catch (error) {
+    if (promptDir) rmSync(promptDir, { recursive: true, force: true });
+    throw error;
+  }
   const child = proc.child;
 
   let stderrTail = '';

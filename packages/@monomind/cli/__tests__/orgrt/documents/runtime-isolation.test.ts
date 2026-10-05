@@ -82,7 +82,7 @@ describe('the registry', () => {
     }
   });
   it('unverified entries are the CLIs that were not probed, never a verified one', () => {
-    for (const kind of ['vercel', 'kimicode', 'qwen', 'qwen-rpc', 'cline', 'aider', 'dsh'])
+    for (const kind of ['vercel', 'kimicode', 'qwen', 'qwen-rpc', 'cline', 'aider', 'dsh', 'kilo', 'freebuff'])
       expect(RUNTIME_ISOLATION[kind as keyof typeof RUNTIME_ISOLATION].verified).toBe('unverified');
     for (const kind of ['claude', 'codex', 'antigravity', 'opencode', 'pi', 'pi-rpc', 'crush', 'grok', 'copilot', 'hermes'])
       expect(RUNTIME_ISOLATION[kind as keyof typeof RUNTIME_ISOLATION].verified).not.toBe('unverified');
@@ -130,6 +130,16 @@ describe('isolationEnv', () => {
     expect(isolationEnv(RUNTIME_ISOLATION.hermes, '/p', '/h')).toEqual({ HERMES_HOME: '/p' });
     expect(isolationEnv(RUNTIME_ISOLATION.copilot, '/p', '/h').HOME).toBe('/p');
     expect(RUNTIME_ISOLATION.copilot.authFiles).toContain('.config/gh/hosts.yml');
+  });
+  it('kilo and freebuff cannot run in a sections org, so their entries are refused with the reason and give no variables', () => {
+    for (const kind of ['kilo', 'freebuff'] as const) {
+      const e = RUNTIME_ISOLATION[kind];
+      expect(e.strategy, kind).toBe('refused');
+      expect(isolationEnv(e, '/p', '/h'), kind).toEqual({});
+      expect(usesPrivateDir(e), kind).toBe(false);
+    }
+    expect(RUNTIME_ISOLATION.kilo.note).toMatch(/full access/i);
+    expect(RUNTIME_ISOLATION.freebuff.note).toMatch(/no headless/i);
   });
   it('claude (masked), a refused runtime and an unknown one get no variables', () => {
     expect(isolationEnv(RUNTIME_ISOLATION.claude, '/p', '/h')).toEqual({});

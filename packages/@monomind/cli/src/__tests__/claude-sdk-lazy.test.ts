@@ -18,7 +18,9 @@ vi.mock('../utils/optional-deps.js', async (orig) => ({
 const { OptionalDependencyError } = await import('../utils/optional-deps.js');
 const { ClaudeAgentRunner } = await import('../orgrt/agent-runner-claude.js');
 const { listRuntimeModels } = await import('../orgrt/agent-models.js');
-const { defaultClaudeProbe, loadClaudeSdk } = await import('../orgrt/claude-sdk.js');
+const { defaultClaudeProbe, loadClaudeSdk, SDK_BUNDLED_CLAUDE_VERSION } = await import(
+  '../orgrt/claude-sdk.js'
+);
 
 const MESSAGE =
   'The Claude runtime needs @anthropic-ai/claude-agent-sdk@0.3.226, which is not installed, and ' +
@@ -94,13 +96,16 @@ describe('Claude SDK call sites load it lazily', () => {
       ensure.mockResolvedValue({ query, tool: () => ({}), createSdkMcpServer: () => ({}) });
       try {
         // Detection with a stand-in for `--version`; the loaded SDK is cached
-        // for the process, so listRuntimeModels below uses it.
+        // for this selection, so the same explicit per-call path below uses it.
         await loadClaudeSdk({
           ...defaultClaudeProbe({ PATH: '', MONOMIND_CLAUDE_PATH: exe }),
-          version: async () => '2.1.300 (Claude Code)\n',
+          version: async () => `${SDK_BUNDLED_CLAUDE_VERSION} (Claude Code)\n`,
           log: () => {},
         });
-        const r = await listRuntimeModels('claude', { timeoutMs: 1000 });
+        const r = await listRuntimeModels('claude', {
+          timeoutMs: 1000,
+          env: { PATH: '', MONOMIND_CLAUDE_PATH: exe },
+        });
         expect(r.models.map((m) => m.id)).toEqual(['haiku']);
         expect(ensure).toHaveBeenCalledWith('@anthropic-ai/claude-agent-sdk', {
           withoutSdkBinary: true,

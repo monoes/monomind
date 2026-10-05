@@ -143,6 +143,7 @@ describe('#396 other runtimes ignore the field', () => {
       'copilot-runner-stream.ts',
       'dsh-runner-stream.ts',
       'grok-runner-stream.ts',
+      'kilo-runner.ts',
       'opencode-runner-server.ts',
       'opencode-runner.ts',
       'pi-runner-state.ts',
@@ -218,7 +219,13 @@ describe('#396 start event', () => {
 
   it('every runtime reports its default native_sandbox / approvals, and no sandbox reaches the runner', async () => {
     delete process.env.MONOMIND_GIT_LEVEL;
-    expect(Object.keys(DEFAULTS).sort()).toEqual(RUNNER_SPECS.map((s) => s.id).sort());
+    expect(Object.keys(DEFAULTS).sort()).toEqual(
+      RUNNER_SPECS.filter(
+        (s) => !s.executionUnsupportedReason && !('scopedAccess' in s && s.scopedAccess === false),
+      )
+        .map((s) => s.id)
+        .sort(),
+    );
     for (const [runtime, [native, approvals]] of Object.entries(DEFAULTS)) {
       const { code, start, seen } = await turn(runtime);
       expect(code, runtime).toBe(0);
@@ -227,14 +234,33 @@ describe('#396 start event', () => {
     }
   });
 
+  it.each(
+    RUNNER_SPECS.filter((s) => s.executionUnsupportedReason || s.scopedAccess === false).map(
+      (s) => s.id,
+    ),
+  )('%s refuses default scoped access before any runner executes', async (runtime) => {
+    const { code, events, seen, start } = await turn(runtime);
+    expect(code).toBe(2);
+    expect(start).toBeUndefined();
+    expect(seen).toBeUndefined();
+    expect(events).toEqual([
+      expect.objectContaining({ type: 'error', code: 'unsupported', fatal: true }),
+      { v: 1, type: 'done', exit_code: 2 },
+    ]);
+  });
+
   it('each supported mode reaches the runner and is reported; full = the default report', async () => {
     delete process.env.MONOMIND_GIT_LEVEL;
     for (const [runtime, modes] of Object.entries(RUNNER_SANDBOX_MODES)) {
       for (const mode of modes) {
-        const { code, start, seen } = await turn(runtime, { sandbox: mode });
+        const fullOnly = RUNNER_SPECS.find((s) => s.id === runtime)?.scopedAccess === false;
+        const { code, start, seen } = await turn(runtime, {
+          sandbox: mode,
+          ...(fullOnly ? { access: 'full', cwd: process.cwd() } : {}),
+        });
         expect(code, `${runtime} ${mode}`).toBe(0);
         expect(seen?.sandbox).toBe(mode);
-        const [native, approvals] = DEFAULTS[runtime];
+        const [native, approvals] = fullOnly ? ['none', 'off'] : DEFAULTS[runtime];
         if (mode === 'full') expect(start).toMatchObject({ native_sandbox: native, approvals });
         else
           expect(start, `${runtime} ${mode}`).toMatchObject({
@@ -316,6 +342,17 @@ describe('#396 agent scan --json', () => {
   it('every entry has native_sandbox, approvals and sandbox_modes', async () => {
     const { agents } = await scanInstalled({ skipVersionProbe: true });
     for (const a of agents) {
+      if (!a.execution_supported) {
+        expect(a.sandbox_modes, a.id).toEqual([]);
+        expect(a.sandbox_mode_reports, a.id).toEqual({});
+        continue;
+      }
+      if (!a.access_modes.includes('scoped')) {
+        expect(a.id).toBe('kilo');
+        expect(a.access_modes).toEqual(['full']);
+        expect(a.sandbox_modes).toEqual(['full']);
+        continue;
+      }
       const [native, approvals] = DEFAULTS[a.id];
       expect(a, a.id).toMatchObject({ native_sandbox: native, approvals });
       expect(a.sandbox_modes).toEqual([

@@ -116,6 +116,7 @@ const RUNTIME_LOADS: Record<string, string> = {
     'user state (~/.cline: provider auth, global MCP servers, hooks) + rules (AGENTS.md, .clinerules, .cline/rules, ~/Documents/Cline/Rules) and workflows (.clinerules/workflows)',
   aider:
     'user config (.aider.conf.yml in home, git root and cwd, plus .env files) + project AGENTS.md / CONVENTIONS.md as read-only context; no MCP',
+  kilo: 'User/global Kilo config and instructions + project AGENTS.md/kilo.json + local .kilo config/skills/MCP (all sources together; native full access only)',
   dsh: '$DSH_HOME (~/.dsh) headless profile patch (Models-page routes, MCP rows) + credentials.yaml + AGENTS.md/CLAUDE.md chain (project and $DSH_HOME)',
 };
 

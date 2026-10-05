@@ -41,6 +41,7 @@ export function doctorJsonPayload(ctx: CommandContext, result: CommandResult) {
     return {
       component: r.component ?? null,
       name: r.name,
+      ...(r.claude_code ? { claude_code: r.claude_code } : {}),
       status: r.status,
       message: r.message,
       fix: r.fix ?? null,

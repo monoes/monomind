@@ -42,6 +42,7 @@ const PASS_ENV = ['OPENROUTER_API_KEY'];
 
 const FREE_GROK_MODEL = 'poolside/laguna-s-2.1:free';
 const FREE_HERMES_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';
+const FREE_KILO_MODEL = 'openrouter/qwen/qwen3.8-27b:free';
 
 const which = (name) => {
   try {
@@ -95,6 +96,31 @@ const RUNTIMES = {
       'home-only': { env: {}, stage: [] },
       'hermes-home': { env: { HERMES_HOME: '{T}/hermes-home' }, stage: [] },
     },
+  },
+  // KILO_CLI_BIN: a kilo 7.8.3 installed into a throwaway npm prefix (never against the real home).
+  kilo: {
+    bin: () => (process.env.KILO_CLI_BIN ? realpathSync(process.env.KILO_CLI_BIN) : which('kilo')),
+    versionArgs: ['--version'],
+    nativeRealDirs: [
+      '.local/share/kilo',
+      '.config/kilo',
+      '.local/state/kilo',
+      '.cache/kilo',
+      '.kilocode',
+    ],
+    args: [
+      'run',
+      '--format',
+      'json',
+      '--dangerously-skip-permissions',
+      '--model',
+      FREE_KILO_MODEL,
+      PROMPT,
+    ],
+    variants: {
+      'home-only': { env: { KILO_NO_DAEMON: '1' }, pathTools: ['node'], stage: [] },
+    },
+    costFrom: /"cost"\s*:\s*([0-9.]+)/i,
   },
 };
 

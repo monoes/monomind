@@ -86,7 +86,7 @@ describe.runIf(authorityMaskAvailability().available)('inside the real mask', ()
       'bash',
       [
         '-c',
-        `mkdir ${mm}/deps/@anthropic-ai+claude-agent-sdk@0.3.226 2>/dev/null && echo PLANTED; ` +
+        `mkdir ${mm}/deps/@anthropic-ai+claude-agent-sdk@0.3.289 2>/dev/null && echo PLANTED; ` +
           `mv ${mm} ${home}/.mm-aside 2>/dev/null && echo RENAMED; ` +
           `mv ${mm}/deps ${mm}/deps-aside 2>/dev/null && echo MOVED; true`,
       ],

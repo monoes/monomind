@@ -92,12 +92,12 @@
     "test:coverage": "vitest run --coverage",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
     "prepack": "node ../../@monoes/monodesign/scripts/sync-skill.mjs",
-    "prepublishOnly": "node scripts/check-workspace-deps.mjs && node ../../../scripts/check-published-pins.mjs . && node ../../@monoes/monodesign/scripts/sync-skill.mjs && node ../../../scripts/build-fs.mjs copy-into . ../../../README.md && npm run build && node ../../../scripts/check-cli-pack.mjs .",
+    "prepublishOnly": "node ../../../scripts/claude-sdk-maintenance.mjs --warn-only && node scripts/check-workspace-deps.mjs && node ../../../scripts/check-published-pins.mjs . && node ../../@monoes/monodesign/scripts/sync-skill.mjs && node ../../../scripts/build-fs.mjs copy-into . ../../../README.md && npm run build && node ../../../scripts/check-cli-pack.mjs .",
     "release": "npm version prerelease --preid=alpha && npm run publish:all",
     "publish:all": "./scripts/publish.sh"
   },
   "devDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.226",
+    "@anthropic-ai/claude-agent-sdk": "0.3.289",
     "chokidar": "^3.6.0",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
@@ -114,7 +114,7 @@
     "zod": "^4.0.0"
   },
   "peerDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.226"
+    "@anthropic-ai/claude-agent-sdk": "0.3.289"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/claude-agent-sdk": {

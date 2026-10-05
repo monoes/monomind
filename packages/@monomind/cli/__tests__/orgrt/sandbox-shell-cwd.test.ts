@@ -4,10 +4,10 @@
  * the sandbox cannot run). The CLI talks to a scripted local Messages API, so
  * no model is involved: the "model" runs `cd pkgs/a`, then — after a settings
  * change, which makes the CLI rebuild its sandbox config — tries to write into
- * the sibling `pkgs/hooks`. The sandbox marks an existing
- * `hooks`/`config` read-only in every directory between the session cwd and
- * the shell's current one, so without CLAUDE_SANDBOX_CWD_ENV the write fails
- * with EROFS (the 2.16.3 release run's read-only `packages/@monomind/hooks`).
+ * the sibling `pkgs/hooks`. Older Claude versions marked that sibling
+ * read-only after a directory change (#339). The 2.1.289 bundled CLI fixes
+ * this upstream: both the native behavior and our compatibility environment
+ * must keep workspace siblings writable after settings reload (#594).
  */
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
@@ -176,11 +176,10 @@ async function writeIntoSiblingAfterCd(pinShell: boolean): Promise<string> {
 describe.skipIf(process.platform !== 'linux' || !sandboxAvailability().available)(
   '#339: the sandbox after a `cd` in a sandboxed Claude role',
   () => {
-    it('leaves a sibling `hooks` directory read-only when the shell keeps its directory (SDK behaviour)', async () => {
+    it('keeps a sibling hooks directory writable after settings reload with the current SDK', async () => {
       const out = await writeIntoSiblingAfterCd(false);
-      // If this starts failing after an SDK upgrade, the CLI no longer walks
-      // the shell's directory and CLAUDE_SANDBOX_CWD_ENV may be unnecessary.
-      expect(out).toMatch(/Read-only file system/);
+      expect(out).toContain('WRITABLE');
+      expect(out).not.toMatch(/Read-only file system/);
     }, 60_000);
 
     it('keeps the whole cwd writable when the shell returns to the cwd after each command', async () => {

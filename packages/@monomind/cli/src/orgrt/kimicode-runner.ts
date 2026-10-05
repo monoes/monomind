@@ -71,12 +71,12 @@
  */
 
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
 import type { TurnOutcome } from './kimicode-runner-stream.js';
 import { readUsageDelta, streamTurn, turnError } from './kimicode-runner-stream.js';
 import { NativeToolCalls } from './kimicode-runner-tools.js';
+import { createRunnerInputDir, writeRunnerInput } from './runner-inputs.js';
 import {
   buildToolProtocol,
   formatToolResults,
@@ -120,36 +120,36 @@ export class KimiCodeAgentRunner implements AgentRunner {
     //      native tool calls (canUseTool only gates Claude's in-process
     //      tools), so this allowlist IS the tool gate for kimi org roles.
     //      Keep it minimal — org-specific denials belong here, not prose.
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-'));
+    const tmpDir = createRunnerInputDir('kimi', args);
     const agentFile = fullAccess ? undefined : path.join(tmpDir, 'org-role.md');
-    // kimi rejects an agent file whose body (everything after the frontmatter)
-    // is empty with "Missing prompt body". `args.systemPrompt` is legitimately
-    // '' for bare `agent exec` calls with no --system-file (agent.ask, `chat`
-    // without --canvas, `agent test`), and buildToolProtocol() is also '' with
-    // no tools — so the two together can leave nothing after the frontmatter.
-    // Fall back to a minimal default so the file body is never empty.
-    const body =
-      (args.systemPrompt || 'You are a helpful assistant.') + buildToolProtocol(args.tools);
-    if (agentFile) {
-      fs.writeFileSync(
-        agentFile,
-        `---\nname: monomind-org-role\ndescription: Monomind org role (managed by monomind orgrt)\n` +
-          `tools: [Bash, Read, Write, Edit, Glob, Grep]\n---\n\n` +
-          body,
-      );
-    }
-
-    // Empty skills dir: kimi loads every user/project skill's description
-    // into the system prompt on launch (measured: 47 skills ≈ several KB per
-    // turn). Org roles get their instructions from the role prompt — user
-    // skills are pure overhead and a source of instruction drift.
-    this.emptySkillsDir = userSetup ? undefined : path.join(tmpDir, 'no-skills');
-    if (this.emptySkillsDir) fs.mkdirSync(this.emptySkillsDir, { recursive: true });
-
     let sessionId: string | undefined = args.resume;
     const tools = new NativeToolCalls();
 
     try {
+      // kimi rejects an agent file whose body (everything after the frontmatter)
+      // is empty with "Missing prompt body". `args.systemPrompt` is legitimately
+      // '' for bare `agent exec` calls with no --system-file (agent.ask, `chat`
+      // without --canvas, `agent test`), and buildToolProtocol() is also '' with
+      // no tools — so the two together can leave nothing after the frontmatter.
+      // Fall back to a minimal default so the file body is never empty.
+      const body =
+        (args.systemPrompt || 'You are a helpful assistant.') + buildToolProtocol(args.tools);
+      if (agentFile) {
+        writeRunnerInput(
+          agentFile,
+          `---\nname: monomind-org-role\ndescription: Monomind org role (managed by monomind orgrt)\n` +
+            `tools: [Bash, Read, Write, Edit, Glob, Grep]\n---\n\n` +
+            body,
+        );
+      }
+
+      // Empty skills dir: kimi loads every user/project skill's description
+      // into the system prompt on launch (measured: 47 skills ≈ several KB per
+      // turn). Org roles get their instructions from the role prompt — user
+      // skills are pure overhead and a source of instruction drift.
+      this.emptySkillsDir = userSetup ? undefined : path.join(tmpDir, 'no-skills');
+      if (this.emptySkillsDir) fs.mkdirSync(this.emptySkillsDir, { recursive: true });
+
       for await (const p of args.prompt) {
         const text = typeof p === 'string' ? p : (p?.message?.content ?? String(p ?? ''));
         let nextPrompt = text;

@@ -95,6 +95,23 @@ describe('release org config', () => {
     const role = (id: string) =>
       (def.roles.find((r) => r.id === id)?.responsibilities ?? []).join('\n');
 
+    it('gates agent trials on a verified Claude SDK before SETUP (#592)', () => {
+      const preflight = (
+        def.roles.find((r) => r.id === 'release-captain')?.responsibilities ?? []
+      ).find((line) => line.includes('PREFLIGHT —'))!;
+      expect(preflight).toContain(
+        'MONOMIND_NO_AUTO_INSTALL=1 monomind agent models --runtime claude --json',
+      );
+      expect(preflight).toContain('Claude runtime prerequisite');
+      expect(rules).toContain('## Claude runtime prerequisite');
+      expect(rules).toContain(
+        'MONOMIND_NO_AUTO_INSTALL=1 monomind agent models --runtime claude --json',
+      );
+      expect(rules).toContain('monomind deps install');
+      expect(rules).toMatch(/outside any org role/);
+      expect(rules).toMatch(/Never accept a SKIP for the mandatory live Claude trials/);
+    });
+
     it('captain takes the release lock before PREFLIGHT and releases it in CLEAN UP', () => {
       const captain = role('release-captain');
       expect(captain.indexOf('RELEASE LOCK')).toBeGreaterThan(-1);

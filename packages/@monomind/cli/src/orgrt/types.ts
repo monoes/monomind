@@ -334,6 +334,8 @@ export const OrgDefSchema = z
         'cline',
         'aider',
         'dsh',
+        'freebuff',
+        'kilo',
       ])
       .optional(),
   })

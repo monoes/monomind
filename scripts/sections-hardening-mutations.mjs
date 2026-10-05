@@ -104,6 +104,13 @@ export const MUTATIONS = [
     replace: '...(runtimeEnv ? {} : {}),',
   },
   {
+    row: 'R5',
+    name: "the other roles' runner-input holders (hermes, cline and kimi prompt files) are not hidden",
+    file: 'documents/role-protection.ts',
+    find: 'const hidden = [...denyRead, ...otherInputHolders(def, orgDir, args)];',
+    replace: 'const hidden = [...denyRead];',
+  },
+  {
     row: 'R6',
     name: 'an unprotected host is never refused',
     file: 'documents/preflight.ts',

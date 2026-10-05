@@ -9,7 +9,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { AgentMessage, AgentRunArgs } from '../../src/orgrt/agent-runner.js';
 import { KimiCodeAgentRunner } from '../../src/orgrt/kimicode-runner.js';
 import {
@@ -19,6 +19,16 @@ import {
   rosterResult,
   runFullAccessToolTurn,
 } from '../../src/__tests__/caller-tool-turn.js';
+
+// Storage policy is covered by runner-inputs-599.test.ts; these runner unit
+// fixtures deliberately use the test worker's isolated temporary HOME.
+vi.mock('../../src/orgrt/runner-inputs.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/orgrt/runner-inputs.js')>();
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  return { ...actual, createRunnerInputDir: (runner: string) => fs.mkdtempSync(path.join(os.tmpdir(), `runner-fixture-${runner}-`)) };
+});
 
 const SCRIPT = `#!/usr/bin/env node
 const fs = require('fs');

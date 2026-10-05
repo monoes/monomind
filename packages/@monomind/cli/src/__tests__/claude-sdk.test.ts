@@ -82,8 +82,18 @@ function fakeProbe(nodes: Record<string, Node>, env: NodeJS.ProcessEnv = {}) {
   return { probe, version, log };
 }
 
-const rootBin = (v = '2.1.283'): Node => ({ uid: 0, mode: 0o755, file: true, version: v });
-const userBin = (v = '2.1.283'): Node => ({ uid: ME, mode: 0o755, file: true, version: v });
+const rootBin = (v = SDK_BUNDLED_CLAUDE_VERSION): Node => ({
+  uid: 0,
+  mode: 0o755,
+  file: true,
+  version: v,
+});
+const userBin = (v = SDK_BUNDLED_CLAUDE_VERSION): Node => ({
+  uid: ME,
+  mode: 0o755,
+  file: true,
+  version: v,
+});
 
 describe('claudeCandidates', () => {
   it('looks at PATH, then ~/.local/bin, then ~/.claude/local, skipping relative PATH entries', () => {
@@ -117,8 +127,8 @@ describe('claudeCandidates', () => {
 
 describe('compatibleClaudeVersion', () => {
   it.each([
-    ['2.1.226 (Claude Code)', true],
-    ['2.1.283 (Claude Code)', true],
+    [`${SDK_BUNDLED_CLAUDE_VERSION} (Claude Code)`, true],
+    ['2.1.999 (Claude Code)', true],
     ['2.2.0 (Claude Code)\n', true],
     ['2.2.0', false],
     ['mise 2.2.0 (Claude Code)', false],
@@ -164,7 +174,7 @@ describe('findInstalledClaude', () => {
       '/usr/lib/claude/bin/claude': rootBin(),
       [`${HOME}/.local/bin/claude`]: rootBin(),
     });
-    expect(await findInstalledClaude(probe)).toEqual({
+    expect(await findInstalledClaude(probe)).toMatchObject({
       path: '/usr/lib/claude/bin/claude',
       skipped: [],
     });
@@ -250,12 +260,12 @@ describe('findInstalledClaude', () => {
   it('refuses a version older than the bundled one or of another major, and goes on', async () => {
     const { probe } = fakeProbe({
       '/usr/local/bin/claude': rootBin('2.1.100'),
-      '/usr/bin/claude': rootBin('2.1.226'),
+      '/usr/bin/claude': rootBin(SDK_BUNDLED_CLAUDE_VERSION),
     });
     const r = await findInstalledClaude(probe);
     expect(r.path).toBe('/usr/bin/claude');
     expect(r.skipped[0]).toMatch(
-      /is Claude Code 2\.1\.100, and the Claude runtime needs 2\.x, 2\.1\.226 or newer/,
+      `is Claude Code 2.1.100, and the Claude runtime needs 2.x, ${SDK_BUNDLED_CLAUDE_VERSION} or newer`,
     );
     const other = fakeProbe({ '/usr/bin/claude': rootBin('3.0.0') });
     expect((await findInstalledClaude(other.probe)).path).toBeUndefined();
@@ -263,7 +273,7 @@ describe('findInstalledClaude', () => {
 
   it('falls back to the bundled binary when nothing is installed', async () => {
     const { probe, version } = fakeProbe({});
-    expect(await findInstalledClaude(probe)).toEqual({ skipped: [] });
+    expect(await findInstalledClaude(probe)).toMatchObject({ skipped: [] });
     expect(version).not.toHaveBeenCalled();
   });
 
@@ -412,4 +422,71 @@ describe('queryWithExecutable (#522 review, minor 5)', () => {
     const q = queryWithExecutable(vi.fn() as never, gone);
     expect(() => q({ prompt: 'hi' })).toThrow(/no longer exists .*looks for Claude Code again/);
   });
+});
+
+describe('Claude runtime diagnostics (#595)', () => {
+  it('reports the selected version and real path', async () => {
+    const { probe } = fakeProbe({ '/usr/bin/claude': rootBin(SDK_BUNDLED_CLAUDE_VERSION) });
+    expect((await findInstalledClaude(probe)).claude_code).toEqual({
+      used: '/usr/bin/claude',
+      version: SDK_BUNDLED_CLAUDE_VERSION,
+      skipped: [],
+    });
+  });
+  it('reports skipped native installs without executing a role-writable binary', async () => {
+    const native = `${HOME}/.local/share/claude/versions/2.1.999`;
+    const { probe, version } = fakeProbe({
+      [`${HOME}/.local/bin/claude`]: { uid: ME, mode: 0o755, to: native },
+      [native]: userBin('2.1.999'),
+    });
+    const found = await findInstalledClaude(probe);
+    expect(found.claude_code).toMatchObject({
+      used: 'bundled',
+      version: SDK_BUNDLED_CLAUDE_VERSION,
+      skipped: [
+        {
+          path: `${HOME}/.local/bin/claude`,
+          version: '2.1.999',
+          reason: expect.stringContaining('org roles can write'),
+        },
+      ],
+    });
+    expect(version).not.toHaveBeenCalled();
+  });
+});
+it('reports a newer skipped compatible Claude only once per process', async () => {
+  const { reportClaudeSkip } = await import('../orgrt/claude-sdk.js');
+  const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+  try {
+    const info = {
+      used: 'bundled',
+      version: SDK_BUNDLED_CLAUDE_VERSION,
+      skipped: [{ path: `${HOME}/claude`, version: '2.999.0', reason: 'operator owned' }],
+    };
+    reportClaudeSkip(info);
+    reportClaudeSkip(info);
+    expect(stderr).toHaveBeenCalledOnce();
+    expect(stderr.mock.calls[0][0]).toContain('2.999.0');
+  } finally {
+    stderr.mockRestore();
+  }
+});
+it('attributes refused config paths and never falls through to an automatic candidate', async () => {
+  const { setOperatorClaudePath } = await import('../orgrt/claude-selection.js');
+  const h = mkdtempSync(join(tmpdir(), 'claude-config-refusal-'));
+  try {
+    setOperatorClaudePath('/chosen/claude', h);
+    const { probe, version, log } = fakeProbe({
+      '/chosen/claude': { ...userBin(), head: '#!' },
+      '/usr/bin/claude': rootBin(),
+    });
+    probe.home = h;
+    const result = await findInstalledClaude(probe);
+    expect(result.path).toBeUndefined();
+    expect(result.claude_code.used).toBe('bundled');
+    expect(log.mock.calls[0][0]).toContain('config claude.path=/chosen/claude is not used');
+    expect(version).not.toHaveBeenCalled();
+  } finally {
+    rmSync(h, { recursive: true, force: true });
+  }
 });

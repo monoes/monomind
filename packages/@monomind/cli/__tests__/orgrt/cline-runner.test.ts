@@ -27,7 +27,20 @@ import {
   successRow,
 } from './cline/fake-cline.js';
 
-vi.mock('node:child_process', () => ({ spawn: vi.fn(), execFile: vi.fn() }));
+// Storage policy is covered by runner-inputs-599.test.ts; these runner unit
+// fixtures deliberately use the test worker's isolated temporary HOME.
+vi.mock('../../src/orgrt/runner-inputs.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/orgrt/runner-inputs.js')>();
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  return { ...actual, createRunnerInputDir: (runner: string) => fs.mkdtempSync(path.join(os.tmpdir(), `runner-fixture-${runner}-`)) };
+});
+
+vi.mock('node:child_process', async (importOriginal) => ({
+  execFileSync: (await importOriginal<typeof import('node:child_process')>()).execFileSync,
+  spawn: vi.fn(), execFile: vi.fn(),
+}));
 
 const SUCCESS = fixture('json-success.ndjson');
 const PROVIDER_ERROR = fixture('json-provider-error.ndjson');
@@ -61,7 +74,11 @@ const spawned = () => vi.mocked(cp.spawn).mock.calls;
 
 beforeEach(() => {
   vi.mocked(cp.spawn).mockReset();
+  // Hermetic: an ambient provider key of the machine running the tests must not decide which key the runner uses (#610).
+  vi.stubEnv('CLINE_API_KEY', undefined);
+  vi.stubEnv('OPENROUTER_API_KEY', undefined);
 });
+afterEach(() => vi.unstubAllEnvs());
 
 describe('ClineAgentRunner — fresh json turn', () => {
   it('runs cline --json with the prompt on a FIFO and maps the live stream', async () => {
@@ -276,13 +293,24 @@ describe('ClineAgentRunner — resume over ACP', () => {
     ]);
   });
 
-  it('fails with the fix named when no key reaches ACP', async () => {
-    const host = fakeHost({ histories: [[before]] });
-    await expect(
-      collect(new ClineAgentRunner('cline', host).run(args({ resume: SID }))),
-    ).rejects.toThrow(/export OPENROUTER_API_KEY \(or CLINE_API_KEY\)/);
-    expect(spawned()).toHaveLength(0);
-  });
+  it.each(['OPENROUTER_API_KEY', 'CLINE_API_KEY'])(
+    'names the missing key when the caller clears inherited %s (#610)',
+    async (ambientKey) => {
+      vi.stubEnv(ambientKey, PLACEHOLDER);
+      try {
+        const host = fakeHost({ histories: [[before]] });
+        await expect(
+          collect(new ClineAgentRunner('cline', host).run(args({
+            resume: SID,
+            env: { OPENROUTER_API_KEY: '', CLINE_API_KEY: '' },
+          }))),
+        ).rejects.toThrow(/export OPENROUTER_API_KEY \(or CLINE_API_KEY\)/);
+        expect(spawned()).toHaveLength(0);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
 
   it('reports a session cline cannot load', async () => {
     const lines = [

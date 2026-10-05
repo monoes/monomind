@@ -1,0 +1,84 @@
+{
+  "runtime": "kilo",
+  "cliVersion": "7.8.3",
+  "installed": true,
+  "probed": true,
+  "strategyRecommended": "refused",
+  "envVarsThatRedirect": [
+    "HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_STATE_HOME",
+    "XDG_CACHE_HOME"
+  ],
+  "authFilesToStage": [
+    ".local/share/kilo/auth.json (the data dir file `kilo auth login` writes; the string is in the 7.8.3 binary and `kilo debug paths` gives data=$XDG_DATA_HOME/kilo; absent on this host, so staging was not exercised)",
+    ".config/kilo/kilo.jsonc and kilo.json (user config; kilo.jsonc is created fresh by first use)"
+  ],
+  "nativeDirs": [
+    ".local/share/kilo",
+    ".config/kilo",
+    ".cache/kilo",
+    ".local/state/kilo-sandbox-policy",
+    ".local/state/kilo"
+  ],
+  "nativeFilesObserved": [
+    ".cache/kilo/models.json",
+    ".config/kilo/.bash-permission-migrated",
+    ".config/kilo/.gitignore",
+    ".config/kilo/kilo.jsonc",
+    ".local/share/kilo/kilo.db",
+    ".local/share/kilo/kilo.db-shm",
+    ".local/share/kilo/kilo.db-wal",
+    ".local/share/kilo/log/2026-10-05T075301.log",
+    ".local/share/kilo/log/opencode.log",
+    ".local/share/kilo/storage/migration",
+    ".local/share/kilo/storage/session_diff/ses_ef4f2b8f2ffeIjY5RFA5E3B7IH.json",
+    ".local/share/kilo/telemetry-id",
+    ".local/state/kilo-sandbox-policy/051b33ae34d3eae2397616335d820dbf0bd505e13f0d60d9f75cba36d70c3e7b/ed36a2c6917a5e9435ad956b8712f145793ce5ebf22b149d896959a15159a785.json"
+  ],
+  "contained": {
+    "value": true,
+    "evidence": "All 13 created files are under the temp HOME (kilo.db with -shm/-wal holds the sessions, log/, storage/session_diff, telemetry-id, models.json cache, config/kilo, a sandbox-policy json under .local/state); 0 under the cwd, 0 under TMPDIR, 0 touched in the real native dirs, no process left running (KILO_NO_DAEMON=1), real home top level unchanged."
+  },
+  "costUsd": 0,
+  "notes": [
+    "Registry entry is `refused`: kilo runs with explicit full access only and a sections org refuses policy.access \"full\" (documents/definition.ts checkRoles), so no sections role can run on it. The files below record where its copies would land (a private HOME would contain them), for any later change to that rule.",
+    "Turn: `kilo run --format json --dangerously-skip-permissions --model openrouter/qwen/qwen3.8-27b:free \"reply with OK\"` (zero-priced model; step_finish reported cost 0, 15990 tokens); the provider key came from OPENROUTER_API_KEY in the environment, nothing was staged and no login was done.",
+    "kilo 7.8.3 was installed with npm into a throwaway prefix under /var/tmp with HOME/XDG pointed into a throwaway directory; npm did not run the postinstall script. No install step touched the real home.",
+    "`kilo debug paths` with HOME=<tmp>: data=$HOME/.local/share/kilo, cache=$HOME/.cache/kilo, config=$HOME/.config/kilo, state=$HOME/.local/state/kilo, tmp=$TMPDIR/kilo, bin=$HOME/.cache/kilo/bin. Every directory derives from HOME/XDG_*, so a private home contains all of them.",
+    "The runner sets no HOME itself (it spawns with env = process.env + args.env), so the session's isolation env reaches the child (env-boundary.test.ts)."
+  ],
+  "probeVariants": [
+    {
+      "variant": "home-only",
+      "command": "kilo run --format json --dangerously-skip-permissions --model openrouter/qwen/qwen3.8-27b:free \"reply with OK\"",
+      "env": {
+        "HOME": "<HOME>",
+        "XDG_CONFIG_HOME": "<HOME>/.config",
+        "XDG_DATA_HOME": "<HOME>/.local/share",
+        "XDG_STATE_HOME": "<HOME>/.local/state",
+        "XDG_CACHE_HOME": "<HOME>/.cache",
+        "XDG_RUNTIME_DIR": "<T>/run",
+        "TMPDIR": "<T>/tmp",
+        "KILO_NO_DAEMON": "1",
+        "passedThrough": ["OPENROUTER_API_KEY"]
+      },
+      "stagedAuthSymlinks": [],
+      "exitCode": 0,
+      "worked": true,
+      "durationMs": 11287,
+      "filesCreatedCount": 13,
+      "filesCreatedBytes": 6317497,
+      "filesCreatedByTopDir": {
+        "home": 13
+      },
+      "filesModifiedPreexisting": [],
+      "createdUnderCwd": [],
+      "realNativeDirsTouched": [],
+      "processesLeftRunning": []
+    }
+  ],
+  "verified": "2026-10-05",
+  "probe": "KILO_CLI_BIN=<throwaway prefix>/bin/kilo node tests/eval/org/runtime-probes/probe.mjs kilo"
+}

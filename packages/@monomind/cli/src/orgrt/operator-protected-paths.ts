@@ -325,6 +325,9 @@ function protectedCandidates(ctx: ProtectedCtx): string[] {
     ...roots.map((r) => join(r, '.monomind', 'catalog')),
     ...roots.flatMap((r) => runtimeConfigUnder(r, ctx.home)),
     join(mmHome, 'org-skills'),
+    // #599: protect future CLI inputs even before any file-based runner runs.
+    join(ctx.home, '.monomind', 'runner-inputs'),
+    join(mmHome, 'runner-inputs'),
     join(mmHome, 'enable-terminal.json'),
     ...monomindEntries,
     ...HOME_OPERATOR_EXEC.map((p) => join(ctx.home, p)),
@@ -387,6 +390,18 @@ export function ensureOperatorProtectedPaths(ctx: {
 }): void {
   const mmHome = monomindHome(ctx.home, ctx.env);
   const dirs = [join(mmHome, 'org-skills'), join(ctx.home, '.npm', '_npx')];
+  // #599: Linux drops a missing denyWrite path. Create the protected root
+  // before the first role starts, so later runner inputs are covered too.
+  for (const root of new Set([
+    join(ctx.home, '.monomind', 'runner-inputs'),
+    join(mmHome, 'runner-inputs'),
+  ])) {
+    try {
+      mkdirSync(root, { recursive: true, mode: 0o700 });
+    } catch {
+      /* unwritable: no runner can create trusted inputs there either */
+    }
+  }
   if (ctx.orgRoot)
     dirs.push(
       join(ctx.orgRoot, '.monomind', 'org-skills'),

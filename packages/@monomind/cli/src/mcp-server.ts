@@ -25,6 +25,13 @@ import * as http from 'node:http';
 import * as path from 'node:path';
 import { isMonomindMcpServer } from './mcp-pid-owner.js';
 
+let standaloneStdioServerStarted = false;
+
+/** Register the standalone stdio entry point after it installs its input loop. */
+export function registerStandaloneStdioServer(): void {
+  standaloneStdioServerStarted = true;
+}
+
 /**
  * Recursively strip prototype-pollution keys from a JSON-RPC message before
  * downstream tool handlers consume it. Tool handlers commonly do shallow
@@ -279,33 +286,24 @@ export class MCPServerManager extends EventEmitter {
    * Get server status
    */
   async getStatus(): Promise<MCPServerStatus> {
-    // Check PID file
-    const pid = await this.readPidFile();
-
-    if (!pid) {
-      // No PID file found. Detect if we are running in stdio mode
-      // (e.g., launched by Claude Code via `claude mcp add`).
-      //
-      // SECURITY/CORRECTNESS: this must NOT fall back to a TTY heuristic
-      // (`!process.stdin.isTTY`) — that is true for ANY non-interactive
-      // invocation (piped, in CI, in a script), so it falsely reported
-      // "running" even when no server was actually started. Only trust
-      // real state: the explicit stdio-transport env var, or the
-      // `_stdioServerStarted` flag that tracks an actually-started server.
-      const envTransport = process.env.MONOMIND_MCP_TRANSPORT;
-      if (envTransport === 'stdio' || this._stdioServerStarted) {
-        return {
-          running: true,
-          pid: process.pid,
-          transport: 'stdio',
-          startedAt: this.startTime?.toISOString(),
-          uptime: this.startTime
-            ? Math.floor((Date.now() - this.startTime.getTime()) / 1000)
-            : undefined,
-        };
-      }
-      return { running: false };
+    // An active stdio loop in this process is authoritative even if a
+    // different managed server left a PID file behind.
+    if (standaloneStdioServerStarted || this._stdioServerStarted) {
+      return {
+        running: true,
+        pid: process.pid,
+        transport: 'stdio',
+        startedAt: this.startTime?.toISOString(),
+        uptime: this.startTime
+          ? Math.floor((Date.now() - this.startTime.getTime()) / 1000)
+          : undefined,
+      };
     }
+
+    // A transport setting or non-TTY stdin only describes configuration.
+    // Outside an active stdio loop, check the managed server's PID file.
+    const pid = await this.readPidFile();
+    if (!pid) return { running: false };
 
     // Check if process is running
     const isRunning = this.isProcessRunning(pid);

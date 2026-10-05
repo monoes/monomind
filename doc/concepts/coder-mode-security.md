@@ -5,7 +5,7 @@
 > `monomind agent exec --access full` instead of a direct CLI spawn. Since protocol rev 19 this
 > covers every coding runtime with `full_access: true` in `agent scan --json` (claude, codex,
 > opencode, antigravity, kimicode, grok, qwen, copilot, crush, pi; rev 20 adds pi-rpc, cline,
-> aider and dsh), not only Claude Code. This document is the
+> aider and dsh; #601 adds verified Kilo 7.8.3), not only Claude Code. This document is the
 > threat model and guardrail record required by
 > [#360](https://github.com/monoes/monomind/issues/360), refined against what was actually built
 > in [#355](https://github.com/monoes/monomind/issues/355) (`--access full`),
@@ -84,11 +84,17 @@ tested in `agent-exec.test.ts`'s `"agent exec: --access full"` suite:
   be a directory — `error {code:"unsafe"}` otherwise.
 - **Runtime allowlist**: only a `RunnerSpec` with `supportsFullAccess: true` may run full access —
   since rev 19 that is claude, codex, opencode, antigravity, kimicode, grok, qwen, copilot, crush
-  and pi, and since rev 20 also pi-rpc, cline, aider and dsh (`orgrt/runner-specs.ts`, merged
+  and pi, since rev 20 also pi-rpc, cline, aider and dsh, and since #601 verified Kilo 7.8.3 (`orgrt/runner-specs.ts`, merged
   into `RUNNER_SPECS`; the exact set is pinned by
   `agent-exec-no-transitive-escalation.test.ts`, so widening it fails a test until this document
   is updated with it). vercel (no native tools), hermes and qwen-rpc get
   `error {code:"unsupported", fatal:true}`, never a silent scoped fallback (guardrail 5, below).
+  Kilo supports only explicit full access with `--settings user,project,local`: scoped/read
+  turns and isolated settings fail before execution. Its `--dangerously-skip-permissions` approval is
+  unrestricted access. Monomind requires exactly the verified CLI 7.8.3,
+  checks the selected CLI version before each turn, and sets `KILO_NO_DAEMON=1` so a reused daemon
+  cannot bypass a later turn's settings. Org roles still require the same signed human grant;
+  adding Kilo to the allowlist supplies no grant and cannot promote scoped access.
 - **No silent downgrade/upgrade**: `access` is resolved once, before the runner ever starts, and
   is reported honestly on the `start` event (`access: "scoped"|"full"`) — a runtime that can't
   do what was asked fails loudly rather than quietly running the other mode.

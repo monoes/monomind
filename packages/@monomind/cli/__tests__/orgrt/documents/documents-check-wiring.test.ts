@@ -1,3 +1,8 @@
+// Document schemas also restore their existing ID/string/array bounds and
+// positive safe-integer part/version/state-sequence rules; no fields are removed.
+// #594: SDK 0.3.289 restores existing Zod limits and field descriptions omitted
+// by 0.3.226: brief/context max4000, arrays min1, safe integer evidence exits,
+// recheck bounds and org_review.base help. Only tool hashes change; prompts stay frozen.
 // P3.11: how org_doc_check reaches a session. buildOrgTools adds it with the other document tools only when the
 // session's documents host can check (some contract declares checks); the sections-on list WITH the check tool is
 // pinned by its own sha. The four-tool sha (documents-wiring.test.ts) and the sections-off list stay as they were.
@@ -88,10 +93,10 @@ async function renderTools(o: SessionOpts): Promise<{ name: string; description:
 // text changed on purpose: the descriptions of the five org_doc_* tools and the sentence appended to org_send
 // when a session has a documents host. Change it only for an intentional change to those tools.
 // P3.16b re-pin (was 469ba747...): org_doc_decide's description now says a decision needs every part read. Sections-ON text only.
-const SECTIONS_ON_CHECK_TOOLS_SHA = 'b729606538e2deea925ccf8bab609a292be53581ef84bf4d9885bea55d6b75eb';
+const SECTIONS_ON_CHECK_TOOLS_SHA = '9e00b75c68db75fae1d89c42465718bb059c924184439621d5908ec977263351';
 // The same four-tool list as SECTIONS_ON_TOOLS_SHA in documents-wiring.test.ts (P3.6; re-pinned by P3.12).
 // P3.16b re-pin (was 9354d469...), the same change as SECTIONS_ON_TOOLS_SHA.
-const FOUR_TOOLS_SHA = 'b7fad955148d79f41c078ee4be07ee3a594a91b2ffdb8612f99fdc3098b584db';
+const FOUR_TOOLS_SHA = 'e7404523101d8aa6bc6c244f9139e62309aaa5c1848d479612bcc4ea2275a3fa';
 
 describe('org_doc_check registration', () => {
   it('a host that cannot check gives the four tools exactly as before (the P3.6 list, as re-pinned by P3.12)', async () => {

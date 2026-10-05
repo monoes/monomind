@@ -19,7 +19,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { authorityMaskAvailability } from '../../../src/orgrt/authority-mask.js';
 import { OrgBus } from '../../../src/orgrt/bus.js';
@@ -31,6 +31,7 @@ import { mailDirFor, mailRootFor } from '../../../src/orgrt/documents/mail-isola
 import { hostPreflight, setHostProbes } from '../../../src/orgrt/documents/preflight.js';
 import { sectionsRoleProtection } from '../../../src/orgrt/documents/role-protection.js';
 import { roleExecMask } from '../../../src/orgrt/exec-deny.js';
+import { createRunnerInputDir, writeRunnerInput } from '../../../src/orgrt/runner-inputs.js';
 import { messageTaskIds } from '../../../src/orgrt/session-ledger.js';
 import { TaskDag } from '../../../src/orgrt/task-dag.js';
 import { sectionsRaw } from '../support/sections-defs.js';
@@ -322,6 +323,53 @@ describe.skipIf(!realMask.available)('with a real bubblewrap (what a role can ac
     // nor can it add anything to the runner root
     expect(run(coder.mask, `mkdir ${orgDir}/runner/new-dir`).status).not.toBe(0);
     expect(existsSync(join(orgDir, 'runner', 'new-dir'))).toBe(false);
+  });
+
+  // #599 moved the hermes, cline and kimi prompt files to <monomind home>/runner-inputs/. Every role runs as the
+  // same uid, so a shared directory would show one role the system prompt and mail digests of another.
+  it("R5 (runner inputs): a role reads its own prompt file while its turn is live and cannot see another role's", () => {
+    const mmHome = mkdtempSync(join(process.cwd(), '..', '.probe-inputs-'));
+    const saved = process.env.MONOMIND_HOME;
+    process.env.MONOMIND_HOME = mmHome;
+    try {
+      const def = sectionsRaw() as any;
+      const home = join(root, 'home');
+      mkdirSync(home, { recursive: true });
+      for (const r of def.roles) mkdirSync(mailDirFor(orgDir, r.id), { recursive: true });
+      loadEnvelopeKey(orgDir);
+      const protect = (role: string) => {
+        const p = sectionsRoleProtection({ def, orgDir, roleId: role, runtime: 'hermes', home, env: { MONOMIND_HOME: mmHome } });
+        const bus = new OrgBus('sec-org', 'r', side());
+        return roleExecMask({
+          bus,
+          roleId: role,
+          authorityMask: ['--dev-bind', '/', '/'],
+          bestEffortDenyRead: p.bestEffortDenyRead,
+          bestEffortReadOnly: p.bestEffortReadOnly,
+          bestEffortBinds: p.bestEffortBinds,
+          home,
+          env: { MONOMIND_HOME: mmHome },
+        } as any) as string[];
+      };
+      const prompt = (role: string) => {
+        const dir = createRunnerInputDir('hermes', { cwd: root, env: { MONOMIND_ORG_DIR: orgDir, MONOMIND_ORG_ROLE: role } });
+        writeRunnerInput(join(dir, 'query.txt'), `PRIVATE PROMPT OF ${role}`);
+        return join(dir, 'query.txt');
+      };
+      const coderFile = prompt('coder');
+      const bossFile = prompt('boss');
+      const coder = protect('coder');
+      expect(run(coder, `cat ${coderFile}`).stdout).toBe('PRIVATE PROMPT OF coder');
+      const other = run(coder, `cat ${bossFile}`);
+      expect(other.status).not.toBe(0);
+      expect(other.stdout).not.toContain('PRIVATE PROMPT');
+      expect(run(coder, `ls ${dirname(dirname(bossFile))}`).stdout.trim()).toBe('');
+      expect(run(protect('boss'), `cat ${coderFile}`).stdout).not.toContain('PRIVATE PROMPT');
+    } finally {
+      if (saved === undefined) delete process.env.MONOMIND_HOME;
+      else process.env.MONOMIND_HOME = saved;
+      rmSync(mmHome, { recursive: true, force: true });
+    }
   });
 
   it('R5 (codex): the staged credential resolves inside the mask and the real home is only read', () => {
