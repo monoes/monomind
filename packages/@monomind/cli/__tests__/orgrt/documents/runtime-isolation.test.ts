@@ -82,9 +82,9 @@ describe('the registry', () => {
     }
   });
   it('unverified entries are the CLIs that were not probed, never a verified one', () => {
-    for (const kind of ['kimicode', 'qwen', 'qwen-rpc', 'cline', 'aider', 'dsh'])
+    for (const kind of ['vercel', 'kimicode', 'qwen', 'qwen-rpc', 'cline', 'aider', 'dsh'])
       expect(RUNTIME_ISOLATION[kind as keyof typeof RUNTIME_ISOLATION].verified).toBe('unverified');
-    for (const kind of ['claude', 'codex', 'antigravity', 'opencode', 'pi', 'pi-rpc', 'crush'])
+    for (const kind of ['claude', 'codex', 'antigravity', 'opencode', 'pi', 'pi-rpc', 'crush', 'grok', 'copilot', 'hermes'])
       expect(RUNTIME_ISOLATION[kind as keyof typeof RUNTIME_ISOLATION].verified).not.toBe('unverified');
   });
   it('an unknown runtime has no entry', () => {
@@ -124,6 +124,12 @@ describe('isolationEnv', () => {
   });
   it('a pinned variable keeps pointing into the real home', () => {
     expect(isolationEnv(RUNTIME_ISOLATION.aider, '/p', '/real').UV_TOOL_DIR).toBe('/real/.local/share/uv/tools');
+  });
+  it('grok and hermes use their own variable, copilot a private home with the gh login staged', () => {
+    expect(isolationEnv(RUNTIME_ISOLATION.grok, '/p', '/h')).toEqual({ GROK_HOME: '/p' });
+    expect(isolationEnv(RUNTIME_ISOLATION.hermes, '/p', '/h')).toEqual({ HERMES_HOME: '/p' });
+    expect(isolationEnv(RUNTIME_ISOLATION.copilot, '/p', '/h').HOME).toBe('/p');
+    expect(RUNTIME_ISOLATION.copilot.authFiles).toContain('.config/gh/hosts.yml');
   });
   it('claude (masked), a refused runtime and an unknown one get no variables', () => {
     expect(isolationEnv(RUNTIME_ISOLATION.claude, '/p', '/h')).toEqual({});
