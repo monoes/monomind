@@ -10,7 +10,9 @@
  * (R3 to R5 are best-effort so that eval runs on a host without them still work).
  * `hostPreflight` turns that best-effort into a refusal for any org that is not an
  * eval org; for an eval org the gaps are warnings, since the harness probes its
- * own fixture. A runtime without a copy-inventory entry is refused the same way.
+ * own fixture. A runtime without a copy-inventory entry, or whose entry is
+ * `refused`, is refused the same way; one whose entry is `unverified` runs with
+ * a warning (runtime-isolation.ts).
  */
 import { authorityMaskAvailability } from '../authority-mask.js';
 import { sandboxAvailability } from '../role-sandbox-restrictions.js';
@@ -64,8 +66,13 @@ export function hostPreflight(def: OrgDef, given?: HostProbes): PreflightResult 
     gaps.push(
       `the SDK sandbox is unavailable on this host (${p.sandbox.reason ?? 'unknown'}), so shell commands run without the read and write denials`,
     );
-  const refusals = evalMode ? [] : [...gaps, ...copyInventoryFindings(def).errors];
-  return { ok: refusals.length === 0, refusals, warnings: evalMode ? gaps : [] };
+  const inventory = copyInventoryFindings(def);
+  const refusals = evalMode ? [] : [...gaps, ...inventory.errors];
+  return {
+    ok: refusals.length === 0,
+    refusals,
+    warnings: [...(evalMode ? gaps : []), ...inventory.warnings],
+  };
 }
 
 /** Throws when `hostPreflight` refuses; `what` names the action ("start", "replace role x"). */

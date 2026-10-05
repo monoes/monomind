@@ -280,6 +280,7 @@ export async function runOneSession(
         authorityMask,
         abort,
         resolvedAccess,
+        runtimeEnv: protection.runtimeEnv,
       }),
     );
 

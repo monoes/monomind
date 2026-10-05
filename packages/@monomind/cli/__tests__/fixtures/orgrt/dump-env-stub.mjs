@@ -21,4 +21,6 @@ if (!out) {
   process.exit(1);
 }
 writeFileSync(out, JSON.stringify(process.env), 'utf8');
+// The argv it was started with, beside the env dump (the sections isolation tests read it).
+writeFileSync(`${out}.argv`, JSON.stringify(process.argv.slice(2)), 'utf8');
 process.exit(0);

@@ -4,7 +4,7 @@
 // them so no role reads another's. A runner without an inventory entry is
 // refused for sections orgs outside the eval harness.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -15,6 +15,7 @@ import {
   copyInventoryFindings,
   nativeBinds,
   privateRunnerRoot,
+  runtimeDirFor,
 } from '../../../src/orgrt/documents/copy-inventory.js';
 import { authorityMaskAvailability } from '../../../src/orgrt/authority-mask.js';
 import { roleExecMask } from '../../../src/orgrt/exec-deny.js';
@@ -59,10 +60,19 @@ describe('nativeBinds', () => {
     ]);
     expect(nativeBinds(def(), '/o', 'boss', 'claude', '/h', {})[0].src).not.toBe(binds[0].src);
   });
-  it('gives nothing for an org without sections or a runtime without an entry', () => {
+  it('gives nothing for an org without sections or a runtime without a private directory', () => {
     const legacy = { name: 'l', goal: 'g', roles: def().roles };
     expect(nativeBinds(legacy as any, '/o', 'coder', 'claude', '/h', {})).toEqual([]);
-    expect(nativeBinds(def(), '/o', 'coder', 'codex', '/h', {})).toEqual([]);
+    expect(nativeBinds(legacy as any, '/o', 'coder', 'codex', '/h', {})).toEqual([]);
+    expect(nativeBinds(def(), '/o', 'coder', 'no-such-runtime', '/h', {})).toEqual([]);
+  });
+  it('binds the private directory of a codex, pi or antigravity role over itself, one per role', () => {
+    for (const rt of ['codex', 'pi', 'pi-rpc', 'antigravity', 'opencode', 'crush']) {
+      const own = runtimeDirFor('/o', 'coder', rt);
+      expect(nativeBinds(def(), '/o', 'coder', rt, '/h', {})).toEqual([{ src: own, dest: own }]);
+      expect(runtimeDirFor('/o', 'boss', rt)).not.toBe(own);
+    }
+    expect(runtimeDirFor('/o', 'coder', 'codex')).toBe(join(privateRunnerRoot('/o', 'coder'), 'rt-codex'));
   });
 });
 
@@ -77,13 +87,33 @@ describe('copyInventoryFindings', () => {
     expect(copyInventoryFindings(sectionsRaw() as any)).toEqual({ errors: [], warnings: [] });
   });
   it('warns, naming role and runtime, for an unlisted runtime in an eval org', () => {
-    const f = copyInventoryFindings(withRuntime('codex', true));
+    const f = copyInventoryFindings(withRuntime('no-such-runtime', true));
     expect(f.errors).toEqual([]);
-    expect(f.warnings.join()).toMatch(/coder.*codex.*native copies/);
+    expect(f.warnings.join()).toMatch(/coder.*no-such-runtime.*native copies/);
   });
   it('refuses an unlisted runtime outside the eval harness', () => {
-    const f = copyInventoryFindings(withRuntime('codex', false));
-    expect(f.errors.join()).toMatch(/coder.*codex.*no copy-inventory entry/);
+    const f = copyInventoryFindings(withRuntime('no-such-runtime', false));
+    expect(f.errors.join()).toMatch(/coder.*no-such-runtime.*no copy-inventory entry/);
+  });
+  it('accepts every verified runtime silently, in and outside the eval harness', () => {
+    for (const rt of ['claude', 'codex', 'antigravity', 'opencode', 'pi', 'pi-rpc', 'crush'])
+      for (const evalMode of [true, false])
+        expect(copyInventoryFindings(withRuntime(rt, evalMode)), `${rt} ${evalMode}`).toEqual({ errors: [], warnings: [] });
+  });
+  it('accepts an unverified runtime with a warning, never an error', () => {
+    for (const rt of ['qwen', 'kimicode', 'cline', 'aider', 'dsh']) {
+      const f = copyInventoryFindings(withRuntime(rt, false));
+      expect(f.errors, rt).toEqual([]);
+      expect(f.warnings.join(), rt).toMatch(new RegExp(`coder.*${rt}.*not probed`));
+    }
+  });
+  it('refuses a refused runtime outside the eval harness and warns inside it, naming the reason', () => {
+    const env = { OPENCODE_URL: 'http://127.0.0.1:4096' };
+    const out = copyInventoryFindings(withRuntime('opencode', false), env);
+    expect(out.errors.join()).toMatch(/coder.*opencode.*refused.*OPENCODE_URL/);
+    const inEval = copyInventoryFindings(withRuntime('opencode', true), env);
+    expect(inEval.errors).toEqual([]);
+    expect(inEval.warnings.join()).toMatch(/coder.*opencode.*refused.*OPENCODE_URL/);
   });
   it('an endpoint role is exempt (it runs no agent)', () => {
     const d = sectionsRaw() as any;
@@ -174,6 +204,57 @@ describe('a sections session (real daemon)', () => {
       expect(seen[0].disallowedTools).toContain(`Read(/${runner}/**)`);
     } finally {
       await d.stopAll().catch(() => {});
+    }
+  });
+});
+
+describe('a sections session on another runtime (real daemon, fake CLI)', () => {
+  // The CLI is a script that reports its environment into the directory it was given:
+  // the proof that the variable reaches the process the runner starts, that the process
+  // can write there inside the mask, and that the credential is staged beside it.
+  it('starts a codex role with CODEX_HOME at its private directory, the credential linked in, and the real home untouched', async () => {
+    const root = join(base, 'proj');
+    const home = join(base, 'real-home');
+    mkdirSync(join(home, '.codex'), { recursive: true });
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(home, '.codex/auth.json'), '{"credential":"operator"}');
+    const bin = join(base, 'fake-codex.sh');
+    writeFileSync(
+      bin,
+      [
+        '#!/bin/sh',
+        'cat > /dev/null',
+        'printf "CODEX_HOME=%s\\nHOME=%s\\n" "$CODEX_HOME" "$HOME" > "$CODEX_HOME/probe.txt"',
+        'ls "$CODEX_HOME" >> "$CODEX_HOME/probe.txt"',
+        'echo \'{"type":"thread.started","thread_id":"t1"}\'',
+        'echo \'{"type":"item.completed","item":{"id":"i0","type":"agent_message","text":"done"}}\'',
+        'echo \'{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}\'',
+        '',
+      ].join('\n'),
+    );
+    chmodSync(bin, 0o755);
+    const raw = sectionsRaw() as any;
+    raw.roles.find((r: any) => r.id === 'boss').runtime = 'codex';
+    writeFileSync(join(root, '.monomind/orgs/sec-org.json'), JSON.stringify(raw));
+    const saved = { HOME: process.env.HOME, CODEX_CLI_BIN: process.env.CODEX_CLI_BIN };
+    process.env.HOME = home;
+    process.env.CODEX_CLI_BIN = bin;
+    const d = new OrgDaemon(root, { forward: false, stopWaitMs: 100, bossRestartBackoffMs: [600_000] });
+    try {
+      await d.startOrg('sec-org', undefined, { evalGate: true });
+      const probe = join(root, '.monomind/orgs/sec-org/runner/boss/rt-codex/probe.txt');
+      for (let i = 0; i < 200 && !existsSync(probe); i++) await new Promise((r) => setTimeout(r, 25));
+      const text = readFileSync(probe, 'utf8');
+      expect(text).toContain(`CODEX_HOME=${join(root, '.monomind/orgs/sec-org/runner/boss/rt-codex')}`);
+      expect(text).toContain(`HOME=${home}`);
+      expect(text).toContain('auth.json');
+      expect(readdirSync(join(home, '.codex'))).toEqual(['auth.json']);
+    } finally {
+      await d.stopAll().catch(() => {});
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
     }
   });
 });
