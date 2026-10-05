@@ -10,12 +10,13 @@
  * process.env.HOME and os.homedir() disagree. A test that sets HOME itself
  * still wins, since it runs after this file.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isMainThread } from 'node:worker_threads';
 import { afterAll } from 'vitest';
 import { useTestHome, useTestTmp } from './isolated-home.global.js';
+import { removeTree } from './remove-tree.js';
 import { assertNoTmpLeak } from './tmp-leak-guard.js';
 
 if (isMainThread) {
@@ -32,8 +33,8 @@ if (isMainThread) {
     try {
       assertNoTmpLeak(tmp);
     } finally {
-      rmSync(home, { recursive: true, force: true });
-      rmSync(tmp, { recursive: true, force: true });
+      removeTree(home);
+      removeTree(tmp);
     }
   });
 }
