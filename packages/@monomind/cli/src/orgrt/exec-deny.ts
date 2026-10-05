@@ -192,6 +192,8 @@ export function roleExecMask(args: {
    *  `denyRead`, bubblewrap being unavailable does not refuse the role: the audit
    *  `mail-mask-unavailable` is raised and the file-tool and SDK-sandbox layers still apply. */
   bestEffortDenyRead?: string[];
+  /** Directories to bind read-only for every role (GA row R4: the mail root). Best-effort like `bestEffortDenyRead`. */
+  bestEffortReadOnly?: string[];
   /** `policy.sandbox.homeWriteAllow`: set (even empty) to make the real home unwritable apart from these. */
   homeWriteAllow?: string[];
   /** Paths that must stay writable if they are under the home (cwd, org root, allowWrite, tmp). */
@@ -203,11 +205,19 @@ export function roleExecMask(args: {
 }): string[] | undefined {
   const homeWrite = args.homeWriteAllow !== undefined;
   const bestEffort = args.bestEffortDenyRead ?? [];
+  const roBinds = (args.bestEffortReadOnly ?? []).flatMap((d) => {
+    const r = real(d);
+    return r ? ['--ro-bind', r, r] : [];
+  });
   if (!args.denyExec?.length && !args.denyRead?.length && !homeWrite) {
-    if (!bestEffort.length) return args.authorityMask;
+    if (!bestEffort.length && !args.bestEffortReadOnly?.length) return args.authorityMask;
     const avail = args.availability ?? authorityMaskAvailability();
     if (avail.available)
-      return [...(args.authorityMask ?? ['--dev-bind', '/', '/']), ...maskTail([], bestEffort)];
+      return [
+        ...(args.authorityMask ?? ['--dev-bind', '/', '/']),
+        ...roBinds,
+        ...maskTail([], bestEffort),
+      ];
     args.bus.emit({
       type: 'audit',
       from: args.roleId,
@@ -257,7 +267,7 @@ export function roleExecMask(args: {
     head = [...head.slice(0, 3), ...layer, ...head.slice(3)];
   }
   const paths = resolveDenyExec(args.denyExec ?? [], { home: args.home, env: args.env });
-  return [...head, ...maskTail(paths, [...(args.denyRead ?? []), ...bestEffort])];
+  return [...head, ...roBinds, ...maskTail(paths, [...(args.denyRead ?? []), ...bestEffort])];
 }
 
 // ---- the command check ----------------------------------------------------

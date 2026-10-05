@@ -144,6 +144,8 @@ export function resolveRoleGitEnforcement(args: {
   env?: NodeJS.ProcessEnv;
   /** Directories the role may not read (see buildClaudeRestrictions). */
   denyReadDirs?: string[];
+  /** Directories the role may not write (see buildClaudeRestrictions). */
+  denyWriteDirs?: string[];
   /** See buildClaudeRestrictions: called only when the sandbox is built. */
   holdStubs?: (writableRoots: string[]) => string[];
 }): { env: Record<string, string>; claudeRestrictions?: ClaudeRestrictions } {
@@ -259,6 +261,7 @@ export function resolveRoleGitEnforcement(args: {
         current: { org: args.org, run: args.run },
         holdStubs: args.holdStubs,
         denyReadDirs: args.denyReadDirs,
+        denyWriteDirs: args.denyWriteDirs,
       },
       sandboxEnabled,
     ),

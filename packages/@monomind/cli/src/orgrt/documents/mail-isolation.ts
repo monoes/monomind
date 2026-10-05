@@ -13,9 +13,12 @@ import { sectionsSurface } from './surface.js';
 
 const safe = (role: string): string => role.replace(/[^A-Za-z0-9._-]/g, '_');
 
+/** The root of every digest directory (and the digest journal). */
+export const mailRootFor = (orgDir: string): string => join(orgDir, 'mail');
+
 /** The digest directory of one recipient. */
 export function mailDirFor(orgDir: string, role: string): string {
-  return join(orgDir, 'mail', safe(role));
+  return join(mailRootFor(orgDir), safe(role));
 }
 
 interface DefLike {
