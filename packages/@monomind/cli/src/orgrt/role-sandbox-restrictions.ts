@@ -169,6 +169,8 @@ export function buildClaudeRestrictions(
     platform?: NodeJS.Platform;
     /** Directories this role may not read (GA row R3: other roles' mail digests). */
     denyReadDirs?: string[];
+    /** Directories no role may write (GA row R4: the mail root). */
+    denyWriteDirs?: string[];
     /** Linux: holds the sandbox's mount-point stubs for these writable roots
      *  (sandbox-stubs.ts) and returns the stub paths still not in place. */
     holdStubs?: (writableRoots: string[]) => string[];
@@ -212,6 +214,7 @@ export function buildClaudeRestrictions(
     ...authorityDirs(home, env).flatMap((d) => [rule('Read', `${d}/**`), rule('Edit', `${d}/**`)]),
     ...roleDenyWrite.flatMap((d) => [rule('Edit', d), rule('Edit', `${d}/**`)]),
     ...(ctx.denyReadDirs ?? []).flatMap((d) => [rule('Read', d), rule('Read', `${d}/**`)]),
+    ...(ctx.denyWriteDirs ?? []).flatMap((d) => [rule('Edit', d), rule('Edit', `${d}/**`)]),
     ...operatorPaths.flatMap((d) => [rule('Edit', d), rule('Edit', `${d}/**`)]),
     // Authority files: the org definitions, the decision files and the
     // daemon's state (authority-mask.ts, #498). policy.ts's isAuthorityFile
@@ -258,6 +261,7 @@ export function buildClaudeRestrictions(
       // Every role's guard dir, not only this one's (#498).
       ...gitGuardDirs(ctx.orgRoot),
       ...roleDenyWrite,
+      ...(ctx.denyWriteDirs ?? []),
       // #502 review: the operator key and signatures must not be replaceable
       // either — where the SDK's read deny does not stop writes (macOS), a
       // role could otherwise plant a key it knows.

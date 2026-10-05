@@ -20,11 +20,27 @@ import { prepareGitGuard } from '../../../src/orgrt/git-guard.js';
 import { buildClaudeRestrictions } from '../../../src/orgrt/role-sandbox.js';
 import { sectionsRaw } from '../support/sections-defs.js';
 
+const busDirs: string[] = [];
+/** A bus directory outside `base`: the bus may still be appending when the test cleans up. */
+const busDir = (): string => {
+  const d = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'mail-bus-'));
+  busDirs.push(d);
+  return d;
+};
 let base: string;
 beforeEach(() => {
   base = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'mail-iso-'));
 });
-afterEach(() => rmSync(base, { recursive: true, force: true }));
+afterEach(() => {
+  rmSync(base, { recursive: true, force: true });
+  for (const d of busDirs.splice(0)) {
+    try {
+      rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    } catch {
+      /* still being written; the OS temp dir cleans it */
+    }
+  }
+});
 
 const BIG = 'x'.repeat(5000);
 const orgDirOf = () => join(base, '.monomind/orgs/sec-org');
@@ -141,7 +157,7 @@ describe('the authority-mask layer of the denial', () => {
   const mk = (available: boolean) => {
     dirs = ['boss', 'researcher'].map((r) => join(base, 'mail', r));
     for (const d of dirs) mkdirSync(d, { recursive: true });
-    const bus = new OrgBus('o', 'r', join(base, 'bus'));
+    const bus = new OrgBus('o', 'r', busDir());
     const events: any[] = [];
     bus.subscribe((e) => events.push(e));
     const mask = roleExecMask({
