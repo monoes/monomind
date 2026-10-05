@@ -6,6 +6,7 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ### Fixed
 
+- The antigravity and opencode concept pages now state the real MCP tool count (20 by default, 219 with `MONOMIND_MCP_FULL=1`) instead of 71 (#634).
 - **The `monofence-ai` first-use pin follows the published 2.24.0 package.** The 2.24.0 release bumped the workspace `monofence-ai` to 2.24.0 but left the first-use install pinned at 1.0.7 (lock entry and per-file code hashes included), so `main`'s CI failed the "pin equals workspace version" and fail-closed scanner tests, and the 2.24.0 CLI installs the older monofence from the registry. The pin, lock entry (URL and integrity, verified against the registry tarball) and version now match 2.24.0; the 16 `dist/*.js` hashes are unchanged because 2.24.0 differs from 1.0.7 only in its version number.
 - **`monomind deps install` run from a checkout now writes the deps cache.** When the checkout's own `node_modules` held the pinned Claude SDK, the command found it, printed "installed and verified" and wrote nothing, so org roles (whose sandbox can only use `~/.monomind/deps`) still lacked the SDK and a release's live Claude trials failed with EROFS. The command now always installs into the cache and says where.
 
