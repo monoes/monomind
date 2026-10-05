@@ -806,6 +806,73 @@ monomind org skills import obra/superpowers --global                 # MIT/Apach
 
 `import` accepts `owner/repo`, a git URL or a local path; it copies only `.md` files, refuses any skill whose governing license (its own frontmatter or LICENSE file, else the repository's) is not MIT or Apache-2.0, records `source`/`source_path`/`source_commit`/`license` in the frontmatter, and keeps the license text beside the skill.
 
+### 6.7 Sections (generally available)
+
+**Config shape:** `run_config.experimental: "eval"` is no longer required. A sections org
+starts, resumes and restarts roles through the normal `org run` / `org serve` path. An org that
+still declares `experimental: "eval"` keeps the old eval-harness-only start (`startOrg({evalGate:
+true})`) and the no-restart rule.
+
+A sections org partitions roles into **sections** — isolated sub-orgs, each with its own budget,
+single-writer document policy, lead rights and loop/rework rounds. Sections cannot talk to each
+other directly: **docs are the only cross-section channel** (one cross-section predicate; a role
+in no section is never treated as a cross-section case).
+
+**Isolation registry** (`orgrt/runtime-isolation.ts`): every runtime kind has one strategy —
+`mask-bind`, `in-process`, `config-env`, `private-home` or `refused` — with its credential files,
+native directories, probe state and verification status. `codex`, `pi`, `antigravity`, `opencode`
+and `crush` run with a private, masked home (`CODEX_HOME`, `PI_CODING_AGENT_HOME`, etc.); `claude`
+runs in-process with a per-role private copy of its native transcripts (the copy-inventory entry
+below). `kilo` and `freebuff` are `refused` in a sections org and report why:
+
+| Runtime | Sections support | Reason |
+|---|---|---|
+| `kilo` | refused | full-access only (§ Coder Mode), and a sections org refuses full access |
+| `freebuff` | refused | discovery stub only — its CLI has no headless transport |
+
+Every other runtime without a copy-inventory entry is also refused in a non-eval sections org
+until it gets one; only Claude roles have one today. `agent scan` and `doctor -c agent-runtimes`
+report `execution_supported` and the refusal reason for each.
+
+**Hardening (gate rows R1–R7):**
+
+- **R1 — single-daemon lock:** an OS-held lock per org root; a network filesystem is refused.
+- **R2 — authenticated routing envelopes:** cross-section/task-routing messages are signed and
+  verified, not trusted by shape alone.
+- **R3 — mail digest read-denial:** per-recipient mail digests; a role cannot read another
+  role's digest.
+- **R4 — mail digest write-denial:** mail digests are immutable and hash-journalled; a write to
+  an existing digest is denied.
+- **R5 — per-role private native copies:** each role gets its own copy of runtime-native state
+  (e.g. Claude's transcripts) instead of sharing one.
+- **R6 — host preflight:** authority mask, SDK sandbox and copy-inventory checks run on every
+  start, resume and role replacement.
+- **R7 — adversarial probe suite:** a mutation check exercises the above under fault injection.
+
+**Scheduled sections orgs:** `org validate` no longer refuses `schedule` for a sections org (an
+eval-mode org still cannot be scheduled — only the eval harness starts it). Every scheduled tick
+is a fresh run with its own run id and document store through the same start path as a manual
+run, so the host preflight, the eval gate and the daemon lock all apply — there is no
+carry-forward between ticks. A tick that cannot start (preflight refusal), lands on a run that is
+already live, or lands mid-run leaves a line in `<org dir>/schedule-audit.jsonl`; a boss
+auto-restart during a scheduled run no longer leaves the restarted run outside the tick's
+`max_run` bound.
+
+**Related runtime fixes:**
+
+- Trusted runner inputs no longer sit in a writable temp root
+  ([#599](https://github.com/monoes/monomind/issues/599)): the hermes, cline and kimi prompt
+  files live under `<monomind home>/runner-inputs`, one directory per org role, which sections
+  role protection hides from every other role.
+- An `is_error` tool result now ends the session at once instead of leaving it to time out; the
+  release lock reads a run's end from its own bus log rather than `runtime.json` alone
+  ([#611](https://github.com/monoes/monomind/issues/611)).
+- A role may read the persisted tool output of its own prior sessions
+  ([#622](https://github.com/monoes/monomind/issues/622)).
+- A role's Bash timeout is capped to a fraction of the time left in a run that has a deadline, so
+  a long command can no longer outlive the run itself
+  ([#623](https://github.com/monoes/monomind/issues/623)).
+
 ---
 
 ## 7. Supporting Modules

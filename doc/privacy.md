@@ -183,9 +183,14 @@ next run installs the full SDK over it. If it goes away while a process is
 using it (an update pruned that version), that process's next Claude turn
 fails with a message saying so, and the turn after that looks again.
 
-monomind looks, in order, at `$MONOMIND_CLAUDE_PATH`, `claude` on `PATH`,
-`~/.local/bin/claude` and `~/.claude/local/claude`, and uses the first one
-that passes these checks:
+monomind looks, in order, at `--claude-path` (if the command accepts one),
+`$MONOMIND_CLAUDE_PATH`, `claude.path` in `~/.monomind/config.json` (set with
+`monomind config set claude.path /absolute/path/to/claude`; project config and
+`MONOMIND_CONFIG` never supply this setting), then automatic discovery:
+`claude` on `PATH`, `~/.local/bin/claude` and `~/.claude/local/claude`, and
+uses the first one that passes these checks. `bundled` as the value of any of
+the three explicit sources skips discovery entirely and uses the SDK's
+bundled binary ([#596](https://github.com/monoes/monomind/issues/596)):
 
 - Its real path (symlinks resolved) is what runs.
 - The real path must be named `claude` (`claude.exe`) or be the native
