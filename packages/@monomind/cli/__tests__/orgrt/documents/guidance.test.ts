@@ -28,6 +28,14 @@ const withContract = (patch: (raw: Record<string, any>) => void = () => {}): Org
   );
 
 const ROLES = ['boss', 'research-lead', 'researcher', 'dev-lead', 'coder', 'qa-lead', 'observer'];
+
+describe('a role in no section', () => {
+  it('gets no document guidance: validate refuses such a role, so there is no text for it', () => {
+    const def = withContract((raw) => raw.roles.push({ id: 'stray', title: 'Stray', type: 'specialist', reports_to: 'boss', responsibilities: ['x'] }));
+    expect(documentGuidance(def, 'stray')).toBeUndefined();
+    expect(documentGuidance(def, 'coder')).toContain('You are in section');
+  });
+});
 const text = (def: OrgDef, id: string): string => documentGuidance(def, id) as string;
 
 describe('nothing for an org that is not on the sections surface', () => {

@@ -13,7 +13,7 @@ export function goldenDef(workspace: string): WriterDef {
     run_config: { workspace },
     sections: {
       build: { members: ['dev'], writes: ['src/**', 'docs/**'] },
-      review: { lead: 'qa-lead', members: ['qa-lead', 'qa'] },
+      review: { lead: 'qa-lead', members: ['qa-lead', 'qa', 'stray'] },
     },
     roles: [
       { id: 'boss', type: 'boss', reports_to: null },
