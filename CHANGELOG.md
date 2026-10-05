@@ -2,17 +2,23 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
-## [Unreleased]
+## [2.24.0] — 2026-10-05
 
 ### Added
 
-- **A verified Kilo runtime and a Freebuff discovery stub (#600, #601).** `kilo` (CLI 7.8.3, explicit full access only, resume, reported cost, native tool activity) runs through `agent exec` and the Org Runtime; `freebuff` is discovered but refuses before spawning (its CLI has no headless transport). Neither can run in a sections org: the isolation registry marks both `refused` (Kilo is full-access only and a sections org refuses full access; Freebuff cannot execute). `agent scan` and `doctor -c agent-runtimes` report `execution_supported` and the reason.
+- **Every runtime is usable in a sections org, through the isolation registry.** Each runtime declares whether it can run inside a sections org's isolation; `kilo` and `freebuff` are refused with a stated reason (Kilo is full-access only and a sections org refuses full access; Freebuff's CLI has no headless transport), every other runtime is accepted. `agent scan` and `doctor -c agent-runtimes` report `execution_supported` and the reason.
+- **A verified Kilo runtime and a Freebuff discovery stub (#600, #601).** `kilo` (CLI 7.8.3, explicit full access only, resume, reported cost, native tool activity) runs through `agent exec` and the Org Runtime; `freebuff` is discovered but refuses before spawning (its CLI has no headless transport).
 - **Operator Claude selection (#596).** `--claude-path <absolute-file|bundled>`, `MONOMIND_CLAUDE_PATH` or `monomind config set claude.path`; an untrusted home or config directory that names no `claude.path` is no choice (one warning), not a failure.
+- **Sections run as isolated sub-orgs, with docs as the only cross-section channel.** Each section is its own sub-org with its own roles, budget and lifecycle; the only path for one section to affect another is through the shared document store — no direct messaging or task routing crosses a section boundary.
 
 ### Fixed
 
 - **Claude SDK pinned to 0.3.289, with a reviewed weekly refresh (#594).** The refresh workflow computes the new pins in a read-only job (the downloaded binary runs there) and opens the PR from a second job; actions are pinned to commits. The publish-time freshness check only warns when the registry is unreachable. The `org_*` tool schemas the SDK emits changed with the bump (the sections-off fixtures were regenerated for it).
 - **Trusted runner inputs no longer sit in a writable temp root (#599).** The hermes, cline and kimi prompt files live under `<monomind home>/runner-inputs`, in one directory per org role that the sections role protection hides from every other role.
+- **A dead session no longer leaves a stale `runtime.json` behind (Fixes #611).** Session teardown now clears the run's `runtime.json` so a crashed or killed role is never reported as still running.
+- **A role's tool output is readable again (Fixes #622).** A formatting regression had made some tool output unreadable in the role's own transcript; tool output now renders as intended.
+- **Bash's own timeout no longer races the task deadline (Fixes #623).** A Bash call's `timeout` is now capped against the task's remaining deadline, so a long-running command is stopped by whichever limit is shorter instead of the task deadline firing first and leaving the process behind.
+- **Issue queue from #633:** Kilo runtime execution, Claude binary selection and reporting, assistant response usage (token) de-duplication, MCP status reporting from server runtime state, trusted runner-input protection, a release SDK preflight check, a Cline ACP test fix (ambient provider keys cleared in `cline-runner.test.ts`), and an init config refresh (#632).
 - **Also in this batch:** #591, #592, #593, #595, #597, #610.
 
 ### Changed
