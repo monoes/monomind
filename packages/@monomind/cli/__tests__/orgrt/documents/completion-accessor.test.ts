@@ -1,7 +1,7 @@
 // packages/@monomind/cli/__tests__/orgrt/documents/completion-accessor.test.ts
 // P3.2: the shared reader of run_config.completion. A legacy string and the
 // sections-v1 object resolve to the same mode; the object also yields its
-// protocol; an unknown protocol is a definition finding; no source file reads
+// protocol (optional, never a definition finding); no source file reads
 // the field except through the accessor.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -10,7 +10,6 @@ import { z } from 'zod';
 import { checkCompletion } from '../../../src/orgrt/completion-gate.js';
 import {
   completionDisplay,
-  completionFindings,
   completionIsObject,
   completionMode,
   completionPolicy,
@@ -74,24 +73,15 @@ describe('completionDisplay', () => {
   });
 });
 
-describe('completionFindings and the definition check', () => {
-  const d = (v: unknown) => JSON.stringify(v);
-  it('is clean for the v1 object', () => {
-    expect(completionFindings({ completion: { mode: 'dag', protocol: V1 } }, d)).toEqual([]);
-  });
+describe('the definition check no longer requires the protocol', () => {
   it.each([
-    ['a string', 'dag', 'run_config.completion: a sections org must set'],
-    ['missing', undefined, 'run_config.completion: a sections org must set'],
-    ['an unknown protocol', { mode: 'dag', protocol: 'sections-v2' }, 'run_config.completion.protocol: must be "sections-v1"'],
-    ['no protocol', { mode: 'dag' }, 'run_config.completion.protocol: must be "sections-v1"'],
-  ])('refuses %s', (_n, completion, text) => {
-    const [first, ...rest] = completionFindings({ completion }, d);
-    expect(first).toContain(text);
-    expect(rest).toEqual([]);
-  });
-  it('the sections definition check reports an unknown protocol through it', () => {
-    const def = OrgDefSchema.parse(sectionsRaw((r) => (r.run_config.completion.protocol = 'sections-v2')));
-    expect(sectionsDefinitionFindings(def).errors.join('\n')).toContain('"sections-v2"');
+    ['the v1 object', { mode: 'dag', protocol: V1 }],
+    ['an object without a protocol', { mode: 'dag' }],
+    ['a string', 'dag'],
+    ['nothing', undefined],
+  ])('accepts %s', (_n, completion) => {
+    const def = OrgDefSchema.parse(sectionsRaw((r) => (r.run_config.completion = completion)));
+    expect(sectionsDefinitionFindings(def).errors).toEqual([]);
   });
 });
 

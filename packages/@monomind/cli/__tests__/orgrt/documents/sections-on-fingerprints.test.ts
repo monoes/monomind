@@ -34,12 +34,14 @@ const SECTIONS_ON_PRODUCER_PROMPT_SHA = '59e3661988c552a365109e7d57740de83644f00
 // P3.16b re-pin (was aa89cd14...): the consumer guidance line gains one sentence, a decision before every part is read is refused.
 const SECTIONS_ON_CONSUMER_LEAD_PROMPT_SHA = '0ae92334b81786e876153f3b8039ab1c9328e1c445529f6aaf87d0e84bfaeddf';
 const SECTIONS_ON_ROOT_PROMPT_SHA = '413bcc92ff9b931d5d2b0f87ddcdcc63a8fce9576dbaf899b737e93cd2d26601';
-const SECTIONS_ON_UNSECTIONED_PROMPT_SHA = '030cd4788cb0cf4245929a643f905bce4e58af159722866289abb91c0f5630e5';
+// Sections as isolated sub-orgs re-pin (was 030cd478..., the observer in no section): every non-root role is in a section, so the
+// observer is now alone in section `watch` and its block says so. The other three prompts did not change.
+const SECTIONS_ON_OBSERVER_PROMPT_SHA = '05c4b06b7bc389ec68ecc5fecb1494bb5b85fbd0da8d504fba9c5f740fefe80f';
 const PROMPT_SHAS: Record<string, string> = {
   researcher: SECTIONS_ON_PRODUCER_PROMPT_SHA,
   'dev-lead': SECTIONS_ON_CONSUMER_LEAD_PROMPT_SHA,
   boss: SECTIONS_ON_ROOT_PROMPT_SHA,
-  observer: SECTIONS_ON_UNSECTIONED_PROMPT_SHA,
+  observer: SECTIONS_ON_OBSERVER_PROMPT_SHA,
 };
 
 function golden(name: string, actual: unknown): void {
@@ -104,7 +106,7 @@ describe('sections-ON system prompts (through a real daemon, scripted runner)', 
     expect(got.researcher).toContain('You publish:');
     expect(got['dev-lead']).toContain('You decide for section "development"');
     expect(got.boss).toContain('You are the root');
-    expect(got.observer).toContain('You are in no section.');
+    expect(got.observer).toContain('You are in section "watch" (lead: observer, that is you).');
   });
 });
 

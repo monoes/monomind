@@ -79,7 +79,6 @@ const PHASE4 = {
     'sweep-d': { budget: { usd: 8 } },
     synthesis: { writes: ['out/**'], budget: { usd: 10 }, max_rework_rounds: 3 },
   },
-  loops: [{ between: ['sweep-a', 'synthesis'], types: ['module-sheets-w1'], max_rounds: 2 }],
   budget_usd: 100,
 };
 const READ_ONLY = Array.from({ length: 8 }, (_, i) => `worker-${i + 1}`);
@@ -95,14 +94,7 @@ describe('default OFF: no Phase 4 key declared, no change', () => {
 
   it('phase4 absent, {}, or with only empty parts is byte for byte the same definition', () => {
     const same = JSON.stringify(plain);
-    for (const p of [
-      undefined,
-      {},
-      { sections: {} },
-      { sections: { synthesis: {} } },
-      { loops: [] },
-      { sections: {}, loops: [] },
-    ])
+    for (const p of [undefined, {}, { sections: {} }, { sections: { synthesis: {} } }])
       expect(JSON.stringify(runtimeOrgDef(baseDef(), trial(), { phase4: p }))).toBe(same);
     expect(JSON.stringify(runtimeOrgDef(baseDef(), trial(), {}))).toBe(same);
   });
@@ -141,7 +133,6 @@ describe('a synthetic Phase 4 variant', () => {
       budget: { usd: 10 },
       max_rework_rounds: 3,
     });
-    expect(out.loops).toEqual(PHASE4.loops);
     expect(out.run_config.budget_usd).toBe(100);
   });
 
@@ -149,7 +140,6 @@ describe('a synthetic Phase 4 variant', () => {
     const plain = runtimeOrgDef(baseDef({ caps: true, readOnly: READ_ONLY }), trial());
     const strip = (d) => {
       const c = structuredClone(d);
-      delete c.loops;
       delete c.run_config.budget_usd;
       for (const s of Object.values(c.sections)) {
         delete s.writes;
@@ -176,7 +166,6 @@ describe('a synthetic Phase 4 variant', () => {
     expect(JSON.stringify(base)).toBe(before);
     expect(p).toEqual(PHASE4);
     def.sections.synthesis.writes.push('x');
-    def.loops[0].types.push('x');
     expect(p).toEqual(PHASE4); // copies, not aliases
   });
 
@@ -203,21 +192,18 @@ describe('a synthetic Phase 4 variant', () => {
 });
 
 describe('refusals: what the switch cannot carry', () => {
-  it('a section the routing map does not have, a loop or org budget the definition already has: every reason at once', () => {
+  it('a section the routing map does not have, an org budget the definition already has: every reason at once', () => {
     const d = baseDef();
-    d.loops = [];
     d.run_config.budget_usd = 5;
     const problems = problemsOf(() =>
       runtimeOrgDef(d, trial(), {
         phase4: {
           sections: { nowhere: { budget: { usd: 1 } } },
-          loops: PHASE4.loops,
           budget_usd: 9,
         },
       }),
     );
     expect(problems.some((p) => /phase4\.sections\.nowhere.*no such section/.test(p))).toBe(true);
-    expect(problems.some((p) => /already has "loops"/.test(p))).toBe(true);
     expect(problems.some((p) => /already has run_config\.budget_usd/.test(p))).toBe(true);
   });
 

@@ -20,24 +20,23 @@ const create = (s: any, assignee: string) => JSON.parse(dagCreateTask(s.daemon, 
 
 describe('the root reserve', () => {
   it('warns the root alone at 80 percent, and at its allocation closes the root with the existing org-budget event', async () => {
-    const { s, running, runner } = await run();
-    await spend(s, running, 'observer', 15, 15); // over its cap of 10: closed on its own
-    await spend(s, running, 'boss', 19, 19); // 34 of the reserve's 40: 85 percent
+    const { s, running, runner } = await run((r) => (r.roles.find((x: Record<string, any>) => x.id === 'boss').budget_usd = 40)); // the root holds the whole reserve
+    await spend(s, running, 'boss', 34, 34); // 34 of the reserve's 40: 85 percent
     const w = warningNotice({ kind: 'reserve', spentUsd: 34, allocationUsd: 40 });
     expect(await budgetNotices(runner, 'boss', 1)).toEqual([w.subject]);
     await settle();
     for (const id of ['research-lead', 'dev-lead', 'coder']) expect(runner.budget(id), id).toEqual([]);
     expect(eventsOf(running, 'section-budget-warning')[0].data).toMatchObject({ scope: 'reserve' });
-    await spend(s, running, 'boss', 6, 25); // 40 of 40, the root over its own cap too
+    await spend(s, running, 'boss', 6, 40); // 40 of 40
     expect(await waitUntil(() => running.sectionBudget!.closed.has('reserve'))).toBe(true);
     // the root is among the closed: the human sees the event the CLI end line and the dashboard already show
     const status = running.busEvents().filter((e) => e.type === 'status' && e.reason === 'org-budget-exhausted');
     expect(status).toHaveLength(1);
     expect(status[0].msg).toContain('the root reserve USD allocation exhausted ($40.00/$40.00) — the root is closed');
     // the sections are untouched
-    for (const id of ['research-lead', 'researcher', 'dev-lead', 'coder']) expect(running.agents.get(id)!.mailbox.isClosed, id).toBe(false);
+    for (const id of ['research-lead', 'researcher', 'dev-lead', 'coder', 'observer']) expect(running.agents.get(id)!.mailbox.isClosed, id).toBe(false);
     expect(create(s, 'coder').error).toBeUndefined();
-    expect(create(s, 'observer').error).toContain('REFUSED: the root reserve has spent $40.00');
+    expect(create(s, 'boss').error).toContain('REFUSED: the root reserve has spent $40.00');
   });
 });
 
@@ -45,6 +44,7 @@ describe('the org USD ceiling (run_config.budget_usd with no section budgets)', 
   const orgOnly = (r: Record<string, any>) => {
     delete r.sections.research.budget;
     delete r.sections.development.budget;
+    delete r.sections.watch.budget;
     r.run_config.budget_usd = 40;
     for (const role of r.roles) role.budget_usd = 5;
   };
@@ -66,7 +66,7 @@ describe('the org USD ceiling (run_config.budget_usd with no section budgets)', 
     const w = warningNotice({ kind: 'org', spentUsd: 32, allocationUsd: 40 });
     for (const id of ['research-lead', 'dev-lead']) expect(runner.budget(id)[0], id).toBe(w.subject);
     const recs = running.sectionBudget!.notices.records().filter((x) => x.kind === 'section-budget-warning');
-    expect(recs.map((x) => x.to).sort()).toEqual(['boss', 'dev-lead', 'research-lead']);
+    expect(recs.map((x) => x.to).sort()).toEqual(['boss', 'dev-lead', 'observer', 'research-lead']);
     expect(eventsOf(running, 'section-budget-warning')).toHaveLength(1);
   });
 

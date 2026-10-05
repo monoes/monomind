@@ -20,7 +20,7 @@
 //   P4.4  writes (one writing section; worktree-per-role with writes; the more-than-one-writer text stays) -- DONE, see the EDITED BY P4.4 blocks
 //   P4.5  run_config.budget_usd, run_config.budget_mode, sections.<s>.budget, the deferred run_config keys
 //   P4.7  max_rework_rounds
-//   P4.8  loops, an undeclared cycle between sections
+//   P4.8  loops (removed again by sections-as-sub-orgs), an undeclared cycle between sections
 //   P4.9  the capacity error and the reports_to warning
 // Nothing here depends on the clock, the disk or the network: every case parses a literal object.
 import { describe, expect, it } from 'vitest';
@@ -104,22 +104,14 @@ describe('phase4 inert: on-surface refusals of the Phase 4 keys are unchanged to
     expect(baseline.errors).toEqual([]);
   });
 
-  // EDITED BY P4.8: loops are relaxed on the surface (the sections-off refusals above are untouched). The full
-  // matrix is in loops-definition.test.ts; the three values this block pinned keep a pin, with their new answer.
-  it('top-level loops as an empty list is accepted on the surface', () => {
-    const f = on((r) => (r.loops = []));
-    expect(f.errors).toEqual([]);
-    expect(f.warnings).toEqual(baseline.warnings);
-  });
-
-  it('a declared loop that closes no cycle is accepted with the LOOP_NO_CYCLE warning', () => {
-    const f = on((r) => (r.loops = [{ between: ['research', 'development'], types: ['findings'], max_rounds: 2 }]));
-    expect(f.errors).toEqual([]);
-    expect(f.warnings).toEqual([expect.stringMatching(/^loops\[0\]: .* do not form a cycle of document hand-offs/), ...baseline.warnings]);
-  });
-
-  it('top-level loops as an object is an error that says it must be a list', () => {
-    expect(on((r) => (r.loops = {})).errors).toEqual([expect.stringMatching(/^loops: must be a list of /)]);
+  // Sections as isolated sub-orgs: `loops` is removed; on the surface it is refused with the migration text
+  // (the sections-off refusals above are untouched).
+  it.each([
+    ['an empty list', []],
+    ['a declared loop', [{ between: ['research', 'development'], types: ['findings'], max_rounds: 2 }]],
+    ['an object', {}],
+  ])('top-level loops as %s is refused on the surface with the migration text', (_n, loops) => {
+    expect(on((r) => (r.loops = loops)).errors).toEqual([expect.stringMatching(/^"loops": removed — sections exchange work only through documents/)]);
   });
 
   // EDITED BY P4.5 (run_config.budget_usd, run_config.budget_mode, sections.<s>.budget and the deferred keys of
@@ -265,16 +257,15 @@ describe('phase4 inert: keys accepted today that Phase 4 gives effect or finding
     expect(f.warnings).toEqual(baseline.warnings);
   });
 
-  // EDITED BY P4.8: an undeclared cycle becomes an error (before: it validated).
-  it('a two-section cycle (research publishes findings, development publishes plans back) is an error naming both sections', () => {
+  // Sections as isolated sub-orgs: a cycle of document hand-offs between sections needs no declaration (before P4.8 it
+  // validated, P4.8 made it an error, and the loops key that declared it is gone).
+  it('a two-section cycle (research publishes findings, development publishes plans back) validates, with no error', () => {
     const f = on((r) => {
       r.documents.plans = { schema: { type: 'object', required: ['summary'] }, evidence: [{ kind: 'source', verify: 'cited' }] };
       r.sections.development.publishes = ['plans'];
       r.sections.research.consumes = ['plans'];
     });
-    expect(f.errors).toEqual([
-      expect.stringMatching(/^sections\.development, sections\.research: sections "development", "research" hand documents around a cycle .* no loop declares it/),
-    ]);
+    expect(f.errors).toEqual([]);
   });
 
   // EDITED BY P4.9: the capacity error. The default max_concurrent_agents is 4; a sections org with more agent roles

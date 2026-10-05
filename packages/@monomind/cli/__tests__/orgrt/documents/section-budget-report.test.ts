@@ -48,8 +48,8 @@ describe('the live report of a running org', () => {
     const st = liveSectionBudgetStatus(running)!;
     expect(section(st, 'development')).toMatchObject({ allocationUsd: 30, spentUsd: 4, retiredUsd: 0, roleCapSumUsd: 30, state: 'ok' });
     expect(section(st, 'research')).toMatchObject({ allocationUsd: 30, spentUsd: 21, state: 'ok' });
-    expect(st.reserve).toMatchObject({ allocationUsd: 40, spentUsd: 5, roleCapSumUsd: 30, state: 'ok' });
-    expect(st.org).toMatchObject({ allocationUsd: 100, spentUsd: 30, roleCapSumUsd: 90 });
+    expect(st.reserve).toMatchObject({ allocationUsd: 40, spentUsd: 5, roleCapSumUsd: 20, state: 'ok' });
+    expect(st.org).toMatchObject({ allocationUsd: 110, spentUsd: 30, roleCapSumUsd: 90 });
     expect(st.problems).toEqual([]);
   });
 
@@ -95,6 +95,7 @@ describe('the live report of a running org', () => {
       delete r.run_config.budget_usd;
       delete r.sections.research.budget;
       delete r.sections.development.budget;
+      delete r.sections.watch.budget;
     });
     expect(liveSectionBudgetStatus(running)).toBeUndefined();
   });
@@ -108,8 +109,9 @@ describe('the table', () => {
     expect(lines[0]).toBe('  Section budgets (USD; individual soft stops):');
     expect(lines[1]).toBe('    section research: spent $0.0000 of $30.00 (0%, ok); role caps $30.00');
     expect(lines[2]).toBe('    section development: spent $3.0000 of $30.00 (10%, ok); role caps $30.00');
-    expect(lines[3]).toBe('    root reserve: spent $0.0000 of $40.00 (0%, ok); role caps $30.00');
-    expect(lines[4]).toBe('    org: spent $3.0000 of $100.00 (3%, ok); role caps $90.00');
+    expect(lines[3]).toBe('    section watch: spent $0.0000 of $10.00 (0%, ok); role caps $10.00');
+    expect(lines[4]).toBe('    root reserve: spent $0.0000 of $40.00 (0%, ok); role caps $20.00');
+    expect(lines[5]).toBe('    org: spent $3.0000 of $110.00 (3%, ok); role caps $90.00');
   });
 });
 
@@ -173,6 +175,7 @@ describe('`org report` from the recorded run', () => {
       delete r.run_config.budget_usd;
       delete r.sections.research.budget;
       delete r.sections.development.budget;
+      delete r.sections.watch.budget;
     }));
     expect(sectionBudgetReportLines(noBudget as never, { boss: { costUsd: 1 } })).toEqual([]);
   });

@@ -1,12 +1,11 @@
 // packages/@monomind/cli/__tests__/orgrt/documents/reload-guard-daemon.test.ts
 // P4.10 through a real OrgDaemon with a scripted runner (no model): a structural reload is refused whole and the
-// running org is left exactly as it was; the keys a reload carries live (budgets, caps, rounds, role policy) still
+// running org is left exactly as it was; the keys a reload carries live (budgets, caps, role policy) still
 // apply; a sections-off reload is what it was; the policy replaced on a reload keeps a section cap in maxUsd.
 import { rmSync } from 'node:fs';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { sandboxAvailability } from '../../../src/orgrt/role-sandbox-restrictions.js';
-import { loopOrg } from '../support/loop-defs.js';
-import { budgetedOrg, CAPS, newOrgRoot, ROLES, type Started, waitUntil } from '../support/section-budget-org.js';
+import { budgetedOrg, CAPS, newOrgRoot, ROLES, waitUntil } from '../support/section-budget-org.js';
 import { eventsOf, harness, settle } from '../support/section-budget-run-org.js';
 
 type Raw = Record<string, any>;
@@ -33,7 +32,7 @@ describe('a structural reload is refused whole and the running org is untouched'
     ['writes added to a section', oneWriter, /sections\.research\.writes: .*single-writer assignment is applied .* when the role starts/],
     ['a role added to a section', (r) => (r.roles.push(extra), r.sections.research.members.push('extra'), (r.sections.research.budget = { usd: 40 })), /sections\.research\.members: .*added extra.*old section map/],
     ['a lead changed', (r) => (r.sections.research.lead = 'researcher'), /sections\.research\.lead: /],
-    ['a section removed', (r) => delete r.sections.development, /sections\.development: section "development" was removed/],
+    ['a section removed', (r) => (delete r.sections.watch, (r.roles = r.roles.filter((x: Raw) => x.id !== 'observer'))), /sections\.watch: section "watch" was removed/],
     ['a document contract changed', (r) => (r.documents.findings.schema.required = ['summary', 'notes']), /documents\.findings: document type "findings" changed/],
     ['the completion policy changed', (r) => (r.run_config.completion = { mode: 'boss', protocol: 'sections-v1' }), /run_config\.completion: /],
   ];
@@ -67,7 +66,7 @@ describe('a structural reload is refused whole and the running org is untouched'
         r.goal = 'a new goal';
         roleOf(r, 'coder').budget_usd = 25;
         r.sections.development.budget = { usd: 35 };
-        r.run_config.budget_usd = 110;
+        r.run_config.budget_usd = 130;
         r.sections.research.lead = 'researcher';
       }),
     );
@@ -82,7 +81,7 @@ describe('a structural reload is refused whole and the running org is untouched'
         r.goal = 'a new goal';
         roleOf(r, 'coder').budget_usd = 25;
         r.sections.development.budget = { usd: 35 };
-        r.run_config.budget_usd = 110;
+        r.run_config.budget_usd = 130;
       }),
     );
     const res = s.daemon.reloadOrgDef(s.name);
@@ -136,36 +135,6 @@ describe('the keys a reload carries live still apply', () => {
     s.write(reloaded((r) => (roleOf(r, 'observer').policy = { sandbox: { mode: 'off' }, denyTools: ['WebFetch'] })));
     expect(s.daemon.reloadOrgDef(s.name).changed).toEqual(['role:observer:policy']);
     expect(running.agents.get('observer')!.policy.policy.denyTools).toEqual(['WebFetch']);
-  });
-});
-
-describe('loops[i].max_rounds', () => {
-  const started: Started[] = [];
-  afterEach(async () => {
-    await Promise.all(started.splice(0).map(async (s) => (await s.daemon.stopAll().catch(() => {}), rmSync(s.root, { recursive: true, force: true }))));
-  });
-  async function loops(rounds = 2) {
-    process.env.MONOMIND_SPAWN_STAGGER_MS = '1';
-    process.env.MONOMIND_MIN_FREE_MEM_MB = '1';
-    const s = newOrgRoot(loopOrg(rounds));
-    started.push(s);
-    const running = await s.daemon.startOrg(s.name, undefined, { evalGate: true });
-    return { s, running };
-  }
-
-  it('a change of max_rounds alone applies', async () => {
-    const { s, running } = await loops(2);
-    s.write(loopOrg(5));
-    expect(s.daemon.reloadOrgDef(s.name).changed).toEqual(['loops[0].max_rounds']);
-    expect((running.def as any).loops[0].max_rounds).toBe(5);
-  });
-
-  it('max_rounds together with between or types is refused whole, max_rounds not applied', async () => {
-    const { s, running } = await loops(2);
-    const before = JSON.stringify(running.def);
-    s.write(loopOrg(5, (r) => (r.loops[0].types = ['build'])));
-    expect(() => s.daemon.reloadOrgDef(s.name)).toThrow(/loops\[0\]\.types: loop 0: types changed .*only max_rounds reloads/);
-    expect(JSON.stringify(running.def)).toBe(before);
   });
 });
 

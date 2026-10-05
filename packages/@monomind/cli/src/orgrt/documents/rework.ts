@@ -4,7 +4,7 @@
 // Pure functions over the document state and the committed event log; nothing here reads the clock or the disk.
 //
 //  - A THREAD is one document and one consuming section; its rounds are the versions that section rejected
-//    (loop-rounds.ts: reworkThreads). It is EXHAUSTED when the rounds reach the section's cap (a cap of 2: the
+//    (reworkThreads below). It is EXHAUSTED when the rounds reach the section's cap (a cap of 2: the
 //    second rejection exhausts). A thread is FROZEN while it is exhausted and the head of the document is not
 //    accepted: a publish that supersedes the document is refused (rework-guard.ts). Frozen is derived from the
 //    state and the CURRENT caps every time, never stored, so a reload that raises a cap thaws the thread and one
@@ -15,15 +15,87 @@
 //    key, and a thread that is exhausted again after the root accepted it is a new obligation.
 //  - `syncReworkCaps` carries a changed `max_rework_rounds` from a reloaded definition into the running one.
 
-import type { ReworkThread } from './loop-rounds.js';
-import { capsFromDef, reworkThreads } from './loop-rounds.js';
 import { KIND_EXHAUSTED, type Notice } from './notice.js';
 import { COPY_REASON_CAP, capReason, REASON_CAP } from './relay.js';
 import { applyEvent, type DocState, emptyState, headOf, versionStatus } from './state.js';
 import type { StoreEvent } from './store-types.js';
 
 export type ReworkCaps = Readonly<Record<string, number | undefined>>;
-export { capsFromDef };
+
+export interface ReworkThread {
+  doc: string;
+  type: string;
+  /** The section that publishes the document. */
+  producer_section: string;
+  /** The consuming section that rejected, and whose cap applies. */
+  consumer: string;
+  /** Versions of the document the consumer rejected. */
+  rounds: number;
+  cap: number;
+  exhausted: boolean;
+  /** Commit sequence of the rejection that reached the cap. */
+  exhausted_seq?: number;
+  /** Version numbers rejected, ascending. */
+  rejected_versions: number[];
+}
+
+/** The positive-integer `max_rework_rounds` of every section that sets one, keyed by section. Unset: no entry, no cap. */
+export function capsFromDef(def: { sections?: unknown }): Record<string, number> {
+  const out: Record<string, number> = {};
+  const secs =
+    typeof def.sections === 'object' && def.sections !== null
+      ? (def.sections as Record<string, unknown>)
+      : {};
+  for (const [name, sec] of Object.entries(secs)) {
+    const n =
+      typeof sec === 'object' && sec !== null
+        ? (sec as Record<string, unknown>).max_rework_rounds
+        : undefined;
+    if (typeof n === 'number' && Number.isInteger(n) && n > 0) out[name] = n;
+  }
+  return out;
+}
+
+/**
+ * Every (document, consuming section) thread with at least one rejection whose consumer has a cap
+ * (`caps[consumer]`; a section with no entry has no cap and no thread), ordered by document id then consumer.
+ */
+export function reworkThreads(
+  state: DocState,
+  caps: Readonly<Record<string, number | undefined>>,
+): ReworkThread[] {
+  const out: ReworkThread[] = [];
+  for (const d of Object.values(state.docs).sort((a, b) => (a.id < b.id ? -1 : 1)))
+    for (const consumer of [...new Set(d.versions.flatMap((v) => v.consumers))].sort()) {
+      const cap = caps[consumer];
+      if (cap === undefined) continue;
+      const rejected = d.versions.filter((v) => v.decisions[consumer]?.decision === 'reject');
+      if (rejected.length === 0) continue;
+      const seqs = rejected.map((v) => v.decisions[consumer].seq).sort((a, b) => a - b);
+      out.push({
+        doc: d.id,
+        type: d.type,
+        producer_section: d.section,
+        consumer,
+        rounds: rejected.length,
+        cap,
+        exhausted: rejected.length >= cap,
+        ...(rejected.length >= cap ? { exhausted_seq: seqs[cap - 1] } : {}),
+        rejected_versions: rejected.map((v) => v.version),
+      });
+    }
+  return out;
+}
+
+/** The exhausted threads, in the order they were exhausted (by commit sequence). */
+export function reworkStatus(
+  state: DocState,
+  caps: Readonly<Record<string, number | undefined>>,
+): ReworkThread[] {
+  return reworkThreads(state, caps)
+    .filter((t) => t.exhausted)
+    .sort((a, b) => (a.exhausted_seq as number) - (b.exhausted_seq as number));
+}
 
 /** What the notice engine needs of the enforcement: the caps now, and who is told. */
 export interface ReworkEscalation {

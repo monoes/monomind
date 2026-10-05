@@ -4,7 +4,6 @@
 // reported (its reload is what it was).
 import { describe, expect, it } from 'vitest';
 import { RELOAD_REMEDY, reloadRefusalText, structuralReloadChanges } from '../../../src/orgrt/documents/reload-guard.js';
-import { loopOrg } from '../support/loop-defs.js';
 import { sectionsRaw } from '../support/sections-defs.js';
 
 type Raw = Record<string, any>;
@@ -18,7 +17,7 @@ const diff = (edit: (r: Raw) => void, from: () => Raw = base) => {
 const role = (id: string, reportsTo: string | null) => ({ id, type: reportsTo === null ? 'boss' : 'specialist', reports_to: reportsTo });
 
 describe('structural keys are reported with code, path, message and the restart remedy', () => {
-  const table: Array<[string, (r: Raw) => void, string, string, (() => Raw)?]> = [
+  const table: Array<[string, (r: Raw) => void, string, string]> = [
     ['a section added', (r) => (r.sections.qa = { lead: 'coder', members: ['coder'] }), 'section-added', 'sections.qa'],
     ['a section removed', (r) => delete r.sections.development, 'section-removed', 'sections.development'],
     ['a role added to a section', (r) => (r.roles.push(role('extra', 'boss')), r.sections.research.members.push('extra')), 'section-members', 'sections.research.members'],
@@ -39,16 +38,12 @@ describe('structural keys are reported with code, path, message and the restart 
     ['requires changed', (r) => (r.requires = { sections: 2 }), 'requires', 'requires'],
     ['completion changed', (r) => (r.run_config.completion = { mode: 'boss', protocol: 'sections-v1' }), 'completion', 'run_config.completion'],
     ['experimental changed', (r) => (r.run_config.experimental = 'release'), 'experimental', 'run_config.experimental'],
-    ['a loop added', (r) => (r.loops = [{ between: ['development', 'qa'], types: ['build'], max_rounds: 2 }]), 'loops-added', 'loops[0]'],
-    ['a loop removed', (r) => delete r.loops, 'loops-removed', 'loops[0]', () => loopOrg(2)],
-    ['a loop between changed', (r) => (r.loops[0].between = ['development', 'review']), 'loops-structure', 'loops[0].between', () => loopOrg(2)],
-    ['a loop types changed', (r) => (r.loops[0].types = ['build']), 'loops-structure', 'loops[0].types', () => loopOrg(2)],
     ['the root role changed', (r) => ((r.roles[0].type = 'specialist'), (r.roles[1].type = 'boss'), (r.roles[1].reports_to = null)), 'root', 'roles'],
     ['the sections surface switched off', (r) => delete r.sections, 'sections-disabled', 'sections'],
   ];
-  for (const [label, edit, code, path, from] of table)
+  for (const [label, edit, code, path] of table)
     it(label, () => {
-      const found = diff(edit, from);
+      const found = diff(edit);
       const hit = found.find((c) => c.code === code && c.path === path);
       expect(hit, JSON.stringify(found)).toBeDefined();
       expect(hit!.message.length).toBeGreaterThan(10);
@@ -64,20 +59,19 @@ describe('structural keys are reported with code, path, message and the restart 
 });
 
 describe('keys a reload carries live are not reported', () => {
-  const allowed: Array<[string, (r: Raw) => void, (() => Raw)?]> = [
+  const allowed: Array<[string, (r: Raw) => void]> = [
     ['a section budget allocation', (r) => (r.sections.research.budget = { usd: 35 })],
     ['max_rework_rounds', (r) => (r.sections.research.max_rework_rounds = 4)],
     ['run_config.budget_usd', (r) => (r.run_config.budget_usd = 90)],
     ['a run_config deadline or limit', (r) => (r.run_config.idle_minutes = 3)],
-    ['loops[i].max_rounds with between and types unchanged', (r) => (r.loops[0].max_rounds = 9), () => loopOrg(2)],
     ['a role cap', (r) => (r.roles[2].budget_usd = 12)],
     ['a role policy', (r) => (r.roles[2].policy = { sandbox: { mode: 'off' }, denyTools: ['WebFetch'] })],
     ['the goal', (r) => (r.goal = 'something else')],
-    ['a new role that belongs to no section', (r) => r.roles.push(role('bystander', 'boss'))],
+    ['a new role (the definition check, not this guard, refuses one that is in no section)', (r) => r.roles.push(role('bystander', 'boss'))],
     ['the members of a section listed in another order', (r) => r.sections.research.members.reverse()],
     ['document keys written in another order', (r) => (r.documents.findings = Object.fromEntries(Object.entries(r.documents.findings).reverse()))],
   ];
-  for (const [label, edit, from] of allowed) it(label, () => expect(diff(edit, from)).toEqual([]));
+  for (const [label, edit] of allowed) it(label, () => expect(diff(edit)).toEqual([]));
 
   it('an unchanged definition', () => expect(diff(() => {})).toEqual([]));
 });

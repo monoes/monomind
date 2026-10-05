@@ -14,7 +14,7 @@ export const idOf = (doc: string, n = 1) => `${doc}-${n}`;
 export const workerOf = (doc: string) => `worker-${doc.at(-1)}`;
 
 export interface MiniOptions {
-  /** A role in no section (reports to the lead), for the access refusals. */
+  /** A role alone in section `watch` (reports to the lead), for the access refusals. */
   observer?: boolean;
   /** `run_config.lead_watch.unread_s`; absent keeps the default. */
   unreadS?: number;
@@ -39,7 +39,10 @@ export function miniOrg(o: MiniOptions = {}): Record<string, any> {
       max_consistency_refusals: c.max_refusals,
       deliverable_files: c.deliverables,
     };
-  if (o.observer) raw.roles.push(role('observer', 'lead'));
+  if (o.observer) {
+    raw.roles.push(role('observer', 'lead'));
+    raw.sections.watch = { members: ['observer'] };
+  }
   if (o.unreadS !== undefined) raw.run_config.lead_watch = { unread_s: o.unreadS };
   if (o.sectionsOff) {
     for (const k of ['sections', 'documents', 'requires']) delete raw[k];
