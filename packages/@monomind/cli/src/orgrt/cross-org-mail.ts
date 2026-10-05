@@ -4,6 +4,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { OrgDaemon, RunningOrg } from './daemon.js';
+import { loadEnvelopeKey, neutralizeTags, sealTag } from './documents/envelope.js';
 import { DigestIntegrityError, writeDigest } from './documents/mail-integrity.js';
 import { sectionsSurface } from './documents/surface.js';
 import { clearEndpointWait } from './endpoint-roles.js';
@@ -70,6 +71,25 @@ export function mailBody(
   }
 }
 
+/** GA row R2: in a sections org the subject's routing tags are the daemon's, not the agent's. */
+function sealedSubject(
+  root: string,
+  orgName: string,
+  org: RunningOrg,
+  to: string,
+  from: string,
+  subject: string,
+  id: string,
+): string {
+  if (!org.def || !sectionsSurface(org.def).enabled) return subject;
+  const claimed = /\[task:([^\]\s]+)\]/.exec(subject)?.[1];
+  const clean = neutralizeTags(subject);
+  const holder = claimed ? org.taskDag?.get(claimed)?.assignee : undefined;
+  if (!claimed || (holder !== from && holder !== to)) return clean;
+  const key = loadEnvelopeKey(join(root, ORG_DIR, orgName));
+  return `${clean} ${sealTag(key, { run: org.run, from, to, task: claimed, id })}`;
+}
+
 /** SEC: the ONE place an inter-agent message enters a role's mailbox. Every
  *  inbound path — live deliver(), inbound cross-process receiveRemote(), and
  *  the queued-inbox drains (startOrg, deferred spawns) — must go through here
@@ -103,7 +123,7 @@ export async function pushMessage(
       daemon.root,
       orgName,
       org,
-      `[message from ${from}] subject: ${subject}`,
+      `[message from ${from}] subject: ${sealedSubject(daemon.root, orgName, org, toRole, from, subject, id)}`,
       body,
       id,
       toRole,

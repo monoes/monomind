@@ -17,6 +17,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import type { EnvelopeVerify } from './documents/envelope.js';
 import type { OrgDef, OrgRole } from './types.js';
 
 /** Key for everything a role receives outside a task (and for role scope). */
@@ -80,12 +81,13 @@ export function taskKeyOf(text: string): string | undefined {
 export function mailRouteKey(
   text: string,
   correspondents: ReadonlyMap<string, string>,
+  verify?: EnvelopeVerify,
 ): string | undefined {
   // A role-scoped assignee gets dispatches queued together as one message, with
   // a reminder or same-turn mail folded in (dag-dispatch.ts). One rule routes
   // it: the first explicit task tag by position, wherever it sits; failing that,
   // the last correspondence of the first sender.
-  const first = messageTaskIds(text)[0];
+  const first = messageTaskIds(text, verify)[0];
   if (first) return first;
   const head = HEAD.exec(text);
   return head ? correspondents.get(head[1]) : undefined;
@@ -99,14 +101,18 @@ const HEAD = /^\[message from ([^\]]+)\] subject: ([^\n]*)/;
  *  mail head, and a body is never read: a quoted tag says nothing about where
  *  the message belongs. So dispatch paragraphs are read only ahead of any mail,
  *  which is the order dag-dispatch.ts delivers a batch in. */
-export function messageTaskIds(text: string): string[] {
+export function messageTaskIds(text: string, verify?: EnvelopeVerify): string[] {
   const ids: string[] = [];
   let inBody = false;
   for (const part of text.split('\n\n')) {
     const head = HEAD.exec(part);
     if (head) inBody = true;
+    const tagged = head ? /\[task:([^\]\s]+)\]/.exec(head[2])?.[1] : undefined;
+    // GA row R2: in a sections org a mail's task tag counts only with a valid envelope.
     const id = head
-      ? /\[task:([^\]\s]+)\]/.exec(head[2])?.[1]
+      ? tagged && (!verify || verify(head[1], head[2], tagged))
+        ? tagged
+        : undefined
       : inBody
         ? undefined
         : taskKeyOf(part);
