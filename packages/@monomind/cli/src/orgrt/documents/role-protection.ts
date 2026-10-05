@@ -65,23 +65,20 @@ export function sectionsRoleProtection(args: {
   loadEnvelopeKey(orgDir);
   mkdirSync(runnerRootFor(orgDir), { recursive: true });
   const hiddenDirs = [envelopeDirFor(orgDir), runnerRootFor(orgDir)];
-  const denyRead = [
-    ...otherMailDirs(def, orgDir, args.roleId),
-    ...otherInputHolders(def, orgDir, args),
-    ...hiddenDirs,
-  ];
+  const denyRead = [...otherMailDirs(def, orgDir, args.roleId), ...hiddenDirs];
+  const hidden = [...denyRead, ...otherInputHolders(def, orgDir, args)];
   const denyWrite = [mailRootFor(orgDir), ...hiddenDirs];
   // A runtime with a private directory of its own runs inside the runner root, so
   // the mask hides the other roles' directories, not the root itself.
   const ownDir = usesPrivateDir(runtimeIsolation(args.runtime, args.env));
   const maskHidden = ownDir
     ? [
-        ...denyRead.filter((d) => d !== runnerRootFor(orgDir)),
+        ...hidden.filter((d) => d !== runnerRootFor(orgDir)),
         ...otherRunnerDirs(def, orgDir, args.roleId),
       ]
-    : denyRead;
+    : hidden;
   return {
-    denyReadDirs: denyRead,
+    denyReadDirs: hidden,
     denyWriteDirs: denyWrite,
     bestEffortDenyRead: maskHidden,
     bestEffortReadOnly: denyWrite,

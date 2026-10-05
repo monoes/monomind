@@ -107,8 +107,8 @@ export const MUTATIONS = [
     row: 'R5',
     name: "the other roles' runner-input holders (hermes, cline and kimi prompt files) are not hidden",
     file: 'documents/role-protection.ts',
-    find: '...otherInputHolders(def, orgDir, args),',
-    replace: '...(otherInputHolders(def, orgDir, args), []),',
+    find: 'const hidden = [...denyRead, ...otherInputHolders(def, orgDir, args)];',
+    replace: 'const hidden = [...denyRead];',
   },
   {
     row: 'R6',
