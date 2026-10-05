@@ -23,10 +23,11 @@
  * A nested run (a test that starts a child vitest) keeps the outer run's
  * MONOMIND_TEST_REAL_HOME, unless the parent removes it on purpose.
  */
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, sep } from 'node:path';
 import { checkHome, snapshotHome } from './real-home-guard.js';
+import { removeTree } from './remove-tree.js';
 
 /** XDG base dirs and where they go under the test home. */
 export const XDG_DIRS = {
@@ -162,8 +163,8 @@ export default function setup(): () => void {
       if (saved[k] === undefined) delete process.env[k];
       else process.env[k] = saved[k];
     }
-    rmSync(home, { recursive: true, force: true });
-    rmSync(tmp, { recursive: true, force: true });
+    removeTree(home);
+    removeTree(tmp);
     if (realHome && snapshot) checkHome(realHome, snapshot);
   };
 }
