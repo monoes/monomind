@@ -74,7 +74,11 @@ const spawned = () => vi.mocked(cp.spawn).mock.calls;
 
 beforeEach(() => {
   vi.mocked(cp.spawn).mockReset();
+  // Hermetic: an ambient provider key of the machine running the tests must not decide which key the runner uses (#610).
+  vi.stubEnv('CLINE_API_KEY', undefined);
+  vi.stubEnv('OPENROUTER_API_KEY', undefined);
 });
+afterEach(() => vi.unstubAllEnvs());
 
 describe('ClineAgentRunner — fresh json turn', () => {
   it('runs cline --json with the prompt on a FIFO and maps the live stream', async () => {
