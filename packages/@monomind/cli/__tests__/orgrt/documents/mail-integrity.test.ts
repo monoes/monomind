@@ -25,7 +25,8 @@ beforeEach(() => {
   orgDir = join(base, '.monomind/orgs/sec-org');
   mkdirSync(mailDirFor(orgDir, 'coder'), { recursive: true });
 });
-afterEach(() => rmSync(base, { recursive: true, force: true }));
+// The bus may still be appending an audit line as the directory goes: retry.
+afterEach(() => rmSync(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
 
 const journal = () =>
   existsSync(digestJournalPath(orgDir))
