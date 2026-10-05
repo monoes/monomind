@@ -18,6 +18,13 @@ import { prepareGitGuard } from '../../../src/orgrt/git-guard.js';
 import { buildClaudeRestrictions } from '../../../src/orgrt/role-sandbox.js';
 import { sectionsRaw } from '../support/sections-defs.js';
 
+const busDirs: string[] = [];
+/** A bus directory outside `base`: the bus may still be appending when the test cleans up. */
+const busDir = (): string => {
+  const d = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'mail-bus-'));
+  busDirs.push(d);
+  return d;
+};
 let base: string;
 let orgDir: string;
 beforeEach(() => {
@@ -26,7 +33,16 @@ beforeEach(() => {
   mkdirSync(mailDirFor(orgDir, 'coder'), { recursive: true });
 });
 // The bus may still be appending an audit line as the directory goes: retry.
-afterEach(() => rmSync(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
+afterEach(() => {
+  rmSync(base, { recursive: true, force: true });
+  for (const d of busDirs.splice(0)) {
+    try {
+      rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    } catch {
+      /* still being written; the OS temp dir cleans it */
+    }
+  }
+});
 
 const journal = () =>
   existsSync(digestJournalPath(orgDir))
@@ -81,7 +97,7 @@ describe('delivery of a tampered digest', () => {
   function fakeOrg() {
     const pushed: string[] = [];
     const events: any[] = [];
-    const bus = new OrgBus('sec-org', 'r', join(base, 'bus'));
+    const bus = new OrgBus('sec-org', 'r', busDir());
     bus.subscribe((e) => events.push(e));
     const org: any = {
       def: sectionsRaw(),
@@ -140,7 +156,7 @@ describe('write denial', () => {
     const root = mailRootFor(orgDir);
     mkdirSync(root, { recursive: true });
     const events: any[] = [];
-    const bus = new OrgBus('o', 'r', join(base, 'bus2'));
+    const bus = new OrgBus('o', 'r', busDir());
     bus.subscribe((e) => events.push(e));
     const mk = (available: boolean) =>
       roleExecMask({
