@@ -3,6 +3,8 @@
 import { createHash } from 'node:crypto';
 import { contextSurface } from './context-surface.js';
 import { CumulativeMeter } from './cumulative-meter.js';
+import { envelopeVerifier, loadEnvelopeKey } from './documents/envelope.js';
+import { sectionsSurface } from './documents/surface.js';
 import type { StreamOptions } from './mailbox.js';
 import { Mailbox } from './mailbox.js';
 import { beginPlantWatch } from './planted-paths.js';
@@ -175,6 +177,11 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
   // Task scope: which task last wrote to each correspondent, so their
   // untagged reply goes back to that task's session (see mailRouteKey).
   const correspondents = new Map<string, string>();
+  // GA row R2: a sections org routes mail by a task tag only with the daemon's envelope.
+  const routeVerify =
+    opts.orgDir && opts.run && sectionsSurface(opts.def).enabled
+      ? envelopeVerifier(loadEnvelopeKey(opts.orgDir), opts.run, opts.role.id)
+      : undefined;
   // Org sections spec 6.10 (Phase 2): the session cap, a between-turn rotation
   // threshold. Active only when context.session_cap sets a threshold.
   const sessionCap = contextSurface(opts.def).sessionCap;
@@ -239,7 +246,7 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
     } else if (scope === 'task') {
       // An untagged message (mail, an answer, a continuation) belongs to the
       // session the role is already in.
-      taskKey = mailRouteKey(mailbox.peek() ?? '', correspondents) ?? taskKey;
+      taskKey = mailRouteKey(mailbox.peek() ?? '', correspondents, routeVerify) ?? taskKey;
       const key = taskKey;
       // Past the cap this task's session starts fresh; its history is dropped, the task is not.
       if (capActive && rotateIfCapped(key, mailbox.peek())) {
@@ -291,7 +298,7 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
         : scope === 'task'
           ? {
               stopBefore: (next) => {
-                const k = mailRouteKey(next, correspondents);
+                const k = mailRouteKey(next, correspondents, routeVerify);
                 return k !== undefined && k !== sessionKey;
               },
               idleExitMs,
