@@ -21,7 +21,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -95,5 +96,109 @@ describe('the stale-package message states what the guard actually knows', () =>
     const code = src.slice(src.indexOf('*/') + 2); // skip the header comment
 
     expect(code).not.toMatch(/npm\s+view|registry\.npmjs|fetch\(|https?:\/\//);
+  });
+});
+
+/**
+ * Release 2.24.0 (#636) published eight sub-packages at 2.24.0 although each has its own semver line
+ * (monofence-ai 1.0.7, monobrowse 1.0.30, ...): the release PREP brief said "bump every publishable
+ * package.json" and the guard above only asks that a version MOVED, so a forced jump passed every gate and
+ * cannot be unpublished. A sub-package whose MAJOR version rises since the last release tag must have a
+ * breaking commit (`type(scope)!:` subject or a `BREAKING CHANGE:` footer) touching it in that range.
+ */
+describe('a sub-package does not jump a major version without a breaking change (#636)', () => {
+  // @ts-expect-error — plain .mjs build script, no types
+  const mod = import('../../scripts/check-package-bumps.mjs');
+  const sh = (cwd: string, ...a: string[]) =>
+    execFileSync(
+      'git',
+      ['-c', 'user.name=t', '-c', 'user.email=t@e.invalid', '-c', 'commit.gpgsign=false', ...a],
+      {
+        cwd,
+        encoding: 'utf8',
+      },
+    );
+  const write = (root: string, rel: string, text: string) => {
+    mkdirSync(dirname(join(root, rel)), { recursive: true });
+    writeFileSync(join(root, rel), text);
+  };
+  const pkg = (version: string) => `${JSON.stringify({ name: '@x/a', version }, null, 2)}\n`;
+  function repo() {
+    const root = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'bump-mag-'));
+    sh(root, 'init', '-q', '-b', 'main');
+    write(root, 'packages/@x/a/package.json', pkg('1.0.3'));
+    write(root, 'packages/@x/a/src/index.js', 'export const v = 1;\n');
+    sh(root, 'add', '-A');
+    sh(root, 'commit', '-q', '-m', 'chore(release): publish 1.0.0');
+    sh(root, 'tag', 'v1.0.0');
+    return root;
+  }
+  const commit = (root: string, msg: string, version: string) => {
+    write(root, 'packages/@x/a/package.json', pkg(version));
+    write(root, 'packages/@x/a/src/index.js', `export const v = ${Math.random()};\n`);
+    sh(root, 'add', '-A');
+    sh(root, 'commit', '-q', '-m', msg);
+  };
+
+  it('bumpMagnitudeProblem flags only a rising major without a breaking change', async () => {
+    const { bumpMagnitudeProblem } = await mod;
+    expect(
+      bumpMagnitudeProblem({ name: 'p', from: '1.0.30', to: '2.24.0', breaking: false }),
+    ).toMatch(/p: 1\.0\.30 -> 2\.24\.0/);
+    expect(
+      bumpMagnitudeProblem({ name: 'p', from: '1.0.30', to: '2.24.0', breaking: true }),
+    ).toBeNull();
+    expect(
+      bumpMagnitudeProblem({ name: 'p', from: '1.0.30', to: '1.0.31', breaking: false }),
+    ).toBeNull();
+    expect(
+      bumpMagnitudeProblem({ name: 'p', from: '1.0.30', to: '1.1.0', breaking: false }),
+    ).toBeNull();
+    expect(
+      bumpMagnitudeProblem({ name: 'p', from: '1.0.30', to: '1.0.30', breaking: false }),
+    ).toBeNull();
+  });
+
+  it('a forced jump to the release number is found, with the tag it is measured from', async () => {
+    const { majorBumpsSinceLastRelease } = await mod;
+    const root = repo();
+    commit(root, 'chore(release): publish 2.24.0', '2.24.0');
+    const r = majorBumpsSinceLastRelease(root);
+    expect(r.baseTag).toBe('v1.0.0');
+    expect(r.problems).toHaveLength(1);
+    expect(r.problems[0]).toContain('@x/a: 1.0.3 -> 2.24.0');
+  });
+
+  it('an ordinary patch or minor bump passes, and so does a major with a breaking commit', async () => {
+    const { majorBumpsSinceLastRelease } = await mod;
+    const patch = repo();
+    commit(patch, 'fix(a): something', '1.0.4');
+    expect(majorBumpsSinceLastRelease(patch).problems).toEqual([]);
+    const breaking = repo();
+    commit(breaking, 'feat(a)!: drop the old export', '2.0.0');
+    expect(majorBumpsSinceLastRelease(breaking).problems).toEqual([]);
+    const footer = repo();
+    commit(footer, 'feat(a): new shape\n\nBREAKING CHANGE: the export is renamed', '2.0.0');
+    expect(majorBumpsSinceLastRelease(footer).problems).toEqual([]);
+  });
+
+  it('without any release tag (a shallow clone) it says so and flags nothing', async () => {
+    const { majorBumpsSinceLastRelease } = await mod;
+    const root = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'bump-mag-'));
+    sh(root, 'init', '-q', '-b', 'main');
+    write(root, 'packages/@x/a/package.json', pkg('9.0.0'));
+    sh(root, 'add', '-A');
+    sh(root, 'commit', '-q', '-m', 'init');
+    expect(majorBumpsSinceLastRelease(root)).toEqual({ baseTag: null, problems: [] });
+  });
+
+  it('the script on this repository still exits 0 (the sub-packages are on their 2.24.0 baseline now)', () => {
+    expect(() =>
+      execFileSync('node', [join(REPO_ROOT, 'scripts', 'check-package-bumps.mjs')], {
+        cwd: REPO_ROOT,
+        stdio: 'pipe',
+        env: { ...process.env, MONOMIND_ALLOW_STALE_PACKAGES: '', MONOMIND_ALLOW_MAJOR_BUMP: '' },
+      }),
+    ).not.toThrow();
   });
 });

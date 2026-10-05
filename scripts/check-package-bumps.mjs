@@ -26,6 +26,15 @@
  * release. The exclusions are deliberately narrow: if a change touches
  * shipped code at all, it needs a version.
  *
+ * ## A bump must also be the right SIZE (#636)
+ *
+ * Release 2.24.0 forced eight sub-packages onto the release number (monofence-ai 1.0.7 -> 2.24.0,
+ * monobrowse 1.0.30 -> 2.24.0, ...) because the PREP brief said "bump every publishable package.json".
+ * Each of those carries its own semver line, the check above only asks that a version MOVED, and a published
+ * version cannot be taken back. So a sub-package whose MAJOR version rises since the last release tag must
+ * have a breaking commit (`type(scope)!:` subject or a `BREAKING CHANGE:` footer) touching it in that
+ * range. Skipped when no release tag is reachable (shallow clone). MONOMIND_ALLOW_MAJOR_BUMP=1 skips it.
+ *
  * ## Escape hatch
  *
  * MONOMIND_ALLOW_STALE_PACKAGES=1 skips the check, for the case where a
@@ -53,9 +62,9 @@ const RELEASE_VERSIONED = new Set(['monomind', '@monoes/monomindcli']);
 /** Every non-private package under packages/, found rather than listed, so a
  *  new package is covered the day it is added. The umbrella at the repo root
  *  is left to check-publish-versions.mjs, which owns the release version. */
-function publishablePackages() {
+function publishablePackages(root = repoRoot) {
   const out = [];
-  const scopes = join(repoRoot, 'packages');
+  const scopes = join(root, 'packages');
   for (const scope of readdirSync(scopes, { withFileTypes: true })) {
     if (!scope.isDirectory()) continue;
     const scopeDir = join(scopes, scope.name);
@@ -72,7 +81,7 @@ function publishablePackages() {
       const pkg = JSON.parse(readFileSync(file, 'utf8'));
       if (pkg.private || !pkg.name || !pkg.version) continue;
       if (RELEASE_VERSIONED.has(pkg.name)) continue;
-      out.push({ ...pkg, dir: dir.slice(repoRoot.length + 1) });
+      out.push({ ...pkg, dir: dir.slice(root.length + 1) });
     }
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
@@ -175,6 +184,74 @@ export function formatStaleEntry({ pkg, since, changes }) {
   return lines.join('\n');
 }
 
+const gitIn = (root, ...args) =>
+  execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+
+const majorOf = (version) => Number.parseInt(String(version).split('.')[0], 10);
+
+/** The problem text for one package, or null: a MAJOR version that rose without a breaking commit. */
+export function bumpMagnitudeProblem({ name, from, to, breaking }) {
+  if (!(majorOf(to) > majorOf(from)) || breaking) return null;
+  return `${name}: ${from} -> ${to} raises the major version, but no commit since the last release is marked breaking`;
+}
+
+/** The newest release tag that is an ancestor of HEAD and not HEAD itself, or null. */
+function lastReleaseTag(root) {
+  try {
+    const head = gitIn(root, 'rev-parse', 'HEAD').trim();
+    for (const tag of gitIn(
+      root,
+      'tag',
+      '--list',
+      'v[0-9]*',
+      '--merged',
+      'HEAD',
+      '--sort=-v:refname',
+    )
+      .split('\n')
+      .filter(Boolean)) {
+      if (gitIn(root, 'rev-parse', `${tag}^{commit}`).trim() !== head) return tag;
+    }
+  } catch {
+    /* not a git checkout */
+  }
+  return null;
+}
+
+/** Is a commit since `tag` that touches `dir` marked as breaking? */
+function breakingSince(root, tag, dir) {
+  const log = gitIn(root, 'log', '--format=%s%n%b%x00', `${tag}..HEAD`, '--', dir);
+  return log
+    .split('\0')
+    .some(
+      (c) =>
+        /^[a-z]+(\([^)]*\))?!:/m.test(c.split('\n')[0] ?? '') || /^BREAKING[ -]CHANGE:/m.test(c),
+    );
+}
+
+/** Sub-packages whose major version rose since the last release tag without a breaking commit. */
+export function majorBumpsSinceLastRelease(root = repoRoot) {
+  const baseTag = lastReleaseTag(root);
+  if (!baseTag) return { baseTag: null, problems: [] };
+  const problems = [];
+  for (const pkg of publishablePackages(root)) {
+    let from;
+    try {
+      from = JSON.parse(gitIn(root, 'show', `${baseTag}:${pkg.dir}/package.json`)).version;
+    } catch {
+      continue; // not in the last release: a new package
+    }
+    const problem = bumpMagnitudeProblem({
+      name: pkg.name,
+      from,
+      to: pkg.version,
+      breaking: breakingSince(root, baseTag, pkg.dir),
+    });
+    if (problem) problems.push(problem);
+  }
+  return { baseTag, problems };
+}
+
 function main() {
   if (process.env.MONOMIND_ALLOW_STALE_PACKAGES === '1') {
     console.log('✓ package bump check skipped (MONOMIND_ALLOW_STALE_PACKAGES=1)');
@@ -204,6 +281,21 @@ function main() {
         '  If a change genuinely ships nothing, set MONOMIND_ALLOW_STALE_PACKAGES=1.\n',
     );
     process.exit(1);
+  }
+
+  if (process.env.MONOMIND_ALLOW_MAJOR_BUMP !== '1') {
+    const { baseTag, problems } = majorBumpsSinceLastRelease();
+    if (problems.length) {
+      console.error(`\n✗ publish blocked: a sub-package jumped a major version since ${baseTag}\n`);
+      for (const p of problems) console.error(`    ${p}`);
+      console.error(
+        '\n  Each sub-package keeps its OWN semver line: only monomind and @monoes/monomindcli take the\n' +
+          '  release number. Bump a sub-package by its own change (patch/minor), and use a major only with a\n' +
+          '  breaking commit (`type(scope)!:` or a `BREAKING CHANGE:` footer). A published version cannot be\n' +
+          '  taken back (#636). If a major is intended, set MONOMIND_ALLOW_MAJOR_BUMP=1.\n',
+      );
+      process.exit(1);
+    }
   }
 
   console.log(

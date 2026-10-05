@@ -294,6 +294,22 @@ with the Environment prefix.
   FIRST line of PREFLIGHT.md, in REPORT.md's warnings and in the
   `org_complete` summary: `VERSION: task named X, npm already has Y, releasing
   Z`. It is not an error and not a question for the human.
+- WHO TAKES THE RELEASE NUMBER (release-captain, in every PREP brief; #636). VERSION
+  goes into exactly two packages: root `monomind` and `@monoes/monomindcli`.
+  Every OTHER publishable package (`@monoes/*`, `monofence-ai`) keeps its own
+  semver line and is bumped only by what changed in it: a patch (or minor)
+  step from its current version when its non-test source changed since the last
+  release, nothing otherwise. Never brief "bump every publishable package.json
+  to VERSION": in 2.24.0 that jumped eight packages by a major (monofence-ai
+  1.0.7 -> 2.24.0, monobrowse 1.0.30 -> 2.24.0, ...), it cannot be unpublished,
+  and every gate passed because `check:versions` only asked that versions moved.
+  `check-package-bumps.mjs` now blocks a sub-package whose MAJOR rose since the
+  last release tag unless a commit touching it is marked breaking
+  (`type(scope)!:` or a `BREAKING CHANGE:` footer). Treat that failure as a
+  mis-briefed PREP, fix the versions, and do not set MONOMIND_ALLOW_MAJOR_BUMP
+  yourself. If a bumped package has a first-use pin in
+  `packages/@monomind/cli/src/utils/optional-deps*.ts` (monofence-ai, the SDK),
+  its pin, lock entry and code hashes move in the same commit.
 - TAG CHAIN (release-captain, at SETUP, after publisher's `fetch origin --tags`):
   `<previous>` is the version X of the last `chore(release): publish X` commit
   C reachable from the target (`git -C ORG_ROOT log -1 --format='%H %s'
