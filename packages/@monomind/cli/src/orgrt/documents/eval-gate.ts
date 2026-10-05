@@ -29,13 +29,22 @@ export function evalGateRefusal(name: string): string {
   );
 }
 
-/** Throws unless `def` is off the sections surface or the caller passed the gate. */
+/** A sections org that still declares `run_config.experimental: "eval"`: the only kind the eval gate
+ *  restricts. Since general availability a sections org without it starts like any other org. */
+export function isEvalMode(def: { sections?: unknown; run_config?: unknown } | undefined): boolean {
+  return (
+    sectionsSurface(def).enabled &&
+    (def?.run_config as { experimental?: unknown } | undefined)?.experimental === 'eval'
+  );
+}
+
+/** Throws unless `def` is not an eval-mode org or the caller passed the gate. */
 export function assertEvalGate(
-  def: { sections?: unknown },
+  def: { sections?: unknown; run_config?: unknown },
   name: string,
   options: EvalGateOptions | undefined,
 ): void {
-  if (!sectionsSurface(def).enabled) return;
+  if (!isEvalMode(def as { sections?: unknown; run_config?: unknown })) return;
   if (options?.evalGate === true) return;
   throw new Error(evalGateRefusal(name));
 }
@@ -46,7 +55,7 @@ export function assertEvalGate(
 export function sectionsOrgRefusal(orgsDir: string, name: string): string | undefined {
   try {
     const raw = JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8'));
-    return sectionsSurface(raw).enabled ? evalGateRefusal(name) : undefined;
+    return isEvalMode(raw) ? evalGateRefusal(name) : undefined;
   } catch {
     return undefined;
   }

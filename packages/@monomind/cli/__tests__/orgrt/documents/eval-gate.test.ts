@@ -10,7 +10,9 @@ import {
   EVAL_BOSS_CRASH_CLOSED_BY,
   evalGateFor,
   evalGateRefusal,
+  sectionsOrgRefusal,
 } from '../../../src/orgrt/documents/eval-gate.js';
+import { setHostProbes } from '../../../src/orgrt/documents/preflight.js';
 import { sectionsRaw } from '../support/sections-defs.js';
 
 const NO_SANDBOX = { sandbox: { mode: 'off' } };
@@ -164,5 +166,40 @@ describe('boss crash', () => {
     const running = await d.startOrg('legacy-org');
     await d.stopOrg('legacy-org', { closedBy: 'org-complete' });
     expect(running.busEvents().find((e) => e.reason === 'org-stopped')?.data?.closedBy).toBe('org-complete');
+  });
+});
+
+describe('general availability: a sections org without run_config.experimental', () => {
+  const ga = () => sectionsRaw((r) => delete r.run_config.experimental);
+  afterEach(() => setHostProbes(undefined));
+
+  it('passes assertEvalGate without the gate; an eval-mode org still needs it', () => {
+    expect(() => assertEvalGate(ga(), 'sec-org', undefined)).not.toThrow();
+    expect(() => assertEvalGate(sectionsRaw(), 'sec-org', undefined)).toThrow(evalGateRefusal('sec-org'));
+  });
+
+  it('org run refuses an eval-mode definition file but not a general one', () => {
+    writeFileSync(join(root, '.monomind/orgs/ga-org.json'), JSON.stringify({ ...ga(), name: 'ga-org' }));
+    writeFileSync(join(root, '.monomind/orgs/ev-org.json'), JSON.stringify({ ...sectionsRaw(), name: 'ev-org' }));
+    expect(sectionsOrgRefusal(join(root, '.monomind/orgs'), 'ga-org')).toBeUndefined();
+    expect(sectionsOrgRefusal(join(root, '.monomind/orgs'), 'ev-org')).toMatch(/eval harness/);
+  });
+
+  it('starts through the ordinary path on a protected host, and on an unprotected one is refused by the preflight', async () => {
+    setHostProbes({ mask: { available: true }, sandbox: { available: true } });
+    const d = mk(ga());
+    await d.startOrg('sec-org');
+    expect(d.getOrg('sec-org')).toBeDefined();
+    await d.stopOrg('sec-org');
+    setHostProbes({ mask: { available: false, reason: 'none' }, sandbox: { available: true } });
+    await expect(d.startOrg('sec-org')).rejects.toThrow(/authority mask/);
+  });
+
+  it('a crashed boss is restarted like any org (only eval mode ends the attempt)', async () => {
+    setHostProbes({ mask: { available: true }, sandbox: { available: true } });
+    const d = mk(ga());
+    await d.startOrg('sec-org');
+    d.scheduleBossRestart('sec-org');
+    expect(d.restarting.has('sec-org')).toBe(true);
   });
 });

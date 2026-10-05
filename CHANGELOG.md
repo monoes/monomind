@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Changed
+
+- **Org sections are generally available.** A sections org no longer needs `run_config.experimental: "eval"`, and `org run`, `org serve`, resume and role restarts start it like any org. An org that still declares `experimental: "eval"` keeps the eval-harness-only start and the no-restart rule. The release build behind this: an OS-held single-daemon lock per org root (a network filesystem is refused), per-recipient mail digests that are immutable, hash-journalled and unreadable to other roles, authenticated task-routing envelopes, per-role private copies of Claude's native transcripts, a host preflight (authority mask, SDK sandbox, copy inventory) on every start, resume and role replacement, and an adversarial probe suite with a mutation check. Only Claude roles have a copy-inventory entry; other runtimes are refused in a non-eval sections org until they get one.
+
 ## [2.23.0] — 2026-10-04
 
 ### Added

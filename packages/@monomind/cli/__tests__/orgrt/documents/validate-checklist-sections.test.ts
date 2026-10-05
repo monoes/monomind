@@ -85,7 +85,7 @@ describe('surface on: the four keys are accepted, nothing else is relaxed', () =
 
   it.each([
     ['requires', (r: Record<string, any>) => delete r.requires, 'requires: a sections org must declare'],
-    ['experimental', (r: Record<string, any>) => delete r.run_config.experimental, 'run_config.experimental: a sections org must set "eval"'],
+    ['experimental', (r: Record<string, any>) => (r.run_config.experimental = 'beta'), 'run_config.experimental: must be "eval" or absent'],
     ['completion', (r: Record<string, any>) => (r.run_config.completion = 'boss'), 'run_config.completion: a sections org must set'],
     ['documents', (r: Record<string, any>) => delete r.documents, 'documents: a sections org must declare a documents map'],
     ['an undeclared type', (r: Record<string, any>) => r.sections.development.consumes.push('plans'), 'type "plans" is not declared'],

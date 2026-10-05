@@ -6,8 +6,7 @@ import { holdTasksForBudget, spawnClosedDetail } from './budget-closure.js';
 import { pushMessage } from './cross-org.js';
 import { activeRoleCount, OrgDaemon, type RunningOrg } from './daemon.js';
 import { dispatchReadyTasks, queueDispatch } from './decisions.js';
-import { EVAL_BOSS_CRASH_CLOSED_BY } from './documents/eval-gate.js';
-import { sectionsSurface } from './documents/surface.js';
+import { EVAL_BOSS_CRASH_CLOSED_BY, isEvalMode } from './documents/eval-gate.js';
 import { isEndpointRole } from './endpoint-roles.js';
 import { newMessageId, peekInbox, queueMessage, takeQueued } from './inbox.js';
 import type { OrgRole } from './types.js';
@@ -103,7 +102,7 @@ export function scheduleBossRestart(daemon: OrgDaemon, name: string): void {
   // start the trial again outside the harness). The crash ends the attempt as
   // a failure; stopping it keeps `org run` from waiting on a dead boss.
   const evalRun = daemon.orgs.get(name);
-  if (evalRun && sectionsSurface(evalRun.def).enabled) {
+  if (evalRun && isEvalMode(evalRun.def)) {
     evalRun.bus.emit({
       type: 'audit',
       reason: EVAL_BOSS_CRASH_CLOSED_BY,
