@@ -23,6 +23,7 @@ import { acquireDaemonLock } from './daemon-lock.js';
 import { activeRoleCount, type RunningOrg } from './daemon-types.js';
 import { RUNTIME_SENDER } from './documents/deliver.js';
 import { assertEvalGate } from './documents/eval-gate.js';
+import { assertHostPreflight } from './documents/preflight.js';
 import { type DocumentsRuntime, openDocumentsRuntime } from './documents/runtime.js';
 import { bindSectionBudget } from './documents/section-budget-run.js';
 import { sectionsSurface } from './documents/surface.js';
@@ -100,6 +101,8 @@ export async function prepareOrgStart(
   pinInstructionDigests(def, digests);
   // Sections spec 9.2: a sections org starts only through the eval harness.
   assertEvalGate(def, name, options);
+  // GA row R6: the host probes validation cannot run, before a lock or a session exists.
+  assertHostPreflight(def, name, options?.resume ? 'resume' : 'start');
   // GA row R1: a sections org has one OS-held owner per root. Held until the org
   // stops (stopOrg) or this start fails (startOrg); the OS drops it on a crash.
   if (sectionsSurface(def).enabled) {

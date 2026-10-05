@@ -3,6 +3,8 @@
 import { holdReplacedRoleForBudget, orgCeilingDetail } from './budget-closure.js';
 import type { OrgDaemon } from './daemon.js';
 import type { AgentRuntime } from './daemon-types.js';
+import { hostPreflight } from './documents/preflight.js';
+import { sectionsSurface } from './documents/surface.js';
 import { resolveRoleProvider } from './provider.js';
 import {
   buildRespawnReceipt,
@@ -123,6 +125,25 @@ export async function respawnRole(
   });
   const budgetTokens = input.budgetTokens ?? computeReplacementBudget(running.def, input.roleId);
 
+  // GA row R6: a sections org replaces a role under its same effective configuration,
+  // and only on a host that passes the sections probes.
+  if (sectionsSurface(running.def).enabled) {
+    if (
+      input.runtime !== undefined ||
+      input.model !== undefined ||
+      input.providerName !== undefined
+    )
+      return buildRespawnReceipt(slot, maxRespawns, false, {
+        roleId: input.roleId,
+        error: `role "${input.roleId}" belongs to a sections org: a replacement keeps its effective configuration, and a runtime, model or provider change needs a stop and restart`,
+      });
+    const pf = hostPreflight(running.def);
+    if (!pf.ok)
+      return buildRespawnReceipt(slot, maxRespawns, false, {
+        roleId: input.roleId,
+        error: `preflight failed: ${pf.refusals.join('; ')}`,
+      });
+  }
   // Step 4: preflight — must not mutate the old runtime.
   try {
     resolveRoleProvider(candidateRole, daemon.root);
