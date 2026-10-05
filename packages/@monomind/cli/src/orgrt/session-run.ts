@@ -1,7 +1,6 @@
 // packages/@monomind/cli/src/orgrt/session-run.ts
 // Extracted from session.ts — one bounded runner session for a role (runOneSession).
 
-import { mkdirSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import type { AgentRunner } from './agent-runner.js';
 import { ClaudeAgentRunner, defaultClaudeRunner } from './agent-runner.js';
@@ -9,10 +8,7 @@ import { ensureAuthorityDirs } from './authority-mask.js';
 import { appendContextCall } from './context-log.js';
 import { resolveRoleCostTier } from './cost-tier.js';
 import type { CumulativeMeter } from './cumulative-meter.js';
-import { ensureNativeSources, nativeBinds, runnerRootFor } from './documents/copy-inventory.js';
-import { envelopeDirFor, loadEnvelopeKey } from './documents/envelope.js';
-import { ensureMailDirs, mailRootFor, otherMailDirs } from './documents/mail-isolation.js';
-import { sectionsSurface } from './documents/surface.js';
+import { sectionsRoleProtection } from './documents/role-protection.js';
 import { effectiveRole } from './effective-role-policy.js';
 import { roleExecMask } from './exec-deny.js';
 import type { StreamOptions } from './mailbox.js';
@@ -187,20 +183,15 @@ export async function runOneSession(
     // resolveRoleGitEnforcement/roleAuthorityMask at all, regardless of its
     // own (irrelevant) policy.git value. Every other role's enforcement is
     // built exactly as before this issue.
-    // GA row R3: a sections org's other roles' mail digests are unreadable here.
-    if (opts.orgDir) ensureMailDirs(opts.def, opts.orgDir);
-    // GA row R2: the envelope key is unreadable and unwritable to every role.
-    const envelopeDir =
-      opts.orgDir && sectionsSurface(opts.def).enabled
-        ? (loadEnvelopeKey(opts.orgDir),
-          mkdirSync(runnerRootFor(opts.orgDir), { recursive: true }),
-          [envelopeDirFor(opts.orgDir), runnerRootFor(opts.orgDir)])
-        : [];
-    const mailDeny = opts.orgDir
-      ? [...otherMailDirs(opts.def, opts.orgDir, role.id), ...envelopeDir]
-      : [];
-    const mailRoot =
-      opts.orgDir && mailDeny.length ? [mailRootFor(opts.orgDir), ...envelopeDir] : [];
+    // GA rows R2 to R5: what a sections org withholds from this role's runner.
+    const protection = sectionsRoleProtection({
+      def: opts.def,
+      orgDir: opts.orgDir,
+      roleId: role.id,
+      runtime: runtimeKey,
+      home: homedir(),
+      env: process.env,
+    });
     const gitEnforcement =
       resolvedAccess.access === 'full'
         ? { env: {} as Record<string, string> }
@@ -210,8 +201,8 @@ export async function runOneSession(
             cwd,
             orgRoot: opts.orgRoot,
             orgDir: opts.orgDir,
-            denyReadDirs: mailDeny,
-            denyWriteDirs: mailRoot,
+            denyReadDirs: protection.denyReadDirs,
+            denyWriteDirs: protection.denyWriteDirs,
             run: opts.run,
             bus,
             claudeRuntime: runner instanceof ClaudeAgentRunner,
@@ -250,14 +241,9 @@ export async function runOneSession(
             roleId: role.id,
             denyExec: role.policy?.sandbox?.denyExec,
             denyRead: role.policy?.sandbox?.denyRead,
-            bestEffortDenyRead: mailDeny,
-            bestEffortReadOnly: mailRoot,
-            // GA row R5: this role's runner writes its native copies into a private directory.
-            bestEffortBinds: opts.orgDir
-              ? ensureNativeSources(
-                  nativeBinds(opts.def, opts.orgDir, role.id, runtimeKey, homedir(), process.env),
-                )
-              : [],
+            bestEffortDenyRead: protection.bestEffortDenyRead,
+            bestEffortReadOnly: protection.bestEffortReadOnly,
+            bestEffortBinds: protection.bestEffortBinds,
             homeWriteAllow: role.policy?.sandbox?.homeWriteAllow,
             writableRoots: [
               cwd,
