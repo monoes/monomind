@@ -7,6 +7,11 @@
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { defaultOperatorDir } from '../orgrt/broker.js';
+import {
+  operatorDirBlockedReason,
+  operatorDirProtectedMessage,
+} from '../orgrt/operator-dir-guard.js';
 import {
   instructionsDigests,
   orgHashMismatchMessage,
@@ -97,6 +102,15 @@ export const signAction = async (input: CommandContext): Promise<CommandResult> 
       ),
     );
     return { success: false, message: `refused: role context (${marker})` };
+  }
+  // #643: a role's sandbox hides the operator dir on purpose; refuse before
+  // anything is written (an empty tmpfs there would swallow the write).
+  const dir = defaultOperatorDir();
+  const blocked = operatorDirBlockedReason(dir);
+  if (blocked) {
+    const message = `org sign: ${operatorDirProtectedMessage(dir, blocked)}`;
+    log(output.error(message));
+    return { success: false, message, exitCode: 1 };
   }
   const where = resolveSignRoot(input);
   if ('error' in where) return { success: false, message: where.error, exitCode: 2 };
@@ -211,6 +225,10 @@ export async function ensureOrgSignedForRun(
     }
   }
   log(output.error(check.message));
+  // #643: from a role the signature cannot be there, and the dir is hidden on purpose.
+  const dir = defaultOperatorDir();
+  const hidden = operatorDirBlockedReason(dir) ?? (roleContextMarker() ? 'org role' : undefined);
+  if (hidden) log(output.error(operatorDirProtectedMessage(dir, hidden)));
   return { success: false, message: `org ${name} is not signed (${check.reason})`, exitCode: 1 };
 }
 

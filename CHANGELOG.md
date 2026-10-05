@@ -2,6 +2,12 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Fixed
+
+- **`org sign` from an org role now refuses plainly instead of appearing to write to the operator directory (#643).** The operator-credential directory (`~/.monomind/orgrt-operator`) is hidden from every role sandbox on purpose, so a role never signs or reads the key. Where the sandbox mounts an empty tmpfs over it, `org sign` seemed to succeed and the signature vanished, so `org run` then failed. `org sign` now checks first and refuses before writing, saying the directory is protected from org roles and only the operator signs, and `org run` explains a missing signature the same way. Documented in `doc/commands/org.md`. The protection is unchanged.
+
 ## [2.24.1] — 2026-10-05
 
 ### Fixed

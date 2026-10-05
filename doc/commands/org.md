@@ -962,6 +962,17 @@ you run an org from) is signed separately.
 `/mastermind:createorg` runs `org sign` without `--yes`, shows you the review and asks you to sign
 in your own terminal. `org create` signs the org it writes.
 
+**Why a role cannot sign, and what it sees (#643):** the operator directory is hidden from every
+role sandbox on purpose, for reads and writes alike, because whoever can read the key can sign.
+This is the rule, not a missing grant, and no role tier (QA included) is given access to it.
+Where the sandbox mounts an empty tmpfs over the directory, a write there would appear to succeed
+and then vanish with the command, so `sign` checks first: when the directory is hidden or
+unreadable it refuses before writing anything, with `the operator-credential directory (…) is
+protected from org roles … only the operator signs org definitions`. `org run` in a role, whose
+org has no signature visible to it, prints the same explanation after its usual `org sign` hint.
+A role that needs a live org (a QA drill, say) runs one the operator signed beforehand;
+`org sign <org> --check` shows whether it is.
+
 **Migration.** Orgs made before this release have no signature. `org run` on a TTY shows the
 full review and offers a one-time sign for such an org, and signs the instructions files it
 read for that review. A changed or unverifiable signature, or any run without
