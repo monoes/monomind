@@ -3,13 +3,12 @@
 // Role text for the Phase 4 keys (org sections plan P4.11): a few compact lines appended to the P3.12 block of
 // documents/guidance.ts, only for a role of an org that sets a Phase 4 key. A pure function of the definition and
 // the role: the single writer (`writes`), the section budgets (`budget`, `run_config.budget_usd`), the rework cap
-// (`max_rework_rounds`) and the declared `loops`. An org that sets none of them gets an empty list, so its prompt
+// (`max_rework_rounds`). An org that sets none of them gets an empty list, so its prompt
 // stays byte for byte what P3.12 pinned. Every value comes from the definition; nothing here names a fixture.
 import type { OrgDef } from '../types.js';
 import { isObject } from './definition-util.js';
 import { sectionLead } from './lead-rules.js';
-import { capsFromDef } from './loop-rounds.js';
-import { declaredLoops } from './loops.js';
+import { capsFromDef } from './rework.js';
 import { rootRoleId, sectionOf } from './routing.js';
 import { isPositiveUsd } from './section-budget.js';
 import { usd } from './section-budget-text.js';
@@ -54,8 +53,7 @@ export function usesPhase4Keys(def: OrgDef): boolean {
     writingSections(def as unknown as WriterDef).length > 0 ||
     allocations(def).length > 0 ||
     orgBudget(def) !== undefined ||
-    Object.keys(capsFromDef(def)).length > 0 ||
-    declaredLoops(def).length > 0
+    Object.keys(capsFromDef(def)).length > 0
   );
 }
 
@@ -138,26 +136,13 @@ function reworkLines(
           '; ',
         )}${more(capped.size)}; at the cap the thread is frozen and a revision is refused (REWORK_EXHAUSTED): stop, tell your lead, wait for the root.`,
     );
-  const mySection = section;
-  const loops = declaredLoops(def).filter(
-    (l) =>
-      mySection &&
-      l.between.includes(mySection) &&
-      [...ctx.produces, ...ctx.decides].some((t) => l.types.includes(t)),
-  );
-  for (const l of loops.slice(0, 2))
-    out.push(
-      `Loop with section ${shown(l.between.filter((s) => s !== mySection).map((s) => `"${s}"`))} (${shown(l.types)}): at most ${l.max_rounds} rounds. When spent, a further return is refused (LOOP_EXHAUSTED): stop and wait for the root.`,
-    );
-  if (loops.length > 2)
-    out.push(`${loops.length - 2} more loops are declared (org_doc_list shows the documents).`);
   if (out.length && !isRoot)
     out.push(
-      'The root decides an exhausted thread or loop; its decision ends it. Do not publish it again.',
+      'The root decides an exhausted thread; its decision ends it. Do not publish it again.',
     );
-  if (isRoot && (Object.keys(caps).length || declaredLoops(def).length))
+  if (isRoot && Object.keys(caps).length)
     out.push(
-      'A spent rework cap or loop reaches you as a notice ("rework exhausted", "loop exhausted") and you decide: accept the document yourself with org_doc_decide, raise the cap in the definition and reload it, or reassign the work. Your decision ends it.',
+      'A spent rework cap reaches you as a notice ("rework exhausted") and you decide: accept the document yourself with org_doc_decide, raise the cap in the definition and reload it, or reassign the work. Your decision ends it.',
     );
   return out;
 }

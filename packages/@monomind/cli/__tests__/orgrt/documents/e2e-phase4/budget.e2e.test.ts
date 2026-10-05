@@ -1,6 +1,6 @@
 // P4.12 scenario B: section budgets end to end in the real daemon. A scripted runner reports a USD cost per message
 // (`cost=<usd>`), so usage events drive everything with no model. development 30 (dev-lead 10, coder 20), qa 20
-// (qa-lead 20), root reserve 50 (boss 30, observer 20), org 110 after the raise. What is proved: the allocations are
+// (qa-lead 20), watch 20 (observer 20), root reserve 30 (boss 30), org 110 after the raise. What is proved: the allocations are
 // resolved at start; a role's own 80 percent warning also reaches its section lead; a section's 80 percent notice goes
 // to its lead and the root once; the role cap closes first and unchanged; a scripted overshoot closes the section (no
 // new assignment into it, its tasks held, its roles not woken); a reload that raises the allocation reopens it with the
@@ -17,7 +17,7 @@ const ALL = ['boss', 'dev-lead', 'coder', 'qa-lead', 'observer'];
 const CAPS: Record<string, number> = { boss: 30, 'dev-lead': 10, coder: 20, 'qa-lead': 20, observer: 20 };
 type Raw = Record<string, any>;
 
-/** The budget org (sections dev 30 and qa 20, reserve 50, org 100); `edit` and a respawn setup are applied. */
+/** The budget org (sections dev 30, qa 20 and watch 20, reserve 30, org 100); `edit` and a respawn setup are applied. */
 const org = (edit: (r: Raw) => void = () => {}): Raw => {
   const raw = phase4Org(KEY_SETS.budget);
   raw.name = 'budget-e2e';
@@ -25,7 +25,7 @@ const org = (edit: (r: Raw) => void = () => {}): Raw => {
   edit(raw);
   return raw;
 };
-/** development raised to 40: the root reserve must still hold boss and observer, so the org budget goes up too. */
+/** development raised to 40: the root reserve must still hold boss, so the org budget goes up too. */
 const raised = (r: Raw) => {
   r.sections.development.budget = { usd: 40 };
   r.run_config.budget_usd = 110;
@@ -50,8 +50,9 @@ describe('allocations resolved at start', () => {
     expect(status.sections.map((x: any) => [x.name, x.allocationUsd, x.roleCapSumUsd])).toEqual([
       ['development', 30, 30],
       ['qa', 20, 20],
+      ['watch', 20, 20],
     ]);
-    expect([status.reserve.allocationUsd, status.reserve.roleCapSumUsd, status.org.allocationUsd]).toEqual([50, 50, 100]);
+    expect([status.reserve.allocationUsd, status.reserve.roleCapSumUsd, status.org.allocationUsd]).toEqual([30, 30, 100]);
     const table = sectionBudgetLines(status).join('\n');
     expect(table).toContain('Section budgets (USD; individual soft stops):');
     expect(table).toContain('section development: spent $0.0000 of $30.00');
@@ -175,6 +176,7 @@ describe('the org allocation', () => {
   const orgOnly = (r: Raw) => {
     delete r.sections.development.budget;
     delete r.sections.qa.budget;
+    delete r.sections.watch.budget;
     r.run_config.budget_usd = 40;
     for (const role of r.roles) role.budget_usd = 10;
   };
@@ -184,10 +186,10 @@ describe('the org allocation', () => {
     await go('coder', 11, 11); // over its 10: closes on its own
     await go('qa-lead', 9, 9);
     await go('boss', 9, 9);
-    await go('observer', 3, 3); // 32 of 40
+    await go('observer', 3, 3); // 32 of 40 (observer leads section `watch`: told like the other leads)
     const warn = warningNotice({ kind: 'org', spentUsd: 32, allocationUsd: 40 });
-    expect(await waitFor(() => ['boss', 'dev-lead', 'qa-lead'].every((r) => runner.count(r, warn.subject) === 1))).toBe(true);
-    for (const id of ['coder', 'observer']) expect(runner.count(id, 'budget: the org at'), id).toBe(0);
+    expect(await waitFor(() => ['boss', 'dev-lead', 'qa-lead', 'observer'].every((r) => runner.count(r, warn.subject) === 1))).toBe(true);
+    expect(runner.count('coder', 'budget: the org at')).toBe(0);
 
     await go('dev-lead', 8, 8); // 40: the ceiling
     expect(await waitFor(() => running.sectionBudget!.closed.has('org'))).toBe(true);

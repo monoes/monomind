@@ -1,7 +1,7 @@
 // packages/@monomind/cli/__tests__/orgrt/support/section-budget-run-org.ts
 // Shared by the P4.6 tests: `CostRunner` of the P4.5 support that also records what each role was sent, so a test
 // can see the budget notices arrive. The org is `budgetedOrg`: research 30 (research-lead 10, researcher 20),
-// development 30 (dev-lead 10, coder 20), root reserve 40 (boss 20, observer 10), org 100.
+// development 30 (dev-lead 10, coder 20), watch 10 (observer 10), root reserve 40 (boss 20), org 110.
 import { rmSync } from 'node:fs';
 import { afterEach, expect } from 'vitest';
 import type { AgentMessage, AgentRunArgs, AgentRunner } from '../../../src/orgrt/agent-runner.js';

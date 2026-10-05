@@ -35,8 +35,12 @@ const DEFERRED_RUN_CONFIG = ['budget_usd', 'budget_mode', 'experimental'];
 const PASSTHROUGH_TOP_LEVEL = ['automations', 'autonomy'];
 const PASSTHROUGH_RUN_CONFIG = ['max_run'];
 /** The only deferred keys the sections surface relaxes (13.1.3, P3.1; `budget_usd` and
- *  `budget_mode` by P4.5, `loops` by P4.8), and only while `sectionsSurface(def).enabled`. */
-const RELAXED_TOP_LEVEL = ['sections', 'documents', 'requires', 'loops'];
+ *  `budget_mode` by P4.5), and only while `sectionsSurface(def).enabled`. */
+const RELAXED_TOP_LEVEL = ['sections', 'documents', 'requires'];
+/** `loops` was removed from the sections surface (off the surface it stays a deferred key): sections exchange
+ *  work only through documents. */
+const LOOPS_REMOVED =
+  '"loops": removed — sections exchange work only through documents; express a revise cycle with a consumer reject (the runtime relays it to the producer) and cap it with sections.<name>.max_rework_rounds — delete "loops" and move any max_rounds to max_rework_rounds of the producing section';
 const RELAXED_RUN_CONFIG = ['experimental', 'budget_usd', 'budget_mode'];
 
 /** Runtimes whose runners report tokens but no USD cost (spec A27, verified
@@ -96,7 +100,11 @@ export function checklistFindings(def: OrgDef): ChecklistFindings {
   const sectionsOn = sectionsSurface(raw).enabled;
   for (const k of DEFERRED_TOP_LEVEL)
     if (k in raw && !(sectionsOn && RELAXED_TOP_LEVEL.includes(k)))
-      errors.push(`"${k}" is not yet supported (org sections are designed, not built) — remove it`);
+      errors.push(
+        k === 'loops' && sectionsOn
+          ? LOOPS_REMOVED
+          : `"${k}" is not yet supported (org sections are designed, not built) — remove it`,
+      );
   for (const k of DEFERRED_RUN_CONFIG)
     if (k in rc && !(sectionsOn && RELAXED_RUN_CONFIG.includes(k)))
       errors.push(`run_config.${k} is not yet supported — remove it`);

@@ -47,18 +47,6 @@
       "published v1 by qa-lead",
       "read v1 by dev-lead (review)",
       "decided v1 accept by dev-lead -> accepted"
-    ],
-    "build-2": [
-      "published v1 by coder",
-      "read v1 by qa-lead (review)",
-      "decided v1 reject by qa-lead -> rejected: the fix breaks the parser",
-      "read v1 by boss (audit)",
-      "decided v1 accept by boss -> accepted (override)"
-    ],
-    "report-2": [
-      "published v1 by qa-lead",
-      "read v1 by dev-lead (review)",
-      "decided v1 accept by dev-lead -> accepted"
     ]
   },
   "heads": {
@@ -67,12 +55,6 @@
       "v2:accepted"
     ],
     "report-1": [
-      "v1:accepted"
-    ],
-    "build-2": [
-      "v1:accepted"
-    ],
-    "report-2": [
       "v1:accepted"
     ]
   },
@@ -95,20 +77,14 @@
       "step": "republish a spent thread",
       "code": "REWORK_EXHAUSTED",
       "guard_code": "REWORK_EXHAUSTED"
-    },
-    {
-      "step": "a third return of the loop",
-      "code": "LOOP_EXHAUSTED",
-      "guard_code": "LOOP_EXHAUSTED"
     }
   ],
   "notices": {
     "delivered": {
-      "publish-notice": 5,
-      "relay": 6,
+      "publish-notice": 3,
+      "relay": 4,
       "rework-exhausted": 3,
-      "all-available": 1,
-      "loop-exhausted": 3
+      "all-available": 1
     },
     "failed": 0,
     "again": 0
@@ -152,41 +128,6 @@
       "frozen": false
     }
   ],
-  "loops": [
-    {
-      "loop": 0,
-      "origin": "development",
-      "first": "build-1@v1",
-      "versions": [
-        "build-1@v1",
-        "build-1@v2",
-        "report-1@v1",
-        "build-2@v1",
-        "report-2@v1"
-      ],
-      "rounds": 2,
-      "max_rounds": 2,
-      "exhausted": true,
-      "exhausted_seq": 12,
-      "settled": true,
-      "escalate": {
-        "to": "root",
-        "copy_leads_of": [
-          "development",
-          "qa"
-        ]
-      },
-      "between": [
-        "development",
-        "qa"
-      ],
-      "types": [
-        "build",
-        "report"
-      ],
-      "frozen": false
-    }
-  ],
   "told": {
     "boss": [
       "Org \"p4-combined\" started (run",
@@ -195,7 +136,6 @@
       "[budget] \"dev-lead\" has spent ",
       "budget: section \"development\" at 80 percent of its USD allocation",
       "budget: section \"development\" is closed at its USD allocation",
-      "loop exhausted: loops[0] (development, qa)",
       "rework exhausted: build-1 (qa)"
     ],
     "dev-lead": [
@@ -204,11 +144,8 @@
       "brief",
       "budget: section \"development\" at 80 percent of its USD allocation",
       "document ready: report-1 v1",
-      "document ready: report-2 v1",
       "document rejected: build-1 v1 (copy)",
       "document rejected: build-1 v2 (copy)",
-      "document rejected: build-2 v1 (copy)",
-      "loop exhausted: loops[0] (development, qa) (copy)",
       "rework exhausted: build-1 (qa) (copy)",
       "work cost=1",
       "work cost=7"
@@ -217,7 +154,6 @@
       "brief",
       "document rejected: build-1 v1",
       "document rejected: build-1 v2",
-      "document rejected: build-2 v1",
       "work cost=17",
       "work cost=5"
     ],
@@ -225,8 +161,6 @@
       "brief",
       "document ready: build-1 v1",
       "document ready: build-1 v2",
-      "document ready: build-2 v1",
-      "loop exhausted: loops[0] (development, qa) (copy)",
       "rework exhausted: build-1 (qa) (copy)"
     ],
     "observer": [
@@ -249,13 +183,11 @@
     "development/build/",
     "development/build/build-1@v1.json",
     "development/build/build-1@v2.json",
-    "development/build/build-2@v1.json",
     "events.jsonl",
     "notices.jsonl",
     "part-reads.jsonl",
     "qa/",
     "qa/report/",
-    "qa/report/report-1@v1.json",
-    "qa/report/report-2@v1.json"
+    "qa/report/report-1@v1.json"
   ]
 }

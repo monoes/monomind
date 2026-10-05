@@ -1,6 +1,6 @@
-// P4.12: the trail of the combined Phase 4 scenario (writer, budgets, rework, loop on one org) as a small, order-stable
+// P4.12: the trail of the combined Phase 4 scenario (writer, budgets, rework on one org) as a small, order-stable
 // record: what the store committed per document, the notices both journals delivered, who was told what, the refusals,
-// the budget state, the rework and loop reports and the engines each role runs. Events of different documents interleave
+// the budget state, the rework report and the engines each role runs. Events of different documents interleave
 // by timing, so the record is grouped per document and everything else is a sorted or counted view; volatile values go
 // through the P3.0 normaliser.
 //
@@ -55,7 +55,7 @@ function storeLine(e: any): string {
   }
 }
 
-const kindOfKey = (k: string): string => ({ p: 'publish-notice', r: 'relay', x: 'rework-exhausted', l: 'loop-exhausted', a: 'all-available' } as Record<string, string>)[k.split(':')[0]] ?? k.split(':')[0];
+const kindOfKey = (k: string): string => ({ p: 'publish-notice', r: 'relay', x: 'rework-exhausted', a: 'all-available' } as Record<string, string>)[k.split(':')[0]] ?? k.split(':')[0];
 
 export interface Trail4Input {
   root: string;
@@ -99,7 +99,6 @@ export function trail4Of(i: Trail4Input): Record<string, unknown> {
       spent: Object.fromEntries(i.roles.map((r) => [r, running.agents.get(r)!.metrics.costUsd])),
     },
     rework: docs.reworkReport(),
-    loops: docs.loopReport(),
     told,
     busReasons: reasons,
     files: fileTree(docs.dir),

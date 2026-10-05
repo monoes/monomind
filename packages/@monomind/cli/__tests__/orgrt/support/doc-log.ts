@@ -1,7 +1,6 @@
-// packages/@monomind/cli/__tests__/orgrt/support/loop-log.ts
-// P4.3 test support: builds a DocState through the real reducer (applyEvent) from a short script, so every
-// state a loops test looks at is one the store could have committed. It also remembers each version's `inputs`,
-// which the derived state does not keep (the caller of lineageRounds passes them).
+// packages/@monomind/cli/__tests__/orgrt/support/doc-log.ts
+// Test support: builds a DocState through the real reducer (applyEvent) from a short script, so every
+// state a rework test looks at is one the store could have committed.
 import { applyEvent, emptyState } from '../../../src/orgrt/documents/state.js';
 import type { DocState } from '../../../src/orgrt/documents/state.js';
 import type { StoreEvent } from '../../../src/orgrt/documents/store-types.js';
@@ -12,14 +11,12 @@ export interface PublishArgs {
   consumers: string[];
   /** Revise this document id (supersedes its head); absent: a new document. */
   doc?: string;
-  inputs?: string[];
   by?: string;
 }
 
 export class Log {
   state: DocState = emptyState();
   events: StoreEvent[] = [];
-  inputs = new Map<string, string[]>();
 
   private push(e: Record<string, unknown>): void {
     const seq = this.state.seq + 1;
@@ -54,9 +51,7 @@ export class Log {
       ...(d ? { supersedes: d.versions.length } : {}),
       consumers: a.consumers,
     });
-    const ref = `${id}@v${version}`;
-    if (a.inputs) this.inputs.set(ref, a.inputs);
-    return ref;
+    return `${id}@v${version}`;
   }
 
   decide(ref: string, consumer: string, decision: 'accept' | 'reject'): void {
@@ -77,6 +72,4 @@ export class Log {
       waiting_on: [],
     });
   }
-
-  inputsOf = (ref: string): readonly string[] | undefined => this.inputs.get(ref);
 }

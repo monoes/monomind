@@ -55,16 +55,17 @@ const PROMPT_SHAS: Record<string, string> = {
   researcher: '59e3661988c552a365109e7d57740de83644f00329ad335e23e2a3502916d69d',
   'dev-lead': '0ae92334b81786e876153f3b8039ab1c9328e1c445529f6aaf87d0e84bfaeddf',
   boss: '413bcc92ff9b931d5d2b0f87ddcdcc63a8fce9576dbaf899b737e93cd2d26601',
-  observer: '030cd4788cb0cf4245929a643f905bce4e58af159722866289abb91c0f5630e5',
+  observer: '05c4b06b7bc389ec68ecc5fecb1494bb5b85fbd0da8d504fba9c5f740fefe80f', // sections-as-sub-orgs re-pin: the observer is in section `watch` (was 030cd478...)
 };
 // Byte SHAs of the committed sections-on fixtures (sha256 of the file text).
 const FIXTURE_FILE_SHAS: Record<string, string> = {
-  'sections-on/prompts.json': '999ce4c9f56323e665ce204813e106cd6cb682a49d40bf902760d6f886f76fab',
+  'sections-on/prompts.json': '4103233f03be1bb04da19e2232852714f8bdf2e625b4c4061cc431fbf746afd9', // re-pin: observer prompt (was 999ce4c9...)
   'sections-on/tool-descriptions.json': '96334ac88efa033af555b21785480117a097b1e6c49bc20c7ef7d91710c54d81',
   'sections-on/e2e-sweep-trail.json': 'a0fd259995b30578dadb2459b16aade92265d2161bf7c93efef810c25e48508d',
 };
 // Pin of the wide net (the sha of the fixture text).
-const FIXTURE_SHA = 'ae46775ec18a98f5407615ec3192e379c1f0d38cbb5fb938f704c92cf0b1bb93';
+// re-pin (was ae46775e...): the observer of the three Phase 3 orgs is in section `watch`
+const FIXTURE_SHA = '7b6da44974e23a77b1cc01646b42b7b88e85b0388e9505a06f5d77f872f0faab';
 
 // The same fixture org as documents-wiring.test.ts: the session options a role is given, as a plain object.
 const def = {

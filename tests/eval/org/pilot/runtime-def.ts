@@ -23,7 +23,7 @@ import type { DocContract } from './store.js';
 type Def = { roles: Record<string, any>[]; run_config?: Record<string, any> } & Record<string, any>;
 
 /** P4.13, the Phase 4 keys a pilot variant may carry when it runs on the runtime (optional, default OFF): per section
- *  `writes`, `budget` ({usd}) and `max_rework_rounds`, the org's `loops` and its `budget_usd`. They are copied into the
+ *  `writes`, `budget` ({usd}) and `max_rework_rounds`, and the org's `budget_usd`. They are copied into the
  *  generated sections definition exactly as given; the runtime's own definition checks decide whether they are valid. A trial
  *  that does not declare any gets the definition it always got. The harness has no Phase 4 behaviour, so this only exists on
  *  the runtime path (Phase 4 is runtime-only; see the migration notes). */
@@ -34,7 +34,6 @@ export interface Phase4Section {
 }
 export interface Phase4Input {
   sections?: Record<string, Phase4Section>;
-  loops?: Array<{ between: [string, string]; types: string[]; max_rounds: number }>;
   budget_usd?: number;
 }
 const SECTION_KEYS = ['writes', 'budget', 'max_rework_rounds'] as const;
@@ -84,8 +83,6 @@ function problemsOf(
   for (const name of Object.keys(phase4?.sections ?? {}))
     if (!trial.routing.sections[name])
       out.push(`phase4.sections.${name}: the routing map has no such section`);
-  if (phase4?.loops?.length && 'loops' in def)
-    out.push('the definition already has "loops": phase4.loops would replace it');
   if (phase4?.budget_usd !== undefined && def.run_config?.budget_usd !== undefined)
     out.push(
       'the definition already has run_config.budget_usd: phase4.budget_usd would replace it',
@@ -165,7 +162,6 @@ export function runtimeOrgDef<D extends Def>(
       experimental: 'eval',
       completion: { mode, protocol: 'sections-v1' },
     },
-    ...(o.phase4?.loops?.length ? { loops: structuredClone(o.phase4.loops) } : {}),
     sections,
     documents,
     roles,

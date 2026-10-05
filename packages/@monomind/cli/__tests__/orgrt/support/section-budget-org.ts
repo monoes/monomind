@@ -9,7 +9,7 @@ import { OrgDaemon } from '../../../src/orgrt/daemon.js';
 import { findingsOrg } from './doc-defs.js';
 
 /** The caps of `budgetedOrg`: research 30 (research-lead 10, researcher 20), development 30 (dev-lead 10, coder
- *  20), reserve 40 (boss 20, observer 10), org 100. */
+ *  20), watch 10 (observer 10), reserve 40 (boss 20), org 110. */
 export const CAPS: Record<string, number> = {
   boss: 20,
   observer: 10,
@@ -22,9 +22,10 @@ export const CAPS: Record<string, number> = {
 export function budgetedOrg(patch: (raw: Record<string, any>) => void = () => {}): Record<string, any> {
   const raw = findingsOrg();
   for (const r of raw.roles) r.budget_usd = CAPS[r.id];
-  raw.run_config.budget_usd = 100;
+  raw.run_config.budget_usd = 110;
   raw.sections.research.budget = { usd: 30 };
   raw.sections.development.budget = { usd: 30 };
+  raw.sections.watch.budget = { usd: 10 };
   patch(raw);
   return raw;
 }

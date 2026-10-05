@@ -85,13 +85,12 @@ const EXPECTED_STRUCTURE: Record<string, string[]> = {
 const EXPECTED_TEXT: Record<string, Record<string, number>> = {
   // The mutation cases of the P3.1 definition check (a writer pair, a bad writes value, a zero rework cap, max_depth, max_parallel).
   // P4.4 and P4.7 add their own test files here; they do not re-pin this one unless a message it checks changes.
-  [`${P}/documents/definition.test.ts`]: { max_rework_rounds: 2, parallelism: 2, writes: 4 },
-  // P4.3 (pure loops core): `loops` in literal definition fragments given to loopProblems, and the cap key in capsFromDef cases.
-  // Neither feeds validate or a run: nothing imports the loops files yet. P4.8 does not re-pin these.
-  [`${P}/documents/loops-rounds.test.ts`]: { max_rework_rounds: 5 },
-  [`${P}/documents/loops.test.ts`]: { loops: 3 },
-  // `loops` as a refused key: surface on, checklist.
-  [`${P}/documents/validate-checklist-sections.test.ts`]: { loops: 2 },
+  // Sections as isolated sub-orgs: its `loops` cases refuse the removed key and show a hand-off cycle needs no declaration.
+  [`${P}/documents/definition.test.ts`]: { loops: 2, max_rework_rounds: 2, parallelism: 2, writes: 4 },
+  // The cap key in the reworkThreads and capsFromDef cases (the lineage helpers moved from loop-rounds.ts into rework.ts).
+  [`${P}/documents/rework-threads.test.ts`]: { max_rework_rounds: 5 },
+  // `loops` as a refused key: surface on (the migration text), checklist.
+  [`${P}/documents/validate-checklist-sections.test.ts`]: { loops: 3 },
   // `loops` as a refused key: the sections-off checklist golden (a variant named "loops", frozen) and its test.
   [`${P}/fixtures/sections-off/checklist-findings.json`]: { loops: 1 },
   [`${P}/sections-off-golden.test.ts`]: { loops: 2 },
@@ -114,26 +113,23 @@ const EXPECTED_TEXT: Record<string, Record<string, number>> = {
   [`${P}/documents/rework.test.ts`]: { max_rework_rounds: 11 },
   // P4.10 reload guard: the classifier table names the structural keys (`writes`, `parallelism`, `loops`) and the live one
   // (`max_rework_rounds`); the daemon test reloads them on a running org.
-  [`${P}/documents/reload-guard.test.ts`]: { loops: 2, max_rework_rounds: 1, parallelism: 1, writes: 5 },
+  [`${P}/documents/reload-guard.test.ts`]: { loops: 1, max_rework_rounds: 1, parallelism: 1, writes: 5 },
   [`${P}/documents/reload-guard-daemon.test.ts`]: { max_rework_rounds: 2, writes: 2 },
-  // P4.8 loops wired: the dev and QA loop definition (`loops` set by the shared fixture) and the definition matrix that mutates it.
-  [`${P}/support/loop-defs.ts`]: { loops: 1 },
-  [`${P}/documents/loops-definition.test.ts`]: { loops: 2 },
   // P4.11 role text: the synthetic orgs of the Phase 4 guidance tests (one patch per key set).
-  [`${P}/support/phase4-guidance-defs.ts`]: { loops: 1, max_rework_rounds: 4, writes: 3 },
+  [`${P}/support/phase4-guidance-defs.ts`]: { max_rework_rounds: 4, writes: 3 },
   // P4.12 end-to-end scenarios (documents/e2e-phase4): the orgs come from the shared fixtures above; these files set the keys
   // themselves only to change a value (a cap, a scope, a refused edit), name them in the acceptance checklist, or mutate a
   // definition for a reload or a start that must be refused.
-  [`${P}/documents/e2e-phase4/index.e2e.test.ts`]: { loops: 2 },
+  [`${P}/documents/e2e-phase4/index.e2e.test.ts`]: { loops: 1 },
+  [`${P}/documents/e2e-phase4/isolation.e2e.test.ts`]: { loops: 3 },
   [`${P}/documents/e2e-phase4/lead-rights.e2e.test.ts`]: { max_rework_rounds: 1 },
-  [`${P}/documents/e2e-phase4/parity.e2e.test.ts`]: { loops: 1, max_rework_rounds: 1, parallelism: 1, writes: 1 },
+  [`${P}/documents/e2e-phase4/parity.e2e.test.ts`]: { max_rework_rounds: 1, parallelism: 1, writes: 1 },
   [`${P}/documents/e2e-phase4/reload-guard.e2e.test.ts`]: { max_rework_rounds: 2, writes: 2 },
   [`${P}/documents/e2e-phase4/rework.e2e.test.ts`]: { max_rework_rounds: 1 },
   [`${P}/documents/e2e-phase4/writer.e2e.test.ts`]: { writes: 4 },
   // P4.13 eval-tree parity: the runtime switch copies a variant's optional phase4 block (writes, max_rework_rounds, loops)
   // into the generated definition; its tests declare a synthetic variant (no committed manifest does) and name the keys.
-  'tests/eval/org/pilot/runtime-def.ts': { loops: 2 },
-  'tests/eval/org/pilot/runtime-def-phase4.test.ts': { loops: 5, max_rework_rounds: 4, writes: 2 },
+  'tests/eval/org/pilot/runtime-def-phase4.test.ts': { max_rework_rounds: 4, writes: 2 },
   'tests/eval/org/pilot/handoff-runtime-differences.test.ts': { max_rework_rounds: 1 },
 };
 

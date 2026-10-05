@@ -72,9 +72,12 @@ describe('surface on: the four keys are accepted, nothing else is relaxed', () =
     expect(checklistErrorsForRaw(sectionsRaw())).toEqual([]);
   });
 
-  // EDITED BY P4.8: `loops` is relaxed on the surface (the surface-off refusal is pinned above, unchanged).
-  it('loops is accepted on the surface', () => {
-    expect(on((r) => (r.loops = [])).errors).toEqual([]);
+  // `loops` was removed (sections exchange work only through documents): off the surface it stays a deferred key
+  // (pinned above, unchanged); on the surface it is refused with the migration text.
+  it('loops is refused on the surface with the migration text', () => {
+    expect(on((r) => (r.loops = [])).errors).toEqual([
+      expect.stringMatching(/^"loops": removed — sections exchange work only through documents; .*max_rework_rounds/),
+    ]);
   });
 
   it('the relaxed keys are not reported as not yet supported', () => {
@@ -84,9 +87,8 @@ describe('surface on: the four keys are accepted, nothing else is relaxed', () =
   });
 
   it.each([
-    ['requires', (r: Record<string, any>) => delete r.requires, 'requires: a sections org must declare'],
+    ['requires', (r: Record<string, any>) => (r.requires = { sections: 3 }), 'requires.sections: this runtime supports version 1 only'],
     ['experimental', (r: Record<string, any>) => (r.run_config.experimental = 'beta'), 'run_config.experimental: must be "eval" or absent'],
-    ['completion', (r: Record<string, any>) => (r.run_config.completion = 'boss'), 'run_config.completion: a sections org must set'],
     ['documents', (r: Record<string, any>) => delete r.documents, 'documents: a sections org must declare a documents map'],
     ['an undeclared type', (r: Record<string, any>) => r.sections.development.consumes.push('plans'), 'type "plans" is not declared'],
     ['schedule on an eval-mode org', (r: Record<string, any>) => (r.schedule = 60), 'schedule: an eval-mode sections org'],

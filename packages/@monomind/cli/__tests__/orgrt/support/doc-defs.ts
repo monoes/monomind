@@ -16,10 +16,11 @@ export const role = (id: string, reportsTo: string | null) => ({
 });
 
 /** research (research-lead, researcher) publishes findings; development (dev-lead, coder) and qa (qa-lead)
- *  consume it; `observer` is in no section. `boss` is the root. */
+ *  consume it; `observer` is alone in section `watch`. `boss` is the root. */
 export function findingsOrg(opts: { qa?: boolean } = {}): Record<string, any> {
   return sectionsRaw((raw) => {
     raw.roles.push(role('observer', 'boss'));
+    raw.sections.watch = { members: ['observer'] };
     raw.run_config.max_concurrent_agents = 20; // the default ceiling (4) would defer the lazy spawns a test makes
     if (opts.qa) {
       raw.roles.push(role('qa-lead', 'boss'));

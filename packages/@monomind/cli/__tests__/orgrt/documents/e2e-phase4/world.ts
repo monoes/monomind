@@ -72,19 +72,3 @@ export async function review(
 
 export const publish = (tools: OrgToolDef[], type: string, summary: string, extra: Record<string, unknown> = {}): Promise<any> =>
   call(tools, 'org_doc_publish', { type, body: { summary }, ...extra });
-
-/** The dev and QA ping-pong of the loop org, run to the point where qa rejects the last round of a loop with
- *  max_rounds 2: build-1 .. build-3, report-1 .. report-2 (rounds are counted through `inputs`). It ends on
- *  build-3@v1 rejected, the cap spent. */
-export async function loopToRejectedLastRound(tools: Record<string, OrgToolDef[]>): Promise<void> {
-  await publish(tools.coder, 'build', 'the first build');
-  await review(tools['qa-lead'], 'build-1', 1, 'accept');
-  await publish(tools['qa-lead'], 'report', 'two defects found', { inputs: ['build-1@v1'] });
-  await review(tools['dev-lead'], 'report-1', 1, 'accept');
-  await publish(tools.coder, 'build', 'fixed the defects', { inputs: ['report-1@v1'] });
-  await review(tools['qa-lead'], 'build-2', 1, 'accept');
-  await publish(tools['qa-lead'], 'report', 'one defect left', { inputs: ['build-2@v1'] });
-  await review(tools['dev-lead'], 'report-2', 1, 'accept');
-  await publish(tools.coder, 'build', 'fixed the last defect', { inputs: ['report-2@v1'] });
-  await review(tools['qa-lead'], 'build-3', 1, 'reject', 'the fix breaks the parser');
-}

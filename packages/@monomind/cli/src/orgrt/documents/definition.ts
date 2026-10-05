@@ -7,14 +7,12 @@
  * findings. Every message names the path it is about and a remedy.
  */
 import type { OrgDef } from '../types.js';
-import { completionFindings } from './completion-accessor.js';
 import { copyInventoryFindings } from './copy-inventory.js';
 import { checkDocuments } from './definition-documents.js';
 import type { Findings } from './definition-util.js';
 import { isObject, NAME_RE, RESERVED_TYPES } from './definition-util.js';
 import { writerDefinitionFindings } from './definition-writes.js';
 import { leadRulesFindings } from './lead-rules.js';
-import { loopFindings } from './loops.js';
 import { sectionBudgetChecklist } from './section-budget-wire.js';
 
 const SECTION_FIELDS = [
@@ -53,22 +51,21 @@ function strings(v: unknown, path: string, f: Findings, what: string): string[] 
 function checkSurfaceKeys(def: OrgDef, f: Findings): void {
   const raw = def as unknown as Record<string, unknown>;
   const rc = (def.run_config ?? {}) as Record<string, unknown>;
-  const req = raw.requires;
-  if (!isObject(req) || req.sections !== 1)
-    f.errors.push(
-      'requires: a sections org must declare requires: {"sections": 1} so a runtime without sections refuses it — add it',
-    );
-  else
+  const req = raw.requires; // optional: `sections:` alone switches the surface on
+  if (isObject(req))
     for (const k of Object.keys(req))
       if (k !== 'sections')
         f.errors.push(
           `requires.${k}: unknown capability "${k}" — this runtime supports only "sections"; remove it`,
         );
+      else if (req.sections !== 1)
+        f.errors.push(
+          `requires.sections: this runtime supports version 1 only — got ${describe(req.sections)}; set 1 or remove it`,
+        );
   if (rc.experimental !== undefined && rc.experimental !== 'eval')
     f.errors.push(
       `run_config.experimental: must be "eval" or absent — got ${describe(rc.experimental)}`,
     );
-  f.errors.push(...completionFindings(rc, describe));
   // A recurring run needs no carry-forward: each start is a fresh run with its own document store. An
   // eval-mode org starts only through the eval harness, which no schedule can pass.
   if (def.schedule !== null && def.schedule !== undefined && rc.experimental === 'eval')
@@ -195,14 +192,20 @@ function checkSections(
           `${at}: type "${t}" is both consumed and published by this section — a section cannot hand a document to itself; remove one`,
         );
 
-    // Fields with fixed MVP values.
-    if (sec.mode !== undefined && sec.mode !== 'execution')
+    // Keys with one legal value carry no information: accepted and ignored, or refused when not that value.
+    if (sec.mode === 'execution')
+      f.warnings.push(`${at}.mode: no longer needed, remove it (every section is "execution")`);
+    else if (sec.mode !== undefined)
       f.errors.push(
         sec.mode === 'deliberative'
           ? `${at}.mode: "deliberative" is not yet supported — use "execution" and a separate deliberative role`
           : `${at}.mode: must be "execution" — got ${describe(sec.mode)}`,
       );
-    if (sec.requests !== undefined && sec.requests !== 'via-lead')
+    if (sec.requests === 'via-lead')
+      f.warnings.push(
+        `${at}.requests: no longer needed, remove it (requests always go via the lead)`,
+      );
+    else if (sec.requests !== undefined)
       f.errors.push(
         sec.requests === 'direct'
           ? `${at}.requests: "direct" is not yet supported — use "via-lead" or remove it`
@@ -241,6 +244,11 @@ function checkSections(
     const writes = strings(sec.writes, `${at}.writes`, f, 'repository paths') ?? [];
     if (writes.length > 0) writers.push(name);
   }
+  for (const r of def.roles)
+    if (r.kind !== 'endpoint' && r.id !== root?.id && !home.has(r.id))
+      f.errors.push(
+        `roles.${r.id}: a role outside every section can only be the root — add it to a section's members or make it a lead`,
+      );
   if (writers.length > 1)
     f.errors.push(
       `sections.${writers.join(', sections.')}: only one section may declare writes in this build (a single writer per repository, merge_owner is not yet supported) — keep writes on one section and hand the rest off as documents`,
@@ -281,8 +289,5 @@ export function sectionsDefinitionFindings(def: OrgDef): Findings {
   const inventory = copyInventoryFindings(def); // GA row R5: every runner's native copies are inventoried
   f.errors.push(...inventory.errors);
   f.warnings.push(...inventory.warnings);
-  const loops = loopFindings(raw, ['CYCLE_SELF_EDGE']); // P4.8: a self-edge is already an error above
-  f.errors.push(...loops.errors);
-  f.warnings.push(...loops.warnings);
   return f;
 }
