@@ -3,7 +3,7 @@
 // and glob/path/domain matching lives in policy-paths.ts — both re-exported
 // below where other modules import them from here.
 import { homedir } from 'node:os';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { OrgBus } from './bus.js';
 import { execDenyViolation } from './exec-deny.js';
 import { fileToolDenied, isDashboardCredential } from './file-roots.js';
@@ -361,6 +361,26 @@ export class PolicyEngine {
     return allow();
   }
 
+  /** Session ids this role's runner has reported (and resumed). The runner saves a tool result that is
+   *  too large under `<config dir>/projects/<slug>/<sessionId>/tool-results/` and tells the model to
+   *  Read it; those files, of these sessions only, are readable (see isOwnToolOutput). */
+  private ownSessions = new Set<string>();
+
+  noteSessionId(id: string | undefined): void {
+    if (id) this.ownSessions.add(id);
+  }
+
+  /** `real` is a path under `<config dir>/projects/<slug>/<own session id>/tool-results`. Nothing else of a
+   *  session directory (the transcript, other files) and no other session's directory qualifies. */
+  private isOwnToolOutput(real: string): boolean {
+    if (this.ownSessions.size === 0) return false;
+    const cfg = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
+    const rel = relative(realPath(join(cfg, 'projects')), real);
+    if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) return false;
+    const [, session, dir] = rel.split(sep);
+    return dir === 'tool-results' && session !== undefined && this.ownSessions.has(session);
+  }
+
   /** Why a file-tool call on `p` is refused, or null when it may proceed. */
   private filePathDenial(tool: string, p: string, globs: string[]): string | null {
     // SEC: compare REAL paths — a symlink inside the scope pointing outside
@@ -369,6 +389,8 @@ export class PolicyEngine {
     // the .git check (#258) all key off the same real path.
     const real = realPath(resolve(this.cwd, p));
     const realCwd = realPath(this.cwd);
+    // The runner's own saved copy of this role's large tool output: readable, never writable.
+    if (READ_TOOLS.has(tool) && this.isOwnToolOutput(real)) return null;
     // #496: on a case-insensitive filesystem `.SSH`, `.GIT` and `Site` are
     // `.ssh`, `.git` and `site`. Deny checks compare with `fold.deny`
     // (always fully folded — policy-paths.ts's SegmentFold). Grants compare
