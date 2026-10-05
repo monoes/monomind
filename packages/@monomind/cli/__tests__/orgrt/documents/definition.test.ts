@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { sectionsDefinitionFindings } from '../../../src/orgrt/documents/definition.js';
 import { OrgDefSchema } from '../../../src/orgrt/types.js';
+import { checklistFindings } from '../../../src/orgrt/validate-checklist.js';
 import { sectionsRaw } from '../support/sections-defs.js';
 
 const findings = (patch: (raw: Record<string, any>) => void) =>
@@ -21,6 +22,7 @@ describe('a valid sections definition', () => {
   it('accepts a one-member section that leads itself', () => {
     const f = findings((r) => {
       r.sections.development = { members: ['coder'], consumes: ['findings'] };
+      r.sections.ops = { members: ['dev-lead'] };
     });
     expect(f.errors).toEqual([]);
   });
@@ -33,16 +35,94 @@ describe('a valid sections definition', () => {
   });
 });
 
+describe('keys that carry no information are optional (sections as isolated sub-orgs)', () => {
+  const minimal = (patch: (raw: Record<string, any>) => void = () => {}) =>
+    findings((r) => {
+      delete r.requires;
+      delete r.run_config.completion;
+      patch(r);
+    });
+
+  it('requires and run_config.completion may be absent', () => {
+    expect(minimal()).toEqual({ errors: [], warnings: [] });
+  });
+
+  it('completion as a legacy string, or an object without a protocol, is accepted silently', () => {
+    expect(minimal((r) => (r.run_config.completion = 'dag'))).toEqual({ errors: [], warnings: [] });
+    expect(minimal((r) => (r.run_config.completion = { mode: 'dag' }))).toEqual({ errors: [], warnings: [] });
+  });
+
+  it('requires {sections: 1} and completion.protocol "sections-v1" are accepted silently (older definitions)', () => {
+    expect(findings(() => {})).toEqual({ errors: [], warnings: [] });
+  });
+
+  it('a section mode "execution" and requests "via-lead" are accepted with a warning that names the fix', () => {
+    const f = minimal((r) => {
+      r.sections.research.mode = 'execution';
+      r.sections.research.requests = 'via-lead';
+    });
+    expect(f.errors).toEqual([]);
+    expect(f.warnings).toEqual([
+      'sections.research.mode: no longer needed, remove it (every section is "execution")',
+      'sections.research.requests: no longer needed, remove it (requests always go via the lead)',
+    ]);
+  });
+});
+
+describe('every non-root role belongs to exactly one section', () => {
+  it('a role in no section is an error that names the role and the fix', () => {
+    const f = findings((r) => {
+      r.roles.push({ ...r.roles[4], id: 'intern', reports_to: 'boss' });
+      r.run_config.max_concurrent_agents = 6;
+    });
+    expect(f.errors).toEqual([
+      "roles.intern: a role outside every section can only be the root — add it to a section's members or make it a lead",
+    ]);
+  });
+
+  it('adding it to a section is the fix', () => {
+    const f = findings((r) => {
+      r.roles.push({ ...r.roles[4], id: 'intern', reports_to: 'boss' });
+      r.run_config.max_concurrent_agents = 6;
+      r.sections.development.members.push('intern');
+    });
+    expect(f.errors).toEqual([]);
+  });
+
+  it('the root, and an endpoint (no agent session), need no section', () => {
+    const f = findings((r) => {
+      r.roles.push({ id: 'hook', title: 'hook', type: 'specialist', reports_to: 'boss', kind: 'endpoint' });
+    });
+    expect(f.errors).toEqual([]);
+  });
+});
+
+describe('the loops key is gone', () => {
+  it('sections exchange work only through documents: loops is refused by the checklist with the migration text', () => {
+    const f = checklistFindings(
+      OrgDefSchema.parse(sectionsRaw((r) => (r.loops = [{ between: ['research', 'development'], types: ['findings'], max_rounds: 2 }]))),
+    );
+    expect(f.errors).toEqual([
+      '"loops": removed — sections exchange work only through documents; express a revise cycle with a consumer reject (the runtime relays it to the producer) and cap it with sections.<name>.max_rework_rounds — delete "loops" and move any max_rounds to max_rework_rounds of the producing section',
+    ]);
+  });
+
+  it('a cycle of document hand-offs between sections needs no declaration any more', () => {
+    const f = findings((r) => {
+      r.sections.research.consumes = ['review'];
+      r.sections.development.publishes = ['review'];
+      r.documents.review = { schema: { type: 'object', required: ['summary'] }, evidence: [{ kind: 'source', verify: 'cited' }] };
+    });
+    expect(f.errors).toEqual([]);
+  });
+});
+
 type Case = [string, (raw: Record<string, any>) => void, string];
 
 const surfaceCases: Case[] = [
-  ['requires missing', (r) => delete r.requires, 'requires: a sections org must declare requires'],
-  ['requires.sections is 2', (r) => (r.requires = { sections: 2 }), 'requires: a sections org must declare'],
+  ['requires.sections is 2', (r) => (r.requires = { sections: 2 }), 'requires.sections: this runtime supports version 1 only'],
   ['requires with an unknown capability', (r) => (r.requires.budgets = 1), 'requires.budgets: unknown capability "budgets"'],
   ['experimental is another value', (r) => (r.run_config.experimental = 'beta'), '"beta"'],
-  ['completion as a string', (r) => (r.run_config.completion = 'dag'), 'run_config.completion: a sections org must set'],
-  ['completion missing', (r) => delete r.run_config.completion, 'run_config.completion: a sections org must set'],
-  ['completion with another protocol', (r) => (r.run_config.completion.protocol = 'sections-v2'), 'run_config.completion.protocol: must be "sections-v1"'],
   ['documents missing', (r) => delete r.documents, 'documents: a sections org must declare a documents map'],
   ['documents is empty', (r) => (r.documents = {}), 'type "findings" is not declared — add documents.findings'],
   ['schedule set', (r) => (r.schedule = '0 * * * *'), 'schedule: not yet supported: recurring section orgs'],

@@ -43,8 +43,9 @@ export async function deliver(
       data: { messageId },
     });
   };
-  // Org sections spec 6.6 (P3.7): no direct chat across sections. Only a local send inside an org on
-  // the sections surface is checked; every other org falls straight through (crossSectionRefusal).
+  // Org sections spec 6.6 (P3.7): sections never message each other (documents are their only channel).
+  // Only a local send inside an org on the sections surface is checked; every other org falls straight
+  // through (crossSectionRefusal).
   const sectionRefusal =
     !cross && src ? crossSectionRefusal(src.def, fromRole, targetRole) : undefined;
   if (sectionRefusal) {

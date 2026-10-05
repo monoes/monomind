@@ -107,12 +107,11 @@ describe('text per kind of role', () => {
     expect(text(withContract((r) => delete r.documents.findings.checks), 'dev-lead')).not.toContain('org_doc_check');
   });
 
-  it('a role in no section: documents are not its job, it may message any role', () => {
+  it('a section that publishes and consumes nothing: documents are not its job, it messages inside its own section', () => {
     const t = text(def, 'observer');
-    expect(t).toContain('You are in no section.');
-    expect(t).toMatch(/You publish and decide none/);
-    expect(t).toMatch(/you may message any role/);
-    expect(t.split('\n').length).toBeLessThanOrEqual(4);
+    expect(t).toContain('You are in section "watch" (lead: observer, that is you).');
+    expect(t).toMatch(/org_send to a role in another section is refused/);
+    expect(t).not.toMatch(/You publish|You decide/);
   });
 
   it('a manager that is neither root nor a section lead gets the lead duties it can use', () => {

@@ -9,8 +9,8 @@
  */
 import { z } from 'zod';
 
-/** `requires: {sections: 1}`: the capability contract. Other keys pass through
- *  and are reported by the definition check as unsupported capabilities. */
+/** `requires: {sections: 1}`: optional capability contract (older runtimes refuse a definition that
+ *  carries it). Other keys pass through and are reported by the definition check as unsupported. */
 export const RequiresSchema = z.object({ sections: z.number().optional() }).passthrough();
 
 /** Top-level `sections`: section name to its declaration (checked in definition.ts). */
@@ -19,10 +19,10 @@ export const SectionsSchema = z.record(z.string(), z.unknown());
 /** Top-level `documents`: document type to its contract (checked in definition.ts). */
 export const DocumentsSchema = z.record(z.string(), z.unknown());
 
-/** `run_config.completion` for a sections org: the policy plus the protocol
- *  discriminator that makes an older parser reject the definition. */
+/** `run_config.completion` for a sections org: the policy, plus an optional protocol
+ *  discriminator (ignored here, kept so older parsers still reject the definition). */
 export const SectionsCompletionSchema = z
-  .object({ mode: z.enum(['boss', 'dag']), protocol: z.string() })
+  .object({ mode: z.enum(['boss', 'dag']), protocol: z.string().optional() })
   .strict();
 
 /** `run_config.experimental`: "eval" is the only value a sections org may carry.

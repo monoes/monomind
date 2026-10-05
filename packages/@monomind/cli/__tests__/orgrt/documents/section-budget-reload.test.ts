@@ -106,7 +106,7 @@ describe('a reload that breaks the partition is refused and changes nothing', ()
     refused((r) => (r.sections.research.budget = { usd: 20 }), /role caps of section "research"/));
 
   it('allocations raised above the org budget', () =>
-    refused((r) => (r.sections.research.budget = { usd: 90 }), /allocations sum to \$120, above run_config.budget_usd \$100/));
+    refused((r) => (r.sections.research.budget = { usd: 90 }), /allocations sum to \$130, above run_config.budget_usd \$110/));
 
   it('a policy.maxUsd that conflicts with budget_usd', () =>
     refused((r) => (roleOf(r, 'coder').policy = { sandbox: { mode: 'off' }, maxUsd: 40 }), /roles\.coder\.policy\.maxUsd/));

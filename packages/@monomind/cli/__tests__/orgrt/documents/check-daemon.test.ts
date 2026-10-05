@@ -68,7 +68,12 @@ describe('registration through the daemon', () => {
 
 describe('the consumer reads, checks, then decides', () => {
   it('rejects the document the check flags (naming the check), accepts the clean one, and the calls are recorded', async () => {
-    const { tools, running } = await start(sweepChecksOrg((raw) => raw.roles.push(role('observer', 'lead'))));
+    const { tools, running } = await start(
+      sweepChecksOrg((raw) => {
+        raw.roles.push(role('observer', 'lead'));
+        raw.sections.watch = { members: ['observer'] };
+      }),
+    );
     const [flawed, clean] = [DOCS[0], DOCS[1]];
     const bad = honestDoc(flawed);
     bad.sheets[2].answers[4].value += 7; // the value no longer follows from the evidence trace

@@ -25,7 +25,7 @@ import { trailOf } from '../e2e/trail.js';
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'fixtures');
 const golden = (rel: string): any => JSON.parse(readFileSync(join(FIXTURES, rel), 'utf8'));
 const world = useWorld('p4-parity');
-const PHASE4_TEXT = /Rework cap|Loop with|USD allocation|only writer|owns writes to the workspace|Section allocations|As section lead you assign/;
+const PHASE4_TEXT = /Rework cap|USD allocation|only writer|owns writes to the workspace|Section allocations|As section lead you assign/;
 
 describe('the Phase 3 sweep and a sections-off org in one daemon', () => {
   it('the miniature sweep without Phase 4 keys produces the P3.14 trail golden; a sections-off org started in the same daemon has no documents and no Phase 4 text', async () => {
@@ -51,7 +51,7 @@ describe('the Phase 3 sweep and a sections-off org in one daemon', () => {
     // the same trail the Phase 3 suite pins (fixtures/sections-on/e2e-sweep-trail.json), read-only here
     const trail = JSON.parse(JSON.stringify(trailOf({ root: world.root, running, docs, runner, cast })));
     expect(trail).toEqual(golden('sections-on/e2e-sweep-trail.json'));
-    // nothing of Phase 4 exists for this org: plain engines, no caps, no budget state, no rework or loop machinery
+    // nothing of Phase 4 exists for this org: plain engines, no caps, no budget state, no rework machinery
     for (const r of running.def.roles) {
       const engine = running.agents.get(r.id)?.policy;
       if (!engine) continue;
@@ -60,9 +60,8 @@ describe('the Phase 3 sweep and a sections-off org in one daemon', () => {
       expect(engine.policy.fileWrite, r.id).toEqual(['**']);
     }
     expect(docs.reworkReport()).toEqual([]);
-    expect(docs.loopReport()).toEqual([]);
-    expect(running.busEvents().filter((e) => /^section-budget|^writer-|rework|loop-/.test(e.reason ?? ''))).toEqual([]);
-    for (const t of runner.allTexts()) expect(t).not.toMatch(/rework exhausted|loop exhausted|budget:/);
+    expect(running.busEvents().filter((e) => /^section-budget|^writer-|rework/.test(e.reason ?? ''))).toEqual([]);
+    for (const t of runner.allTexts()) expect(t).not.toMatch(/rework exhausted|budget:/);
 
     // a sections-off org of the same roster started in the same daemon, after the sweep
     const offRaw = { ...miniOrg({ sectionsOff: true, observer: true }), name: 'mini-off' };
@@ -126,18 +125,17 @@ describe('a Phase 3 sections-on org with no Phase 4 key', () => {
 
   it('a Phase 4 org: each role\'s prompt holds its Phase 4 lines, and the same org with other key values differs by those lines alone', async () => {
     const all = { ...phase4Org(KEY_SETS.all), name: 'p4-parity' };
-    // other values for the same keys, still a valid partition (the root reserve keeps boss and observer): 40 for development, 110 for the org
+    // other values for the same keys, still a valid partition (the root reserve keeps boss): 40 for development, 110 for the org
     const variant = phase4Org(KEY_SETS.all);
     variant.name = 'p4-parity';
     variant.sections.development.budget = { usd: 40 };
     variant.run_config.budget_usd = 110;
     variant.sections.qa.max_rework_rounds = 7;
-    variant.loops[0].max_rounds = 5;
     variant.sections.development.writes = ['lib/**'];
     const [a, b] = [await promptsOf(all, ROLES), await promptsOf(variant, ROLES)];
     const blockOf = (raw: Record<string, any>, r: string) => documentGuidance(OrgDefSchema.parse(raw), r) as string;
     const baseOf = (raw: Record<string, any>, r: string) =>
-      documentGuidance(OrgDefSchema.parse({ ...phase4Org(KEY_SETS.cycle), name: raw.name }), r) as string;
+      documentGuidance(OrgDefSchema.parse({ ...phase4Org(KEY_SETS.none), name: raw.name }), r) as string;
     const added: Record<string, number> = {};
     for (const r of ROLES) {
       const blockA = blockOf(all, r);
@@ -155,7 +153,7 @@ describe('a Phase 3 sections-on org with no Phase 4 key', () => {
         for (const line of blockOf(all, other).slice(baseOf(all, other).length).split('\n').filter(Boolean))
           if (!blockA.includes(line)) expect(a[r], `${r} must not carry a line of ${other}: ${line.slice(0, 50)}`).not.toContain(line);
     }
-    expect(added).toEqual({ boss: 4, 'dev-lead': 8, coder: 6, 'qa-lead': 8, observer: 2 });
+    expect(added).toEqual({ boss: 4, 'dev-lead': 7, coder: 5, 'qa-lead': 7, observer: 4 });
     expect(blockOf(variant, 'dev-lead')).not.toBe(blockOf(all, 'dev-lead')); // the lines follow the keys
   }, 60_000);
 });
@@ -178,10 +176,10 @@ describe('the deferred table of 13.2.1 still fails at start with "not yet suppor
       await expect(world.start(raw)).rejects.toThrow(pattern);
     });
 
-  it('run_config.budget_usd outside the sections surface fails, and so do loops', async () => {
+  it('run_config.budget_usd outside the sections surface fails', async () => {
     const plainOrg = (extra: Record<string, any>) => {
-      const raw = phase4Org(KEY_SETS.loop);
-      for (const k of ['sections', 'documents', 'requires', 'loops']) delete raw[k];
+      const raw = phase4Org(KEY_SETS.all);
+      for (const k of ['sections', 'documents', 'requires']) delete raw[k];
       delete raw.run_config.experimental;
       delete raw.run_config.completion;
       raw.name = 'deferred-off';
@@ -190,6 +188,5 @@ describe('the deferred table of 13.2.1 still fails at start with "not yet suppor
     const withBudget = plainOrg({});
     withBudget.run_config.budget_usd = 5;
     await expect(world.start(withBudget, { evalGate: false })).rejects.toThrow(/run_config\.budget_usd is not yet supported/);
-    await expect(world.start(plainOrg({ loops: [{ between: ['a', 'b'], types: ['t'], max_rounds: 2 }] }), { evalGate: false })).rejects.toThrow(/"loops" is not yet supported/);
   });
 });

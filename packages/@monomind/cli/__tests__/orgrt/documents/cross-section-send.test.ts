@@ -17,7 +17,7 @@ import { crossSectionRefusal as pilotRefusal } from '../../../../../../tests/eva
 import { sectionsRaw } from '../support/sections-defs.js';
 
 // sec-org: boss (root); research = research-lead + researcher; development = dev-lead + coder;
-// `observer` reports to boss and is in no section.
+// `observer` reports to boss and is alone in section `watch` (every non-root role is in exactly one section).
 const def = (): any =>
   sectionsRaw((raw) => {
     raw.run_config.max_concurrent_agents = 6; // P4.9: six agent roles must fit
@@ -29,17 +29,18 @@ const def = (): any =>
       responsibilities: ['watch'],
       policy: { sandbox: { mode: 'off' } },
     });
+    raw.sections.watch = { members: ['observer'] };
   });
 
 const refusalOf = (from: string, to: string): string | undefined => crossSectionRefusal(def(), from, to);
 
 describe('sectionOf', () => {
-  it('finds a role by lead or member, and nothing for root, unsectioned and unknown roles', () => {
+  it('finds a role by lead or member, and nothing for the root and unknown roles', () => {
     expect(sectionOf(def(), 'research-lead')).toBe('research');
     expect(sectionOf(def(), 'researcher')).toBe('research');
     expect(sectionOf(def(), 'coder')).toBe('development');
     expect(sectionOf(def(), 'boss')).toBeUndefined();
-    expect(sectionOf(def(), 'observer')).toBeUndefined();
+    expect(sectionOf(def(), 'observer')).toBe('watch');
     expect(sectionOf(def(), 'nobody')).toBeUndefined();
     expect(sectionOf({ sections: undefined }, 'coder')).toBeUndefined();
   });
@@ -84,10 +85,13 @@ describe('crossSectionRefusal matrix (sections org)', () => {
     expect(crossSectionRefusal(raw, 'org-docs', 'coder')).toMatch(/^REFUSED:/);
   });
 
-  it('does not bind a role in no section, as sender or as target', () => {
-    expect(refusalOf('observer', 'coder')).toBeUndefined();
-    expect(refusalOf('coder', 'observer')).toBeUndefined();
+  it('binds every non-root role the same way (one predicate: different sections, neither the root nor a runtime sender)', () => {
+    expect(refusalOf('observer', 'coder')).toBe(crossSectionRefusalText('observer', 'watch', 'coder', 'development'));
+    expect(refusalOf('coder', 'observer')).toBe(crossSectionRefusalText('coder', 'development', 'observer', 'watch'));
     expect(refusalOf('observer', 'observer')).toBeUndefined();
+  });
+
+  it('leaves an unknown target to the deliver path, which says so', () => {
     expect(refusalOf('researcher', 'nobody')).toBeUndefined();
   });
 
@@ -189,12 +193,11 @@ describe('through the real daemon deliver path', () => {
     expect(running.agents.get('coder')?.mailbox.peek() ?? '').not.toContain('secret plans');
   });
 
-  it('delivers inside a section, from the root, from the human and to an unsectioned role', async () => {
+  it('delivers inside a section, from the root and from the human', async () => {
     const { d, running } = await start(def());
     expect(await d.deliver('sec-org', 'researcher', 'research-lead', 's', 'b')).toBe('delivered to research-lead');
     expect(await d.deliver('sec-org', 'boss', 'coder', 's', 'b')).toBe('delivered to coder');
     expect(await d.deliver('sec-org', 'human', 'coder', 's', 'b')).toBe('delivered to coder');
-    expect(await d.deliver('sec-org', 'coder', 'observer', 's', 'b')).toBe('delivered to observer');
     expect(running.busEvents().some((e) => e.reason === 'cross-section-refused')).toBe(false);
   });
 

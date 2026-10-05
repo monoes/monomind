@@ -2,16 +2,13 @@
 /**
  * Org sections spec 9.1 / 13.1 P3.2: the ONE reader of `run_config.completion`.
  * The field is either a legacy string ('boss' | 'dag', unchanged) or, for a
- * sections org, the object `{mode, protocol: 'sections-v1'}` whose job is to
- * make a pre-sections parser reject the definition. Every runtime reader goes
+ * sections org, the object `{mode, protocol?}` (the protocol is optional and
+ * ignored; older definitions carry 'sections-v1'). Every runtime reader goes
  * through here (a source-scan test enforces it), so no caller can flatten the
  * object into a string or read `.mode` off a string.
  */
 
 export type CompletionMode = 'boss' | 'dag';
-
-/** The only protocol this runtime supports. */
-export const SECTIONS_PROTOCOL = 'sections-v1';
 
 export interface CompletionPolicy {
   /** The completion mode; 'boss' when unset or not a recognised value. */
@@ -50,23 +47,6 @@ export const completionIsObject = (runConfig: RunConfigLike): boolean =>
 export function completionDisplay(runConfig: RunConfigLike): unknown {
   const c = runConfig?.completion;
   return isObject(c) ? (c.mode ?? 'boss') : (c ?? 'boss');
-}
-
-/** Definition findings for a sections org's `completion` (the 9.1 discriminator). */
-export function completionFindings(
-  runConfig: RunConfigLike,
-  describe: (v: unknown) => string,
-): string[] {
-  const c = runConfig?.completion;
-  if (!isObject(c))
-    return [
-      `run_config.completion: a sections org must set {"mode": "boss"|"dag", "protocol": "sections-v1"} (the version-skew discriminator) — got ${describe(c)}`,
-    ];
-  if (c.protocol !== SECTIONS_PROTOCOL)
-    return [
-      `run_config.completion.protocol: must be "sections-v1" — got ${describe(c.protocol)}; this runtime supports no other protocol`,
-    ];
-  return [];
 }
 
 /** The dashboard Config tab sends `completion` as a string or null. Map it

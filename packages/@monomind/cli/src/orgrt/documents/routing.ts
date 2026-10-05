@@ -6,15 +6,11 @@
  * undefined when the send may go ahead; it is undefined for every org that is
  * not on the sections surface, so those orgs behave exactly as before.
  *
- * Rules (a send is refused only when ALL hold):
- *  - the org is on the sections surface (`sectionsSurface(def).enabled`);
- *  - the send is local (the caller does not ask about cross-org targets);
- *  - sender and target are both in a section (as lead or member);
- *  - those sections differ.
- * Never refused: the root (the boss, or the role that reports to no one) as
- * sender or target, the human and the runtime sender `org-docs` as senders, a
- * role in no section as sender or target (the map binds only sectioned roles;
- * the pilot measured the same), and any send within one section.
+ * Sections are isolated sub-orgs that exchange work only through documents, so
+ * the rule is one predicate: sender and target are in different sections, and
+ * neither is the root or a runtime sender (`human`, `org-docs`). Every
+ * non-root role of a sections org belongs to exactly one section (the
+ * definition check refuses any other), so no role is exempt for being in none.
  */
 import { sectionsSurface } from './surface.js';
 
@@ -64,9 +60,9 @@ export function crossSectionRefusalText(
 export function crossSectionRefusal(def: DefLike, from: string, to: string): string | undefined {
   if (!sectionsSurface(def).enabled) return undefined;
   if (RUNTIME_SENDERS.includes(from) && !def.roles.some((r) => r.id === from)) return undefined;
+  if (!def.roles.some((r) => r.id === to)) return undefined; // an unknown target: the deliver path says so
   if (isRoot(def, from) || isRoot(def, to)) return undefined;
   const a = sectionOf(def, from);
   const b = sectionOf(def, to);
-  if (!a || !b || a === b) return undefined;
-  return crossSectionRefusalText(from, a, to, b);
+  return a === b ? undefined : crossSectionRefusalText(from, a ?? 'none', to, b ?? 'none');
 }

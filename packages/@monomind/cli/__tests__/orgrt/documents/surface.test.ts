@@ -71,13 +71,13 @@ describe('schema entries are optional with no defaults', () => {
     expect(parsed.run_config.experimental).toBe('eval');
   });
 
-  it('still refuses a malformed completion at parse', () => {
+  it('still refuses a malformed completion at parse, and the protocol is optional', () => {
     const ok = (completion: unknown) =>
       OrgDefSchema.safeParse({ name: 'x', roles: [{ id: 'a' }], run_config: { completion } }).success;
     expect(ok('dag')).toBe(true);
     expect(ok('sometimes')).toBe(false);
     expect(ok({ mode: 'weekly', protocol: 'sections-v1' })).toBe(false);
-    expect(ok({ mode: 'dag' })).toBe(false);
+    expect(ok({ mode: 'dag' })).toBe(true); // the protocol is optional
     expect(ok({ mode: 'dag', protocol: 'sections-v1', extra: 1 })).toBe(false);
   });
 });

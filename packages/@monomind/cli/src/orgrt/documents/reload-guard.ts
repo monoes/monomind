@@ -1,21 +1,20 @@
 // packages/@monomind/cli/src/orgrt/documents/reload-guard.ts
 /**
  * Org sections spec 6.14 and 13.2 (piece P4.10): the reload guard of the sections surface. A hot reload carries a
- * small set of keys into a running org (budgets, caps, loop rounds, role policy). Every other key of the sections
+ * small set of keys into a running org (budgets, caps, role policy). Every other key of the sections
  * surface is read once, at start (the section map, the document contracts, the single-writer overlay, the
- * completion policy, the loops), so a reload that changed one would be applied by nothing, or by half of the
+ * completion policy), so a reload that changed one would be applied by nothing, or by half of the
  * runtime. `structuralReloadChanges` names those changes; the reload refuses the whole file when it finds any.
  *
  * Pure: reads the two definitions, mutates nothing, returns typed changes (code, path, message, remedy). Nothing
  * is reported for an org that is not on the sections surface in either definition, so a sections-off reload is
  * what it was before.
  *
- * ALLOWED (not reported): `sections.<s>.budget`, `sections.<s>.max_rework_rounds`, `loops[i].max_rounds` when the
- * entry's `between` and `types` are unchanged, `run_config` keys other than `completion` and `experimental`
- * (`budget_usd`, deadlines, ...), a role's caps, policy and tool fields, a new role that belongs to no section.
+ * ALLOWED (not reported): `sections.<s>.budget`, `sections.<s>.max_rework_rounds`, `run_config` keys other than `completion` and `experimental`
+ * (`budget_usd`, deadlines, ...), a role's caps, policy and tool fields.
  * STRUCTURAL (reported): section added, removed or renamed; a section's `members`, `lead`, `writes`, `consumes`,
  * `publishes`, `requests`, `mode`, `parallelism` (any field but the two allowed); `documents`; `requires`;
- * `run_config.completion`; `run_config.experimental`; `loops` added or removed and `between`/`types` of a loop;
+ * `run_config.completion`; `run_config.experimental`;
  * the root role; turning the sections surface on or off.
  */
 import { canonicalJson } from './canonical.js';
@@ -36,14 +35,11 @@ export type ReloadChangeCode =
   | 'requires'
   | 'completion'
   | 'experimental'
-  | 'loops-added'
-  | 'loops-removed'
-  | 'loops-structure'
   | 'root';
 
 export interface ReloadChange {
   code: ReloadChangeCode;
-  /** The key path, as the definition spells it (`sections.dev.writes`, `loops[0].between`). */
+  /** The key path, as the definition spells it (`sections.dev.writes`). */
   path: string;
   message: string;
   /** What the author does about it. */
@@ -55,7 +51,6 @@ export interface ReloadGuardDef {
   sections?: unknown;
   documents?: unknown;
   requires?: unknown;
-  loops?: unknown;
   roles?: unknown;
   run_config?: unknown;
 }
@@ -203,39 +198,6 @@ function documentChanges(live: unknown, next: unknown, out: ReloadChange[]): voi
       });
 }
 
-function loopChanges(live: unknown, next: unknown, out: ReloadChange[]): void {
-  const a = Array.isArray(live) ? live : [];
-  const b = Array.isArray(next) ? next : [];
-  if (!Array.isArray(live) && !Array.isArray(next) && same(live, next)) return;
-  for (let i = b.length; i < a.length; i++)
-    out.push({
-      code: 'loops-removed',
-      path: `loops[${i}]`,
-      message: `loop ${i} was removed: the declared loops are read at start`,
-      remedy: RELOAD_REMEDY,
-    });
-  for (let i = a.length; i < b.length; i++)
-    out.push({
-      code: 'loops-added',
-      path: `loops[${i}]`,
-      message: `loop ${i} is new: the declared loops are read at start`,
-      remedy: RELOAD_REMEDY,
-    });
-  for (let i = 0; i < Math.min(a.length, b.length); i++) {
-    const was = isObject(a[i]) ? a[i] : {};
-    const now = isObject(b[i]) ? b[i] : {};
-    for (const field of new Set([...Object.keys(was), ...Object.keys(now)])) {
-      if (field === 'max_rounds' || same(was[field], now[field])) continue;
-      out.push({
-        code: 'loops-structure',
-        path: `loops[${i}].${field}`,
-        message: `loop ${i}: ${field} changed (from ${show(was[field])} to ${show(now[field])}): only max_rounds reloads, and only while between and types are unchanged`,
-        remedy: RELOAD_REMEDY,
-      });
-    }
-  }
-}
-
 /** The changes in `next` against the running `live` definition that a hot reload cannot apply; empty when the
  *  reload is allowed, and always empty when neither definition is on the sections surface. */
 export function structuralReloadChanges(
@@ -288,7 +250,6 @@ export function structuralReloadChanges(
         remedy: RELOAD_REMEDY,
       });
   }
-  loopChanges(live.loops, next.loops, out);
   if (rootOf(live) !== rootOf(next))
     out.push({
       code: 'root',

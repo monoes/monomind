@@ -32,6 +32,7 @@ describe('a valid partition', () => {
       delete r.run_config.budget_usd;
       delete r.sections.research.budget;
       delete r.sections.development.budget;
+      delete r.sections.watch.budget;
     }));
     expect(f.errors).toEqual([]);
   });
@@ -47,9 +48,9 @@ const MATRIX: Array<[string, (r: Raw) => void, string, 'errors' | 'warnings']> =
   ['ROLE_CAP_MISSING', (r) => delete role(r, 'coder').budget_usd, 'roles.coder.budget_usd: role "coder" has no explicit budget_usd', 'errors'],
   ['ROLE_CAP_CONFLICT', (r) => (role(r, 'coder').policy.maxUsd = 5), 'roles.coder.policy.maxUsd: role "coder" has budget_usd', 'errors'],
   ['SECTION_CAPS_OVER_ALLOCATION', (r) => (r.sections.research.budget = { usd: 20 }), 'sections.research.budget.usd: the role caps of section "research"', 'errors'],
-  ['ALLOCATIONS_OVER_ORG_BUDGET', (r) => (r.run_config.budget_usd = 50), 'run_config.budget_usd: the section allocations sum to $60', 'errors'],
-  ['RESERVE_EMPTY', (r) => (r.run_config.budget_usd = 60), 'run_config.budget_usd: the allocations ($60) use the whole org budget', 'errors'],
-  ['RESERVE_CAPS_OVER', (r) => (role(r, 'observer').budget_usd = 30), 'run_config.budget_usd: the caps of the root and the roles in no section', 'errors'],
+  ['ALLOCATIONS_OVER_ORG_BUDGET', (r) => (r.run_config.budget_usd = 50), 'run_config.budget_usd: the section allocations sum to $70', 'errors'],
+  ['RESERVE_EMPTY', (r) => (r.run_config.budget_usd = 70), 'run_config.budget_usd: the allocations ($70) use the whole org budget', 'errors'],
+  ['RESERVE_CAPS_OVER', (r) => (role(r, 'boss').budget_usd = 50), 'run_config.budget_usd: the caps of the root and the roles in no section', 'errors'],
   ['UNPRICED_RUNNER', (r) => (role(r, 'coder').runtime = 'codex'), 'roles.coder.runtime: role "coder" runs on codex', 'errors'],
   ['BUDGET_MODE_UNSUPPORTED', (r) => (r.run_config.budget_mode = 'strict'), 'run_config.budget_mode: "strict" is not yet supported', 'errors'],
   ['BUDGET_KEY_NOT_YET_SUPPORTED', (r) => (r.run_config.max_turn_usd = 1), 'run_config.max_turn_usd: max_turn_usd is not yet supported', 'errors'],
@@ -110,6 +111,7 @@ describe('org budget without section budgets', () => {
     const f = check(budgetedOrg((r) => {
       delete r.sections.research.budget;
       delete r.sections.development.budget;
+      delete r.sections.watch.budget;
       for (const x of r.roles) delete x.budget_usd;
     }));
     expect(f.errors).toEqual([]);
@@ -119,6 +121,7 @@ describe('org budget without section budgets', () => {
     const f = check(budgetedOrg((r) => {
       delete r.sections.research.budget;
       delete r.sections.development.budget;
+      delete r.sections.watch.budget;
       r.run_config.budget_usd = v;
     }));
     expect(starts(f.errors, 'run_config.budget_usd: must be a positive number of dollars')).toBe(true);
@@ -149,9 +152,9 @@ describe('off the surface the budget keys fail with today\'s messages (unchanged
   });
 
   it('a section budget without the surface keys is one more key that switches the surface on, not a refusal of its own', () => {
-    // `sections` with a budget IS the surface; the other sections requirements then apply (requires, documents).
+    // `sections` with a budget IS the surface; the other sections requirements then apply (documents).
     const f = off({}, { sections: { s1: { budget: { usd: 5 }, members: ['boss'] } } });
-    expect(f.errors.some((e) => e.startsWith('requires: a sections org must declare'))).toBe(true);
+    expect(f.errors.some((e) => e.startsWith('documents: a sections org must declare'))).toBe(true);
     expect(f.errors.some((e) => e.includes('which is not built'))).toBe(false);
   });
 });

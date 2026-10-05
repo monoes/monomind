@@ -5,7 +5,7 @@
 // test of this directory is named, and that every acceptance item points at tests that exist)
 //
 //  Scenario letters follow the piece entry: A to G as the entry defines them; H (the reload guard of P4.10) is added here because
-//  the entry's list does not give it a letter. combined.e2e.test.ts walks all four keys on one org and pins the trail.
+//  the entry's list does not give it a letter. combined.e2e.test.ts walks the keys on one org and pins the trail.
 //
 //  P4.12 (A) single writer: the developer writes under `writes` (a real file), a non-writer's Write and Edit are refused with the
 //      core text and a writer-refused bus event, a Bash redirect is stopped by the OS sandbox, an unqualified boundary holds the
@@ -28,13 +28,12 @@
 //      root decides, a reload that raises the cap thaws it
 //      rework.e2e.test.ts: "the first rejection is relayed, the second spends the cap: one notice to the root and both leads, the producer is refused, the root decides"
 //      rework.e2e.test.ts: "a reload that raises the cap thaws a frozen thread with no stop; the revision then goes through"
-//  P4.12 (D) loops: rounds counted through `inputs`, exhaustion escalated once and a further return refused (LOOP_EXHAUSTED), the
-//      root decides, a last round that is accepted ends the loop cleanly, an undeclared cycle refused at start
-//      loops.e2e.test.ts: "rounds are counted through inputs; the cap is spent at the second return; the escalation goes out once; a third return is refused; the root decides"
-//      loops.e2e.test.ts: "a last round that qa accepts ends the loop cleanly: no escalation, no root decision owed"
-//      loops.e2e.test.ts: "an undeclared cycle between sections is a definition error naming both sections and the remedy"
-//      loops.e2e.test.ts: "a loop that names an unknown section is refused at start; one that covers no cycle is a warning (it bounds nothing)"
-//      loops.e2e.test.ts: "loops outside the sections surface is still not supported: it fails at start with the validate text"
+//  P4.12 (D) sections as isolated sub-orgs: a revise cycle between sections runs through documents alone, the `loops` key is
+//      refused with the migration text, a role outside every section is refused at start
+//      isolation.e2e.test.ts: "a revise cycle between two sections runs through documents alone, with no loops declaration"
+//      isolation.e2e.test.ts: "loops is refused at start with the migration text"
+//      isolation.e2e.test.ts: "a role in no section is refused at start, naming the role and the fix"
+//      isolation.e2e.test.ts: "loops outside the sections surface is still not supported: it fails at start with the validate text"
 //  P4.12 (E) lead rights: the capacity refusal, a cross-section org_task and org_plan_graph refused with the text, the corrected
 //      org_send text, lead-aware lead-watch, unread and rework notices, the sections-off recipient unchanged
 //      lead-rights.e2e.test.ts: "a sections org whose max_concurrent_agents is below its roster is refused at start, naming the remedy; the right cap starts it"
@@ -45,9 +44,8 @@
 //      lead-rights.e2e.test.ts: "the same roster without sections keeps the reports_to recipient: the root is told, the lead is not"
 //      lead-rights.e2e.test.ts: "a document nobody reads: the unread watch tells a lead, and the notices of a spent rework cap reach the root and both leads"
 //  P4.12 (F) crash and resume: exactly-once recovery of a rejection committed before its relay, an exhaustion committed before its
-//      notice (rework and loop) and a budget crossing before its notice; the freeze survives; a third start sends nothing
+//      notice (rework) and a budget crossing before its notice; the freeze survives; a third start sends nothing
 //      crash-resume.e2e.test.ts: "the resume delivers each owed message once, the freeze survives, the root decides, and a third start sends nothing"
-//      crash-resume.e2e.test.ts: "the escalation goes out once after the resume, the producer is refused straight away, the root decides and the loop ends; a third start sends nothing"
 //  P4.12 (G) parity: a sections-off org and a Phase 3 sections-on org with no Phase 4 key in the same daemon match the Phase 3
 //      pins (the P3.14 trail golden, the P3.12 prompts); in a Phase 4 org each role's prompt holds its Phase 4 lines and only those
 //      parity.e2e.test.ts: "the miniature sweep without Phase 4 keys produces the P3.14 trail golden; a sections-off org started in the same daemon has no documents and no Phase 4 text"
@@ -56,24 +54,24 @@
 //  P4.12 (H) the reload guard (P4.10): a structural reload is refused whole, a live key is applied
 //      reload-guard.e2e.test.ts: "is refused whole and the live org carries on: ${label}"
 //      reload-guard.e2e.test.ts: "a mixed reload (a raise the guard would allow and a structural key) applies nothing; the same file without the structural key is applied whole"
-//      reload-guard.e2e.test.ts: "a section allocation (with the org budget), a rework cap and a loop round limit are applied together and act on the documents in flight"
-//  Combined (all four keys on one org, trail pinned as fixtures/phase4/e2e-combined-trail.json)
+//      reload-guard.e2e.test.ts: "a section allocation (with the org budget), a rework cap are applied together and act on the documents in flight"
+//  Combined (the keys on one org, trail pinned as fixtures/phase4/e2e-combined-trail.json)
 //      combined.e2e.test.ts: "the scenario ends in the state its own assertions describe"
 //      combined.e2e.test.ts: "the full trail equals the pinned golden"
 //  Deferred keys (acceptance 4)
 //      parity.e2e.test.ts: "still refused: ${label}"
-//      parity.e2e.test.ts: "run_config.budget_usd outside the sections surface fails, and so do loops"
+//      parity.e2e.test.ts: "run_config.budget_usd outside the sections surface fails"
 //
 //  Phase 4 (1) the scenarios A to G of P4.12 pass in the real daemon: all of the above.
 //  Phase 4 (2) the P3.0 goldens, the four SHAs, the P3.12 sections-on pins and the P4.0 net pass unchanged on the final main:
 //      sections-off-golden.test.ts, frozen-sha-tripwire.test.ts, src/__tests__/org-loadouts-default-off.test.ts,
 //      context-surface.test.ts, documents/sections-on-fingerprints.test.ts, documents/phase4-inert*.test.ts (run in the gate,
 //      untouched), and in this directory the parity tests above (the P3.14 trail golden and the P3.12 prompts are read, never written).
-//  Phase 4 (3) `writes`, `budget`, `max_rework_rounds` and `loops` each have a runtime effect or fail validate: writes (the scenario
-//      A refusals), budget (B), max_rework_rounds (C), loops (D and the off-surface refusal), each also in the combined run.
+//  Phase 4 (3) `writes`, `budget` and `max_rework_rounds` each have a runtime effect, and `loops` fails validate: writes (the scenario
+//      A refusals), budget (B), max_rework_rounds (C), loops (D), each also in the combined run.
 //  Phase 4 (4) the deferred table of 13.2.1 still fails validate with "not yet supported" where configured: the parity tests named
 //      under "Deferred keys" (max_turn_usd, allow_unbounded_turn, budget_mode strict, token partitions, parallelism.max_depth,
-//      deliberative sections, requests direct, an org-wide budget_usd outside the sections surface, loops outside it).
+//      deliberative sections, requests direct, an org-wide budget_usd outside the sections surface).
 //  Phase 4 (5), (6) reports, merges, the status block and the migration notes: process items (P4.13), no test.
 //
 // DEFERRED BY 9.1 AND 13.2.1, NOT TESTED HERE (no test in this suite or in Phase 4 covers them; the build did not implement them;
@@ -120,11 +118,10 @@ const MAPPED: Record<string, string[]> = {
     'the first rejection is relayed, the second spends the cap: one notice to the root and both leads, the producer is refused, the root decides',
     'a reload that raises the cap thaws a frozen thread with no stop; the revision then goes through',
   ],
-  'loops.e2e.test.ts': [
-    'rounds are counted through inputs; the cap is spent at the second return; the escalation goes out once; a third return is refused; the root decides',
-    'a last round that qa accepts ends the loop cleanly: no escalation, no root decision owed',
-    'an undeclared cycle between sections is a definition error naming both sections and the remedy',
-    'a loop that names an unknown section is refused at start; one that covers no cycle is a warning (it bounds nothing)',
+  'isolation.e2e.test.ts': [
+    'a revise cycle between two sections runs through documents alone, with no loops declaration',
+    'loops is refused at start with the migration text',
+    'a role in no section is refused at start, naming the role and the fix',
     'loops outside the sections surface is still not supported: it fails at start with the validate text',
   ],
   'lead-rights.e2e.test.ts': [
@@ -138,19 +135,18 @@ const MAPPED: Record<string, string[]> = {
   ],
   'crash-resume.e2e.test.ts': [
     'the resume delivers each owed message once, the freeze survives, the root decides, and a third start sends nothing',
-    'the escalation goes out once after the resume, the producer is refused straight away, the root decides and the loop ends; a third start sends nothing',
   ],
   'parity.e2e.test.ts': [
     'the miniature sweep without Phase 4 keys produces the P3.14 trail golden; a sections-off org started in the same daemon has no documents and no Phase 4 text',
     'starts every role with the P3.12 prompt, byte for byte, and no Phase 4 line',
     "a Phase 4 org: each role's prompt holds its Phase 4 lines, and the same org with other key values differs by those lines alone",
     'still refused: ${label}',
-    'run_config.budget_usd outside the sections surface fails, and so do loops',
+    'run_config.budget_usd outside the sections surface fails',
   ],
   'reload-guard.e2e.test.ts': [
     'is refused whole and the live org carries on: ${label}',
     'a mixed reload (a raise the guard would allow and a structural key) applies nothing; the same file without the structural key is applied whole',
-    'a section allocation (with the org budget), a rework cap and a loop round limit are applied together and act on the documents in flight',
+    'a section allocation (with the org budget), a rework cap are applied together and act on the documents in flight',
   ],
   'combined.e2e.test.ts': ['the scenario ends in the state its own assertions describe', 'the full trail equals the pinned golden'],
 };
@@ -166,7 +162,7 @@ const CASES: Record<string, string[]> = {
     'sections.<s>.mode deliberative',
     'sections.<s>.requests direct',
   ],
-  'reload-guard.e2e.test.ts': ['the writing scope changed', 'a section lead changed', 'a loop re-pointed at other types', 'a document contract changed'],
+  'reload-guard.e2e.test.ts': ['the writing scope changed', 'a section lead changed', 'a document contract changed'],
 };
 
 const title = (file: string, n: number): string => {
@@ -180,9 +176,9 @@ const ACCEPTANCE: Record<string, string[]> = {
   'A single writer': [0, 1, 2, 3, 4, 5].map((n) => title('writer.e2e.test.ts', n)),
   'B section budgets': [0, 1, 2, 3, 4].map((n) => title('budget.e2e.test.ts', n)),
   'C rework rounds': [0, 1].map((n) => title('rework.e2e.test.ts', n)),
-  'D loops': [0, 1, 2, 3, 4].map((n) => title('loops.e2e.test.ts', n)),
+  'D sections as isolated sub-orgs': [0, 1, 2, 3].map((n) => title('isolation.e2e.test.ts', n)),
   'E lead rights': [0, 1, 2, 3, 4, 5, 6].map((n) => title('lead-rights.e2e.test.ts', n)),
-  'F crash and resume': [0, 1].map((n) => title('crash-resume.e2e.test.ts', n)),
+  'F crash and resume': [0].map((n) => title('crash-resume.e2e.test.ts', n)),
   'G parity': [0, 1, 2].map((n) => title('parity.e2e.test.ts', n)),
   'H reload guard': [0, 1, 2].map((n) => title('reload-guard.e2e.test.ts', n)),
   'combined run and trail golden': [0, 1].map((n) => title('combined.e2e.test.ts', n)),
@@ -190,8 +186,8 @@ const ACCEPTANCE: Record<string, string[]> = {
     title('writer.e2e.test.ts', 0), // writes
     title('budget.e2e.test.ts', 1), // budget
     title('rework.e2e.test.ts', 0), // max_rework_rounds
-    title('loops.e2e.test.ts', 0), // loops
-    title('loops.e2e.test.ts', 4), // loops off the surface
+    title('isolation.e2e.test.ts', 1), // loops: removed
+    title('isolation.e2e.test.ts', 3), // loops off the surface
   ],
   'acceptance 4: the deferred table still fails validate': [title('parity.e2e.test.ts', 3), title('parity.e2e.test.ts', 4)],
 };

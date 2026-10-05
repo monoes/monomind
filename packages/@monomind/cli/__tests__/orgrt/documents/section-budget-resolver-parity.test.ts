@@ -99,6 +99,7 @@ describe("sections-off and surface-on without section budgets keep today's expre
     const noSections = (r: Record<string, any>) => {
       delete r.sections.research.budget;
       delete r.sections.development.budget;
+      delete r.sections.watch.budget;
     };
     const orgOnly = budgetedOrg(noSections);
     expect(sectionRoleCap(OrgDefSchema.parse(orgOnly) as never, 'coder')).toBeUndefined();
@@ -113,6 +114,7 @@ describe("sections-off and surface-on without section budgets keep today's expre
     const raw = budgetedOrg((r) => {
       delete r.sections.research.budget;
       delete r.sections.development.budget;
+      delete r.sections.watch.budget;
       delete r.run_config.budget_usd;
       roleOf(r, 'coder').policy = { sandbox: { mode: 'off' }, maxUsd: 7 };
     });
