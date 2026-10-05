@@ -319,11 +319,11 @@ async function probeVariant(name, def, variantName) {
     command: `${name} ${def.args.map((a) => (/\s/.test(a) ? JSON.stringify(a) : a)).join(' ')}`,
     cliVersion: version,
     envSet: {
-      HOME: '<T>/home',
-      XDG_CONFIG_HOME: '<T>/home/.config',
-      XDG_DATA_HOME: '<T>/home/.local/share',
-      XDG_STATE_HOME: '<T>/home/.local/state',
-      XDG_CACHE_HOME: '<T>/home/.cache',
+      HOME: '<HOME>',
+      XDG_CONFIG_HOME: '<HOME>/.config',
+      XDG_DATA_HOME: '<HOME>/.local/share',
+      XDG_STATE_HOME: '<HOME>/.local/state',
+      XDG_CACHE_HOME: '<HOME>/.cache',
       XDG_RUNTIME_DIR: '<T>/run',
       TMPDIR: '<T>/tmp',
       ...Object.fromEntries(
