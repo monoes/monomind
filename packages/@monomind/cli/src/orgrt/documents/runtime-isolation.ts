@@ -162,24 +162,48 @@ export const RUNTIME_ISOLATION: Record<RuntimeKind, RuntimeIsolation> = {
     verified: V('crush 0.96.1'),
     note: 'the runner passes --data-dir from MONOMIND_RUNNER_DATA_DIR; there is no environment variable for it',
   },
-  // GROUP 2 (probed separately; entries below follow tests/eval/org/runtime-probes).
+  // The entries below follow tests/eval/org/runtime-probes (probe.mjs, one JSON per runtime).
   grok: {
-    strategy: 'private-home',
-    authFiles: [GIT_CONFIG],
-    nativeDirs: [],
-    verified: 'unverified',
+    strategy: 'config-env',
+    configEnv: 'GROK_HOME',
+    configDir: '.grok',
+    authFiles: ['.grok/config.toml', '.grok/auth.json'],
+    nativeDirs: ['sessions', 'logs', 'bin', 'installed-plugins'],
+    probe: PROBE(
+      'GROK_HOME=<tmp>/grok grok -p "reply with OK" --output-format json -m poolside/laguna-s-2.1:free',
+      '51 files, all under GROK_HOME (sessions/<cwd>/<id>/*.jsonl, session_search.sqlite, logs/unified.jsonl, bin/grok-<ver>); none under HOME or the cwd',
+    ),
+    verified: V('grok 1.0.41'),
+    note: 'the model key comes from the environment; auth.json is staged when the operator logged in. Each private directory holds its own ~160 MB copy of the binary. The leader daemon (--leader-socket, default ~/.grok/leader.sock) is off unless [cli] use_leader is true: keep it off',
   },
   copilot: {
     strategy: 'private-home',
-    authFiles: [GIT_CONFIG],
-    nativeDirs: [],
-    verified: 'unverified',
+    authFiles: ['.config/gh/hosts.yml', GIT_CONFIG],
+    nativeDirs: [
+      '.copilot',
+      '.cache/copilot',
+      '.cache/Microsoft/DeveloperTools',
+      '.local/state/gh',
+    ],
+    probe: PROBE(
+      'HOME=<tmp> XDG_*=<tmp> copilot -p "reply with OK" --model auto --auto-tier efficiency -s --no-auto-update',
+      '235 files, all under the temp HOME (state, session-state/<id>/events.jsonl, session-store.db, a ~175 MB self-extracted package cache); none under the cwd',
+    ),
+    verified: V('GitHub Copilot CLI 1.0.89'),
+    note: 'COPILOT_HOME alone moves only the state, ~175 MB of cache and device ids would still land in the real home, so the whole home is private; login is the gh CLI file hosts.yml and `gh` must be on PATH; without credentials copilot exits "No authentication information found"',
   },
   hermes: {
-    strategy: 'private-home',
-    authFiles: [GIT_CONFIG],
-    nativeDirs: [],
-    verified: 'unverified',
+    strategy: 'config-env',
+    configEnv: 'HERMES_HOME',
+    configDir: '.hermes',
+    authFiles: ['.hermes/auth.json', '.hermes/.env', '.hermes/config.yaml'],
+    nativeDirs: ['state.db', 'logs', 'cache', 'bin', 'SOUL.md'],
+    probe: PROBE(
+      'HERMES_HOME=<tmp>/hermes hermes chat --query="reply with OK" -Q -m nvidia/nemotron-3-super-120b-a12b:free --provider openrouter',
+      '12 files, all under HERMES_HOME (state.db holds the sessions, logs/agent.log, auth.json, cache/, bin/tirith); none under HOME or the cwd',
+    ),
+    verified: V('Hermes Agent v0.19.0'),
+    note: 'a fresh directory downloads the ~38 MB tirith scanner on first use',
   },
   vercel: {
     strategy: 'in-process',
@@ -187,7 +211,7 @@ export const RUNTIME_ISOLATION: Record<RuntimeKind, RuntimeIsolation> = {
     pathEnv: { [RUNNER_DATA_DIR_ENV]: '.' },
     nativeDirs: ['sessions'],
     verified: 'unverified',
-    note: 'API client in the daemon process, no CLI home; its one native copy is the session store, which the runner keeps under MONOMIND_RUNNER_DATA_DIR',
+    note: 'API client in the daemon process, no CLI and no HOME lookup; its one native copy is <dir>/sessions/<id>.json, which the runner keeps under MONOMIND_RUNNER_DATA_DIR. Not probed: the ai package and a provider key were not available (runtime-probes/vercel.json)',
   },
   kimicode: {
     strategy: 'config-env',
@@ -219,7 +243,7 @@ export const RUNTIME_ISOLATION: Record<RuntimeKind, RuntimeIsolation> = {
     authFiles: [],
     nativeDirs: ['data'],
     verified: 'unverified',
-    note: 'cline is not installed on the host that wrote this table; the runner reads CLINE_DIR (its data dir derives from it) for full-access turns, and a scoped turn already keeps its state in the role private TMPDIR',
+    note: 'cline is not installed on the host that wrote this table; the runner reads CLINE_DIR (its data dir derives from it) for full-access turns, and a scoped turn already keeps its state in the role private TMPDIR. Open: whether the detached hub daemon is keyed by the data dir; if two roles share one it must become refused',
   },
   aider: {
     strategy: 'private-home',
@@ -234,7 +258,7 @@ export const RUNTIME_ISOLATION: Record<RuntimeKind, RuntimeIsolation> = {
     authFiles: [GIT_CONFIG],
     nativeDirs: [],
     verified: 'unverified',
-    note: 'dsh is not installed on the host that wrote this table; generic private home',
+    note: 'dsh is not installed on the host that wrote this table; generic private home (the runner writes its model patch under the host tmpdir, not the role one)',
   },
 };
 

@@ -339,3 +339,52 @@ describe.skipIf(!realMask.available)('with a real bubblewrap (what a role can ac
     expect(run(coder.mask, `mkdir -p ${coder.env.HOME}/.gemini && echo c > ${coder.env.HOME}/.gemini/conv.db`).status).toBe(0);
   });
 });
+
+describe('R5 on every runtime: a session on another runtime (real daemon, fake CLI)', () => {
+  // The CLI is a script that reports its environment into the directory it was given:
+  // the proof that the variable reaches the process the runner starts, that the process
+  // can write there inside the mask, and that the credential is staged beside it.
+  it('starts a codex role with CODEX_HOME at its private directory, the credential linked in, and the real home untouched', async () => {
+    const home = join(root, 'real-home');
+    mkdirSync(join(home, '.codex'), { recursive: true });
+    writeFileSync(join(home, '.codex/auth.json'), '{"credential":"operator"}');
+    const bin = join(root, 'fake-codex.sh');
+    writeFileSync(
+      bin,
+      [
+        '#!/bin/sh',
+        'cat > /dev/null',
+        'printf "CODEX_HOME=%s\\nHOME=%s\\n" "$CODEX_HOME" "$HOME" > "$CODEX_HOME/probe.txt"',
+        'ls "$CODEX_HOME" >> "$CODEX_HOME/probe.txt"',
+        'echo \'{"type":"thread.started","thread_id":"t1"}\'',
+        'echo \'{"type":"item.completed","item":{"id":"i0","type":"agent_message","text":"done"}}\'',
+        'echo \'{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}\'',
+        '',
+      ].join('\n'),
+    );
+    chmodSync(bin, 0o755);
+    const raw = sectionsRaw() as any;
+    raw.roles.find((r: any) => r.id === 'boss').runtime = 'codex';
+    writeFileSync(join(root, '.monomind/orgs/sec-org.json'), JSON.stringify(raw));
+    const saved = { HOME: process.env.HOME, CODEX_CLI_BIN: process.env.CODEX_CLI_BIN };
+    process.env.HOME = home;
+    process.env.CODEX_CLI_BIN = bin;
+    const d = new OrgDaemon(root, { forward: false, stopWaitMs: 100, bossRestartBackoffMs: [600_000] });
+    try {
+      await d.startOrg('sec-org', undefined, { evalGate: true });
+      const probe = join(orgDir, 'runner/boss/rt-codex/probe.txt');
+      for (let i = 0; i < 200 && !existsSync(probe); i++) await new Promise((r) => setTimeout(r, 25));
+      const text = readFileSync(probe, 'utf8');
+      expect(text).toContain(`CODEX_HOME=${join(orgDir, 'runner/boss/rt-codex')}`);
+      expect(text).toContain(`HOME=${home}`);
+      expect(text).toContain('auth.json');
+      expect(readdirSync(join(home, '.codex'))).toEqual(['auth.json']);
+    } finally {
+      await d.stopAll().catch(() => {});
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
+  });
+});

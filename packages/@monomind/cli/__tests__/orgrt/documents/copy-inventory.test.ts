@@ -4,7 +4,7 @@
 // them so no role reads another's. A runner without an inventory entry is
 // refused for sections orgs outside the eval harness.
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -96,12 +96,12 @@ describe('copyInventoryFindings', () => {
     expect(f.errors.join()).toMatch(/coder.*no-such-runtime.*no copy-inventory entry/);
   });
   it('accepts every verified runtime silently, in and outside the eval harness', () => {
-    for (const rt of ['claude', 'codex', 'antigravity', 'opencode', 'pi', 'pi-rpc', 'crush'])
+    for (const rt of ['claude', 'codex', 'antigravity', 'opencode', 'pi', 'pi-rpc', 'crush', 'grok', 'copilot', 'hermes'])
       for (const evalMode of [true, false])
         expect(copyInventoryFindings(withRuntime(rt, evalMode)), `${rt} ${evalMode}`).toEqual({ errors: [], warnings: [] });
   });
   it('accepts an unverified runtime with a warning, never an error', () => {
-    for (const rt of ['qwen', 'kimicode', 'cline', 'aider', 'dsh']) {
+    for (const rt of ['qwen', 'qwen-rpc', 'kimicode', 'cline', 'aider', 'dsh', 'vercel']) {
       const f = copyInventoryFindings(withRuntime(rt, false));
       expect(f.errors, rt).toEqual([]);
       expect(f.warnings.join(), rt).toMatch(new RegExp(`coder.*${rt}.*not probed`));
@@ -204,57 +204,6 @@ describe('a sections session (real daemon)', () => {
       expect(seen[0].disallowedTools).toContain(`Read(/${runner}/**)`);
     } finally {
       await d.stopAll().catch(() => {});
-    }
-  });
-});
-
-describe('a sections session on another runtime (real daemon, fake CLI)', () => {
-  // The CLI is a script that reports its environment into the directory it was given:
-  // the proof that the variable reaches the process the runner starts, that the process
-  // can write there inside the mask, and that the credential is staged beside it.
-  it('starts a codex role with CODEX_HOME at its private directory, the credential linked in, and the real home untouched', async () => {
-    const root = join(base, 'proj');
-    const home = join(base, 'real-home');
-    mkdirSync(join(home, '.codex'), { recursive: true });
-    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
-    writeFileSync(join(home, '.codex/auth.json'), '{"credential":"operator"}');
-    const bin = join(base, 'fake-codex.sh');
-    writeFileSync(
-      bin,
-      [
-        '#!/bin/sh',
-        'cat > /dev/null',
-        'printf "CODEX_HOME=%s\\nHOME=%s\\n" "$CODEX_HOME" "$HOME" > "$CODEX_HOME/probe.txt"',
-        'ls "$CODEX_HOME" >> "$CODEX_HOME/probe.txt"',
-        'echo \'{"type":"thread.started","thread_id":"t1"}\'',
-        'echo \'{"type":"item.completed","item":{"id":"i0","type":"agent_message","text":"done"}}\'',
-        'echo \'{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}\'',
-        '',
-      ].join('\n'),
-    );
-    chmodSync(bin, 0o755);
-    const raw = sectionsRaw() as any;
-    raw.roles.find((r: any) => r.id === 'boss').runtime = 'codex';
-    writeFileSync(join(root, '.monomind/orgs/sec-org.json'), JSON.stringify(raw));
-    const saved = { HOME: process.env.HOME, CODEX_CLI_BIN: process.env.CODEX_CLI_BIN };
-    process.env.HOME = home;
-    process.env.CODEX_CLI_BIN = bin;
-    const d = new OrgDaemon(root, { forward: false, stopWaitMs: 100, bossRestartBackoffMs: [600_000] });
-    try {
-      await d.startOrg('sec-org', undefined, { evalGate: true });
-      const probe = join(root, '.monomind/orgs/sec-org/runner/boss/rt-codex/probe.txt');
-      for (let i = 0; i < 200 && !existsSync(probe); i++) await new Promise((r) => setTimeout(r, 25));
-      const text = readFileSync(probe, 'utf8');
-      expect(text).toContain(`CODEX_HOME=${join(root, '.monomind/orgs/sec-org/runner/boss/rt-codex')}`);
-      expect(text).toContain(`HOME=${home}`);
-      expect(text).toContain('auth.json');
-      expect(readdirSync(join(home, '.codex'))).toEqual(['auth.json']);
-    } finally {
-      await d.stopAll().catch(() => {});
-      for (const [k, v] of Object.entries(saved)) {
-        if (v === undefined) delete process.env[k];
-        else process.env[k] = v;
-      }
     }
   });
 });
