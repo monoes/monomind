@@ -14,6 +14,10 @@ describe('a valid sections definition', () => {
     expect(findings(() => {})).toEqual({ errors: [], warnings: [] });
   });
 
+  it('accepts a definition without run_config.experimental (general availability)', () => {
+    expect(findings((r) => delete r.run_config.experimental)).toEqual({ errors: [], warnings: [] });
+  });
+
   it('accepts a one-member section that leads itself', () => {
     const f = findings((r) => {
       r.sections.development = { members: ['coder'], consumes: ['findings'] };
@@ -35,7 +39,6 @@ const surfaceCases: Case[] = [
   ['requires missing', (r) => delete r.requires, 'requires: a sections org must declare requires'],
   ['requires.sections is 2', (r) => (r.requires = { sections: 2 }), 'requires: a sections org must declare'],
   ['requires with an unknown capability', (r) => (r.requires.budgets = 1), 'requires.budgets: unknown capability "budgets"'],
-  ['experimental missing', (r) => delete r.run_config.experimental, 'run_config.experimental: a sections org must set "eval"'],
   ['experimental is another value', (r) => (r.run_config.experimental = 'beta'), '"beta"'],
   ['completion as a string', (r) => (r.run_config.completion = 'dag'), 'run_config.completion: a sections org must set'],
   ['completion missing', (r) => delete r.run_config.completion, 'run_config.completion: a sections org must set'],

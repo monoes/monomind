@@ -64,9 +64,9 @@ function checkSurfaceKeys(def: OrgDef, f: Findings): void {
         f.errors.push(
           `requires.${k}: unknown capability "${k}" — this runtime supports only "sections"; remove it`,
         );
-  if (rc.experimental !== 'eval')
+  if (rc.experimental !== undefined && rc.experimental !== 'eval')
     f.errors.push(
-      `run_config.experimental: a sections org must set "eval" until the release build qualifies — got ${describe(rc.experimental)}`,
+      `run_config.experimental: must be "eval" or absent — got ${describe(rc.experimental)}`,
     );
   f.errors.push(...completionFindings(rc, describe));
   if (def.schedule !== null && def.schedule !== undefined)
