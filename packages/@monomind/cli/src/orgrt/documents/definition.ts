@@ -8,6 +8,7 @@
  */
 import type { OrgDef } from '../types.js';
 import { completionFindings } from './completion-accessor.js';
+import { copyInventoryFindings } from './copy-inventory.js';
 import { checkDocuments } from './definition-documents.js';
 import type { Findings } from './definition-util.js';
 import { isObject, NAME_RE, RESERVED_TYPES } from './definition-util.js';
@@ -275,6 +276,9 @@ export function sectionsDefinitionFindings(def: OrgDef): Findings {
   f.errors.push(...budget.errors);
   f.warnings.push(...budget.warnings);
   writerDefinitionFindings(def, f);
+  const inventory = copyInventoryFindings(def); // GA row R5: every runner's native copies are inventoried
+  f.errors.push(...inventory.errors);
+  f.warnings.push(...inventory.warnings);
   const loops = loopFindings(raw, ['CYCLE_SELF_EDGE']); // P4.8: a self-edge is already an error above
   f.errors.push(...loops.errors);
   f.warnings.push(...loops.warnings);
