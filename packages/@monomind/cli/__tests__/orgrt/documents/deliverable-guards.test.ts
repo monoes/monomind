@@ -1,7 +1,7 @@
 // P3.10: the publish and decide guards on a real store (no daemon, no model): refusal text and counter, the cap
 // and its fail-closed code, an accept after a file changed, the comparison against what the producer sent.
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

@@ -6,7 +6,7 @@
 // current state plus the later appends, within a 4,000-char budget that also
 // respects the 12,000-char limit on the first message's variable parts.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';

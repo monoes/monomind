@@ -3,7 +3,6 @@
 // scoped sibling in the SAME org is byte-identical to before this issue, and
 // the audit-log + tool_activity side effects.
 import { readFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,6 +17,7 @@ import { PolicyEngine } from '../orgrt/policy.js';
 import { runAgentSession } from '../orgrt/session.js';
 import { type OrgDef, OrgDefSchema, type OrgRole } from '../orgrt/types.js';
 import type { BusEvent } from '../orgrt/types-events.js';
+import { mkdtempSync } from './tmp-track.js';
 
 // session-run.ts's resolveRoleAccess call has no test seam of its own — it
 // always resolves the grant key from the real operator-dir default

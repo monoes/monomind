@@ -1,6 +1,6 @@
 /** Shared catalog fixtures: real packages with real digests plus a state entry. */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { packageDigest, packagesDir } from '../../src/catalog/digest.js';

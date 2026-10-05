@@ -1,7 +1,7 @@
 // P3.6: the per-run documents runtime (bindings built from the validated definition) and the static access
 // rules, as pure functions of the definition. No daemon, no model.
 import { existsSync, readdirSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

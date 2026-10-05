@@ -1,4 +1,3 @@
-import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
@@ -10,6 +9,7 @@ import {
   graphDiameter,
 } from '../../graph/statistics.js';
 import { openDb } from '../../storage/db.js';
+import { mkdtempSync } from '../tmp-track.js';
 
 function makeTempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'monograph-stats-test-'));

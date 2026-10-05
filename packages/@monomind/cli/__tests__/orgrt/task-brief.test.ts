@@ -6,7 +6,7 @@
  * then was woken four more times (~3M tokens).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';

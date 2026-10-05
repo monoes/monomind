@@ -2,7 +2,7 @@
 // ones (checks.test.ts holds their unit cases); here: when the tool exists, who may call it, version selection,
 // the result shape and its paging, the durable call record, and that a check changes no document state.
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

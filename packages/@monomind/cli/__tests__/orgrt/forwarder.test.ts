@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import http from 'node:http';
 import { writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgBus } from '../../src/orgrt/bus.js';

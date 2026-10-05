@@ -2,7 +2,7 @@
 // tool handlers (no daemon, no model). A publish that supersedes a frozen thread is refused with REWORK_EXHAUSTED,
 // uncounted; a new document of the type is still allowed; the root (and only the root, and only on a frozen head)
 // decides; a reload that raises the cap thaws the thread and one that lowers it freezes it, from facts each time.
-import { mkdtempSync } from '../../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

@@ -9,7 +9,7 @@
  * A completed tool call now emits a follow-up `tool_result` event carrying the
  * outcome, correlated to the invocation by the harness's tool-use id.
  */
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

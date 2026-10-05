@@ -5,7 +5,7 @@
 // create` and the dashboard's config patch. A deferred feature is an error
 // everywhere; advice is a warning that never blocks.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';

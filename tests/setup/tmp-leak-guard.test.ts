@@ -43,7 +43,7 @@ describe('tool-owned entries', () => {
 
 describe('the test run keeps TMPDIR in its own temp root', () => {
   it('points os.tmpdir() at a run temp dir, outside the throwaway home', () => {
-    expect(basename(tmpdir())).toMatch(/^mm-test-(run-)?tmp-/);
+    expect(basename(tmpdir())).toMatch(/^(t|f)-/);
     expect(tmpdir().startsWith(process.env.HOME as string)).toBe(false);
   });
 });

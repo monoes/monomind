@@ -11,7 +11,7 @@
  * tests; its own tests below run it for real.
  */
 import { linkSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

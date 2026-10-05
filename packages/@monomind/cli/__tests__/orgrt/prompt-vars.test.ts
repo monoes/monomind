@@ -3,7 +3,7 @@
 // responsibilities reference {{org_root}} / {{home}} and the runtime expands
 // them when the role prompt is built.
 import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

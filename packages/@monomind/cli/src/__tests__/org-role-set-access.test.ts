@@ -6,7 +6,6 @@
 // itself the thing the agent-context-refusal tests assert stays enforced
 // when it's NOT done.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,6 +15,7 @@ import { readFullAccessGrantKey } from '../orgrt/access-grant-key.js';
 import { AGENT_CONTEXT_ENV_MARKERS } from '../orgrt/agent-context.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
 import type { CommandContext } from '../types.js';
+import { mkdtempSync } from './tmp-track.js';
 
 const AGENT_MARKERS = AGENT_CONTEXT_ENV_MARKERS;
 

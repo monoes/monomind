@@ -3,7 +3,7 @@
 // A legacy string shows exactly as before; a sections-v1 object shows its mode
 // and survives a Config-tab save with its protocol; null is refused for it.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';

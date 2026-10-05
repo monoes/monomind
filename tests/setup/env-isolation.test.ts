@@ -33,7 +33,7 @@ describe('the running test process is isolated (#544)', () => {
     // intentionally live under the real HOME (#591). Temp dirs a test makes go
     // into a run temp root next to it, removed with the run.
     expect(basename(home)).toMatch(/^mm-test-(run-)?home-.+/);
-    expect(basename(tmpdir())).toMatch(/^mm-test-(run-)?tmp-.+/);
+    expect(basename(tmpdir())).toMatch(/^(t|f)-.+/);
     expect(under(tmpdir(), home)).toBe(false);
   });
 

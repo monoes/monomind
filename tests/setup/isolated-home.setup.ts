@@ -25,8 +25,8 @@ if (isMainThread) {
   const parent = runHome && runHome !== process.env.MONOMIND_TEST_REAL_HOME ? runHome : tmpdir();
   const home = mkdtempSync(join(parent, 'mm-test-home-'));
   useTestHome(home);
-  // A temp dir of its own inside the run's, so what this file leaves behind is counted.
-  const tmp = mkdtempSync(join(tmpdir(), 'mm-test-tmp-'));
+  // A temp dir of its own (removed with the file), so what this file leaves behind is counted.
+  const tmp = mkdtempSync(join(process.env.MONOMIND_TEST_OUTER_TMP ?? tmpdir(), 'f-'));
   useTestTmp(tmp);
   afterAll(() => {
     try {

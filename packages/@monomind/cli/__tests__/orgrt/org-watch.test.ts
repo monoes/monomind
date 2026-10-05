@@ -4,7 +4,7 @@
 // shared message loop), so this needs no runtime-specific plumbing to test.
 import { describe, it, expect, vi } from 'vitest';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { watchAction } from '../../src/commands/org-observe.js';

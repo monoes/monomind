@@ -2,10 +2,10 @@
 // signing existed (`org run` from a terminal offers a one-time review and
 // sign; every other path refuses with the `org sign` hint).
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync } from './tmp-track.js';
 
 const confirmAnswer = vi.hoisted(() => ({ value: false, asked: 0 }));
 vi.mock('../prompt.js', () => ({

@@ -1,10 +1,10 @@
-import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { pruneDanglingEdges } from '../../graph/prune.js';
 import { openDb } from '../../storage/db.js';
+import { mkdtempSync } from '../tmp-track.js';
 
 function makeTempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'monograph-prune-test-'));

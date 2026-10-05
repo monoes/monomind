@@ -2,7 +2,7 @@
 // worktree's HEAD and every local branch tip of the workspace's repository.
 import { execFileSync } from 'node:child_process';
 import { realpathSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

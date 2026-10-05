@@ -6,7 +6,7 @@
  * start it. A task the assignee never received is now withdrawn from the
  * window without a notice, and a cancelled task is not delivered.
  */
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

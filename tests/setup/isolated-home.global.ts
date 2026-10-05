@@ -86,6 +86,7 @@ const KEYS = [
   'HOME',
   'USERPROFILE',
   'TMPDIR',
+  'MONOMIND_TEST_OUTER_TMP',
   'TMP',
   'TEMP',
   'MONOMIND_GLOBAL_BRAIN_DIR',
@@ -151,7 +152,10 @@ export default function setup(): () => void {
   const home = mkdtempSync(join(tmpdir(), 'mm-test-run-home-'));
   useTestHome(home);
   // One temp root for the run, removed with it: nothing a test leaves reaches /tmp.
-  const tmp = mkdtempSync(join(tmpdir(), 'mm-test-run-tmp-'));
+  // (A forked file makes its own dir next to it, under the outer temp dir: a shorter
+  // path, which suites that start Chrome need for its socket paths.)
+  process.env.MONOMIND_TEST_OUTER_TMP = tmpdir();
+  const tmp = mkdtempSync(join(tmpdir(), 't-'));
   useTestTmp(tmp);
   return () => {
     for (const k of KEYS) {

@@ -3,7 +3,7 @@
 // Scripted, no model: a literal definition, the real PolicyEngine and the real sandbox restrictions builder.
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, realpathSync, symlinkSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

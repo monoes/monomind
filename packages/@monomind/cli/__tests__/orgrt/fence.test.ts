@@ -1,7 +1,7 @@
 // packages/@monomind/cli/__tests__/orgrt/fence.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { loadGlobalFenceConfig, mergeFenceConfigs, scanInput, scanMessage } from '../../src/orgrt/fence.js';

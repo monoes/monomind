@@ -6,7 +6,7 @@
 // added every message, so the growth runs were metered at ~2x their tokens,
 // and the result-time settle only ever tops up, never corrects downward.
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgBus } from '../../src/orgrt/bus.js';

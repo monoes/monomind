@@ -8,7 +8,7 @@
 // records: names in order, one sha per tool, and one sha for the whole list.
 import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../../src/__tests__/tmp-track.js';
 import { join } from 'node:path';
 import { ClaudeAgentRunner } from '../../../src/orgrt/agent-runner.js';
 import type { OrgBus } from '../../../src/orgrt/bus.js';

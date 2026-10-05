@@ -7,7 +7,7 @@
  * CLI call.
  */
 import * as fs from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -25,7 +25,7 @@ import {
 // fixtures deliberately use the test worker's isolated temporary HOME.
 vi.mock('../../src/orgrt/runner-inputs.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/orgrt/runner-inputs.js')>();
-  const { mkdtempSync } = await import('../../../../../tests/setup/tmp-track.js');
+  const { mkdtempSync } = await import('../../src/__tests__/tmp-track.js');
   const os = await import('node:os');
   const path = await import('node:path');
   return { ...actual, createRunnerInputDir: (runner: string) => mkdtempSync(path.join(os.tmpdir(), `runner-fixture-${runner}-`)) };

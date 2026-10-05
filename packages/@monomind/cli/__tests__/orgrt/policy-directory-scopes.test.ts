@@ -7,7 +7,7 @@
  * it "may use …/growth/site".
  */
 import { mkdirSync, realpathSync, renameSync, symlinkSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';

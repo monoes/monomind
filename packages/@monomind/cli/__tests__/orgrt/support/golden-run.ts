@@ -9,7 +9,7 @@
 // Bus events are recorded per step and per acting role (a role's own events
 // are causally ordered; two roles running at once are not), then normalised.
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { mkdtempSync } from '../../../../../../tests/setup/tmp-track.js';
+import { mkdtempSync } from '../../../src/__tests__/tmp-track.js';
 import { join } from 'node:path';
 import { vi } from 'vitest';
 import { CHECKPOINT_VERSION } from '../../../src/orgrt/checkpoint.js';
