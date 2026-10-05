@@ -277,4 +277,65 @@ describe.skipIf(!realMask.available)('with a real bubblewrap (what a role can ac
     expect(run(boss, `ls ${cfg}/projects`).stdout).not.toContain('coder.jsonl');
     expect(existsSync(join(cfg, 'projects', 'coder.jsonl'))).toBe(false);
   });
+
+  // R5 on every runtime: a runtime other than Claude gets a private directory of its own,
+  // named by its CLI's variable (CODEX_HOME) or by HOME; the mask hides the other roles'.
+  const PRIVATE_RUNTIMES = ['codex', 'pi', 'pi-rpc', 'antigravity', 'opencode', 'crush', 'qwen', 'aider'];
+  function runtimeWorld(role: string, runtime: string) {
+    const home = join(root, 'home');
+    mkdirSync(join(home, '.codex'), { recursive: true });
+    mkdirSync(join(home, '.pi/agent'), { recursive: true });
+    writeFileSync(join(home, '.codex/auth.json'), '{"credential":"operator"}');
+    writeFileSync(join(home, '.pi/agent/auth.json'), '{}');
+    const def = sectionsRaw() as any;
+    for (const r of def.roles) mkdirSync(mailDirFor(orgDir, r.id), { recursive: true });
+    loadEnvelopeKey(orgDir);
+    const p = sectionsRoleProtection({ def, orgDir, roleId: role, runtime, home, env: {} });
+    const bus = new OrgBus('sec-org', 'r', side());
+    const mask = roleExecMask({
+      bus,
+      roleId: role,
+      authorityMask: ['--dev-bind', '/', '/'],
+      bestEffortDenyRead: p.bestEffortDenyRead,
+      bestEffortReadOnly: p.bestEffortReadOnly,
+      bestEffortBinds: p.bestEffortBinds,
+      home,
+      env: {},
+    } as any) as string[];
+    const own = p.runtimeEnv.CODEX_HOME ?? p.runtimeEnv.PI_CODING_AGENT_DIR ?? p.runtimeEnv.HOME;
+    return { mask, env: p.runtimeEnv, own: own as string, home };
+  }
+
+  it.each(PRIVATE_RUNTIMES)('R5 (%s): the role writes into its private directory; another role sees none of it', (runtime) => {
+    const coder = runtimeWorld('coder', runtime);
+    const boss = runtimeWorld('boss', runtime);
+    expect(coder.own).not.toBe(boss.own);
+    expect(coder.own.startsWith(join(orgDir, 'runner', 'coder'))).toBe(true);
+    // the role's own runner can write, list and read its copies
+    expect(run(coder.mask, `echo transcript > ${coder.own}/own.jsonl && cat ${coder.own}/own.jsonl`).stdout).toBe('transcript\n');
+    expect(readFileSync(join(coder.own, 'own.jsonl'), 'utf8')).toBe('transcript\n');
+    // another role cannot read it, list it, or write into it
+    expect(run(boss.mask, `cat ${coder.own}/own.jsonl`).stdout).not.toContain('transcript');
+    expect(run(boss.mask, `ls ${coder.own}`).stdout).not.toContain('own.jsonl');
+    run(boss.mask, `echo forged > ${coder.own}/forged.jsonl`);
+    expect(existsSync(join(coder.own, 'forged.jsonl'))).toBe(false);
+    // nor can it add anything to the runner root
+    expect(run(coder.mask, `mkdir ${orgDir}/runner/new-dir`).status).not.toBe(0);
+    expect(existsSync(join(orgDir, 'runner', 'new-dir'))).toBe(false);
+  });
+
+  it('R5 (codex): the staged credential resolves inside the mask and the real home is only read', () => {
+    const coder = runtimeWorld('coder', 'codex');
+    expect(coder.env).toEqual({ CODEX_HOME: coder.own });
+    expect(run(coder.mask, `cat ${coder.own}/auth.json`).stdout).toBe('{"credential":"operator"}');
+    expect(readdirSync(join(coder.home, '.codex'))).toEqual(['auth.json']);
+    expect(readFileSync(join(coder.home, '.codex/auth.json'), 'utf8')).toBe('{"credential":"operator"}');
+  });
+
+  it('R5 (antigravity): HOME and the XDG bases are the private directory', () => {
+    const coder = runtimeWorld('coder', 'antigravity');
+    expect(coder.env.HOME).toBe(coder.own);
+    expect(coder.env.XDG_DATA_HOME).toBe(join(coder.own, '.local/share'));
+    expect(run(coder.mask, `mkdir -p ${coder.env.HOME}/.gemini && echo c > ${coder.env.HOME}/.gemini/conv.db`).status).toBe(0);
+  });
 });

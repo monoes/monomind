@@ -28,6 +28,12 @@ import { defaultClineHost } from '../../src/orgrt/cline-runner-host.js';
 import { CodexAgentRunner } from '../../src/orgrt/codex-runner.js';
 import { CopilotAgentRunner } from '../../src/orgrt/copilot-runner.js';
 import { CrushAgentRunner } from '../../src/orgrt/crush-runner.js';
+import {
+  isolationEnv,
+  RUNNER_DATA_DIR_ENV,
+  RUNTIME_ISOLATION,
+  usesPrivateDir,
+} from '../../src/orgrt/documents/runtime-isolation.js';
 import { DshAgentRunner } from '../../src/orgrt/dsh-runner.js';
 import { GrokAgentRunner } from '../../src/orgrt/grok-runner.js';
 import { HermesAgentRunner } from '../../src/orgrt/hermes-runner.js';
@@ -406,5 +412,39 @@ describe('tool-providers.ts providerEnv() — o-20, a third builder feeding a di
     if (process.env.HOME) expect(env.HOME).toBe(process.env.HOME);
     if (process.env.PATH) expect(env.PATH).toBe(process.env.PATH);
     expect(env.MONOMIND_ORG_ROLE).toBe('tester');
+  });
+});
+
+// Sections orgs: the private directory of a role's runner is named by variables the
+// session puts in args.env. Every runner that has one must hand them to its child.
+describe.each(
+  VENDOR_RUNNERS.filter((r) => usesPrivateDir(RUNTIME_ISOLATION[r.name as keyof typeof RUNTIME_ISOLATION])),
+)('$name — the sections isolation env reaches the child', (rc) => {
+  beforeEach(() => rc.setup?.());
+  afterEach(() => rc.teardown?.());
+  it('every variable of the private directory is in the spawned process env', async () => {
+    const iso = RUNTIME_ISOLATION[rc.name as keyof typeof RUNTIME_ISOLATION];
+    const want = isolationEnv(iso, '/iso/private', '/real/home');
+    expect(Object.keys(want).length).toBeGreaterThan(0);
+    const env = await captureChildEnv(rc.make(), want);
+    for (const [k, v] of Object.entries(want)) expect(env[k], k).toBe(v);
+  });
+});
+
+describe('crush — the private data directory becomes --data-dir', () => {
+  it('passes the directory the session named, and nothing when none is named', async () => {
+    const withDir = await captureChildEnv(new CrushAgentRunner({ crushBin: STUB }), {
+      [RUNNER_DATA_DIR_ENV]: '/iso/private/runner-data',
+    });
+    expect(withDir[RUNNER_DATA_DIR_ENV]).toBe('/iso/private/runner-data');
+    const argv = JSON.parse(readFileSync(`${dumpFile}.argv`, 'utf8')) as string[];
+    expect(argv.slice(argv.indexOf('--data-dir'), argv.indexOf('--data-dir') + 2)).toEqual([
+      '--data-dir',
+      '/iso/private/runner-data',
+    ]);
+    rmSync(dumpFile);
+    rmSync(`${dumpFile}.argv`);
+    await captureChildEnv(new CrushAgentRunner({ crushBin: STUB }), {});
+    expect(JSON.parse(readFileSync(`${dumpFile}.argv`, 'utf8'))).not.toContain('--data-dir');
   });
 });

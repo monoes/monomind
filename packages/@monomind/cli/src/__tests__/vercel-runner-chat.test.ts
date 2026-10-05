@@ -5,7 +5,7 @@
  * `assistant` message per model step, and streams deltas only when the
  * caller opts in with extras.includePartialMessages (agent exec).
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -52,6 +52,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 async function collect(
   extras?: Record<string, unknown>,
+  env: Record<string, string> = {},
 ): Promise<{ msgs: AgentMessage[]; err?: unknown }> {
   const msgs: AgentMessage[] = [];
   try {
@@ -62,7 +63,7 @@ async function collect(
       })(),
       systemPrompt: '',
       cwd: dir,
-      env: { MONOMIND_ORG_DIR: dir, OPENAI_API_KEY: 'x' },
+      env: { MONOMIND_ORG_DIR: dir, OPENAI_API_KEY: 'x', ...env },
       maxTurns: 1,
       vendor: 'openai',
       model: 'm',
@@ -194,5 +195,27 @@ describe('VercelAgentRunner failed turns', () => {
     stream.parts = [delta('ok'), { type: 'finish-step' }, { type: 'finish' }];
     const { msgs } = await collect();
     expect(resultOf(msgs)[0]).toMatchObject({ subtype: 'success', is_error: false });
+  });
+});
+
+describe('VercelAgentRunner session store in a sections org', () => {
+  it('keeps the session file in the role private directory, not the org sessions directory', async () => {
+    const own = mkdtempSync(join(tmpdir(), 'vercel-private-'));
+    try {
+      stream.failAfter = -1;
+      stream.parts = [
+        { type: 'text-start', id: 't1' },
+        delta('ok'),
+        { type: 'text-end', id: 't1' },
+        { type: 'finish-step' },
+        { type: 'finish' },
+      ];
+      const { err } = await collect(undefined, { MONOMIND_RUNNER_DATA_DIR: own });
+      expect(err).toBeUndefined();
+      expect(readdirSync(join(own, 'sessions')).length).toBe(1);
+      expect(existsSync(join(dir, 'sessions'))).toBe(false);
+    } finally {
+      rmSync(own, { recursive: true, force: true });
+    }
   });
 });

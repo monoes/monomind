@@ -58,6 +58,8 @@ export function sessionRunArgs(
      *  session's git enforcement/authority mask are built. Absent/`'scoped'`
      *  reproduces every field below byte-for-byte. */
     resolvedAccess?: ResolvedAccess;
+    /** Sections orgs: the variables that point a non-Claude runner at its role's private directory (documents/runtime-isolation.ts). */
+    runtimeEnv?: Record<string, string>;
   },
 ): Parameters<AgentRunner['run']>[0] {
   const { org, role, policy, mailbox, cwd } = opts;
@@ -73,6 +75,7 @@ export function sessionRunArgs(
     authorityMask,
     abort,
     resolvedAccess,
+    runtimeEnv,
   } = s;
   const fullAccess = resolvedAccess?.access === 'full';
   return {
@@ -133,6 +136,9 @@ export function sessionRunArgs(
       // there by default: a role's store goes beside it, and pnpm does not
       // self-install into it.
       ...toolchainRoleEnv(homedir(), process.env),
+      // Sections orgs: this role's runner keeps its native copies in a private
+      // directory (HOME, or the CLI's own config variable), never the shared one.
+      ...runtimeEnv,
       // D8: how a NON-Claude provider expresses the tier's effort level.
       // Empty for Claude (handled natively by ClaudeAgentRunner) and for a
       // provider that declares no mechanism — which simply ignores effort.
