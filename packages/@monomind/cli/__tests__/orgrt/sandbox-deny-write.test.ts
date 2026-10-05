@@ -7,7 +7,8 @@
  * real bwrap must accept the resulting mounts (skipped where bwrap can't run).
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

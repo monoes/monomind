@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdtempSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {

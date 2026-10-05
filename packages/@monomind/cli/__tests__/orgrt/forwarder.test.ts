@@ -1,7 +1,8 @@
 // packages/@monomind/cli/__tests__/orgrt/forwarder.test.ts
 import { describe, it, expect, afterEach } from 'vitest';
 import http from 'node:http';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgBus } from '../../src/orgrt/bus.js';

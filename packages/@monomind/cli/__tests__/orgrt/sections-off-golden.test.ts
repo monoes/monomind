@@ -40,7 +40,7 @@
 // Left out of the scripted run on purpose: bus events with reason `org-memory-*`.
 // Whether run memory is stored depends on the machine (the known environmental
 // daemon.test.ts failure), so those events are not a property of the org.
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { beforeAll, describe, expect, it } from 'vitest';

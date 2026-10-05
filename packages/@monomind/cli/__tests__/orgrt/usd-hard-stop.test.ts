@@ -7,7 +7,7 @@
 // SDK's error_max_budget_usd stop closes the role for budget instead of
 // counting as a failed turn, and a role with nothing left starts no query.
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgBus } from '../../src/orgrt/bus.js';

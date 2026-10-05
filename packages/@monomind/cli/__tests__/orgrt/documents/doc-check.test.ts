@@ -1,7 +1,8 @@
 // P3.11: org_doc_check over a real documents runtime (real store on disk), role-bound. The checks are the P3.4
 // ones (checks.test.ts holds their unit cases); here: when the tool exists, who may call it, version selection,
 // the result shape and its paging, the durable call record, and that a check changes no document state.
-import { appendFileSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

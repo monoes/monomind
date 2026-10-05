@@ -7,6 +7,7 @@
  * CLI call.
  */
 import * as fs from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -24,10 +25,10 @@ import {
 // fixtures deliberately use the test worker's isolated temporary HOME.
 vi.mock('../../src/orgrt/runner-inputs.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/orgrt/runner-inputs.js')>();
-  const fs = await import('node:fs');
+  const { mkdtempSync } = await import('../../../../../tests/setup/tmp-track.js');
   const os = await import('node:os');
   const path = await import('node:path');
-  return { ...actual, createRunnerInputDir: (runner: string) => fs.mkdtempSync(path.join(os.tmpdir(), `runner-fixture-${runner}-`)) };
+  return { ...actual, createRunnerInputDir: (runner: string) => mkdtempSync(path.join(os.tmpdir(), `runner-fixture-${runner}-`)) };
 });
 
 const SCRIPT = `#!/usr/bin/env node
@@ -48,7 +49,7 @@ out({ role: 'meta', type: 'session.resume_hint', session_id: 'session_c1' });
 `;
 
 function setup() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-coder-'));
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-coder-'));
   const bin = path.join(dir, 'kimi.cjs');
   fs.writeFileSync(bin, SCRIPT);
   fs.chmodSync(bin, 0o755);
@@ -121,7 +122,7 @@ describe('KimiCodeAgentRunner coder mode', () => {
 
 /** A fake `kimi` whose first invocation replies `first`, every later one `done`. */
 function callerKimi(first: string) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-389-'));
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-389-'));
   const bin = path.join(dir, 'kimi.cjs');
   const log = path.join(dir, 'calls.log');
   fs.writeFileSync(

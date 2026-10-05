@@ -1,6 +1,6 @@
 // #365: resolveRoleAccess is the runtime's single source of truth for
 // whether a role actually gets full access this session.
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';

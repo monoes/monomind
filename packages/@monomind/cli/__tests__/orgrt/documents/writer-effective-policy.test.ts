@@ -2,7 +2,8 @@
 // P4.4: the one effective policy (effective-role-policy.ts) that both the policy engine and the sandbox layer read.
 // Scripted, no model: a literal definition, the real PolicyEngine and the real sandbox restrictions builder.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, symlinkSync } from 'node:fs';
+import { mkdirSync, realpathSync, symlinkSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

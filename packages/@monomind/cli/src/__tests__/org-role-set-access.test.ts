@@ -5,7 +5,8 @@
 // explicitly clear the agent-context markers first — that clearing is
 // itself the thing the agent-context-refusal tests assert stays enforced
 // when it's NOT done.
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

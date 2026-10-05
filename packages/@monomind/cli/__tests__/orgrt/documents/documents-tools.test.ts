@@ -1,6 +1,7 @@
 // P3.6: the four org_doc_* tools over a real documents runtime (real store on disk), role-bound, with the
 // access matrix, every refusal reason, paging, idempotency and the error table. No daemon, no model.
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

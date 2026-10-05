@@ -17,7 +17,8 @@
  * restore `process.env.HOME`/`XDG_RUNTIME_DIR` afterward, the same pattern
  * used by init-project-scope.test.ts and friends.
  */
-import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';

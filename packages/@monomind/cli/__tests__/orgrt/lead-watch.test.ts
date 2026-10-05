@@ -2,7 +2,8 @@
 // Scripted (no model). The lead is told once when a role holding an open task
 // never started or went silent; never for a role without an open task or one
 // that is making progress; and not again once the lead reassigns.
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 

@@ -1,7 +1,7 @@
 // packages/@monomind/cli/src/__tests__/org-cost-tier.test.ts
 //
 // ADR-O001 D8 — provider-agnostic cost tiers (model AND reasoning effort).
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

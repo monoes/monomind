@@ -3,7 +3,8 @@
  * M4 — federation (capability `org-federation`): allow_to / allow_from across
  * project roots, broker root, root mismatch, same-root and operator exemptions.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';

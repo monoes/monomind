@@ -2,7 +2,8 @@
 // org roles — the runner options a full-access role's session gets, that a
 // scoped sibling in the SAME org is byte-identical to before this issue, and
 // the audit-log + tool_activity side effects.
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { mkdtempSync } from '../../../../../tests/setup/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
