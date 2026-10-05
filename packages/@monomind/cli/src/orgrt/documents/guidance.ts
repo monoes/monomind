@@ -58,6 +58,8 @@ export function documentGuidance(def: OrgDef, roleId: string): string | undefine
   const root = rootRoleId(def);
   const isRoot = roleId === root;
   const section = sectionOf(def, roleId);
+  // validate refuses a non-root role outside every section, so a started org has no such role to write for.
+  if (!isRoot && section === undefined) return undefined;
   const sections = (isObject(def.sections) ? def.sections : {}) as Record<
     string,
     Record<string, unknown>
@@ -77,16 +79,12 @@ export function documentGuidance(def: OrgDef, roleId: string): string | undefine
   out.push(
     isRoot
       ? 'You are the root: in no section. You read every document and may message any role.'
-      : section
-        ? `You are in section "${section}" (lead: ${leadOf(section)}${leadOf(section) === roleId ? ', that is you' : ''}).`
-        : 'You are in no section.',
+      : `You are in section "${section}" (lead: ${leadOf(section as string)}${leadOf(section as string) === roleId ? ', that is you' : ''}).`,
   );
   out.push(
     isRoot
       ? `Work crosses sections as documents, not messages: org_send from a role to a role in another section is refused, and only you can reach any section. Documents live in the runtime's store, not in your workspace: only the org_doc_* tools reach them (org_doc_list shows every document).`
-      : section
-        ? `Work crosses sections as documents, not messages: org_send to a role in another section is refused (the root can reach any section), so use org_send only within your section and publish what another section needs. Documents live in the runtime's store, not in your workspace: only the org_doc_* tools reach them (org_doc_list shows what you may read).`
-        : "Documents live in the runtime's store, not in your workspace: only the org_doc_* tools reach them. You publish and decide none (org_doc_list shows anything you may read); you may message any role.",
+      : `Work crosses sections as documents, not messages: org_send to a role in another section is refused (the root can reach any section), so use org_send only within your section and publish what another section needs. Documents live in the runtime's store, not in your workspace: only the org_doc_* tools reach them (org_doc_list shows what you may read).`,
   );
 
   if (produces.length) {

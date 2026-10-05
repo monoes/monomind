@@ -6,7 +6,7 @@
  *
  * Model. When exactly one section declares non-empty `writes`, that section is the writing section:
  *  - its roles keep their own authority, with `fileWrite` cut down to the section's `writes` globs;
- *  - every other agent role (the root, a lead or member of another section, a role in no section) is made
+ *  - every other agent role (the root, a lead or member of another section) is made
  *    read-only by the overlay: `fileWrite: []`, `sandbox.mode "required"`, `sandbox.denyWrite` naming the
  *    workspace, its own write grants removed, git no higher than "read".
  * With no writing section (no `writes`, only empty ones, or sections off) there is no overlay.
@@ -61,7 +61,6 @@ export type WriterStanding =
   | 'other-section-lead'
   | 'other-section-member'
   | 'root'
-  | 'unsectioned'
   | 'endpoint';
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
@@ -117,7 +116,10 @@ export function standingOf(
       section: s.name,
     };
   }
-  return { standing: 'unsectioned' };
+  // validate refuses a non-root role outside every section; failing closed beats leaving one unrestricted.
+  throw new Error(
+    `role "${roleId}" is in no section, so it has no writer standing (validate refuses it)`,
+  );
 }
 
 export interface WriterOverlay {

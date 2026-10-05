@@ -25,13 +25,13 @@ const role = (id: string, reportsTo: string | null, extra: Partial<WriterRole> =
   ...extra,
 });
 
-/** boss; section build (one member, self-led, writes); section review (lead + member); a stray role. */
+/** boss; section build (one member, self-led, writes); section review (lead + two members, one of them 'stray'). */
 function base(patch: (d: any) => void = () => {}): WriterDef {
   const d: any = {
     name: 'org',
     sections: {
       build: { members: ['dev'], writes: ['src/**', 'docs/**'], consumes: ['spec'] },
-      review: { lead: 'qa-lead', members: ['qa-lead', 'qa'], publishes: ['spec'] },
+      review: { lead: 'qa-lead', members: ['qa-lead', 'qa', 'stray'], publishes: ['spec'] },
     },
     roles: [
       role('boss', null),
@@ -55,12 +55,17 @@ describe('standing: where a role stands relative to the writing section', () => 
     ['qa-lead', 'other-section-lead', 'review'],
     ['qa', 'other-section-member', 'review'],
     ['boss', 'root', undefined],
-    ['stray', 'unsectioned', undefined],
+    ['stray', 'other-section-member', 'review'],
   ];
   for (const [id, standing, section] of cases)
     it(`${id} is ${standing}`, () => {
       expect(standingOf(base(), id)).toEqual({ standing, ...(section ? { section } : {}) });
     });
+
+  it('a role in no section has no standing: it is refused at validate, so reaching here is a bug, and it fails closed', () => {
+    const d = base((x) => x.roles.push(role('loner', 'boss')));
+    expect(() => standingOf(d, 'loner')).toThrow(/loner.*in no section/);
+  });
 
   it('a member of the writing section that is not its lead is writing-section-member', () => {
     const d = base((x) => {
