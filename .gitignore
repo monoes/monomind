@@ -310,3 +310,6 @@ test-results/
 # generated per machine by .claude/helpers/build-skill-registry.cjs
 .claude/helpers/skill-registry.json
 **/helpers/skill-registry.json
+
+# monomind runtime state
+.claude/memory.db

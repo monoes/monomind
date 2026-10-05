@@ -495,8 +495,5 @@
         "start"
       ]
     }
-  },
-  "enabledMcpjsonServers": [
-    "monomind"
-  ]
+  }
 }
