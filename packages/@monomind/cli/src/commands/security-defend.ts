@@ -171,13 +171,15 @@ async function runDefend(ctx: CommandContext): Promise<CommandResult> {
       output.writeln();
 
       for (const threat of result.threats) {
-        const sc =
-          {
-            critical: output.error,
-            high: output.warning,
-            medium: output.info,
-            low: output.dim,
-          }[threat.severity] || output.dim;
+        const sc = (text: string): string =>
+          (
+            ({
+              critical: output.error,
+              high: output.warning,
+              medium: output.info,
+              low: output.dim,
+            })[threat.severity as string] || output.dim
+          ).call(output, text);
 
         output.writeln(`  ${sc(`[${threat.severity.toUpperCase()}]`)} ${threat.type}`);
         output.writeln(`    ${output.dim(threat.description)}`);
