@@ -1,0 +1,127 @@
+{
+  "runtime": "grok",
+  "cliVersion": "grok 1.0.41 (4220f3b224a6)",
+  "installed": true,
+  "probed": true,
+  "strategyRecommended": "config-env",
+  "envVarsThatRedirect": ["GROK_HOME"],
+  "authFilesToStage": [
+    ".grok/config.toml (custom [model.*] entries; carries only the env-var NAME of the key)",
+    ".grok/auth.json (OAuth/OIDC login; absent on this host, documented path)"
+  ],
+  "nativeDirs": [".grok (default) or $GROK_HOME"],
+  "nativeFilesObserved": [
+    ".metadata_version",
+    "README.md",
+    "agent_id",
+    "bin/grok-1.0.41",
+    "installed-plugins/registry.lock",
+    "logs/unified.jsonl",
+    "managed_config.lock",
+    "sessions/<cwd-encoded>/<id>/chat_history.jsonl",
+    "sessions/<cwd-encoded>/<id>/chat_history.jsonl.lock",
+    "sessions/<cwd-encoded>/<id>/events.jsonl",
+    "sessions/<cwd-encoded>/<id>/prompt_context.json",
+    "sessions/<cwd-encoded>/<id>/rewind_points.jsonl",
+    "sessions/<cwd-encoded>/<id>/rewind_points.jsonl.lock",
+    "sessions/<cwd-encoded>/<id>/signals.json",
+    "sessions/<cwd-encoded>/<id>/summary.json",
+    "sessions/<cwd-encoded>/<id>/summary.json.lock",
+    "sessions/<cwd-encoded>/<id>/system_prompt.txt",
+    "sessions/<cwd-encoded>/<id>/title_refresh_idx",
+    "sessions/<cwd-encoded>/<id>/tool_definitions.json",
+    "sessions/<cwd-encoded>/<id>/updates.jsonl",
+    "sessions/<cwd-encoded>/<id>/updates.jsonl.lock",
+    "sessions/<cwd-encoded>/<id>/usage.json",
+    "sessions/<cwd-encoded>/prompt_history.jsonl",
+    "sessions/session_search.sqlite",
+    "docs/user-guide/* (27 files)"
+  ],
+  "contained": {
+    "value": true,
+    "evidence": "GROK_HOME variant: all 51 created files are under $GROK_HOME (sessions/<cwd-encoded>/<id>/{chat_history,events,updates,summary,usage}.jsonl|json, sessions/session_search.sqlite, logs/unified.jsonl, bin/grok-<ver>); 0 under HOME, 0 under cwd, 0 files touched in real ~/.grok, no processes left running. The HOME-only variant is also fully contained (everything under HOME/.grok), so private-home would work too."
+  },
+  "costUsd": 0,
+  "notes": [
+    "Turn: `grok -p \"reply with OK\" --output-format json -m poolside/laguna-s-2.1:free` with the free OpenRouter model declared in ~/.grok/config.toml; the key is passed through the environment (OPENROUTER_API_KEY), so no credential file was staged beyond config.toml (symlink, hash unchanged after the run). No grok auth.json exists on this host; an OAuth login would need .grok/auth.json staged.",
+    "Each fresh GROK_HOME/HOME gets its own copy of the ~160 MB grok binary (bin/grok-<ver>) plus ~27 user-guide docs on first use: per-role disk and first-turn cost.",
+    "`--leader-socket` defaults to ~/.grok/leader.sock and the leader daemon is only used with `[cli] use_leader = true` (off by default, not enabled in the probe). Not probed whether the socket follows GROK_HOME; keep use_leader off or pass --leader-socket into the role dir.",
+    "Two grok versions exist on this host (PATH resolves npm 1.0.41; ~/.local/bin/grok wraps the self-installed 1.0.13 under real ~/.grok/bin); the probe used the npm 1.0.41 binary by absolute path.",
+    "Documented in ~/.grok/docs/user-guide/17-sessions.md and 26-config-reference.md: GROK_HOME overrides the base dir (sessions, config.toml, managed_config.toml)."
+  ],
+  "probeVariants": [
+    {
+      "variant": "home-only",
+      "command": "grok -p \"reply with OK\" --output-format json -m poolside/laguna-s-2.1:free",
+      "env": {
+        "HOME": "<HOME>",
+        "XDG_CONFIG_HOME": "<HOME>/.config",
+        "XDG_DATA_HOME": "<HOME>/.local/share",
+        "XDG_STATE_HOME": "<HOME>/.local/state",
+        "XDG_CACHE_HOME": "<HOME>/.cache",
+        "XDG_RUNTIME_DIR": "<T>/run",
+        "TMPDIR": "<T>/tmp",
+        "passedThrough": ["OPENROUTER_API_KEY"]
+      },
+      "stagedAuthSymlinks": [
+        {
+          "link": "home/.grok/config.toml",
+          "target": "~/.grok/config.toml",
+          "targetUnchanged": true,
+          "stillSymlink": true
+        }
+      ],
+      "exitCode": 0,
+      "worked": true,
+      "durationMs": 12460,
+      "filesCreatedCount": 51,
+      "filesCreatedBytes": 166863932,
+      "filesCreatedByTopDir": {
+        "home": 51
+      },
+      "filesModifiedPreexisting": [],
+      "createdUnderCwd": [],
+      "realNativeDirsTouched": [],
+      "processesLeftRunning": [],
+      "stdoutTail": "\"inputTokens\": 3952,\n      \"outputTokens\": 2,\n      \"cacheReadInputTokens\": 10016,\n      \"cacheCreationInputTokens\": 0,\n      \"modelCalls\": 1\n    }\n  }\n}"
+    },
+    {
+      "variant": "grok-home",
+      "command": "grok -p \"reply with OK\" --output-format json -m poolside/laguna-s-2.1:free",
+      "env": {
+        "HOME": "<HOME>",
+        "XDG_CONFIG_HOME": "<HOME>/.config",
+        "XDG_DATA_HOME": "<HOME>/.local/share",
+        "XDG_STATE_HOME": "<HOME>/.local/state",
+        "XDG_CACHE_HOME": "<HOME>/.cache",
+        "XDG_RUNTIME_DIR": "<T>/run",
+        "TMPDIR": "<T>/tmp",
+        "GROK_HOME": "<T>/grok-home",
+        "passedThrough": ["OPENROUTER_API_KEY"]
+      },
+      "stagedAuthSymlinks": [
+        {
+          "link": "grok-home/config.toml",
+          "target": "~/.grok/config.toml",
+          "targetUnchanged": true,
+          "stillSymlink": true
+        }
+      ],
+      "exitCode": 0,
+      "worked": true,
+      "durationMs": 12912,
+      "filesCreatedCount": 51,
+      "filesCreatedBytes": 166864186,
+      "filesCreatedByTopDir": {
+        "grok-home": 51
+      },
+      "filesModifiedPreexisting": [],
+      "createdUnderCwd": [],
+      "realNativeDirsTouched": [],
+      "processesLeftRunning": [],
+      "stdoutTail": "\"inputTokens\": 3954,\n      \"outputTokens\": 2,\n      \"cacheReadInputTokens\": 10016,\n      \"cacheCreationInputTokens\": 0,\n      \"modelCalls\": 1\n    }\n  }\n}"
+    }
+  ],
+  "verified": "2026-10-05",
+  "probe": "node tests/eval/org/runtime-probes/probe.mjs grok"
+}

@@ -1,0 +1,35 @@
+{
+  "runtime": "vercel",
+  "cliVersion": null,
+  "installed": false,
+  "probed": false,
+  "status": "unprobed",
+  "strategyRecommended": "in-process",
+  "envVarsThatRedirect": ["MONOMIND_ORG_DIR", "MONOMIND_ROLE_ID"],
+  "authFilesToStage": [],
+  "nativeDirs": [
+    "<MONOMIND_ORG_DIR or cwd>/sessions/<sessionId>.json (runner-owned session store)"
+  ],
+  "nativeFilesObserved": [],
+  "contained": {
+    "value": null,
+    "evidence": "In-process API runner, no CLI. The `ai` package and a provider key are not available here, so no turn was run; source read only (vercel-runner.ts, vercel-session-store.ts, vercel-providers.ts)."
+  },
+  "costUsd": 0,
+  "verified": "2026-10-05",
+  "runnerEvidence": [
+    {
+      "file": "packages/@monomind/cli/src/orgrt/vercel-runner.ts",
+      "finding": "Dynamic import of the `ai` SDK; the API key is read from the named env var in args.env or process.env; no subprocess is spawned and no HOME/XDG/homedir lookup exists in the file."
+    },
+    {
+      "file": "packages/@monomind/cli/src/orgrt/vercel-session-store.ts",
+      "finding": "The only file the runner writes is `<orgDir>/sessions/<sessionId>.json` where orgDir = args.env.MONOMIND_ORG_DIR ?? args.cwd and the role id comes from MONOMIND_ROLE_ID. In a sections org that is the shared org dir unless MONOMIND_ORG_DIR is pointed at the role's private dir, so one role could list another role's session files."
+    }
+  ],
+  "hardCodedAbsolutePath": false,
+  "notes": [
+    "Nothing is written under HOME by the runner code itself, so `in-process` is the right strategy, with one required adjustment: give each role a private MONOMIND_ORG_DIR (for example <orgDir>/runner/<role>/vercel/) so the session store is not shared.",
+    "Marked unprobed rather than verified: the claim that nothing else is written (provider SDK caches) needs the HOME and cwd before/after listing with the `ai` package installed and a cheap provider key."
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "runtime": "hermes",
+  "cliVersion": "Hermes Agent v0.19.0 (2026.7.20)",
+  "installed": true,
+  "probed": true,
+  "strategyRecommended": "config-env",
+  "envVarsThatRedirect": ["HERMES_HOME"],
+  "authFilesToStage": [
+    ".hermes/auth.json and .hermes/.env (credentials, when the user has logged in; absent on this host)",
+    ".hermes/config.yaml (provider/model config, when present; absent on this host)"
+  ],
+  "nativeDirs": [".hermes (default) or $HERMES_HOME"],
+  "nativeFilesObserved": [
+    ".skills_prompt_snapshot.json",
+    ".update_check",
+    "SOUL.md",
+    "auth.json",
+    "auth.lock",
+    "bin/tirith",
+    "cache/openrouter_model_metadata.json",
+    "logs/agent.log",
+    "logs/errors.log",
+    "state.db",
+    "state.db-shm",
+    "state.db-wal"
+  ],
+  "contained": {
+    "value": true,
+    "evidence": "HERMES_HOME variant: all 12 created files are under $HERMES_HOME (state.db + -shm/-wal holds the sessions, logs/agent.log, logs/errors.log, auth.json, SOUL.md, cache/, bin/tirith); 0 under HOME, 0 under cwd, 0 touched in real ~/.hermes, no processes left running. The HOME-only variant is also fully contained (everything under HOME/.hermes)."
+  },
+  "costUsd": 0,
+  "notes": [
+    "Turn: `hermes chat --query=\"reply with OK\" -Q -m nvidia/nemotron-3-super-120b-a12b:free --provider openrouter` (free OpenRouter model); the key came from OPENROUTER_API_KEY in the environment, so nothing was staged. This host has no ~/.hermes/config.yaml, .env or auth.json.",
+    "First use in a fresh HERMES_HOME downloads the ~38 MB tirith scanner into bin/ over the network and writes .update_check; the install dir is under mise, not the home.",
+    "hermes_constants.py resolves HERMES_HOME from the process environment (read in the package source), falling back to ~/.hermes.",
+    "The runner (hermes-runner.ts) spawns `hermes chat --query` once per tool round with env = process.env + args.env, so HERMES_HOME set in args.env reaches every round."
+  ],
+  "probeVariants": [
+    {
+      "variant": "home-only",
+      "command": "hermes chat \"--query=reply with OK\" -Q -m nvidia/nemotron-3-super-120b-a12b:free --provider openrouter",
+      "env": {
+        "HOME": "<HOME>",
+        "XDG_CONFIG_HOME": "<HOME>/.config",
+        "XDG_DATA_HOME": "<HOME>/.local/share",
+        "XDG_STATE_HOME": "<HOME>/.local/state",
+        "XDG_CACHE_HOME": "<HOME>/.cache",
+        "XDG_RUNTIME_DIR": "<T>/run",
+        "TMPDIR": "<T>/tmp",
+        "passedThrough": ["OPENROUTER_API_KEY"]
+      },
+      "stagedAuthSymlinks": [],
+      "exitCode": 0,
+      "worked": true,
+      "durationMs": 3912,
+      "filesCreatedCount": 12,
+      "filesCreatedBytes": 40015961,
+      "filesCreatedByTopDir": {
+        "home": 12
+      },
+      "filesModifiedPreexisting": [],
+      "createdUnderCwd": [],
+      "realNativeDirsTouched": [],
+      "processesLeftRunning": [],
+      "stdoutTail": "ing ──────────────────────────────────────────────────────────────────┐\r\nWe are to reply with \"OK\". Let's do that.We are to reply with \"OK\". Let's do that.\r\nOK"
+    },
+    {
+      "variant": "hermes-home",
+      "command": "hermes chat \"--query=reply with OK\" -Q -m nvidia/nemotron-3-super-120b-a12b:free --provider openrouter",
+      "env": {
+        "HOME": "<HOME>",
+        "XDG_CONFIG_HOME": "<HOME>/.config",
+        "XDG_DATA_HOME": "<HOME>/.local/share",
+        "XDG_STATE_HOME": "<HOME>/.local/state",
+        "XDG_CACHE_HOME": "<HOME>/.cache",
+        "XDG_RUNTIME_DIR": "<T>/run",
+        "TMPDIR": "<T>/tmp",
+        "HERMES_HOME": "<T>/hermes-home",
+        "passedThrough": ["OPENROUTER_API_KEY"]
+      },
+      "stagedAuthSymlinks": [],
+      "exitCode": 0,
+      "worked": true,
+      "durationMs": 3648,
+      "filesCreatedCount": 12,
+      "filesCreatedBytes": 40015961,
+      "filesCreatedByTopDir": {
+        "hermes-home": 12
+      },
+      "filesModifiedPreexisting": [],
+      "createdUnderCwd": [],
+      "realNativeDirsTouched": [],
+      "processesLeftRunning": [],
+      "stdoutTail": "We need to respond with \"OK\". No tool usage required. Provide a short answer.We need to respond with \"OK\". No tool usage required. Provide a short answer.\r\nOK"
+    }
+  ],
+  "verified": "2026-10-05",
+  "probe": "node tests/eval/org/runtime-probes/probe.mjs hermes"
+}

@@ -1,0 +1,41 @@
+{
+  "runtime": "aider",
+  "cliVersion": null,
+  "installed": false,
+  "probed": false,
+  "status": "unprobed",
+  "strategyRecommended": "private-home",
+  "envVarsThatRedirect": ["MONOMIND_AIDER_STATE_DIR", "HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME"],
+  "authFilesToStage": [],
+  "nativeDirs": [
+    "<state_dir>/<session>.json|.chat.history.md|.input.history (shim mode, runner-owned)",
+    ".aider (default home dir of the plain CLI)",
+    "<cwd or git root>/.aider.* (plain CLI fallback)"
+  ],
+  "nativeFilesObserved": [],
+  "contained": {
+    "value": null,
+    "evidence": "CLI not installed (`command -v aider` finds nothing). Runner and shim source only; nothing executed."
+  },
+  "costUsd": 0,
+  "verified": "2026-10-05",
+  "runnerEvidence": [
+    {
+      "file": "packages/@monomind/cli/src/orgrt/aider-runner.ts",
+      "finding": "stateDir = opts.stateDir, else `$TMPDIR/aider-sessions` when the env has MONOMIND_ORG_ROLE and TMPDIR (and MONOMIND_AIDER_STATE_DIR is unset), else defaultStateDir() = MONOMIND_AIDER_STATE_DIR || homedir()/.monomind/aider-sessions (shared)."
+    },
+    {
+      "file": "packages/@monomind/cli/src/orgrt/aider/monomind_aider_shim.py",
+      "finding": "In shim mode the conversation JSON and aider's own chat_history_file and input_history_file are placed under state_dir (os.makedirs mode 0700). Repo-map/tags cache, analytics and litellm caches are not redirected by the shim."
+    },
+    {
+      "file": "packages/@monomind/cli/src/orgrt/aider-runner-resolve.ts",
+      "finding": "The aider python is found from the entry point's shebang, then `UV_TOOL_DIR || (env.HOME || homedir())/.local/share/uv/tools`; with a private HOME the uv tool lookup would miss the real install, so MONOMIND_AIDER_PYTHON (or UV_TOOL_DIR) must be set for the shim to be used. The plain-CLI fallback (no shim) writes aider's default `.aider.*` files into the working repo."
+    }
+  ],
+  "hardCodedAbsolutePath": false,
+  "notes": [
+    "Conversation state is already role-private in shim mode (state_dir under the role's TMPDIR). The residual unknown is what aider itself writes outside state_dir (cache dirs, analytics id, .aider.* in the cwd), which needs a run on a host with aider.",
+    "Strategy: private-home with MONOMIND_AIDER_STATE_DIR and MONOMIND_AIDER_PYTHON (or UV_TOOL_DIR) pointed at the real install, marked unverified; if the plain-CLI fallback is allowed in sections, its `.aider.*` files in the cwd must be treated as role-owned."
+  ]
+}

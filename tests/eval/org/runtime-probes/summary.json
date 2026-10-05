@@ -1,0 +1,107 @@
+{
+  "generatedBy": "probe.mjs --summary",
+  "totalCostUsd": 0.32,
+  "runtimes": [
+    {
+      "runtime": "aider",
+      "installed": false,
+      "probed": false,
+      "strategyRecommended": "private-home",
+      "contained": {
+        "value": null,
+        "evidence": "CLI not installed (`command -v aider` finds nothing). Runner and shim source only; nothing executed."
+      },
+      "costUsd": 0
+    },
+    {
+      "runtime": "cline",
+      "installed": false,
+      "probed": false,
+      "strategyRecommended": "config-env",
+      "contained": {
+        "value": null,
+        "evidence": "CLI not installed (`command -v cline` finds nothing). Runner source only; nothing executed. Containment of the detached hub daemon is the open question."
+      },
+      "costUsd": 0
+    },
+    {
+      "runtime": "copilot",
+      "installed": true,
+      "probed": true,
+      "strategyRecommended": "private-home",
+      "contained": true,
+      "costUsd": 0.32
+    },
+    {
+      "runtime": "dsh",
+      "installed": false,
+      "probed": false,
+      "strategyRecommended": "private-home",
+      "contained": {
+        "value": null,
+        "evidence": "CLI not installed (`command -v dsh` finds nothing). Runner source only; nothing executed. The runner header records that dsh 0.1.7-rc.2 was previously exercised in a scratch HOME and that `dsh --version` writes no file."
+      },
+      "costUsd": 0
+    },
+    {
+      "runtime": "grok",
+      "installed": true,
+      "probed": true,
+      "strategyRecommended": "config-env",
+      "contained": true,
+      "costUsd": 0
+    },
+    {
+      "runtime": "hermes",
+      "installed": true,
+      "probed": true,
+      "strategyRecommended": "config-env",
+      "contained": true,
+      "costUsd": 0
+    },
+    {
+      "runtime": "kimicode",
+      "installed": false,
+      "probed": false,
+      "strategyRecommended": "config-env",
+      "contained": {
+        "value": null,
+        "evidence": "CLI not installed (`command -v kimi kimicode kimi-cli` finds nothing). Runner source only; nothing executed."
+      },
+      "costUsd": 0
+    },
+    {
+      "runtime": "qwen-rpc",
+      "installed": false,
+      "probed": false,
+      "strategyRecommended": "private-home",
+      "contained": {
+        "value": null,
+        "evidence": "Follows the base `qwen` CLI, which is not installed here. Runner source only; nothing executed."
+      },
+      "costUsd": 0
+    },
+    {
+      "runtime": "qwen",
+      "installed": false,
+      "probed": false,
+      "strategyRecommended": "private-home",
+      "contained": {
+        "value": null,
+        "evidence": "CLI not installed (`command -v qwen qwen-code` finds nothing). Runner source only; nothing executed."
+      },
+      "costUsd": 0
+    },
+    {
+      "runtime": "vercel",
+      "installed": false,
+      "probed": false,
+      "strategyRecommended": "in-process",
+      "contained": {
+        "value": null,
+        "evidence": "In-process API runner, no CLI. The `ai` package and a provider key are not available here, so no turn was run; source read only (vercel-runner.ts, vercel-session-store.ts, vercel-providers.ts)."
+      },
+      "costUsd": 0
+    }
+  ]
+}

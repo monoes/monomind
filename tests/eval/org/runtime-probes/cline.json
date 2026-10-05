@@ -1,0 +1,43 @@
+{
+  "runtime": "cline",
+  "cliVersion": null,
+  "installed": false,
+  "probed": false,
+  "status": "unprobed",
+  "strategyRecommended": "config-env",
+  "envVarsThatRedirect": [
+    "CLINE_DIR",
+    "CLINE_DATA_DIR",
+    "CLINE_MCP_SETTINGS_PATH",
+    "--config <dir>",
+    "--data-dir <dir>"
+  ],
+  "authFilesToStage": [],
+  "nativeDirs": [
+    ".cline (default, or $CLINE_DIR)",
+    ".cline/data (default, or $CLINE_DATA_DIR): sessions, history, locks/hub/<env>.json"
+  ],
+  "nativeFilesObserved": [],
+  "contained": {
+    "value": null,
+    "evidence": "CLI not installed (`command -v cline` finds nothing). Runner source only; nothing executed. Containment of the detached hub daemon is the open question."
+  },
+  "costUsd": 0,
+  "verified": "2026-10-05",
+  "runnerEvidence": [
+    {
+      "file": "packages/@monomind/cli/src/orgrt/cline-runner-host.ts",
+      "finding": "prepareClineSetup(): in full access or with --settings the runner runs on the user's own `env.CLINE_DIR || homedir()/.cline` (data dir `env.CLINE_DATA_DIR || <clineDir>/data`), i.e. the real home. In scoped mode it uses a role dir (`$TMPDIR/cline-scoped` when MONOMIND_ORG_ROLE and TMPDIR are set, else the shared ~/.monomind/cline-scoped), passes `--config <dir> --data-dir <dir/data>`, and sets CLINE_DATA_DIR and CLINE_MCP_SETTINGS_PATH there; auth then comes from the environment (CLINE_PROVIDER plus the provider's key variable)."
+    },
+    {
+      "file": "packages/@monomind/cli/src/orgrt/cline-runner-host.ts",
+      "finding": "cline starts a detached `cline --cline-hub-daemon` that outlives the turn; its pid lives in `<dataDir>/locks/hub/<env>.json`. The runner marks each turn with MONOMIND_CLINE_TURN and reaps the daemon it started. A per-role dataDir therefore gives each role its own hub lock; whether the daemon itself is keyed by data dir (not shared per user) is not proven without the CLI."
+    }
+  ],
+  "hardCodedAbsolutePath": false,
+  "notes": [
+    "The runner already supports a private config dir and data dir and an empty MCP settings file; sections only need to force that path (CLINE_DIR/CLINE_DATA_DIR into <orgDir>/runner/<role>/cline/) instead of the full-access ~/.cline default.",
+    "Before marking verified, a host with cline installed must confirm (a) every transcript/history file lands under CLINE_DATA_DIR and (b) two roles with different data dirs do not share one hub daemon. If (b) fails the right strategy is `refused` (shared daemon).",
+    "Auth in scoped mode is environment-only (CLINE_API_KEY or the provider's key variable), so no file needs staging; the stored-auth providers under ~/.cline are not reachable once CLINE_DIR is redirected."
+  ]
+}

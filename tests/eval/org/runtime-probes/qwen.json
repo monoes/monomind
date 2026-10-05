@@ -1,0 +1,39 @@
+{
+  "runtime": "qwen",
+  "cliVersion": null,
+  "installed": false,
+  "probed": false,
+  "status": "unprobed",
+  "strategyRecommended": "private-home",
+  "envVarsThatRedirect": [
+    "HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_STATE_HOME",
+    "XDG_CACHE_HOME"
+  ],
+  "authFilesToStage": [],
+  "nativeDirs": [],
+  "nativeFilesObserved": [],
+  "contained": {
+    "value": null,
+    "evidence": "CLI not installed (`command -v qwen qwen-code` finds nothing). Runner source only; nothing executed."
+  },
+  "costUsd": 0,
+  "verified": "2026-10-05",
+  "runnerEvidence": [
+    {
+      "file": "packages/@monomind/cli/src/orgrt/qwen-runner-stream.ts",
+      "finding": "Spawns `qwen -p <prompt> --output-format stream-json --yolo [--resume <id>]` with env = process.env (minus ambient ANTHROPIC_* keys) + args.env, cwd = args.cwd. No config/data dir variable is passed and none is read."
+    },
+    {
+      "file": "packages/@monomind/cli/src/orgrt/qwen-runner.ts",
+      "finding": "Binary from QWEN_CLI_BIN or `qwen` on PATH. Nothing in the repo names the CLI's state directory or a redirecting variable, so no config-env strategy can be justified from the runner."
+    }
+  ],
+  "hardCodedAbsolutePath": false,
+  "notes": [
+    "No documented redirect variable is recorded anywhere in the runner, so the generic private-home strategy (HOME + XDG_* into the role dir, credentials staged by symlink once their paths are known) is the only defensible default; mark unverified.",
+    "Auth file paths are unknown without the CLI and must be discovered on a host that has qwen installed before the registry can list authFiles."
+  ]
+}
