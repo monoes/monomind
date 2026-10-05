@@ -120,6 +120,13 @@ describe("Kilo dedicated JSON transport", () => {
   ] as const)("classifies %s", async (body, code) => {
     await expect(collect(fixture(body))).rejects.toMatchObject({ code });
   });
+  it("hands the sections private-home variables to the child (the registry's kilo entry relies on it)", async () => {
+    const args =
+      fixture(`console.log(JSON.stringify({type:'text',sessionID:'s',part:{id:'p',text:[process.env.HOME,process.env.XDG_DATA_HOME,process.env.XDG_STATE_HOME].join('|')}}));`);
+    args.env = { ...args.env, HOME: "/iso/private", XDG_DATA_HOME: "/iso/private/.local/share", XDG_STATE_HOME: "/iso/private/.local/state" };
+    const text = (await collect(args)).find((m) => m.type === "assistant")?.text;
+    expect(text).toBe("/iso/private|/iso/private/.local/share|/iso/private/.local/state");
+  });
   it("bounds a silent process independently of cost", async () => {
     await expect(
       collect(fixture("setInterval(()=>{},1000)"), 100),

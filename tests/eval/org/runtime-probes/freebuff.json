@@ -1,0 +1,27 @@
+{
+  "runtime": "freebuff",
+  "cliVersion": null,
+  "installed": false,
+  "probed": false,
+  "status": "unprobed",
+  "strategyRecommended": "refused",
+  "envVarsThatRedirect": [],
+  "authFilesToStage": [],
+  "nativeDirs": [],
+  "nativeFilesObserved": [],
+  "contained": {
+    "value": null,
+    "evidence": "Freebuff has no headless prompt or JSON transport (runner-specs.ts executionUnsupportedReason; FreebuffAgentRunner refuses with `unsupported` before any process starts), so no turn exists to write copies; nothing was executed."
+  },
+  "costUsd": 0,
+  "verified": "2026-10-05",
+  "runnerEvidence": [
+    {
+      "file": "packages/@monomind/cli/src/orgrt/freebuff-runner.ts",
+      "finding": "run() throws RunnerTransportError('unsupported', FREEBUFF_UNSUPPORTED) without spawning; it never reads or writes a native directory."
+    }
+  ],
+  "notes": [
+    "Registry entry is `refused`: a sections org with a freebuff role fails validate with the unsupported reason instead of running with unprotected copies. Revisit only when upstream ships a supported headless transport."
+  ]
+}

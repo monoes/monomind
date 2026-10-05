@@ -253,6 +253,31 @@ export const RUNTIME_ISOLATION: Record<RuntimeKind, RuntimeIsolation> = {
     verified: 'unverified',
     note: 'aider is not installed on the host that wrote this table; the runner keeps conversations under the role private TMPDIR and finds the tool through HOME, which UV_TOOL_DIR keeps pointing at the real home',
   },
+  kilo: {
+    strategy: 'private-home',
+    authFiles: ['.local/share/kilo/auth.json', '.config/kilo/kilo.jsonc', '.config/kilo/kilo.json', GIT_CONFIG],
+    nativeDirs: [
+      '.local/share/kilo',
+      '.config/kilo',
+      '.cache/kilo',
+      '.local/state/kilo-sandbox-policy',
+      '.local/state/kilo',
+    ],
+    probe: PROBE(
+      'HOME=<tmp> XDG_*=<tmp> KILO_NO_DAEMON=1 kilo run --format json --dangerously-skip-permissions --model openrouter/qwen/qwen3.8-27b:free "reply with OK"',
+      '13 files, all under the temp HOME (.local/share/kilo/kilo.db and log/, .config/kilo, .cache/kilo/models.json, .local/state/kilo-sandbox-policy); none under the cwd or TMPDIR',
+    ),
+    verified: V('kilo 7.8.3'),
+    note: 'the runner sets no HOME and forces KILO_NO_DAEMON=1, so the private home contains everything; login is auth.json in the data directory (path from the binary and `kilo debug paths`, not exercised: the probe used an environment key). Kilo supports full access only, so a sections role on it must be a full-access one',
+  },
+  // Not executable: its published CLI has no headless prompt or JSON transport (runner-specs.ts).
+  freebuff: {
+    strategy: 'refused',
+    authFiles: [],
+    nativeDirs: [],
+    verified: 'unverified',
+    note: 'Freebuff has no headless prompt or JSON transport, so no role can run on it; the runner refuses with "unsupported" before any process starts (tests/eval/org/runtime-probes/freebuff.json)',
+  },
   dsh: {
     strategy: 'private-home',
     authFiles: [GIT_CONFIG],

@@ -44,6 +44,17 @@
       "costUsd": 0
     },
     {
+      "runtime": "freebuff",
+      "installed": false,
+      "probed": false,
+      "strategyRecommended": "refused",
+      "contained": {
+        "value": null,
+        "evidence": "Freebuff has no headless prompt or JSON transport (runner-specs.ts executionUnsupportedReason; FreebuffAgentRunner refuses with `unsupported` before any process starts), so no turn exists to write copies; nothing was executed."
+      },
+      "costUsd": 0
+    },
+    {
       "runtime": "grok",
       "installed": true,
       "probed": true,
@@ -56,6 +67,14 @@
       "installed": true,
       "probed": true,
       "strategyRecommended": "config-env",
+      "contained": true,
+      "costUsd": 0
+    },
+    {
+      "runtime": "kilo",
+      "installed": true,
+      "probed": true,
+      "strategyRecommended": "private-home",
       "contained": true,
       "costUsd": 0
     },
