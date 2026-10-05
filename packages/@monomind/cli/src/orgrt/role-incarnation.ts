@@ -129,6 +129,13 @@ export function spawnRoleIncarnation(
     rolePolicy === role.policy
       ? new PolicyEngine(...engineArgs)
       : new WriterPolicyEngine(...engineArgs, def);
+  // A run with a deadline caps every Bash call to a fraction of the time left.
+  // Without a known start there is no deadline (never one that slides with every call); the start paths set it.
+  if (def.run_config.deadline_seconds && running.startedAtMs !== undefined)
+    policy.setRunDeadline(
+      running.startedAtMs + def.run_config.deadline_seconds * 1000,
+      def.run_config.bash_timeout_ms,
+    );
   policy.setToolContext({
     providerPrefixes: () =>
       roleProviderPrefixes({ tool_providers: effectiveToolProviders(role, daemon.root) }),

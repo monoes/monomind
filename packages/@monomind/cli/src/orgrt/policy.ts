@@ -4,6 +4,7 @@
 // below where other modules import them from here.
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { capBashTimeoutMs, DEFAULT_CLAUDE_BASH_TIMEOUT_MS } from './bash-timeout.js';
 import type { OrgBus } from './bus.js';
 import { execDenyViolation } from './exec-deny.js';
 import { fileToolDenied, isDashboardCredential } from './file-roots.js';
@@ -255,7 +256,7 @@ export class PolicyEngine {
       });
       return { behavior: 'deny', message: `[org-policy] ${reason}` };
     };
-    const allow = (): Decision => {
+    const allow = (updated: Record<string, unknown> = input): Decision => {
       this.bus.emit({
         type: 'tool',
         from: this.role,
@@ -285,7 +286,7 @@ export class PolicyEngine {
           ...(content !== undefined ? { data: { content } } : {}),
         });
       }
-      return { behavior: 'allow', updatedInput: input };
+      return { behavior: 'allow', updatedInput: updated };
     };
 
     if (HARNESS_MESSAGING_TOOLS.has(tool))
@@ -358,7 +359,30 @@ export class PolicyEngine {
       // WebSearch has no URL up front; allowed if webAllow is non-empty
     }
 
-    return allow();
+    return allow(tool === 'Bash' ? this.withDeadlineTimeout(input) : input);
+  }
+
+  /** When the run ends (run_config.deadline_seconds), and the role's usual Bash ceiling: a Bash call is
+   *  capped to a fraction of the time left (bash-timeout.ts capBashTimeoutMs). */
+  private runDeadlineAt?: number;
+  private bashMaxMs = DEFAULT_CLAUDE_BASH_TIMEOUT_MS;
+
+  setRunDeadline(atMs: number | undefined, bashMaxMs?: number): void {
+    this.runDeadlineAt = atMs;
+    if (bashMaxMs !== undefined) this.bashMaxMs = bashMaxMs;
+  }
+
+  /** `input` for a Bash call with the timeout this run's deadline allows (the same object when it changes nothing). */
+  private withDeadlineTimeout(input: Record<string, unknown>): Record<string, unknown> {
+    if (this.runDeadlineAt === undefined) return input;
+    const requested = typeof input.timeout === 'number' ? input.timeout : undefined;
+    const cap = capBashTimeoutMs({
+      remainingMs: this.runDeadlineAt - Date.now(),
+      requestedMs: requested,
+      maxMs: this.bashMaxMs,
+    });
+    if (requested === undefined ? cap >= this.bashMaxMs : cap >= requested) return input;
+    return { ...input, timeout: cap };
   }
 
   /** Session ids this role's runner has reported (and resumed). The runner saves a tool result that is

@@ -42,18 +42,40 @@ export function coverEveryToolCall(gate: Gate): {
     tool_use_id?: unknown;
   }) => Promise<Record<string, unknown>>;
 } {
-  const decided = new Map<string, { input: string; decision: Promise<unknown> }>();
+  const decided = new Map<string, { inputs: string[]; decision: Promise<unknown> }>();
   return {
     async preToolUse(hook) {
       if (hook.hook_event_name !== 'PreToolUse') return {};
       const input = (hook.tool_input ?? {}) as Record<string, unknown>;
       const id = typeof hook.tool_use_id === 'string' ? hook.tool_use_id : undefined;
       const decision = gate(String(hook.tool_name ?? ''), input, { toolUseId: id });
+      const original = JSON.stringify(input);
       if (id) {
-        decided.set(id, { input: JSON.stringify(input), decision });
+        decided.set(id, { inputs: [original], decision });
         if (decided.size > REMEMBERED) decided.delete(decided.keys().next().value as string);
       }
-      const d = (await decision) as { behavior?: string; message?: string };
+      const d = (await decision) as {
+        behavior?: string;
+        message?: string;
+        updatedInput?: Record<string, unknown>;
+      };
+      // An allowed call whose input the gate changed (a Bash timeout capped to the run's deadline):
+      // the CLI continues with the changed input. It is asked, so canUseTool still answers it, and
+      // that answer is the decision made here, not a second one.
+      if (
+        d?.behavior === 'allow' &&
+        d.updatedInput &&
+        JSON.stringify(d.updatedInput) !== original
+      ) {
+        if (id) decided.get(id)?.inputs.push(JSON.stringify(d.updatedInput));
+        return {
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'ask',
+            updatedInput: d.updatedInput,
+          },
+        };
+      }
       if (d?.behavior !== 'deny') return {};
       return {
         hookSpecificOutput: {
@@ -67,7 +89,7 @@ export function coverEveryToolCall(gate: Gate): {
       const id = meta?.toolUseId;
       const prior = id ? decided.get(id) : undefined;
       if (id) decided.delete(id);
-      if (prior && prior.input === JSON.stringify(input)) return prior.decision;
+      if (prior?.inputs.includes(JSON.stringify(input))) return prior.decision;
       return gate(toolName, input, meta);
     },
   };
