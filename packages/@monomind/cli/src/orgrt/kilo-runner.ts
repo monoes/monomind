@@ -11,6 +11,7 @@ import {
 import { maskedCommand } from './authority-mask.js';
 import { kiloVersionRefusal } from './kilo-version.js';
 import { spawnRunnerProcess } from './process-group-spawn.js';
+import { omitAnthropicManagedKeys } from './provider.js';
 import { RunnerTransportError } from './runner-transport-error.js';
 
 /** Live-verified against Kilo 7.8.3 with a zero-priced OpenRouter model:
@@ -39,8 +40,13 @@ export class KiloAgentRunner implements AgentRunner {
         'unsupported',
         'Kilo loads user/project/local settings together. Explicitly request all three; isolated or partial settings are unsupported.',
       );
-    if (args.model && !/^[^\s/]+\/[^\s]+$/.test(args.model))
+    if (args.model && !/^[^\s/-][^\s/]*\/[^\s]+$/.test(args.model))
       throw new RunnerTransportError('unsupported', 'Kilo --model must be provider/model.');
+    if (args.resume && !/^[^\s-]\S*$/.test(args.resume))
+      throw new RunnerTransportError(
+        'unsupported',
+        'Kilo session ids cannot start with "-" or contain whitespace.',
+      );
     if (args.effort)
       throw new RunnerTransportError(
         'unsupported',
@@ -48,10 +54,8 @@ export class KiloAgentRunner implements AgentRunner {
       );
     if (args.signal?.aborted)
       throw new RunnerTransportError('cancelled', 'Kilo cancelled before spawning.');
-    const env = { ...process.env, ...args.env, KILO_NO_DAEMON: '1' };
-    // Provider keys are accepted only when explicitly supplied by the caller.
-    for (const key of Object.keys(env))
-      if (key.startsWith('ANTHROPIC_') && !(key in args.env)) delete env[key];
+    // Ambient ANTHROPIC_* keys are dropped; an explicit value in args.env still reaches the child.
+    const env = { ...omitAnthropicManagedKeys(process.env), ...args.env, KILO_NO_DAEMON: '1' };
     const bin = args.env.KILO_CLI_BIN?.trim() || process.env.KILO_CLI_BIN?.trim() || 'kilo';
     const [versionBin, versionArgv] = maskedCommand(args.authorityMask, bin, ['--version']);
     let versionText: string;

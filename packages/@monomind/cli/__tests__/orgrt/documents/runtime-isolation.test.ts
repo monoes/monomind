@@ -82,9 +82,9 @@ describe('the registry', () => {
     }
   });
   it('unverified entries are the CLIs that were not probed, never a verified one', () => {
-    for (const kind of ['vercel', 'kimicode', 'qwen', 'qwen-rpc', 'cline', 'aider', 'dsh', 'freebuff'])
+    for (const kind of ['vercel', 'kimicode', 'qwen', 'qwen-rpc', 'cline', 'aider', 'dsh', 'kilo', 'freebuff'])
       expect(RUNTIME_ISOLATION[kind as keyof typeof RUNTIME_ISOLATION].verified).toBe('unverified');
-    for (const kind of ['claude', 'codex', 'antigravity', 'opencode', 'pi', 'pi-rpc', 'crush', 'grok', 'copilot', 'hermes', 'kilo'])
+    for (const kind of ['claude', 'codex', 'antigravity', 'opencode', 'pi', 'pi-rpc', 'crush', 'grok', 'copilot', 'hermes'])
       expect(RUNTIME_ISOLATION[kind as keyof typeof RUNTIME_ISOLATION].verified).not.toBe('unverified');
   });
   it('an unknown runtime has no entry', () => {
@@ -131,22 +131,15 @@ describe('isolationEnv', () => {
     expect(isolationEnv(RUNTIME_ISOLATION.copilot, '/p', '/h').HOME).toBe('/p');
     expect(RUNTIME_ISOLATION.copilot.authFiles).toContain('.config/gh/hosts.yml');
   });
-  it('kilo: a private home (data, config, cache and state all derive from HOME/XDG), no pins', () => {
-    expect(isolationEnv(RUNTIME_ISOLATION.kilo, '/p', '/h')).toEqual({
-      HOME: '/p',
-      XDG_CONFIG_HOME: '/p/.config',
-      XDG_DATA_HOME: '/p/.local/share',
-      XDG_STATE_HOME: '/p/.local/state',
-      XDG_CACHE_HOME: '/p/.cache',
-    });
-    expect(RUNTIME_ISOLATION.kilo.authFiles).toContain('.local/share/kilo/auth.json');
-  });
-  it('freebuff has no execution, so its entry is refused with the reason, and no variables', () => {
-    const f = RUNTIME_ISOLATION.freebuff;
-    expect(f.strategy).toBe('refused');
-    expect(f.note).toMatch(/no headless/i);
-    expect(isolationEnv(f, '/p', '/h')).toEqual({});
-    expect(usesPrivateDir(f)).toBe(false);
+  it('kilo and freebuff cannot run in a sections org, so their entries are refused with the reason and give no variables', () => {
+    for (const kind of ['kilo', 'freebuff'] as const) {
+      const e = RUNTIME_ISOLATION[kind];
+      expect(e.strategy, kind).toBe('refused');
+      expect(isolationEnv(e, '/p', '/h'), kind).toEqual({});
+      expect(usesPrivateDir(e), kind).toBe(false);
+    }
+    expect(RUNTIME_ISOLATION.kilo.note).toMatch(/full access/i);
+    expect(RUNTIME_ISOLATION.freebuff.note).toMatch(/no headless/i);
   });
   it('claude (masked), a refused runtime and an unknown one get no variables', () => {
     expect(isolationEnv(RUNTIME_ISOLATION.claude, '/p', '/h')).toEqual({});

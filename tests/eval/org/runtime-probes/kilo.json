@@ -3,7 +3,7 @@
   "cliVersion": "7.8.3",
   "installed": true,
   "probed": true,
-  "strategyRecommended": "private-home",
+  "strategyRecommended": "refused",
   "envVarsThatRedirect": [
     "HOME",
     "XDG_CONFIG_HOME",
@@ -43,6 +43,7 @@
   },
   "costUsd": 0,
   "notes": [
+    "Registry entry is `refused`: kilo runs with explicit full access only and a sections org refuses policy.access \"full\" (documents/definition.ts checkRoles), so no sections role can run on it. The files below record where its copies would land (a private HOME would contain them), for any later change to that rule.",
     "Turn: `kilo run --format json --dangerously-skip-permissions --model openrouter/qwen/qwen3.8-27b:free \"reply with OK\"` (zero-priced model; step_finish reported cost 0, 15990 tokens); the provider key came from OPENROUTER_API_KEY in the environment, nothing was staged and no login was done.",
     "kilo 7.8.3 was installed with npm into a throwaway prefix under /var/tmp with HOME/XDG pointed into a throwaway directory; npm did not run the postinstall script. No install step touched the real home.",
     "`kilo debug paths` with HOME=<tmp>: data=$HOME/.local/share/kilo, cache=$HOME/.cache/kilo, config=$HOME/.config/kilo, state=$HOME/.local/state/kilo, tmp=$TMPDIR/kilo, bin=$HOME/.cache/kilo/bin. Every directory derives from HOME/XDG_*, so a private home contains all of them.",

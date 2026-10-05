@@ -7,7 +7,7 @@ import type { AgentRunArgs } from '../../src/orgrt/agent-runner.js';
 import { launchCline } from '../../src/orgrt/cline-runner-proc.js';
 import { HermesAgentRunner } from '../../src/orgrt/hermes-runner.js';
 import { KimiCodeAgentRunner } from '../../src/orgrt/kimicode-runner.js';
-import { createRunnerInputDir, writeRunnerInput } from '../../src/orgrt/runner-inputs.js';
+import { createRunnerInputDir, runnerInputHolder, writeRunnerInput } from '../../src/orgrt/runner-inputs.js';
 import { ensureOperatorProtectedPaths, operatorProtectedPaths, monomindMaskLayout } from '../../src/orgrt/operator-protected-paths.js';
 import { prepareGitGuard } from '../../src/orgrt/git-guard.js';
 import { buildClaudeRestrictions } from '../../src/orgrt/role-sandbox.js';
@@ -110,6 +110,20 @@ describe('runner input storage boundaries (#599)', () => {
     fs.rmSync(dir, { recursive: true });
   });
 
+  it('an org role keeps its inputs in a holder of its own, so the mask can hide it from the other roles', () => {
+    const org = (role: string) => ({ ...args('kimi'), env: { ...args('kimi').env, MONOMIND_ORG_DIR: path.join(work, 'org'), MONOMIND_ORG_ROLE: role } });
+    const root599 = path.join(state.home, '.monomind', 'runner-inputs');
+    const a1 = createRunnerInputDir('kimi', org('coder'));
+    const a2 = createRunnerInputDir('hermes', org('coder'));
+    const b = createRunnerInputDir('kimi', org('boss'));
+    expect(path.dirname(a1)).toBe(path.dirname(a2));
+    expect(path.dirname(a1)).toBe(runnerInputHolder(path.join(state.home, '.monomind'), path.join(work, 'org'), 'coder'));
+    expect(path.dirname(b)).toBe(runnerInputHolder(path.join(state.home, '.monomind'), path.join(work, 'org'), 'boss'));
+    expect(path.dirname(a1)).not.toBe(path.dirname(b));
+    expect(path.dirname(path.dirname(a1))).toBe(root599);
+    expect(fs.statSync(path.dirname(a1)).mode & 0o777).toBe(0o700);
+    for (const d of [a1, a2, b]) fs.rmSync(d, { recursive: true });
+  });
   it('stays read-only in the monomind authority layout', () => {
     const dir = createRunnerInputDir('kimi', args('kimi'));
     if (process.platform !== 'win32') expect(fs.statSync(dir).mode & 0o777).toBe(0o700);

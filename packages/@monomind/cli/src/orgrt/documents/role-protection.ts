@@ -17,6 +17,8 @@
  *  - runtimeEnv: the variables that point a non-Claude runner at that directory.
  */
 import { mkdirSync } from 'node:fs';
+import { monomindHome } from '../operator-protected-paths.js';
+import { runnerInputHolder } from '../runner-inputs.js';
 import type { OrgDef } from '../types.js';
 import {
   ensureNativeSources,
@@ -63,7 +65,11 @@ export function sectionsRoleProtection(args: {
   loadEnvelopeKey(orgDir);
   mkdirSync(runnerRootFor(orgDir), { recursive: true });
   const hiddenDirs = [envelopeDirFor(orgDir), runnerRootFor(orgDir)];
-  const denyRead = [...otherMailDirs(def, orgDir, args.roleId), ...hiddenDirs];
+  const denyRead = [
+    ...otherMailDirs(def, orgDir, args.roleId),
+    ...otherInputHolders(def, orgDir, args),
+    ...hiddenDirs,
+  ];
   const denyWrite = [mailRootFor(orgDir), ...hiddenDirs];
   // A runtime with a private directory of its own runs inside the runner root, so
   // the mask hides the other roles' directories, not the root itself.
@@ -84,6 +90,24 @@ export function sectionsRoleProtection(args: {
     ),
     runtimeEnv: runtimeIsolationEnv(def, orgDir, args.roleId, args.runtime, args.home, args.env),
   };
+}
+
+/** #599: the prompt files of the hermes, cline and kimi runners sit in one holder per role under the shared
+ *  runner-inputs root; creates every role's holder and returns the other roles'. */
+function otherInputHolders(
+  def: Pick<OrgDef, 'roles'>,
+  orgDir: string,
+  args: { roleId: string; home: string; env: NodeJS.ProcessEnv },
+): string[] {
+  const base = monomindHome(args.home, args.env);
+  const dirs: string[] = [];
+  for (const r of def.roles) {
+    if ((r as { kind?: string }).kind === 'endpoint') continue;
+    const dir = runnerInputHolder(base, orgDir, r.id);
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    if (r.id !== args.roleId) dirs.push(dir);
+  }
+  return dirs;
 }
 
 /** Creates every role's private runner directory and returns the other roles' directories. */

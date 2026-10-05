@@ -67,7 +67,7 @@ describe('nativeBinds', () => {
     expect(nativeBinds(def(), '/o', 'coder', 'no-such-runtime', '/h', {})).toEqual([]);
   });
   it('binds the private directory of a codex, pi or antigravity role over itself, one per role', () => {
-    for (const rt of ['codex', 'pi', 'pi-rpc', 'antigravity', 'opencode', 'crush', 'kilo']) {
+    for (const rt of ['codex', 'pi', 'pi-rpc', 'antigravity', 'opencode', 'crush']) {
       const own = runtimeDirFor('/o', 'coder', rt);
       expect(nativeBinds(def(), '/o', 'coder', rt, '/h', {})).toEqual([{ src: own, dest: own }]);
       expect(runtimeDirFor('/o', 'boss', rt)).not.toBe(own);
@@ -96,7 +96,7 @@ describe('copyInventoryFindings', () => {
     expect(f.errors.join()).toMatch(/coder.*no-such-runtime.*no copy-inventory entry/);
   });
   it('accepts every verified runtime silently, in and outside the eval harness', () => {
-    for (const rt of ['claude', 'codex', 'antigravity', 'opencode', 'pi', 'pi-rpc', 'crush', 'grok', 'copilot', 'hermes', 'kilo'])
+    for (const rt of ['claude', 'codex', 'antigravity', 'opencode', 'pi', 'pi-rpc', 'crush', 'grok', 'copilot', 'hermes'])
       for (const evalMode of [true, false])
         expect(copyInventoryFindings(withRuntime(rt, evalMode)), `${rt} ${evalMode}`).toEqual({ errors: [], warnings: [] });
   });
@@ -115,12 +115,15 @@ describe('copyInventoryFindings', () => {
     expect(inEval.errors).toEqual([]);
     expect(inEval.warnings.join()).toMatch(/coder.*opencode.*refused.*OPENCODE_URL/);
   });
-  it('freebuff has no execution: a sections org naming it fails validate with the reason, a warning in eval', () => {
-    const out = copyInventoryFindings(withRuntime('freebuff', false));
-    expect(out.errors.join()).toMatch(/coder.*freebuff.*refused.*no headless/i);
-    const inEval = copyInventoryFindings(withRuntime('freebuff', true));
-    expect(inEval.errors).toEqual([]);
-    expect(inEval.warnings.join()).toMatch(/coder.*freebuff.*refused/);
+  it('kilo (full access only, refused in a sections org) and freebuff (no transport) fail validate with the reason, a warning in eval', () => {
+    for (const [rt, why] of [['kilo', /full access/i], ['freebuff', /no headless/i]] as const) {
+      const out = copyInventoryFindings(withRuntime(rt, false));
+      expect(out.errors.join(), rt).toMatch(new RegExp(`coder.*${rt}.*refused`));
+      expect(out.errors.join(), rt).toMatch(why);
+      const inEval = copyInventoryFindings(withRuntime(rt, true));
+      expect(inEval.errors, rt).toEqual([]);
+      expect(inEval.warnings.join(), rt).toMatch(new RegExp(`coder.*${rt}.*refused`));
+    }
   });
   it('an endpoint role is exempt (it runs no agent)', () => {
     const d = sectionsRaw() as any;

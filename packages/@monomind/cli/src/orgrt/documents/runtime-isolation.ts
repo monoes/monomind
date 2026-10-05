@@ -203,7 +203,7 @@ export const RUNTIME_ISOLATION: Record<RuntimeKind, RuntimeIsolation> = {
       '12 files, all under HERMES_HOME (state.db holds the sessions, logs/agent.log, auth.json, cache/, bin/tirith); none under HOME or the cwd',
     ),
     verified: V('Hermes Agent v0.19.0'),
-    note: 'a fresh directory downloads the ~38 MB tirith scanner on first use',
+    note: 'a fresh directory downloads the ~38 MB tirith scanner on first use; its prompt file (#599) is in its own per-role holder under <monomind home>/runner-inputs, hidden from the other roles',
   },
   vercel: {
     strategy: 'in-process',
@@ -220,7 +220,7 @@ export const RUNTIME_ISOLATION: Record<RuntimeKind, RuntimeIsolation> = {
     authFiles: [],
     nativeDirs: ['sessions'],
     verified: 'unverified',
-    note: 'kimi is not installed on the host that wrote this table; the runner reads KIMI_CODE_HOME for the session wire files, so that variable is the directory; credential files unknown',
+    note: 'kimi is not installed on the host that wrote this table; the runner reads KIMI_CODE_HOME for the session wire files, so that variable is the directory; credential files unknown; its agent file (#599) is in its own per-role holder under <monomind home>/runner-inputs, hidden from the other roles',
   },
   qwen: {
     strategy: 'private-home',
@@ -243,7 +243,7 @@ export const RUNTIME_ISOLATION: Record<RuntimeKind, RuntimeIsolation> = {
     authFiles: [],
     nativeDirs: ['data'],
     verified: 'unverified',
-    note: 'cline is not installed on the host that wrote this table; the runner reads CLINE_DIR (its data dir derives from it) for full-access turns, and a scoped turn already keeps its state in the role private TMPDIR. Open: whether the detached hub daemon is keyed by the data dir; if two roles share one it must become refused',
+    note: 'cline is not installed on the host that wrote this table; the runner reads CLINE_DIR (its data dir derives from it) for full-access turns, and a scoped turn keeps its state in the role private TMPDIR; its prompt file (#599) is in its own per-role holder under <monomind home>/runner-inputs, hidden from the other roles. Open: whether the detached hub daemon is keyed by the data dir; if two roles share one it must become refused',
   },
   aider: {
     strategy: 'private-home',
@@ -253,22 +253,15 @@ export const RUNTIME_ISOLATION: Record<RuntimeKind, RuntimeIsolation> = {
     verified: 'unverified',
     note: 'aider is not installed on the host that wrote this table; the runner keeps conversations under the role private TMPDIR and finds the tool through HOME, which UV_TOOL_DIR keeps pointing at the real home',
   },
+  // Kilo runs with explicit full access only (kilo-runner.ts refuses scoped), and a sections org refuses
+  // policy.access "full" (documents/definition.ts checkRoles), so no sections role can ever run on it.
+  // Probed with a temp HOME anyway (tests/eval/org/runtime-probes/kilo.json): where its copies would land.
   kilo: {
-    strategy: 'private-home',
-    authFiles: ['.local/share/kilo/auth.json', '.config/kilo/kilo.jsonc', '.config/kilo/kilo.json', GIT_CONFIG],
-    nativeDirs: [
-      '.local/share/kilo',
-      '.config/kilo',
-      '.cache/kilo',
-      '.local/state/kilo-sandbox-policy',
-      '.local/state/kilo',
-    ],
-    probe: PROBE(
-      'HOME=<tmp> XDG_*=<tmp> KILO_NO_DAEMON=1 kilo run --format json --dangerously-skip-permissions --model openrouter/qwen/qwen3.8-27b:free "reply with OK"',
-      '13 files, all under the temp HOME (.local/share/kilo/kilo.db and log/, .config/kilo, .cache/kilo/models.json, .local/state/kilo-sandbox-policy); none under the cwd or TMPDIR',
-    ),
-    verified: V('kilo 7.8.3'),
-    note: 'the runner sets no HOME and forces KILO_NO_DAEMON=1, so the private home contains everything; login is auth.json in the data directory (path from the binary and `kilo debug paths`, not exercised: the probe used an environment key). Kilo supports full access only, so a sections role on it must be a full-access one',
+    strategy: 'refused',
+    authFiles: [],
+    nativeDirs: [],
+    verified: 'unverified',
+    note: 'Kilo supports full access only and a sections org refuses full access (a full-access role runs with no authority mask), so no role can run on it; its copies (kilo.db, logs, config, cache under HOME/XDG, probed) cannot be kept apart',
   },
   // Not executable: its published CLI has no headless prompt or JSON transport (runner-specs.ts).
   freebuff: {
