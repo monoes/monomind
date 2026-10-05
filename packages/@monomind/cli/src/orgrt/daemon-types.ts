@@ -84,6 +84,9 @@ export interface RunningOrg {
   /** The task text this run was started with (`org run --task`), when one was given. */
   runTask?: string;
   run: string;
+  /** When the run ORIGINALLY started (ms, from its id, so a resume keeps it); with run_config.deadline_seconds it
+   *  fixes the deadline. Always set by the start paths; absent only in test fixtures, where no deadline applies. */
+  startedAtMs?: number;
   /** ADR-O001 D3: this run's model-session records (`<run>/sessions.json`),
    *  shared by every incarnation of every role so a replacement resumes too. */
   sessionLedger?: SessionLedger;

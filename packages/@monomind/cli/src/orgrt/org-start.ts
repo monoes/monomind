@@ -20,6 +20,7 @@ import * as startSteps from './org-start-steps.js';
 import { readHistory } from './reporting.js';
 import { mergeEffectiveRoleConfig, type RoleOverrides } from './role-slot.js';
 import { sweepStaleRoleTmpdirs } from './role-tmpdir.js';
+import { runStartMs } from './run-start.js';
 import { SessionLedger } from './session-ledger.js';
 import { TaskDag } from './task-dag.js';
 import type { BusEvent, OrgRole } from './types.js';
@@ -208,6 +209,8 @@ async function startOrgInner(
     def,
     runTask: taskOverride,
     run,
+    // The ORIGINAL start of this run (its id carries it; a resume keeps the id), which the deadline counts from.
+    startedAtMs: runStartMs(run) ?? Date.now(),
     sessionLedger: new SessionLedger(join(dir, 'sessions.json')),
     gates: decisionOps.readGates(daemon.root, name),
     bus,

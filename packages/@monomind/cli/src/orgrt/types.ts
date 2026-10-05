@@ -175,6 +175,10 @@ export const OrgDefSchema = z
          *  minutes, too short for an install or a full build. Ignored by
          *  other runtimes. See bash-timeout.ts. */
         bash_timeout_ms: z.number().int().positive().max(MAX_CLAUDE_BASH_TIMEOUT_MS).optional(),
+        /** The run's deadline in seconds from its start, when it has one (the eval harness's trials do):
+         *  a role's Bash call is then capped to a fraction of the time left, so one hung command cannot
+         *  use the rest of the run. Absent = no cap beyond bash_timeout_ms. See bash-timeout.ts. */
+        deadline_seconds: z.number().int().positive().optional(),
         /** When a task completes, send its creator (the role that called
          *  org_task / org_plan_graph) a `[task:<id>] DONE` message with the
          *  result and evidence summary. Off by default: without it a

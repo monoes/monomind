@@ -14,6 +14,32 @@ export const DEFAULT_CLAUDE_BASH_TIMEOUT_MS = 600_000;
 /** Upper bound for run_config.bash_timeout_ms. */
 export const MAX_CLAUDE_BASH_TIMEOUT_MS = 3_600_000;
 
+/** With run_config.deadline_seconds, one Bash call may use at most this share of the time left. */
+export const BASH_DEADLINE_FRACTION = 0.4;
+/** ...but never less than this while time is left, so ordinary short commands are not cut. */
+export const BASH_DEADLINE_MIN_MS = 30_000;
+const BASH_PAST_DEADLINE_MS = 5_000;
+
+/**
+ * The timeout of a Bash call in a run with a deadline: the role's usual ceiling (`maxMs`) or its own
+ * request, whichever is smaller, limited to a fraction of the time left (at least BASH_DEADLINE_MIN_MS
+ * or what is left, and 5 s once the deadline has passed). A hung command then costs a fraction of the
+ * remaining time instead of all of it (the parallel-sweep-3 trial of 2026-10-05 lost a 10-minute
+ * Bash timeout out of a 720 s run).
+ */
+export function capBashTimeoutMs(args: {
+  remainingMs: number;
+  requestedMs?: number;
+  maxMs: number;
+}): number {
+  const ceiling =
+    args.requestedMs !== undefined ? Math.min(args.requestedMs, args.maxMs) : args.maxMs;
+  if (args.remainingMs <= 0) return Math.min(ceiling, BASH_PAST_DEADLINE_MS);
+  const floor = Math.min(BASH_DEADLINE_MIN_MS, args.remainingMs);
+  const share = Math.max(Math.floor(args.remainingMs * BASH_DEADLINE_FRACTION), floor);
+  return Math.min(ceiling, share);
+}
+
 export function claudeBashTimeoutEnv(timeoutMs?: number): Record<string, string> {
   const ms = String(timeoutMs ?? DEFAULT_CLAUDE_BASH_TIMEOUT_MS);
   return { BASH_DEFAULT_TIMEOUT_MS: ms, BASH_MAX_TIMEOUT_MS: ms };
