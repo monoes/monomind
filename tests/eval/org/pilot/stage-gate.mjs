@@ -204,6 +204,20 @@ function stageOneCalls(base, scenario, kind, variant) {
   ).length;
 }
 
+/** Declared change baseline-control-after-variant: the baseline control of a 'handoff-read' pilot is unlocked by a finished
+ *  stage 1 trial of the variant named in PILOT_BASELINE_AFTER_VARIANT (e.g. v2r), when PILOT_OWNER_DECISION names that
+ *  variant's phrases. The variant trial's synthesiser doc_read count, or undefined (not named, phrases missing, unknown
+ *  variant, no finished trial), in which case the plain gate stands unchanged. */
+export function baselineControlReads(pilot, base, scenario, env = {}) {
+  const named = env.PILOT_BASELINE_AFTER_VARIANT;
+  if (!named) return undefined;
+  const v = resolveVariant(pilot, named)?.variant;
+  if (!v) return undefined;
+  if (!phrasesOf(v).every((p) => String(env.PILOT_OWNER_DECISION ?? '').includes(p)))
+    return undefined;
+  return stageOneReads(base, scenario, named);
+}
+
 /** The delivered count of the stage 1 single trial under <base>/trials (the last of p1s, p1sr1, ... that has one;
  *  a variant trial such as p1s-d480 is never it). */
 export function stageOneDelivered(base, scenario) {
@@ -230,7 +244,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     arm,
     n: Number(n),
     delivered: stageOneDelivered(base, scenario),
-    reads: stageOneReads(base, scenario, variant || undefined),
+    reads:
+      stageOneReads(base, scenario, variant || undefined) ??
+      (arm === 'baseline' && !variant
+        ? baselineControlReads(pilot, base, scenario, process.env)
+        : undefined),
     checks: stageOneChecks(base, scenario, variant || undefined),
     variant: variant || undefined,
     env: process.env,
