@@ -298,7 +298,7 @@ describe('monomind deps install', () => {
     try {
       const r = await install!.action!({ args: [], flags: {} } as unknown as CommandContext);
       expect(r).toMatchObject({ success: true });
-      expect(loadClaudeSdk).toHaveBeenCalledWith(undefined, { requested: true });
+      expect(loadClaudeSdk).toHaveBeenCalledWith(undefined, { requested: true, intoCache: true });
     } finally {
       if (saved === undefined) delete process.env.MONOMIND_NO_AUTO_INSTALL;
       else process.env.MONOMIND_NO_AUTO_INSTALL = saved;

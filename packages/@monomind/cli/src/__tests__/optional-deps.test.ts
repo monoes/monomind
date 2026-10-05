@@ -65,6 +65,43 @@ describe('ensureOptionalDependency', () => {
     rmSync(own, { recursive: true, force: true });
   });
 
+  it('with intoCache it installs into the deps cache even though monomind resolves the pinned copy itself', async () => {
+    // `monomind deps install` run from a checkout: the checkout's own node_modules holds the pin, so the
+    // plain call counts it as present and writes nothing, while an org role's sandbox can only use the cache.
+    const own = mkdtempSync(join(tmpdir(), 'mm-own-'));
+    const entry = writeFakeSdk(own, 'own');
+    const npm = fakeNpm('cached');
+    const mod = await ensureOptionalDependency<{ marker: string }>(SDK, {
+      ...base(),
+      resolveOwn: () => entry,
+      runNpm: npm.run,
+      intoCache: true,
+    });
+    expect(npm.calls).toHaveLength(1);
+    expect(mod.marker).toBe('cached');
+    expect(existsSync(join(dependencyDir(SDK, env), 'node_modules', SDK, 'package.json'))).toBe(
+      true,
+    );
+    // a second call finds the cache complete and installs nothing more
+    await ensureOptionalDependency(SDK, {
+      ...base(),
+      resolveOwn: () => entry,
+      runNpm: npm.run,
+      intoCache: true,
+    });
+    expect(npm.calls).toHaveLength(1);
+    rmSync(own, { recursive: true, force: true });
+  });
+
+  it('without intoCache a pinned copy monomind resolves is still used and nothing is installed', async () => {
+    const own = mkdtempSync(join(tmpdir(), 'mm-own-'));
+    const entry = writeFakeSdk(own, 'own');
+    const npm = fakeNpm('unused');
+    await ensureOptionalDependency(SDK, { ...base(), resolveOwn: () => entry, runNpm: npm.run });
+    expect(npm.calls).toHaveLength(0);
+    rmSync(own, { recursive: true, force: true });
+  });
+
   it('(M1) ignores a copy monomind resolves at another version and uses the pin', async () => {
     const own = mkdtempSync(join(tmpdir(), 'mm-own-'));
     const entry = writeFakeSdk(own, 'projects-own-sdk', { version: '0.2.0' });

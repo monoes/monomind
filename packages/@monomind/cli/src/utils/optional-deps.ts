@@ -138,6 +138,10 @@ export interface EnsureOptions {
   /** The operator asked for this install (`monomind deps install`), so
    *  MONOMIND_NO_AUTO_INSTALL does not stop it. */
   requested?: boolean;
+  /** Install into the deps cache even when monomind resolves the pinned copy itself (a checkout's own
+   *  node_modules, say). `monomind deps install` sets it: an org role's sandbox can only use the cache,
+   *  so a copy that merely sits in the operator's checkout is not what the operator asked for. */
+  intoCache?: boolean;
 }
 
 /** Flags for the printed manual command (plain `npm install`, no lockfile). */
@@ -487,7 +491,7 @@ export async function ensureOptionalDependency<T = unknown>(
 
   // #526: a copy found up the module path (~/node_modules, say) is held to
   // the same pins as one in the deps dir.
-  const own = ownEntry(name, opts.resolveOwn ?? defaultResolveOwn);
+  const own = opts.intoCache ? undefined : ownEntry(name, opts.resolveOwn ?? defaultResolveOwn);
   if (own) {
     if (pins) {
       const where = { ...own, remove: own.pkgDir, checkBinary: !noBinary };

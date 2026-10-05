@@ -427,10 +427,11 @@ export function queryWithExecutable(
  *  (#428; not a dependency of the published package), running the installed
  *  Claude Code if there is a usable one (#522). Loaded once per process; a
  *  failure is not cached, so a later session retries. `probe` is for tests;
- *  `requested` marks the operator's own `monomind deps install` (#559). */
+ *  `requested` marks the operator's own `monomind deps install` (#559); `intoCache` makes that install
+ *  write the deps cache even when a copy of the pin resolves from the checkout. */
 export const loadClaudeSdk = (
   probe?: ClaudeProbe,
-  { requested = false }: { requested?: boolean } = {},
+  { requested = false, intoCache = false }: { requested?: boolean; intoCache?: boolean } = {},
 ): Promise<ClaudeSdk> => {
   const actual = probe ?? defaultClaudeProbe();
   const selection = JSON.stringify(selectClaudePath(actual.env, actual.home));
@@ -443,6 +444,7 @@ export const loadClaudeSdk = (
     const sdk = await ensureOptionalDependency<ClaudeSdk>(SDK, {
       ...sdkLoadOptions(found),
       ...(requested ? { requested } : {}),
+      ...(intoCache ? { intoCache } : {}),
     });
     const { createSdkMcpServer, query, tool } = sdk;
     // #526: the SDK's own binary, pinned by hash, is passed to and rechecked

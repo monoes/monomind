@@ -2,6 +2,12 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Fixed
+
+- **`monomind deps install` run from a checkout now writes the deps cache.** When the checkout's own `node_modules` held the pinned Claude SDK, the command found it, printed "installed and verified" and wrote nothing, so org roles (whose sandbox can only use `~/.monomind/deps`) still lacked the SDK and a release's live Claude trials failed with EROFS. The command now always installs into the cache and says where.
+
 ## [2.24.0] — 2026-10-05
 
 ### Added
