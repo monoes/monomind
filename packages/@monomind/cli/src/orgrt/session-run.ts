@@ -121,6 +121,7 @@ export async function runOneSession(
   let fullAccessToolCalls = 0;
 
   let sessionId: string | undefined = resume;
+  policy.noteSessionId(resume);
   let hitTurnLimit = false;
   let contextLimitFired = false;
   // #budget-realtime: real tokens already accounted for the message CURRENTLY
@@ -300,6 +301,7 @@ export async function runOneSession(
       if (fullAccessSession.tracker && m.type === 'tool_result') fullAccessToolCalls++;
       if (m.session_id) {
         sessionId = m.session_id;
+        policy.noteSessionId(sessionId);
         // P2-13: propagate the session ID back to the daemon so checkpoints
         // can resume the SDK session after a crash/restart.
         opts.onSessionId?.(sessionId);
