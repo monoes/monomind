@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The stub exclude block is only written into a real repository's `info/exclude`.** A directory named `.git` that is not a repository (an empty one, or one holding only a runtime's `config.worktree` stub, as in the growth workspace) got an `info/exclude` created inside it. It is now skipped, as git itself skips it.
+
 ## [2.24.2] — 2026-10-05
 
 ### Fixed

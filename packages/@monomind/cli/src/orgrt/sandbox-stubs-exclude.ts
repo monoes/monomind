@@ -18,10 +18,23 @@ import { CWD_STUBS } from './sandbox-stubs-paths.js';
 const BEGIN = '# >>> monomind sandbox stubs (managed, removed when the run ends)';
 const END = '# <<< monomind sandbox stubs';
 
-/** The nearest directory at or above `dir` that holds a `.git` entry. */
+/** A real repository's `.git`: a directory with a HEAD, or a worktree's `gitdir:` file. An empty directory
+ *  or one holding only a runtime's stub (`config.worktree`) is not one, and git itself walks past it. */
+function hasRepo(dir: string): boolean {
+  const dot = join(dir, '.git');
+  try {
+    return statSync(dot).isDirectory()
+      ? existsSync(join(dot, 'HEAD'))
+      : /^gitdir:/m.test(readFileSync(dot, 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
+/** The nearest directory at or above `dir` that is a git work tree. */
 export function repoRootOf(dir: string): string | null {
   for (let d = dir; ; d = dirname(d)) {
-    if (existsSync(join(d, '.git'))) return d;
+    if (hasRepo(d)) return d;
     if (dirname(d) === d) return null;
   }
 }
