@@ -2,7 +2,7 @@
 // While a run holds sandbox stubs in the repo root, `git status` must not list them: the runtime lists them in
 // the repo's info/exclude for as long as they exist, and takes its block out again when they are gone.
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -68,5 +68,22 @@ describe('stubs held in a git repo root', () => {
     const out = execFileSync('git', ['status', '--porcelain'], { cwd: wt, encoding: 'utf8' }).trim();
     expect(out).toBe('');
     stubs.release('run-3');
+  });
+});
+
+describe('a `.git` that is not a repository', () => {
+  it('is left untouched: no info/exclude is created inside it', () => {
+    const base = mkdtempSync(join(tmpdir(), 'stubfake-'));
+    dirs.push(base);
+    const cwd = join(base, 'ws');
+    const home = join(base, 'home');
+    mkdirSync(join(cwd, '.git'), { recursive: true });
+    writeFileSync(join(cwd, '.git', 'config.worktree'), ''); // what an earlier run's stub left (the growth workspace)
+    mkdirSync(join(home, '.claude'), { recursive: true });
+    const stubs = new SandboxStubs(null);
+    stubs.hold('run-1', sandboxStubPaths({ cwd, home, writableRoots: [cwd, home], env: {} }));
+    expect(existsSync(join(cwd, '.git', 'info'))).toBe(false);
+    stubs.release('run-1');
+    expect(existsSync(join(cwd, '.git', 'info'))).toBe(false);
   });
 });

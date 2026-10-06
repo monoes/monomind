@@ -7,6 +7,7 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 ### Fixed
 
 - **A role in a sections org can read the full text of a long message digested for it.** A message over the inline limit reaches the recipient cut at 1 KB with a pointer to `<org dir>/mail/<recipient>/<id>.md`, but a role with a narrow `fileRead` scope was refused that read ("outside read scope"), so the sender had to resend a compact version (seen in the growth-org test run). A role's own digest directory is now readable by the file tools, and nothing else is: another role's directory, a write, a shared-prefix sibling and a link out of the directory are still refused.
+- **The stub exclude block is only written into a real repository's `info/exclude`.** A directory named `.git` that is not a repository (an empty one, or one holding only a runtime's `config.worktree` stub, as in the growth workspace) got an `info/exclude` created inside it. It is now skipped, as git itself skips it.
 
 ## [2.24.2] — 2026-10-05
 
