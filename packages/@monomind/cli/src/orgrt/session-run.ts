@@ -8,7 +8,9 @@ import { ensureAuthorityDirs } from './authority-mask.js';
 import { appendContextCall } from './context-log.js';
 import { resolveRoleCostTier } from './cost-tier.js';
 import type { CumulativeMeter } from './cumulative-meter.js';
+import { mailDirFor } from './documents/mail-isolation.js';
 import { sectionsRoleProtection } from './documents/role-protection.js';
+import { sectionsSurface } from './documents/surface.js';
 import { effectiveRole } from './effective-role-policy.js';
 import { roleExecMask } from './exec-deny.js';
 import type { StreamOptions } from './mailbox.js';
@@ -122,6 +124,8 @@ export async function runOneSession(
 
   let sessionId: string | undefined = resume;
   policy.noteSessionId(resume);
+  if (opts.orgDir && opts.def && sectionsSurface(opts.def).enabled)
+    policy.noteOwnMailDir(mailDirFor(opts.orgDir, role.id));
   let hitTurnLimit = false;
   let contextLimitFired = false;
   // #budget-realtime: real tokens already accounted for the message CURRENTLY
