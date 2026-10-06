@@ -405,6 +405,21 @@ export class PolicyEngine {
     return dir === 'tool-results' && session !== undefined && this.ownSessions.has(session);
   }
 
+  /** The directory a sections org keeps the full text of this role's long messages in
+   *  (`<orgDir>/mail/<role>/`, documents/mail-isolation.ts). The inline copy is cut at 1 KB and points
+   *  there, so the role's own directory is readable whatever its fileRead scope is; no other role's is. */
+  private ownMailDir: string | undefined;
+
+  noteOwnMailDir(dir: string | undefined): void {
+    this.ownMailDir = dir ? realPath(dir) : undefined;
+  }
+
+  private isOwnMailDigest(real: string): boolean {
+    if (!this.ownMailDir) return false;
+    const rel = relative(this.ownMailDir, real);
+    return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+  }
+
   /** Why a file-tool call on `p` is refused, or null when it may proceed. */
   private filePathDenial(tool: string, p: string, globs: string[]): string | null {
     // SEC: compare REAL paths — a symlink inside the scope pointing outside
@@ -415,6 +430,8 @@ export class PolicyEngine {
     const realCwd = realPath(this.cwd);
     // The runner's own saved copy of this role's large tool output: readable, never writable.
     if (READ_TOOLS.has(tool) && this.isOwnToolOutput(real)) return null;
+    // The full text of a long message digested for this role: readable, never writable.
+    if (READ_TOOLS.has(tool) && this.isOwnMailDigest(real)) return null;
     // #496: on a case-insensitive filesystem `.SSH`, `.GIT` and `Site` are
     // `.ssh`, `.git` and `site`. Deny checks compare with `fold.deny`
     // (always fully folded — policy-paths.ts's SegmentFold). Grants compare
