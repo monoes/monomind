@@ -310,6 +310,7 @@ export const serveAction = async (ctx: CommandContext): Promise<CommandResult> =
             : ({ ok: true } as const);
           if (!signed.ok) {
             log(output.warning(`${signed.message} — skipping scheduled run`));
+            auditScheduledTick(daemon, name, 'scheduled-start-refused', signed.message);
             return;
           }
           const checks = rawDef?.run_config?.prechecks;
@@ -324,6 +325,12 @@ export const serveAction = async (ctx: CommandContext): Promise<CommandResult> =
                 ),
               );
               if (failed?.output) log(output.warning(`  ${failed.output.slice(0, 200)}`));
+              auditScheduledTick(
+                daemon,
+                name,
+                'scheduled-start-refused',
+                `precheck "${failed?.name}" failed — skipping scheduled run${failed?.output ? `: ${failed.output.slice(0, 200)}` : ''}`,
+              );
               return;
             }
           }
