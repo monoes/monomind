@@ -515,6 +515,7 @@ export function resultVisibility(m: AgentMessage, selected: string | undefined):
   return {
     ...(m.model_usage ? { model_usage: m.model_usage } : {}),
     ...(m.effort ? { effort: m.effort } : {}),
+    ...(m.agent_launches ? { agent_launches: m.agent_launches } : {}),
     ...(m.peak_context_tokens
       ? {
           peak_context_tokens: m.peak_context_tokens,

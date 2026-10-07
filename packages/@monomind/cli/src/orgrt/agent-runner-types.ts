@@ -302,6 +302,8 @@ export interface AgentMessage {
   /** #655: result only (Claude). Largest main-thread context sent in one call
    *  (input + cache read + cache write): the figure the history re-reads cost. */
   peak_context_tokens?: number;
+  /** #655: result only (Claude, coder mode). Agent launches this turn, reviews counted apart. */
+  agent_launches?: { total: number; review: number };
 }
 
 export interface AgentRunner {

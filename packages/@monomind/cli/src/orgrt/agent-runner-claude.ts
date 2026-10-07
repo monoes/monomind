@@ -230,7 +230,7 @@ export class ClaudeAgentRunner implements AgentRunner {
           args.envAuthoritative === false
             ? { ...process.env, ...args.env, ...pin?.env }
             : { ...omitAnthropicManagedKeys(process.env), ...args.env, ...pin?.env },
-        ...(pin ? { settings: pin.settings } : {}),
+        ...(pin && Object.keys(pin.env).length ? { settings: pin.settings } : {}),
         // Without these, the SDK falls back to its interactive-CLI default of
         // auto-discovering the invoking user's ~/.claude/settings.json and any
         // project-level .claude/settings.json under cwd — pulling in that
@@ -501,8 +501,9 @@ export class ClaudeAgentRunner implements AgentRunner {
             cache_creation_input_tokens: m.usage?.cache_creation_input_tokens ?? undefined,
             ...(cumulative ? { cumulative_tokens: cumulative } : {}),
             ...(perModelUsage(m.modelUsage) ? { model_usage: perModelUsage(m.modelUsage) } : {}),
-            ...(settingSources.length > 0 && args.effort ? { effort: pin?.env.CLAUDE_CODE_EFFORT_LEVEL ?? args.effort } : {}),
+            ...(pin?.env.CLAUDE_CODE_EFFORT_LEVEL ? { effort: pin.env.CLAUDE_CODE_EFFORT_LEVEL } : {}),
             ...(peakContext ? { peak_context_tokens: peakContext } : {}),
+            ...(pin && pin.launches().total ? { agent_launches: pin.launches() } : {}),
             cost_usd: m.total_cost_usd,
           };
         } else if (m.type === 'user') {

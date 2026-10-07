@@ -6,6 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { hookKey } from '../init/hook-identity.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 
 const NAME = 'Token Cost Settings';
@@ -14,7 +15,7 @@ interface Scope {
   label: string;
   env: Record<string, string>;
   effortLevel?: string;
-  hooks: Map<string, string[]>;
+  hooks: Map<string, { matcher?: string; command: string }[]>;
 }
 
 function readScope(label: string, file: string): Scope | undefined {
@@ -23,12 +24,13 @@ function readScope(label: string, file: string): Scope | undefined {
     const d = JSON.parse(readFileSync(file, 'utf8'));
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(d?.env ?? {})) env[k] = String(v);
-    const hooks = new Map<string, string[]>();
+    const hooks = new Map<string, { matcher?: string; command: string }[]>();
     for (const [ev, groups] of Object.entries(d?.hooks ?? {})) {
-      const cmds: string[] = [];
+      const cmds: { matcher?: string; command: string }[] = [];
       for (const g of Array.isArray(groups) ? groups : [])
         for (const h of Array.isArray(g?.hooks) ? g.hooks : [])
-          if (typeof h?.command === 'string') cmds.push(h.command);
+          if (typeof h?.command === 'string')
+            cmds.push({ ...(typeof g.matcher === 'string' ? { matcher: g.matcher } : {}), command: h.command });
       hooks.set(ev, cmds);
     }
     return {
@@ -79,14 +81,17 @@ export async function checkTokenCostSettings(cwd: string): Promise<HealthCheck> 
       notes.push(`${s.label}: AGENT_TEAMS=1 (teammate messages wake the parent context)`);
   }
 
+  // Same helper+argument twice, in one file (an old and a new command form)
+  // or in two: each registration runs.
   const seen = new Map<string, string>();
   const dupes = new Set<string>();
   for (const s of scopes)
     for (const [ev, cmds] of s.hooks)
-      for (const c of new Set(cmds)) {
-        const k = `${ev}\0${c}`;
+      for (const c of cmds) {
+        const k = hookKey(ev, c.matcher, c.command);
         const prev = seen.get(k);
-        if (prev && prev !== s.label) dupes.add(`${ev} hook registered in ${prev} and ${s.label}`);
+        const where = prev === s.label ? `twice in ${s.label}` : `in ${prev} and ${s.label}`;
+        if (prev) dupes.add(`${ev} hook ${k.split('\0')[2]} registered ${where}`);
         else seen.set(k, s.label);
       }
   issues.push(...[...dupes].slice(0, 5));
