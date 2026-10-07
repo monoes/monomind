@@ -360,6 +360,7 @@ export class ClaudeAgentRunner implements AgentRunner {
     // the sibling pattern this mirrors (no fence-safety concern here,
     // since Claude's content blocks are already cleanly delimited by
     // index rather than needing to be scanned out of raw text).
+    let peakContext = 0;
     let blockTexts = new Map<number, string>();
     let visibleSoFar = '';
 
@@ -456,6 +457,13 @@ export class ClaudeAgentRunner implements AgentRunner {
             blockTexts = new Map();
             visibleSoFar = '';
           }
+          if (!parent) {
+            const u = m.message?.usage;
+            peakContext = Math.max(
+              peakContext,
+              (u?.input_tokens ?? 0) + (u?.cache_read_input_tokens ?? 0) + (u?.cache_creation_input_tokens ?? 0),
+            );
+          }
           yield {
             type: 'assistant',
             session_id,
@@ -492,6 +500,9 @@ export class ClaudeAgentRunner implements AgentRunner {
             cache_read_input_tokens: m.usage?.cache_read_input_tokens ?? undefined,
             cache_creation_input_tokens: m.usage?.cache_creation_input_tokens ?? undefined,
             ...(cumulative ? { cumulative_tokens: cumulative } : {}),
+            ...(perModelUsage(m.modelUsage) ? { model_usage: perModelUsage(m.modelUsage) } : {}),
+            ...(settingSources.length > 0 && args.effort ? { effort: pin?.env.CLAUDE_CODE_EFFORT_LEVEL ?? args.effort } : {}),
+            ...(peakContext ? { peak_context_tokens: peakContext } : {}),
             cost_usd: m.total_cost_usd,
           };
         } else if (m.type === 'user') {
@@ -539,6 +550,24 @@ export class ClaudeAgentRunner implements AgentRunner {
       tracker?.stop();
     }
   }
+}
+
+/** #655: the same `modelUsage`, kept per model so the model actually served is visible. */
+function perModelUsage(
+  modelUsage: unknown,
+): NonNullable<AgentMessage['model_usage']> | undefined {
+  if (!modelUsage || typeof modelUsage !== 'object') return undefined;
+  const out: NonNullable<AgentMessage['model_usage']> = {};
+  for (const [model, u] of Object.entries(modelUsage as Record<string, any>)) {
+    if (!u || typeof u !== 'object') continue;
+    out[model] = {
+      input: Number(u.inputTokens) || 0,
+      output: Number(u.outputTokens) || 0,
+      cache_read: Number(u.cacheReadInputTokens) || 0,
+      cache_creation: Number(u.cacheCreationInputTokens) || 0,
+    };
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 /** ADR-O001 D1: collapse SDKResultMessage.modelUsage (a per-model record whose
