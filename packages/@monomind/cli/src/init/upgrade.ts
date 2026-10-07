@@ -295,14 +295,16 @@ export async function executeUpgrade(
           const existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
           const hookReport: string[] = [];
           const mergedSettings = mergeSettingsForUpgrade(existingSettings, hookReport);
+          // #655: a retired Agent Teams flag is the one value upgrade removes; keep the
+          // file as it was so the removal can be undone by hand.
+          if (hookReport.some((r) => r.startsWith('env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS')))
+            fs.copyFileSync(settingsPath, `${settingsPath}.bak-agent-teams`);
           atomicWriteFile(settingsPath, JSON.stringify(mergedSettings, null, 2));
           result.updated.push('.claude/settings.json');
           result.settingsUpdated = [
-            'env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS',
             ...hookReport,
             'hooks.TeammateIdle (removed — not a valid Claude Code hook)',
             'hooks.TaskCompleted (removed — not a valid Claude Code hook)',
-            'monomind.agentTeams',
           ];
         } catch (settingsError) {
           result.errors.push(

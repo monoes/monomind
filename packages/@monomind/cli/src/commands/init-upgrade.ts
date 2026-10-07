@@ -32,7 +32,8 @@ export const upgradeCommand: Command = {
     {
       name: 'settings',
       short: 's',
-      description: 'Merge new settings (Agent Teams, hooks) into existing settings.json',
+      description:
+        'Merge new settings (hooks) into existing settings.json; also removes the Agent Teams flag an earlier init wrote (backup kept as settings.json.bak-agent-teams)',
       type: 'boolean',
       default: false,
     },

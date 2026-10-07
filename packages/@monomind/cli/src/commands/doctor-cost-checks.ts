@@ -16,6 +16,7 @@ interface Scope {
   env: Record<string, string>;
   effortLevel?: string;
   hooks: Map<string, { matcher?: string; command: string }[]>;
+  agentTeamsBlock?: boolean;
 }
 
 function readScope(label: string, file: string): Scope | undefined {
@@ -41,6 +42,7 @@ function readScope(label: string, file: string): Scope | undefined {
       env,
       hooks,
       ...(typeof d?.effortLevel === 'string' ? { effortLevel: d.effortLevel } : {}),
+      ...(d?.monomind?.agentTeams !== undefined ? { agentTeamsBlock: true } : {}),
     };
   } catch {
     return undefined;
@@ -85,7 +87,13 @@ export async function checkTokenCostSettings(cwd: string): Promise<HealthCheck> 
         `${s.label}: ENABLE_TOOL_SEARCH=false loads every MCP tool schema into each request`,
       );
     if (e.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === '1' && s.label !== 'process env')
-      notes.push(`${s.label}: AGENT_TEAMS=1 (teammate messages wake the parent context)`);
+      notes.push(
+        `${s.label}: AGENT_TEAMS=1 (teammate messages wake the parent context; Monomind does not use it; "monomind init upgrade --settings" removes it when an earlier init wrote it)`,
+      );
+    if (s.agentTeamsBlock)
+      notes.push(
+        `${s.label}: monomind.agentTeams is written by older inits and read by nothing; "monomind init upgrade --settings" removes it`,
+      );
   }
 
   // Same helper+argument twice, in one file (an old and a new command form)
@@ -108,7 +116,7 @@ export async function checkTokenCostSettings(cwd: string): Promise<HealthCheck> 
       name: NAME,
       status: 'pass',
       message: notes.length
-        ? `No cost-multiplying settings (${notes[0]})`
+        ? `No cost-multiplying settings (${notes.join('; ')})`
         : 'No cost-multiplying settings',
     };
   return {
