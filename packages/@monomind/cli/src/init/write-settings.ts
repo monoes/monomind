@@ -6,6 +6,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { atomicWriteFile } from './fs-helpers.js';
 import { OBSOLETE_HELPER_NAMES } from './helpers-generator.js';
+import { hookKey } from './hook-identity.js';
 import { generateSettingsJson } from './settings-generator.js';
 import { MAX_EXEC_FILE_BYTES } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
@@ -66,7 +67,7 @@ export async function writeSettings(
         // command forever. Strip known-obsolete commands first so --force
         // actually retires them instead of running them alongside the new one.
         existing.hooks = mergeHooksPreservingUnknown(
-          stripObsoleteHookCommands(existing.hooks),
+          stripSupersededHookCommands(stripObsoleteHookCommands(existing.hooks), generated.hooks),
           generated.hooks,
         );
         merged = true;
@@ -139,6 +140,40 @@ function stripObsoleteHookCommands(
       }))
       .filter((group) => (group.hooks?.length ?? 0) > 0);
     if (cleaned.length > 0) result[eventType] = cleaned;
+  }
+  return result;
+}
+
+/**
+ * #655: drop an existing hook whose helper and argument a generated hook
+ * already runs under a different command form (an older wrapper), so --force
+ * replaces it instead of running both. A hook only matches within its own
+ * event and matcher; user hooks that run something else are untouched.
+ */
+function stripSupersededHookCommands(
+  hooks: Record<string, HookGroup[]> | undefined,
+  generated: Record<string, HookGroup[]>,
+): Record<string, HookGroup[]> | undefined {
+  if (!hooks) return hooks;
+  const current = new Map<string, Set<string>>();
+  for (const [event, groups] of Object.entries(generated))
+    for (const g of groups)
+      for (const h of g.hooks ?? []) {
+        const k = hookKey(event, g.matcher, h.command);
+        (current.get(k) ?? current.set(k, new Set()).get(k)!).add(h.command);
+      }
+  const result: Record<string, HookGroup[]> = {};
+  for (const [event, groups] of Object.entries(hooks)) {
+    const cleaned = groups
+      .map((g) => ({
+        ...g,
+        hooks: (g.hooks ?? []).filter((h) => {
+          const same = current.get(hookKey(event, g.matcher, h.command));
+          return !same || same.has(h.command);
+        }),
+      }))
+      .filter((g) => (g.hooks?.length ?? 0) > 0);
+    if (cleaned.length > 0) result[event] = cleaned;
   }
   return result;
 }

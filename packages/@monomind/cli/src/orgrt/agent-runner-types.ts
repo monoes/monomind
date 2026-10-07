@@ -290,6 +290,20 @@ export interface AgentMessage {
     cache_creation: number;
   };
   cost_usd?: number; // result
+  /** #655: result only (Claude). Per-model usage from the SDK's `modelUsage`,
+   *  keyed by the model the API actually served — child agents included — so a
+   *  silent escalation to another model shows up next to the selected one. */
+  model_usage?: Record<
+    string,
+    { input: number; output: number; cache_read: number; cache_creation: number }
+  >;
+  /** #655: result only (Claude). The effort the request was sent with. */
+  effort?: string;
+  /** #655: result only (Claude). Largest main-thread context sent in one call
+   *  (input + cache read + cache write): the figure the history re-reads cost. */
+  peak_context_tokens?: number;
+  /** #655: result only (Claude, coder mode). Agent launches this turn, reviews counted apart. */
+  agent_launches?: { total: number; review: number };
 }
 
 export interface AgentRunner {

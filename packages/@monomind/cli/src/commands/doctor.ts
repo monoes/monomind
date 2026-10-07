@@ -10,6 +10,7 @@ import { output } from '../output.js';
 import { runPlatformsDoctor } from '../platform-adapters/platform-doctor.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { checkCatalog, checkOrgSkills } from './doctor-catalog-checks.js';
+import { checkTokenCostSettings } from './doctor-cost-checks.js';
 import { checkDecisionModel, checkDecisionModelIfConfigured } from './doctor-decision-checks.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 import {
@@ -247,6 +248,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     // and needs to know its crash-reporting state) — alwaysOnChecks, not
     // codeOnlyChecks.
     ['crash-reporting', checkCrashReporting],
+    ['cost-settings', () => checkTokenCostSettings(ctx.cwd || process.cwd())],
     ['org-skills', () => checkOrgSkills(ctx.cwd || process.cwd(), mode.readOnly)],
   ];
   const codeOnlyChecks: [string, CheckFn][] = [
@@ -303,6 +305,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     gates: checkGuidanceGates,
     'hook-settings': () => checkHookSettings(ctx.cwd || process.cwd()),
     gitignore: () => checkGitignoreCoverage(ctx.cwd || process.cwd()),
+    'cost-settings': () => checkTokenCostSettings(ctx.cwd || process.cwd()),
     registry: () => checkAgentRegistry({ readOnly: mode.readOnly }),
     'memory-proficiency': checkMemoryProficiency,
     'monoes-tools': checkMonoesTools,

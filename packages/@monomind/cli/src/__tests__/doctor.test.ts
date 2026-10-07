@@ -170,7 +170,7 @@ describe('doctorCommand', () => {
     // monoes token-exposure check, #328's hook graph rebuild check and the
     // running MCP server version check) — no
     // fingerprint present, so isCodeProject defaults to true and the full set runs.
-    expect(data.results.length).toBe(39 + JEV_ROW);
+    expect(data.results.length).toBe(40 + JEV_ROW);
     expect(data.results.map((r) => r.name)).toEqual(
       expect.arrayContaining(['Claude runtime', 'Agent runtime readiness']),
     );
@@ -238,7 +238,7 @@ describe('doctorCommand', () => {
     expect(names).toContain('Config File');
     expect(names).toContain('Crash Reporting');
     expect(names).toContain('Memory Project Root');
-    expect(data.results.length).toBe(29 + JEV_ROW);
+    expect(data.results.length).toBe(30 + JEV_ROW);
   }, 60000); // full default check set shells out — see the bare-project test above
 
   it('--fix applies the real local Helper Files fix and re-checks it in place', async () => {

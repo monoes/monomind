@@ -494,7 +494,37 @@ export async function runAgentExecOnce(
     input_tokens: totals.in,
     output_tokens: totals.out,
     cost_usd: totals.usd,
+    ...resultVisibility(lastResult, opts.model),
   });
   const bg = backgroundPids();
   return finish(isError ? 1 : 0, bg ? { background_pids: bg } : undefined);
+}
+
+/** Over this much main-thread context per call, every further call re-reads it. */
+const CONTEXT_WARN_TOKENS = 200_000;
+
+/** #655: what the request actually ran on, beside what was selected. `model_usage`
+ *  is per model served (child agents included); `unexpected_models` lists those
+ *  that are not the selected model, so an escalation is visible, not inferred. */
+export function resultVisibility(
+  m: AgentMessage,
+  selected: string | undefined,
+): Record<string, unknown> {
+  const used = m.model_usage ? Object.keys(m.model_usage) : [];
+  const sel = selected && selected !== 'default' ? selected.toLowerCase() : undefined;
+  const unexpected = sel
+    ? used.filter((u) => !u.toLowerCase().includes(sel) && !sel.includes(u.toLowerCase()))
+    : [];
+  return {
+    ...(m.model_usage ? { model_usage: m.model_usage } : {}),
+    ...(m.effort ? { effort: m.effort } : {}),
+    ...(m.agent_launches ? { agent_launches: m.agent_launches } : {}),
+    ...(m.peak_context_tokens
+      ? {
+          peak_context_tokens: m.peak_context_tokens,
+          ...(m.peak_context_tokens > CONTEXT_WARN_TOKENS ? { context_warning: true } : {}),
+        }
+      : {}),
+    ...(unexpected.length ? { unexpected_models: unexpected } : {}),
+  };
 }
