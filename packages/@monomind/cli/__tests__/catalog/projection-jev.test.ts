@@ -57,7 +57,9 @@ describe('catalog Jev flag on the platform path', () => {
     await jp.pick(
       'review this change',
       { skills: jp.loadSkillCatalog(root) },
-      { env: { MONOMIND_JEV_URL: 'http://127.0.0.1:3000' }, fetchImpl: f.impl },
+      // Past the default shortlist of 30, so the bundled skills that also match
+      // "review" cannot push the seeded ones out of the request.
+      { env: { MONOMIND_JEV_URL: 'http://127.0.0.1:3000' }, fetchImpl: f.impl, maxCandidates: 1000 },
     );
     expect(f.calls).toHaveLength(1);
     const body = String(f.calls[0].init.body);

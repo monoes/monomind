@@ -1,442 +1,151 @@
 ---
 name: content-strategy
-description: "Use when planning a content strategy: what topics to cover, searchable vs shareable pieces, topic clusters, scoring and a content calendar. Planning, not drafting; for writing posts use content-engine or article-writing."
-tags: ["marketing","writing","content","strategy","seo"]
+description: "Analyzes sales data from PayPal and QuickBooks to find top performers and slow movers, layers in seasonality, and produces a prioritized 30-day content brief: what to push, what offers to run, what to hold. Strategic output only — no calendars or assets. Use when the user asks what to post, wants a content plan, asks what's selling, or what to promote this month."
+tags: []
 tools: []
-license: MIT
-source: https://github.com/coreyhaines31/marketingskills
-source_path: "skills/content-strategy"
-source_commit: 5b2c0007766c6a1cf1d53fd8fc73e979e0821022
+license: Apache-2.0
+source: https://github.com/anthropics/knowledge-work-plugins
+source_path: "small-business/skills/content-strategy"
+source_commit: 8444efcd48f7012f09797778a36a33e73d0861f4
 ---
 # Content Strategy
 
-You are a content strategist. Your goal is to help plan content that drives traffic, builds authority, and generates leads by being either searchable, shareable, or both.
+## Quick start
 
-## Before Planning
+When an SMB owner asks "what should I post this month?" or "what's my content plan?", this skill:
 
-**Check for product marketing context first:**
-If `.agents/product-marketing.md` exists (or `.claude/product-marketing.md`, or the legacy `product-marketing-context.md` filename, in older setups), read it before asking questions. Use that context and only ask for information not already covered or specific to this task.
+1. **Pulls sales data** from QuickBooks or PayPal (transaction history, product/service revenue by date)
+2. **Identifies patterns** — top-selling products, slow movers, seasonal trends
+3. **Layers in context** — seasonality (user-provided or industry benchmarks), past performance
+4. **Produces a 30-day brief** — ranked recommendations of what to push, what to hold, what offers to consider
+5. **Gets owner approval** before the brief feeds into `social-content-engine` for asset generation
 
-Gather this context (ask if not provided):
-
-### 1. Business Context
-- What does the company do?
-- Who is the ideal customer?
-- What's the primary goal for content? (traffic, leads, brand awareness, thought leadership)
-- What problems does your product solve?
-
-### 2. Customer Research
-- What questions do customers ask before buying?
-- What objections come up in sales calls?
-- What topics appear repeatedly in support tickets?
-- What language do customers use to describe their problems?
-
-### 3. Current State
-- Do you have existing content? What's working?
-- What resources do you have? (writers, budget, time)
-- What content formats can you produce? (written, video, audio)
-
-### 4. Competitive Landscape
-- Who are your main competitors?
-- What content gaps exist in your market?
+The output is strategic only — no calendar scheduling, no creative assets.
 
 ---
 
-## Treat Content Like a Product
+## Workflow
 
-Every piece is its own launch. Content isn't overhead—it's **brand surface area**: each published piece is a new entry point where a stranger can discover you, and hundreds of pieces compound into hundreds of doorways working 24/7. Plan, ship, and promote each piece with the same intent you'd bring to a product release. A post that's written and forgotten has almost no surface area; a post that's distributed (see **Create Once, Distribute Twice** below) multiplies it.
+### Step 1: Pre-flight check (QuickBooks only)
 
-This section covers the searchable/shareable lens, then the execution and prioritization layer: which pieces to make (scoring), how the calendar splits, and per-format discipline.
+If using QuickBooks, verify the business profile is set up:
 
-## Searchable vs Shareable
+1. Call `company-info` to check if `Industry` is populated
+2. If missing or "Unknown":
+   - Ask: "I need your business category to pull the right seasonality benchmarks. What industry are you in?" (e.g., retail, services, SaaS)
+   - Call `quickbooks-profile-info-update` with the user's industry
+   - Confirm: "Profile updated. Ready to pull your sales data."
+3. If profile is set, proceed to Step 2
 
-Every piece of content must be searchable, shareable, or both. Prioritize in that order—search traffic is the foundation.
+**Note:** PayPal and Square do not require profile setup.
 
-**Searchable content** captures existing demand. Optimized for people actively looking for answers.
+### Step 2: Clarify priorities & metrics
 
-**Shareable content** creates demand. Spreads ideas and gets people talking.
+When triggered, ask the user:
 
-### When Writing Searchable Content
+- **"How do you want me to measure 'top performers'?"**
+  - By total revenue?
+  - By profit margin?
+  - By sales velocity (how fast they're selling)?
+  - Combination of the above?
 
-- Target a specific keyword or question
-- Match search intent exactly—answer what the searcher wants
-- Use clear titles that match search queries
-- Structure with headings that mirror search patterns
-- Place keywords in title, headings, first paragraph, URL
-- Provide comprehensive coverage (don't leave questions unanswered)
-- Include data, examples, and links to authoritative sources
-- Optimize for AI/LLM discovery: clear positioning, structured content, brand consistency across the web
+- **"Do you have seasonality patterns in mind?"**
+  - If yes: "Tell me about them" (capture user's known seasonality)
+  - If no: "I'll use industry benchmarks for your category"
 
-### When Writing Shareable Content
+### Step 3: Pull and analyze sales data
 
-- Lead with a novel insight, original data, or counterintuitive take
-- Challenge conventional wisdom with well-reasoned arguments
-- Tell stories that make people feel something
-- Create content people want to share to look smart or help others
-- Connect to current trends or emerging problems
-- Share vulnerable, honest experiences others can learn from
+Fetch data from the authenticated connector (QuickBooks, PayPal, or Square, user's choice):
 
----
+- **Date range:** Last 90 days (or full history if <90 days available)
+- **Extract:** Product/service name, date sold, revenue, quantity
 
-## Content Types
+**Connector-specific notes:**
 
-### Searchable Content Types
+- **QuickBooks:** Fetch invoice line items via `profit_loss_quickbooks_account` (pre-flight sets industry context). Read the rows or `monthlyBreakdown`; the response's `totalExpenses` reports 0 against real rows, so never read the summary fields
+- **PayPal:** Fetch merchant transactions via `list_transactions`. *Rate-limiting:* If you hit rate limits, pause 30 seconds and retry once. If still blocked, gracefully offer: "PayPal is rate-limited. Would you like to switch to QuickBooks or Square instead, or I can continue with historical data I already pulled?"
+- **Square:** Requires location ID first. Call `make_api_request(service="locations", method="list")` to discover available locations, then fetch orders for each location.
 
-**Use-Case Content**
-Formula: [persona] + [use-case]. Targets long-tail keywords.
-- "Project management for designers"
-- "Task tracking for developers"
-- "Client collaboration for freelancers"
+**No connectors at all?** This still runs, and it is a supported path — not a degraded one. Ask the owner to export their sales history and upload it. Name the export by the label they will actually see in the app:
 
-**Hub and Spoke**
-Hub = comprehensive overview. Spokes = related subtopics.
-```
-/topic (hub)
-├── /topic/subtopic-1 (spoke)
-├── /topic/subtopic-2 (spoke)
-└── /topic/subtopic-3 (spoke)
-```
-Create hub first, then build spokes. Interlink strategically.
+- **QuickBooks** — Reports, then the "Sales by Product/Service Detail" report, set to the last 90 days, exported to Excel or CSV
+- **PayPal** — Activity, then Download, set to the last 90 days, "Completed transactions" as CSV
+- **Square** — Reports, then Item Sales, set to the last 90 days, exported as CSV
 
-**Note:** Most content works fine under `/blog`. Only use dedicated hub/spoke URL structures for major topics with layered depth (e.g., Atlassian's `/agile` guide). For typical blog posts, `/blog/post-title` is sufficient.
+Any one of those carries product name, date, revenue, and usually quantity, which is everything Step 3 needs. A pasted list of what sold and roughly when also works — say plainly that the read is rougher, and run it.
 
-**Template Libraries**
-High-intent keywords + product adoption.
-- Target searches like "marketing plan template"
-- Provide immediate standalone value
-- Show how product enhances the template
+**Fallback:** If <3 months of data, use industry seasonality benchmarks for the SMB's category (e.g., retail, services, e-commerce)
 
-### Shareable Content Types
+Identify:
+- **Top 3–5 performers** (by user's chosen metric)
+- **Bottom 3–5 slow movers** (consider holding or repositioning)
+- **Trending up** (gaining momentum in last 30 days)
+- **Trending down** (losing momentum)
 
-**Thought Leadership**
-- Articulate concepts everyone feels but hasn't named
-- Challenge conventional wisdom with evidence
-- Share vulnerable, honest experiences
+### Step 4: Layer in seasonality
 
-**Data-Driven Content**
-- Product data analysis (anonymized insights)
-- Public data analysis (uncover patterns)
-- Original research (run experiments, share results)
+- **User-provided:** If they shared seasonal patterns, weight recommendations against them
+- **Industry benchmarks:** For categories without strong user data (e.g., "Q1 is strong for tax services")
+- **Timing:** Flag products that should ramp up/down in the next 30 days based on seasonal patterns
 
-**Expert Roundups**
-15-30 experts answering one specific question. Built-in distribution.
+### Step 5: Build the 30-day brief
 
-**Case Studies**
-Structure: Challenge → Solution → Results → Key learnings
+Structure:
+- **Executive summary** (1–2 sentences: "Your best sellers are X and Y. Seasonal shift to Z is starting.")
+- **Push hard** (Top 2–3 products + recommended content angle, e.g., "Case study on ROI", "How-to video")
+- **Hold steady** (Middle performers; maintain visibility but no heavy lift)
+- **Reposition or pause** (Slow movers; consider discounting, bundling, or pausing)
+- **Seasonal opportunities** (What's coming next month that you should position for now)
+- **Recommended offers** (Bundle, discount, or free-trial strategy based on data)
 
-**Meta Content**
-Behind-the-scenes transparency. "How We Got Our First $5k MRR," "Why We Chose Debt Over VC."
+Example length: **200–400 words** (brief and actionable, not essay-length).
 
-### Link-Earning Formats
+### Step 6: Owner approval & iteration
 
-When the goal of a piece is backlinks specifically, format choice matters more than production effort. Foundation Inc.'s B2B Backlink Intelligence Report (March 2026 — a single vendor study of B2B SaaS sites, so treat as directional) measured each format's share of backlinks relative to its share of pages:
+Present the brief to the owner. Ask:
+- "Does this match your gut?"
+- "Anything to adjust?"
+- "Ready to feed this to social-content-engine for asset generation?"
 
-| Format | Backlinks vs. page share |
-|---|---|
-| Statistics / data roundups | **4.25x** |
-| Glossary / definition pages | 1.47x |
-| Interactive tools / calculators (see **free-tools**) | 1.38x |
-| How-to / tutorials | 1.36x |
-| Original research / reports | 0.80x |
-| Ultimate guides | 0.77x |
-| Thought leadership | 0.74x |
-| Templates / frameworks | 0.68x |
-
-The counterintuitive read: **curating statistics earns ~5x the links of producing original research.** Writers link to whatever makes citation easiest — a maintained stat-roundup page is citation infrastructure, while original research often gets cited *via* the roundups that aggregate it. Implications: (1) publish a stats page for your category and keep it fresh — it's cheap and compounds, and citable one-line stats are also what LLMs lift, making it an AI-visibility play (see **ai-seo**); (2) when you do run original research, pair it with your own stat-roundup page that presents the findings as citable one-liners, so you capture the links your data generates. The formats at the bottom aren't dead — guides, templates, and thought leadership earn their keep on rankings, conversions, and brand. Judge each piece by the job it's for, and don't expect links from formats that don't earn them.
-
-For programmatic content at scale, see **programmatic-seo** skill.
+Iterate if needed; once approved, return the final brief as structured JSON (ready for downstream tools).
 
 ---
 
-## Content Pillars and Topic Clusters
+## More sources, and direct invocation
 
-Content pillars are the 3-5 core topics your brand will own. Each pillar spawns a cluster of related content.
+Read `reference/v2_sources.md` for the mapping:
 
-Most of the time, all content can live under `/blog` with good internal linking between related posts. Dedicated pillar pages with custom URL structures (like `/guides/topic`) are only needed when you're building comprehensive resources with multiple layers of depth.
+- **Shopify** — per-SKU velocity, variant performance, and product images that flow straight into asset generation downstream
+- **Stripe** — subscription and recurring revenue, where relevant
 
-### How to Identify Pillars
+### Direct invocation
 
-1. **Product-led**: What problems does your product solve?
-2. **Audience-led**: What does your ICP need to learn?
-3. **Search-led**: What topics have volume in your space?
-4. **Competitor-led**: What are competitors ranking for?
+If the owner asks for a sales brief, run this and return the brief. Don't route them anywhere.
 
-### Pillar Structure
+## Gotchas & edge cases
 
-```
-Pillar Topic (Hub)
-├── Subtopic Cluster 1
-│   ├── Article A
-│   ├── Article B
-│   └── Article C
-├── Subtopic Cluster 2
-│   ├── Article D
-│   ├── Article E
-│   └── Article F
-└── Subtopic Cluster 3
-    ├── Article G
-    ├── Article H
-    └── Article I
-```
-
-### Pillar Criteria
-
-Good pillars should:
-- Align with your product/service
-- Match what your audience cares about
-- Have search volume and/or social interest
-- Be broad enough for many subtopics
+See [`reference/gotchas.md`](reference/gotchas.md) for common pitfalls.
 
 ---
 
-## Keyword Research by Buyer Stage
+## Examples
 
-Map topics to the buyer's journey using proven keyword modifiers:
-
-### Awareness Stage
-Modifiers: "what is," "how to," "guide to," "introduction to"
-
-Example: If customers ask about project management basics:
-- "What is Agile Project Management"
-- "Guide to Sprint Planning"
-- "How to Run a Standup Meeting"
-
-### Consideration Stage
-Modifiers: "best," "top," "vs," "alternatives," "comparison"
-
-Example: If customers evaluate multiple tools:
-- "Best Project Management Tools for Remote Teams"
-- "Asana vs Trello vs Monday"
-- "Basecamp Alternatives"
-
-### Decision Stage
-Modifiers: "pricing," "reviews," "demo," "trial," "buy"
-
-Example: If pricing comes up in sales calls:
-- "Project Management Tool Pricing Comparison"
-- "How to Choose the Right Plan"
-- "[Product] Reviews"
-
-### Implementation Stage
-Modifiers: "templates," "examples," "tutorial," "how to use," "setup"
-
-Example: If support tickets show implementation struggles:
-- "Project Template Library"
-- "Step-by-Step Setup Tutorial"
-- "How to Use [Feature]"
+See [`reference/examples/`](reference/examples/) for worked examples (SaaS, retail, services).
 
 ---
 
-## Content Ideation Sources
+## Output
 
-### 1. Keyword Data
+**Deliver the 30-day brief per the owner's stored output preference — never default to a markdown file.** Check the `## Business context` block's `Output preference` (shared style guide rule, `../../shared/artifact-style.md`):
 
-If user provides keyword exports (Ahrefs, SEMrush, GSC), analyze for:
-- Topic clusters (group related keywords)
-- Buyer stage (awareness/consideration/decision/implementation)
-- Search intent (informational, commercial, transactional)
-- Quick wins (low competition + decent volume + high relevance)
-- Content gaps (keywords competitors rank for that you don't)
+- **Visual artifact (the default):** render the brief as an HTML page in the house style — what to promote as the lead, the why behind each pick with its numbers in tabular-nums, and the channel call per push. The structured JSON for downstream tools rides along unchanged; it is an input to other skills, not a second deliverable.
+- **docx / md / notion / canva preference:** deliver the same content in that form — a DOCX or markdown file, a Notion page created via the connector (named destination, never overwriting), or a Canva Doc created via the Canva connector (a new design each run, named with the date; tables become lists); fall back to the visual artifact if Notion or Canva is not connected — and say that is why.
+- **Best for skill:** use the visual artifact — this output is a decision page, not prose.
 
-Output as prioritized table:
-| Keyword | Volume | Difficulty | Buyer Stage | Content Type | Priority |
+## After the brief
 
-### 2. Call Transcripts
+The 30-day brief is approved and ready to act on. The natural next step is "make the content" — `social-content-engine` turns the brief into the standing calendar and the posts. Also nearby: "run this brief" (`canva-creator`) for a one-shot campaign build from this exact brief, and "is my marketing working" (`growth-pulse`) to check whether last month's push paid off. Offer at most three, and skip any offer the owner already declined this session.
 
-If user provides sales or customer call transcripts, extract:
-- Questions asked → FAQ content or blog posts
-- Pain points → problems in their own words
-- Objections → content to address proactively
-- Language patterns → exact phrases to use (voice of customer)
-- Competitor mentions → what they compared you to
+## Using a tool that isn't listed
 
-Output content ideas with supporting quotes.
-
-### 3. Survey Responses
-
-If user provides survey data, mine for:
-- Open-ended responses (topics and language)
-- Common themes (30%+ mention = high priority)
-- Resource requests (what they wish existed)
-- Content preferences (formats they want)
-
-### 4. Forum Research
-
-Use web search to find content ideas:
-
-**Reddit:** `site:reddit.com [topic]`
-- Top posts in relevant subreddits
-- Questions and frustrations in comments
-- Upvoted answers (validates what resonates)
-
-**Quora:** `site:quora.com [topic]`
-- Most-followed questions
-- Highly upvoted answers
-
-**Other:** Indie Hackers, Hacker News, Product Hunt, industry Slack/Discord
-
-Extract: FAQs, misconceptions, debates, problems being solved, terminology used.
-
-### 5. Competitor Analysis
-
-Use web search to analyze competitor content:
-
-**Find their content:** `site:competitor.com/blog`
-
-**Analyze:**
-- Top-performing posts (comments, shares)
-- Topics covered repeatedly
-- Gaps they haven't covered
-- Case studies (customer problems, use cases, results)
-- Content structure (pillars, categories, formats)
-
-**Identify opportunities:**
-- Topics you can cover better
-- Angles they're missing
-- Outdated content to improve on
-
-### 6. Sales and Support Input
-
-Extract from customer-facing teams:
-- Common objections
-- Repeated questions
-- Support ticket patterns
-- Success stories
-- Feature requests and underlying problems
-
----
-
-## Prioritizing Content Ideas
-
-Score each idea on four factors:
-
-### 1. Customer Impact (40%)
-- How frequently did this topic come up in research?
-- What percentage of customers face this challenge?
-- How emotionally charged was this pain point?
-- What's the potential LTV of customers with this need?
-
-### 2. Content-Market Fit (30%)
-- Does this align with problems your product solves?
-- Can you offer unique insights from customer research?
-- Do you have customer stories to support this?
-- Will this naturally lead to product interest?
-
-### 3. Search Potential (20%)
-- What's the monthly search volume?
-- How competitive is this topic?
-- Are there related long-tail opportunities?
-- Is search interest growing or declining?
-
-### 4. Resource Requirements (10%)
-- Do you have expertise to create authoritative content?
-- What additional research is needed?
-- What assets (graphics, data, examples) will you need?
-
-### Scoring Template
-
-| Idea | Customer Impact (40%) | Content-Market Fit (30%) | Search Potential (20%) | Resources (10%) | Total |
-|------|----------------------|-------------------------|----------------------|-----------------|-------|
-| Topic A | 8 | 9 | 7 | 6 | 8.0 |
-| Topic B | 6 | 7 | 9 | 8 | 7.1 |
-
-Score 1-10 per factor, multiply by the weight, sum for the total. Rank the list; make the top-scoring pieces first.
-
----
-
-## Calendar Split: 60/30/10
-
-Balance the editorial calendar so search compounds while shareable pieces keep you visible:
-
-- **60% searchable** — the foundation. Demand you can capture predictably (use-case content, hub/spoke, how-tos).
-- **30% shareable** — thought leadership, original data, opinion. Creates demand and earns links/mentions.
-- **10% experimental** — new formats, channels, or bets. Cheap insurance against a stale mix.
-
-This is a starting ratio, not a rule. A brand-new blog may over-index on searchable to build a base; an established brand chasing category leadership may push shareable higher.
-
----
-
-## Per-Format Execution Discipline
-
-Treating content like a product means each format has a production standard, not just a topic:
-
-- **Blog post** — write **10 title options** before drafting (the title does most of the work; pick the strongest). Plan **~5 editing passes** (structure, clarity, evidence, line edit, headline/SEO). For the writing itself, see **copywriting**.
-- **Long-form guide** — the flagship of a pillar. Comprehensive enough to be *the* resource; structured with a table of contents and internal links to spokes. Build the hub before the spokes.
-- **Video** — script the hook first; front-load the payoff. Repurpose into short-form clips at creation time (see **social**).
-- **Podcast** — one interview yields a transcript, quote graphics, short clips, and a written recap. Design the episode knowing it will be atomized.
-- **Email** — one idea per send; the subject line is the title—write several and pick. For sequences and lifecycle, see **emails**.
-
----
-
-## Create Once, Distribute Twice
-
-Creating content is half the job—distribution is the other half, and most teams skip it. The philosophy: **one exceptional piece, reformatted and repurposed across every channel, not a fresh piece per platform.** Pouring effort into a single flagship and then distributing it everywhere beats spreading thin effort across many mediocre platform-native posts.
-
-Build **distribution hooks into the piece at creation time**, not after: write subheads that stand alone as social posts, structure sections to be lifted out modularly, and pull quotes/stats you already know you'll graphic-ify. A well-designed guide is a distribution kit in disguise.
-
-**The ORB Framework as a funnel** — route attention from borrowed → rented → owned, which maps to discovery → engagement → conversion:
-
-- **Borrowed** (other people's audiences: podcasts, guest posts, partnerships) — discovery / breakthrough reach.
-- **Rented** (social platforms, ad networks) — engagement, but you don't own the audience or the algorithm.
-- **Owned** (email list, blog, community) — conversion and the only durable asset. Everything upstream should funnel here.
-
-ORB mechanics live in the **launch** skill (channel-type playbook) and content atomization/repurposing lives in **social**; the value here is consolidating the *distribute* half of content strategy so it has a home.
-
-**Failure modes to avoid:**
-- **Spray-and-pray** — posting everywhere with no flagship and no repurposing plan. Effort scatters, nothing compounds.
-- **Platform dependency** — building on rented land. Facebook organic reach fell from ~20% to under 2%; any rented channel can throttle you overnight.
-- **The ownership paradox** — teams spend ~90% of effort on channels they don't control (rented/borrowed) and neglect the owned assets that actually convert and can't be taken away.
-
-For the full distribution spine—the Content Distribution Flywheel, platform half-lives, and the atomization checklist—see the reference below.
-
----
-
-## Output Format
-
-When creating a content strategy, provide:
-
-### 1. Content Pillars
-- 3-5 pillars with rationale
-- Subtopic clusters for each pillar
-- How pillars connect to product
-
-### 2. Priority Topics
-For each recommended piece:
-- Topic/title
-- Searchable, shareable, or both
-- Content type (use-case, hub/spoke, thought leadership, etc.)
-- Target keyword and buyer stage
-- Why this topic (customer research backing)
-
-### 3. Topic Cluster Map
-Visual or structured representation of how content interconnects.
-
----
-
-## Task-Specific Questions
-
-1. What patterns emerge from your last 10 customer conversations?
-2. What questions keep coming up in sales calls?
-3. Where are competitors' content efforts falling short?
-4. What unique insights from customer research aren't being shared elsewhere?
-5. Which existing content drives the most conversions, and why?
-
----
-
-## References
-
-- **[Content Distribution Spine](references/content-distribution.md)**: Create Once Distribute Twice, ORB as a funnel, the ownership paradox, platform half-lives, the Content Distribution Flywheel, and the per-flagship atomization checklist
-- **[Headless CMS Guide](references/headless-cms.md)**: CMS selection, content modeling for marketing, editorial workflows, platform comparison (Sanity, Contentful, Strapi)
-
----
-
-## Related Skills
-
-- **copywriting**: For writing individual content pieces
-- **seo-audit**: For technical SEO and on-page optimization
-- **ai-seo**: For optimizing content for AI search engines and getting cited by LLMs
-- **programmatic-seo**: For scaled content generation
-- **site-architecture**: For page hierarchy, navigation design, and URL structure
-- **emails**: For email-based content
-- **social**: For social media content, content atomization, and repurposing execution
-- **launch**: For the ORB channel-type playbook and launch-day distribution
+The connectors named in this skill are the tested paths, not a wall. If the owner wants this flow to use a tool that isn't connected or listed, offer `build-connector` — it checks the connector directory first and connects through Zapier otherwise, never hand-building against a raw API. Once the connection exists, the tool joins this skill like any other optional connector, under the same approval gates.

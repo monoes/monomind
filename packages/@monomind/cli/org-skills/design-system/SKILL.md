@@ -1,86 +1,194 @@
 ---
 name: design-system
-description: "Use when generating a design system from an existing codebase's CSS or Tailwind, or auditing UI visual consistency across 10 scored dimensions. Outputs DESIGN.md, design tokens and an HTML preview, and reviews styling PRs; for token and theming architecture use design-system-patterns."
-tags: ["design","frontend","design-system","audit"]
-tools: ["monodesign_detect","monodesign_fix","monodesign_palette"]
-license: MIT
-source: https://github.com/affaan-m/ECC
-source_path: "skills/design-system"
-source_commit: bf70150eb2df8070024e5bdf08e4aa08959e2735
+description: "Audit, document, or extend your design system. Use when checking for naming inconsistencies or hardcoded values across components, writing documentation for a component's variants, states, and accessibility notes, or designing a new pattern that fits the existing system."
+tags: []
+tools: []
+license: Apache-2.0
+source: https://github.com/anthropics/knowledge-work-plugins
+source_path: "design/skills/design-system"
+source_commit: 8444efcd48f7012f09797778a36a33e73d0861f4
 ---
-# Design System — Generate & Audit Visual Systems
+# /design-system
 
-## When to Use
+> If you see unfamiliar placeholders or need to check which tools are connected, see [CONNECTORS.md](../../CONNECTORS.md).
 
-- Starting a new project that needs a design system
-- Auditing an existing codebase for visual consistency
-- Before a redesign — understand what you have
-- When the UI looks "off" but you can't pinpoint why
-- Reviewing PRs that touch styling
+Manage your design system — audit for consistency, document components, or design new patterns.
 
-## How It Works
-
-### Mode 1: Generate Design System
-
-Analyzes your codebase and generates a cohesive design system:
+## Usage
 
 ```
-1. Scan CSS/Tailwind/styled-components for existing patterns
-2. Extract: colors, typography, spacing, border-radius, shadows, breakpoints
-3. Research 3 competitor sites for inspiration (via browser MCP)
-4. Propose a design token set (JSON + CSS custom properties)
-5. Generate DESIGN.md with rationale for each decision
-6. Create an interactive HTML preview page (self-contained, no deps)
+/design-system audit                    # Full system audit
+/design-system document [component]     # Document a component
+/design-system extend [pattern]         # Design a new component or pattern
 ```
 
-Output: `DESIGN.md` + `design-tokens.json` + `design-preview.html`
+## Components of a Design System
 
-### Mode 2: Visual Audit
+### Design Tokens
+Atomic values that define the visual language:
+- Colors (brand, semantic, neutral)
+- Typography (scale, weights, line heights)
+- Spacing (scale, component padding)
+- Borders (radius, width)
+- Shadows (elevation levels)
+- Motion (durations, easings)
 
-Scores your UI across 10 dimensions (0-10 each):
+### Components
+Reusable UI elements with defined:
+- Variants (primary, secondary, ghost)
+- States (default, hover, active, disabled, loading, error)
+- Sizes (sm, md, lg)
+- Behavior (interactions, animations)
+- Accessibility (ARIA, keyboard)
 
+### Patterns
+Common UI solutions combining components:
+- Forms (input groups, validation, submission)
+- Navigation (sidebar, tabs, breadcrumbs)
+- Data display (tables, cards, lists)
+- Feedback (toasts, modals, inline messages)
+
+## Principles
+
+1. **Consistency over creativity** — The system exists so teams don't reinvent the wheel
+2. **Flexibility within constraints** — Components should be composable, not rigid
+3. **Document everything** — If it's not documented, it doesn't exist
+4. **Version and migrate** — Breaking changes need migration paths
+
+## Output — Audit
+
+```markdown
+## Design System Audit
+
+### Summary
+**Components reviewed:** [X] | **Issues found:** [X] | **Score:** [X/100]
+
+### Naming Consistency
+| Issue | Components | Recommendation |
+|-------|------------|----------------|
+| [Inconsistent naming] | [List] | [Standard to adopt] |
+
+### Token Coverage
+| Category | Defined | Hardcoded Values Found |
+|----------|---------|----------------------|
+| Colors | [X] | [X] instances of hardcoded hex |
+| Spacing | [X] | [X] instances of arbitrary values |
+| Typography | [X] | [X] instances of custom fonts/sizes |
+
+### Component Completeness
+| Component | States | Variants | Docs | Score |
+|-----------|--------|----------|------|-------|
+| Button | ✅ | ✅ | ⚠️ | 8/10 |
+| Input | ✅ | ⚠️ | ❌ | 5/10 |
+
+### Priority Actions
+1. [Most impactful improvement]
+2. [Second priority]
+3. [Third priority]
 ```
-1. Color consistency — are you using your palette or random hex values?
-2. Typography hierarchy — clear h1 > h2 > h3 > body > caption?
-3. Spacing rhythm — consistent scale (4px/8px/16px) or arbitrary?
-4. Component consistency — do similar elements look similar?
-5. Responsive behavior — fluid or broken at breakpoints?
-6. Dark mode — complete or half-done?
-7. Animation — purposeful or gratuitous?
-8. Accessibility — contrast ratios, focus states, touch targets
-9. Information density — cluttered or clean?
-10. Polish — hover states, transitions, loading states, empty states
+
+## Output — Document
+
+```markdown
+## Component: [Name]
+
+### Description
+[What this component is and when to use it]
+
+### Variants
+| Variant | Use When |
+|---------|----------|
+| [Primary] | [Main actions] |
+| [Secondary] | [Supporting actions] |
+
+### Props / Properties
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| [prop] | [type] | [default] | [description] |
+
+### States
+| State | Visual | Behavior |
+|-------|--------|----------|
+| Default | [description] | — |
+| Hover | [description] | [interaction] |
+| Active | [description] | [interaction] |
+| Disabled | [description] | Non-interactive |
+| Loading | [description] | [animation] |
+
+### Accessibility
+- **Role**: [ARIA role]
+- **Keyboard**: [Tab, Enter, Escape behavior]
+- **Screen reader**: [Announced as...]
+
+### Do's and Don'ts
+| ✅ Do | ❌ Don't |
+|------|---------|
+| [Best practice] | [Anti-pattern] |
+
+### Code Example
+[Framework-appropriate code snippet]
 ```
 
-Each dimension gets a score, specific examples, and a fix with exact file:line.
+## Output — Extend
 
-### Mode 3: AI Slop Detection
+```markdown
+## New Component: [Name]
 
-Identifies generic AI-generated design patterns:
+### Problem
+[What user need or gap this component addresses]
 
-```
-- Gratuitous gradients on everything
-- Purple-to-blue defaults
-- "Glass morphism" cards with no purpose
-- Rounded corners on things that shouldn't be rounded
-- Excessive animations on scroll
-- Generic hero with centered text over stock gradient
-- Sans-serif font stack with no personality
+### Existing Patterns
+| Related Component | Similarity | Why It's Not Enough |
+|-------------------|-----------|---------------------|
+| [Component] | [What's shared] | [What's missing] |
+
+### Proposed Design
+
+#### API / Props
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| [prop] | [type] | [default] | [description] |
+
+#### Variants
+| Variant | Use When | Visual |
+|---------|----------|--------|
+| [Variant] | [Scenario] | [Description] |
+
+#### States
+| State | Behavior | Notes |
+|-------|----------|-------|
+| Default | [Description] | — |
+| Hover | [Description] | [Interaction] |
+| Disabled | [Description] | Non-interactive |
+| Loading | [Description] | [Animation] |
+
+#### Tokens Used
+- Colors: [Which tokens]
+- Spacing: [Which tokens]
+- Typography: [Which tokens]
+
+### Accessibility
+- **Role**: [ARIA role]
+- **Keyboard**: [Expected interactions]
+- **Screen reader**: [Announced as...]
+
+### Open Questions
+- [Decision that needs design review]
+- [Edge case to resolve]
 ```
 
-## Examples
+## If Connectors Available
 
-**Generate for a SaaS app:**
-```
-/design-system generate --style minimal --palette earth-tones
-```
+If **~~design tool** is connected:
+- Audit components directly in Figma — check naming, variants, and token usage
+- Pull component properties and layer structure for documentation
 
-**Audit existing UI:**
-```
-/design-system audit --url http://localhost:3000 --pages / /pricing /docs
-```
+If **~~knowledge base** is connected:
+- Search for existing component documentation and usage guidelines
+- Publish updated documentation to your wiki
 
-**Check for AI slop:**
-```
-/design-system slop-check
-```
+## Tips
+
+1. **Start with an audit** — Know where you are before deciding where to go.
+2. **Document as you build** — It's easier to document a component while designing it.
+3. **Prioritize coverage over perfection** — 80% of components documented beats 100% of 10 components.
