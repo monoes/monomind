@@ -9,6 +9,7 @@ import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner-typ
 import { killOnAbort } from './agent-runner-types.js';
 import { maskedCommand } from './authority-mask.js';
 import { type ClaudeSdk, loadClaudeSdk } from './claude-sdk.js';
+import { coderPin } from './coder-pin.js';
 import { coverEveryToolCall, POLICY_HOOK_TIMEOUT_S } from './policy-hook.js';
 import { type DescendantTracker, trackDescendants } from './process-tree.js';
 import { omitAnthropicManagedKeys } from './provider.js';
@@ -181,6 +182,8 @@ export class ClaudeAgentRunner implements AgentRunner {
       hasCallerTools: args.tools.length > 0,
     });
     if (settingSources.length > 0) yield { type: 'status', phase: 'initializing' };
+    // #655: coder mode only; every other caller is unchanged.
+    const pin = settingSources.length > 0 ? coderPin({ model: args.model, effort: args.effort }) : undefined;
 
     const stream = queryFn({
       prompt: args.prompt,
@@ -225,8 +228,9 @@ export class ClaudeAgentRunner implements AgentRunner {
         // exactly as before.
         env:
           args.envAuthoritative === false
-            ? { ...process.env, ...args.env }
-            : { ...omitAnthropicManagedKeys(process.env), ...args.env },
+            ? { ...process.env, ...args.env, ...pin?.env }
+            : { ...omitAnthropicManagedKeys(process.env), ...args.env, ...pin?.env },
+        ...(pin ? { settings: pin.settings } : {}),
         // Without these, the SDK falls back to its interactive-CLI default of
         // auto-discovering the invoking user's ~/.claude/settings.json and any
         // project-level .claude/settings.json under cwd — pulling in that
@@ -312,11 +316,16 @@ export class ClaudeAgentRunner implements AgentRunner {
         // registered over the SDK's control protocol at initialize() time and
         // so are unaffected by `settingSources: []` above (which only stops
         // the CLI discovering the invoking user's own hooks).
-        ...(gate || args.toolSpillDir
+        ...(gate || args.toolSpillDir || pin
           ? {
               hooks: {
-                ...(gate
-                  ? { PreToolUse: [{ hooks: [gate.preToolUse], timeout: POLICY_HOOK_TIMEOUT_S }] }
+                ...(gate || pin
+                  ? {
+                      PreToolUse: [
+                        ...(pin ? [{ hooks: [pin.preToolUse] }] : []),
+                        ...(gate ? [{ hooks: [gate.preToolUse], timeout: POLICY_HOOK_TIMEOUT_S }] : []),
+                      ],
+                    }
                   : {}),
                 ...(args.toolSpillDir
                   ? { PostToolUse: [{ hooks: [toolResultSpillHook(args.toolSpillDir)] }] }
