@@ -298,11 +298,9 @@ export async function executeUpgrade(
           atomicWriteFile(settingsPath, JSON.stringify(mergedSettings, null, 2));
           result.updated.push('.claude/settings.json');
           result.settingsUpdated = [
-            'env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS',
             ...hookReport,
             'hooks.TeammateIdle (removed — not a valid Claude Code hook)',
             'hooks.TaskCompleted (removed — not a valid Claude Code hook)',
-            'monomind.agentTeams',
           ];
         } catch (settingsError) {
           result.errors.push(

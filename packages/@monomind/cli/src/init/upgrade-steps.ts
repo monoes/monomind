@@ -73,7 +73,6 @@ export function mergeSettingsForUpgrade(
   const existingEnv = (existing.env as Record<string, string>) || {};
   merged.env = {
     ...existingEnv,
-    CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
     MONOMIND_V1_ENABLED: existingEnv.MONOMIND_V1_ENABLED || 'true',
     MONOMIND_HOOKS_ENABLED: existingEnv.MONOMIND_HOOKS_ENABLED || 'true',
   };
@@ -112,28 +111,14 @@ export function mergeSettingsForUpgrade(
     };
   }
 
-  // 4. Merge monomind settings (preserve existing, add agentTeams)
+  // 4. Merge monomind settings (preserve existing). The Agent Teams flag and
+  // `monomind.agentTeams` are no longer added on upgrade (#655): an existing
+  // value stays as the user has it, `doctor` reports it.
   const existingMonomind = (existing.monomind as Record<string, unknown>) || {};
   merged.monomind = {
     ...existingMonomind,
     version: existingMonomind.version || '3.0.0',
     enabled: existingMonomind.enabled !== false,
-    agentTeams: {
-      enabled: true,
-      teammateMode: 'auto',
-      taskListEnabled: true,
-      mailboxEnabled: true,
-      coordination: {
-        autoAssignOnIdle: true,
-        trainPatternsOnComplete: true,
-        notifyLeadOnComplete: true,
-        sharedMemoryNamespace: 'agent-teams',
-      },
-      hooks: {
-        teammateIdle: { enabled: true, autoAssign: true, checkTaskList: true },
-        taskCompleted: { enabled: true, trainPatterns: true, notifyLead: true },
-      },
-    },
   };
 
   return merged;

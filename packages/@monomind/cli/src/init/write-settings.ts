@@ -76,7 +76,7 @@ export async function writeSettings(
         merged = true;
       }
 
-      // Merge env vars (for CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS etc.)
+      // Merge env vars (MONOMIND_* env, etc.)
       if (generated.env) {
         existing.env = { ...(existing.env || {}), ...generated.env };
         merged = true;

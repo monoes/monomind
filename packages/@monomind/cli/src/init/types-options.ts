@@ -44,6 +44,9 @@ export interface InitOptions {
    *  copies, …), even one `force` would otherwise refresh. Idempotent: a
    *  second run against the same directory creates nothing new. */
   ifMissing?: boolean;
+  /** `--agent-teams` (#655): write Claude Code's experimental Agent Teams env flag and
+   *  the `monomind.agentTeams` settings block. Off by default. */
+  agentTeams?: boolean;
   /** Run in interactive mode */
   interactive: boolean;
   /** Components to initialize */

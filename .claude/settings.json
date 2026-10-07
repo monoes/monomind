@@ -1,7 +1,6 @@
 {
   "customInstructions": "Follow the project's CLAUDE.md guidelines. Use concurrent execution for all operations. Prioritize v1 implementation with security-first development, parallel Task-tool agents, phased performance optimization, and cross-platform helper automation.",
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "MONOMIND_V1_ENABLED": "true",
     "MONOMIND_HOOKS_ENABLED": "true",
     "MONOMIND_HOOK_QUIET": "1"

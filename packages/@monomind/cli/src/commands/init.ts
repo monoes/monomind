@@ -97,6 +97,15 @@ export const initCommand: Command = {
       default: false,
     },
     {
+      name: 'agent-teams',
+      description:
+        "Enable Claude Code's experimental Agent Teams (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 " +
+        'and the monomind.agentTeams settings). Off by default: teammates add background messages ' +
+        'that wake the lead context and raise token use',
+      type: 'boolean',
+      default: false,
+    },
+    {
       name: 'json',
       description:
         'Print a machine-readable result on stdout — ' +

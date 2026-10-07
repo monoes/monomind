@@ -46,10 +46,12 @@ export function generateSettings(options: InitOptions): object {
   // Model preferences are stored in monomind settings instead
   // settings.model = 'claude-sonnet-4-5-20250929'; // Uncomment if you want to set a default model
 
-  // Add Agent Teams configuration (experimental feature)
   settings.env = {
-    // Enable Claude Code Agent Teams for multi-agent coordination
-    CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
+    // Claude Code's experimental Agent Teams (long-lived teammate agents that
+    // message the lead) are opt-in (`init --agent-teams`, #655): nothing in
+    // Monomind uses them, and idle teammate messages keep waking a large parent
+    // context.
+    ...(options.agentTeams ? { CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1' } : {}),
     // Monomind specific environment
     MONOMIND_V1_ENABLED: 'true',
     MONOMIND_HOOKS_ENABLED: 'true',
@@ -77,30 +79,34 @@ export function generateSettings(options: InitOptions): object {
       default: MODEL_DEFAULTS.opus,
       routing: MODEL_DEFAULTS.haiku,
     },
-    agentTeams: {
-      enabled: true,
-      teammateMode: 'auto', // 'auto' | 'in-process' | 'tmux'
-      taskListEnabled: true,
-      mailboxEnabled: true,
-      coordination: {
-        autoAssignOnIdle: true, // Auto-assign pending tasks when teammate is idle
-        trainPatternsOnComplete: true, // Train neural patterns when tasks complete
-        notifyLeadOnComplete: true, // Notify team lead when tasks complete
-        sharedMemoryNamespace: 'agent-teams', // Memory namespace for team coordination
-      },
-      hooks: {
-        teammateIdle: {
-          enabled: true,
-          autoAssign: true,
-          checkTaskList: true,
-        },
-        taskCompleted: {
-          enabled: true,
-          trainPatterns: true,
-          notifyLead: true,
-        },
-      },
-    },
+    ...(options.agentTeams
+      ? {
+          agentTeams: {
+            enabled: true,
+            teammateMode: 'auto', // 'auto' | 'in-process' | 'tmux'
+            taskListEnabled: true,
+            mailboxEnabled: true,
+            coordination: {
+              autoAssignOnIdle: true, // Auto-assign pending tasks when teammate is idle
+              trainPatternsOnComplete: true, // Train neural patterns when tasks complete
+              notifyLeadOnComplete: true, // Notify team lead when tasks complete
+              sharedMemoryNamespace: 'agent-teams', // Memory namespace for team coordination
+            },
+            hooks: {
+              teammateIdle: {
+                enabled: true,
+                autoAssign: true,
+                checkTaskList: true,
+              },
+              taskCompleted: {
+                enabled: true,
+                trainPatterns: true,
+                notifyLead: true,
+              },
+            },
+          },
+        }
+      : {}),
     monoswarm: {
       topology: options.runtime.topology,
       maxAgents: options.runtime.maxAgents,

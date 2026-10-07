@@ -285,6 +285,11 @@ export function resolveInitOptions(
     options.ifMissing = true;
   }
 
+  // `--agent-teams` (#655): opt in to Claude Code's experimental Agent Teams.
+  if (ctx.flags['agent-teams'] === true || ctx.flags.agentTeams === true) {
+    options.agentTeams = true;
+  }
+
   // `--no-graph` (#358): skip the Monograph code-graph build, the slowest
   // step of init — a coder workspace wants to be ready in a few seconds.
   if (ctx.flags['no-graph'] === true || ctx.flags.noGraph === true) {
