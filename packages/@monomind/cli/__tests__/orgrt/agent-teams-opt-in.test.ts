@@ -15,6 +15,36 @@ const gen = (o = {}) =>
     monomind: Record<string, unknown>;
   };
 
+describe('upgrade retires only the flag an earlier init wrote', () => {
+  const ownedBlock = { enabled: true, coordination: { sharedMemoryNamespace: 'agent-teams' } };
+
+  it('removes the flag and the block when Monomind\'s own block proves it wrote them', () => {
+    const existing = { env: { [FLAG]: '1', KEEP: 'x' }, monomind: { agentTeams: ownedBlock, enabled: true } };
+    const report: string[] = [];
+    const out = mergeSettingsForUpgrade(existing, report) as { env: Record<string, string>; monomind: object };
+    expect(out.env).not.toHaveProperty(FLAG);
+    expect(out.env.KEEP).toBe('x');
+    expect(out.monomind).not.toHaveProperty('agentTeams');
+    expect(report.join('\n')).toContain('removed');
+    expect(existing.env[FLAG]).toBe('1');
+  });
+
+  it('keeps a flag the user set without that block', () => {
+    const out = mergeSettingsForUpgrade({ env: { [FLAG]: '1' }, monomind: { enabled: true } }) as {
+      env: Record<string, string>;
+    };
+    expect(out.env[FLAG]).toBe('1');
+  });
+
+  it('keeps a flag whose block is the user\'s own', () => {
+    const out = mergeSettingsForUpgrade({
+      env: { [FLAG]: '1' },
+      monomind: { agentTeams: { enabled: true } },
+    }) as { env: Record<string, string> };
+    expect(out.env[FLAG]).toBe('1');
+  });
+});
+
 describe('agent teams are opt-in', () => {
   it('init writes neither the flag nor monomind.agentTeams by default', () => {
     const s = gen();

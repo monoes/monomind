@@ -55,6 +55,17 @@ export function indexProject(
   }
 }
 
+const TEAMS_FLAG = 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS';
+
+/** True for the `monomind.agentTeams` block earlier inits wrote next to the flag
+ *  (#655). Its `coordination.sharedMemoryNamespace: "agent-teams"` is Monomind's own
+ *  key; someone who turned Claude Code's teams on by hand does not have it. */
+export function isMonomindAgentTeamsBlock(block: unknown): boolean {
+  const ns = (block as { coordination?: { sharedMemoryNamespace?: unknown } } | undefined)
+    ?.coordination?.sharedMemoryNamespace;
+  return ns === 'agent-teams';
+}
+
 /**
  * Merge new settings into existing settings.json
  * Preserves user customizations while adding new features like Agent Teams
@@ -70,7 +81,21 @@ export function mergeSettingsForUpgrade(
   // platform-specific wrappers — see settings-generator.ts.
 
   // 1. Merge env vars (preserve existing, add new)
-  const existingEnv = (existing.env as Record<string, string>) || {};
+  const existingEnv = { ...((existing.env as Record<string, string>) || {}) };
+  // #655: the flag is retired only where Monomind's own block proves an earlier init
+  // wrote it; a flag set without that block is the user's and stays.
+  const ownedTeams =
+    existingEnv[TEAMS_FLAG] === '1' &&
+    isMonomindAgentTeamsBlock(
+      (existing.monomind as { agentTeams?: unknown } | undefined)?.agentTeams,
+    );
+  if (ownedTeams) {
+    delete existingEnv[TEAMS_FLAG];
+    report.push(
+      `env.${TEAMS_FLAG} (removed: an earlier init wrote it; re-enable with \`monomind init --agent-teams\`)`,
+      'monomind.agentTeams (removed: nothing reads it)',
+    );
+  }
   merged.env = {
     ...existingEnv,
     MONOMIND_V1_ENABLED: existingEnv.MONOMIND_V1_ENABLED || 'true',
@@ -114,9 +139,11 @@ export function mergeSettingsForUpgrade(
   // 4. Merge monomind settings (preserve existing). The Agent Teams flag and
   // `monomind.agentTeams` are no longer added on upgrade (#655): an existing
   // value stays as the user has it, `doctor` reports it.
-  const existingMonomind = (existing.monomind as Record<string, unknown>) || {};
+  const { agentTeams: ownedBlock, ...existingMonomind } =
+    (existing.monomind as Record<string, unknown>) || {};
   merged.monomind = {
     ...existingMonomind,
+    ...(ownedTeams || ownedBlock === undefined ? {} : { agentTeams: ownedBlock }),
     version: existingMonomind.version || '3.0.0',
     enabled: existingMonomind.enabled !== false,
   };

@@ -88,10 +88,10 @@ export async function checkTokenCostSettings(cwd: string): Promise<HealthCheck> 
       );
     if (e.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === '1' && s.label !== 'process env')
       notes.push(
-        `${s.label}: AGENT_TEAMS=1 (teammate messages wake the parent context; Monomind does not use it, remove it unless you do)`,
+        `${s.label}: AGENT_TEAMS=1 (teammate messages wake the parent context; Monomind does not use it; `monomind init upgrade --settings` removes it when an earlier init wrote it)`,
       );
     if (s.agentTeamsBlock)
-      notes.push(`${s.label}: monomind.agentTeams is written by older inits and read by nothing`);
+      notes.push(`${s.label}: monomind.agentTeams is written by older inits and read by nothing; `monomind init upgrade --settings` removes it`);
   }
 
   // Same helper+argument twice, in one file (an old and a new command form)

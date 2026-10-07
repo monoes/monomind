@@ -133,6 +133,20 @@ describe('executeUpgrade(dir, true) merges hooks into settings.json', () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+  it('retires the Agent Teams flag an earlier init wrote, keeps a backup, and is idempotent (#655)', async () => {
+    const settingsPath = join(dir, '.claude', 'settings.json');
+    const result = await executeUpgrade(dir, true);
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+    expect(settings.env).not.toHaveProperty('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS');
+    expect(settings.monomind).not.toHaveProperty('agentTeams');
+    expect(result.settingsUpdated?.some((s) => s.includes('removed: an earlier init wrote it'))).toBe(true);
+    const backup = JSON.parse(readFileSync(`${settingsPath}.bak-agent-teams`, 'utf-8'));
+    expect(backup.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS).toBe('1');
+
+    const again = await executeUpgrade(dir, true);
+    expect(again.settingsUpdated?.some((s) => s.includes('AGENT_TEAMS'))).toBe(false);
+  });
+
   it('writes the merged hooks and reports them', async () => {
     const result = await executeUpgrade(dir, true);
     expect(result.errors).toEqual([]);
