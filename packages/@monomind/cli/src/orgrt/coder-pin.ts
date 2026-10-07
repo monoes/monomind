@@ -31,7 +31,11 @@ export interface CoderPin {
   /** Inline `settings` option; outranks the user, project and local files. */
   settings: { env: Record<string, string> };
   /** PreToolUse hook: denies an Agent/Task launch naming another model. */
-  preToolUse: (input: { hook_event_name?: string; tool_name?: unknown; tool_input?: unknown }) => Promise<Record<string, unknown>>;
+  preToolUse: (input: {
+    hook_event_name?: string;
+    tool_name?: unknown;
+    tool_input?: unknown;
+  }) => Promise<Record<string, unknown>>;
 }
 
 const ALIASES = new Set(['', 'default', 'inherit']);
@@ -71,15 +75,30 @@ export function coderPin(
           permissionDecisionReason: reason,
         },
       });
-      const input = (hook.tool_input ?? {}) as { model?: unknown; description?: unknown; subagent_type?: unknown };
+      const input = (hook.tool_input ?? {}) as {
+        model?: unknown;
+        description?: unknown;
+        subagent_type?: unknown;
+      };
       const asked = input.model;
-      if (model && typeof asked === 'string' && !ALIASES.has(asked.toLowerCase()) && !sameModel(asked, model))
-        return deny(`coder session is pinned to model "${model}"; refusing a subagent on "${asked}". Omit the model argument to use the selected one.`);
+      if (
+        model &&
+        typeof asked === 'string' &&
+        !ALIASES.has(asked.toLowerCase()) &&
+        !sameModel(asked, model)
+      )
+        return deny(
+          `coder session is pinned to model "${model}"; refusing a subagent on "${asked}". Omit the model argument to use the selected one.`,
+        );
       const isReview = REVIEW.test(`${input.description ?? ''} ${input.subagent_type ?? ''}`);
       if (maxReview > 0 && isReview && seen.review >= maxReview)
-        return deny(`review limit reached (${maxReview} review agents this session; MONOMIND_CODER_MAX_REVIEW_AGENTS raises it). Batch the remaining changes into one scoped review, or review inline.`);
+        return deny(
+          `review limit reached (${maxReview} review agents this session; MONOMIND_CODER_MAX_REVIEW_AGENTS raises it). Batch the remaining changes into one scoped review, or review inline.`,
+        );
       if (maxTotal > 0 && seen.total >= maxTotal)
-        return deny(`delegation limit reached (${maxTotal} agent launches this session; MONOMIND_CODER_MAX_AGENTS raises it). Do the remaining work in this session or batch it into fewer agents.`);
+        return deny(
+          `delegation limit reached (${maxTotal} agent launches this session; MONOMIND_CODER_MAX_AGENTS raises it). Do the remaining work in this session or batch it into fewer agents.`,
+        );
       seen.total++;
       if (isReview) seen.review++;
       return {};

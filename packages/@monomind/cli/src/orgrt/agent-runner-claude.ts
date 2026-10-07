@@ -183,7 +183,8 @@ export class ClaudeAgentRunner implements AgentRunner {
     });
     if (settingSources.length > 0) yield { type: 'status', phase: 'initializing' };
     // #655: coder mode only; every other caller is unchanged.
-    const pin = settingSources.length > 0 ? coderPin({ model: args.model, effort: args.effort }) : undefined;
+    const pin =
+      settingSources.length > 0 ? coderPin({ model: args.model, effort: args.effort }) : undefined;
 
     const stream = queryFn({
       prompt: args.prompt,
@@ -323,7 +324,9 @@ export class ClaudeAgentRunner implements AgentRunner {
                   ? {
                       PreToolUse: [
                         ...(pin ? [{ hooks: [pin.preToolUse] }] : []),
-                        ...(gate ? [{ hooks: [gate.preToolUse], timeout: POLICY_HOOK_TIMEOUT_S }] : []),
+                        ...(gate
+                          ? [{ hooks: [gate.preToolUse], timeout: POLICY_HOOK_TIMEOUT_S }]
+                          : []),
                       ],
                     }
                   : {}),
@@ -461,7 +464,9 @@ export class ClaudeAgentRunner implements AgentRunner {
             const u = m.message?.usage;
             peakContext = Math.max(
               peakContext,
-              (u?.input_tokens ?? 0) + (u?.cache_read_input_tokens ?? 0) + (u?.cache_creation_input_tokens ?? 0),
+              (u?.input_tokens ?? 0) +
+                (u?.cache_read_input_tokens ?? 0) +
+                (u?.cache_creation_input_tokens ?? 0),
             );
           }
           yield {
@@ -501,9 +506,11 @@ export class ClaudeAgentRunner implements AgentRunner {
             cache_creation_input_tokens: m.usage?.cache_creation_input_tokens ?? undefined,
             ...(cumulative ? { cumulative_tokens: cumulative } : {}),
             ...(perModelUsage(m.modelUsage) ? { model_usage: perModelUsage(m.modelUsage) } : {}),
-            ...(pin?.env.CLAUDE_CODE_EFFORT_LEVEL ? { effort: pin.env.CLAUDE_CODE_EFFORT_LEVEL } : {}),
+            ...(pin?.env.CLAUDE_CODE_EFFORT_LEVEL
+              ? { effort: pin.env.CLAUDE_CODE_EFFORT_LEVEL }
+              : {}),
             ...(peakContext ? { peak_context_tokens: peakContext } : {}),
-            ...(pin && pin.launches().total ? { agent_launches: pin.launches() } : {}),
+            ...(pin?.launches().total ? { agent_launches: pin.launches() } : {}),
             cost_usd: m.total_cost_usd,
           };
         } else if (m.type === 'user') {
@@ -554,9 +561,7 @@ export class ClaudeAgentRunner implements AgentRunner {
 }
 
 /** #655: the same `modelUsage`, kept per model so the model actually served is visible. */
-function perModelUsage(
-  modelUsage: unknown,
-): NonNullable<AgentMessage['model_usage']> | undefined {
+function perModelUsage(modelUsage: unknown): NonNullable<AgentMessage['model_usage']> | undefined {
   if (!modelUsage || typeof modelUsage !== 'object') return undefined;
   const out: NonNullable<AgentMessage['model_usage']> = {};
   for (const [model, u] of Object.entries(modelUsage as Record<string, any>)) {

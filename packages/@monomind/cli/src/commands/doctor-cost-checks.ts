@@ -30,7 +30,10 @@ function readScope(label: string, file: string): Scope | undefined {
       for (const g of Array.isArray(groups) ? groups : [])
         for (const h of Array.isArray(g?.hooks) ? g.hooks : [])
           if (typeof h?.command === 'string')
-            cmds.push({ ...(typeof g.matcher === 'string' ? { matcher: g.matcher } : {}), command: h.command });
+            cmds.push({
+              ...(typeof g.matcher === 'string' ? { matcher: g.matcher } : {}),
+              command: h.command,
+            });
       hooks.set(ev, cmds);
     }
     return {
@@ -72,11 +75,15 @@ export async function checkTokenCostSettings(cwd: string): Promise<HealthCheck> 
     }
     const compact = Number(e.CLAUDE_CODE_AUTO_COMPACT_WINDOW);
     if (compact > 400_000)
-      issues.push(`${s.label}: CLAUDE_CODE_AUTO_COMPACT_WINDOW=${compact} lets context grow to ~${Math.round(compact / 1000)}K before compaction (150–200K is typical)`);
+      issues.push(
+        `${s.label}: CLAUDE_CODE_AUTO_COMPACT_WINDOW=${compact} lets context grow to ~${Math.round(compact / 1000)}K before compaction (150–200K is typical)`,
+      );
     const out = Number(e.CLAUDE_CODE_MAX_OUTPUT_TOKENS);
     if (out > 64_000) issues.push(`${s.label}: CLAUDE_CODE_MAX_OUTPUT_TOKENS=${out}`);
     if (e.ENABLE_TOOL_SEARCH === 'false')
-      issues.push(`${s.label}: ENABLE_TOOL_SEARCH=false loads every MCP tool schema into each request`);
+      issues.push(
+        `${s.label}: ENABLE_TOOL_SEARCH=false loads every MCP tool schema into each request`,
+      );
     if (e.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === '1' && s.label !== 'process env')
       notes.push(`${s.label}: AGENT_TEAMS=1 (teammate messages wake the parent context)`);
   }
@@ -97,7 +104,13 @@ export async function checkTokenCostSettings(cwd: string): Promise<HealthCheck> 
   issues.push(...[...dupes].slice(0, 5));
 
   if (issues.length === 0)
-    return { name: NAME, status: 'pass', message: notes.length ? `No cost-multiplying settings (${notes[0]})` : 'No cost-multiplying settings' };
+    return {
+      name: NAME,
+      status: 'pass',
+      message: notes.length
+        ? `No cost-multiplying settings (${notes[0]})`
+        : 'No cost-multiplying settings',
+    };
   return {
     name: NAME,
     status: 'warn',
