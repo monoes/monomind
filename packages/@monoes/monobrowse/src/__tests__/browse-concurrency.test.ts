@@ -13,9 +13,9 @@
  */
 
 import { execFile, execFileSync, spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { freemem, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -38,7 +38,40 @@ function chromeAvailable(): boolean {
   }
 }
 
-const runnable = existsSync(CLI) && chromeAvailable();
+/**
+ * #651: under host memory pressure the kernel/Chrome aborts a launching Chrome
+ * (SIGABRT), which looks like a code failure. Real Chromes alive at once: the
+ * named-session test holds three (ref, build, and the bare command's own); the
+ * rest hold two. Each headless Chrome (browser + GPU/network/renderer
+ * processes) needs on the order of 400 MiB, rounded up to 512 MiB with
+ * headroom for the warm-up Chrome and the test runner itself.
+ */
+const MAX_CONCURRENT_CHROMES = 3;
+const BYTES_PER_CHROME = 512 * 1024 * 1024;
+const REQUIRED_AVAILABLE_BYTES = MAX_CONCURRENT_CHROMES * BYTES_PER_CHROME;
+
+/** Bytes the kernel reports as available without swapping (MemAvailable). */
+function availableMemoryBytes(): number {
+  try {
+    const m = /^MemAvailable:\s+(\d+) kB/m.exec(readFileSync('/proc/meminfo', 'utf8'));
+    if (m) return Number(m[1]) * 1024;
+  } catch {
+    // not Linux: fall through to os.freemem()
+  }
+  return freemem();
+}
+
+const availableBytes = availableMemoryBytes();
+const enoughMemory = availableBytes >= REQUIRED_AVAILABLE_BYTES;
+const runnable = existsSync(CLI) && chromeAvailable() && enoughMemory;
+
+if (existsSync(CLI) && !enoughMemory) {
+  const mib = (n: number) => Math.round(n / 1024 / 1024);
+  console.warn(
+    `SKIP browse-concurrency: ${mib(availableBytes)} MiB available, ` +
+      `${mib(REQUIRED_AVAILABLE_BYTES)} MiB needed for ${MAX_CONCURRENT_CHROMES} concurrent Chromes (#651)`,
+  );
+}
 
 interface Run {
   code: number | null;
