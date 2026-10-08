@@ -2,6 +2,25 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [2.24.4] — 2026-10-08
+
+### Changed
+
+- **Claude Code Agent Teams is opt-in.** `init` and `upgrade` no longer write `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` or the `monomind.agentTeams` settings block — nothing in Monomind reads either; pass `--agent-teams` to write them. Existing settings are left as they are, and `doctor` reports a leftover flag or block (#655).
+- **`upgrade --settings` retires an Agent Teams flag an earlier `init` wrote.** It removes `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` and the `monomind.agentTeams` block only when Monomind's own marker (`coordination.sharedMemoryNamespace: agent-teams`) proves an earlier `init` wrote them, keeps a `settings.json.bak-agent-teams` backup, and leaves a flag the user set themselves. `doctor` points at the command to run. A follow-up fix quotes the upgrade command in `doctor`'s cost-settings notes (#655).
+- **`doctor` and `orgrt` report served models, effort and context size, and warn on costly token settings.** Result events now carry `model_usage`, `effort`, `peak_context_tokens`, `context_warning` and `unexpected_models`; `doctor` gains a read-only Token Cost Settings check (effort env overriding `effortLevel`, a huge compaction window, tool search off, output cap, duplicate hooks) (#655).
+- **Hooks are deduped by helper identity and coder delegation is capped.** `init --force` now retires an older command form of a hook it regenerates, `doctor` flags the same helper+argument pair registered twice, and coder mode refuses further `Agent` launches past `MONOMIND_CODER_MAX_AGENTS` / `MONOMIND_CODER_MAX_REVIEW_AGENTS`, reporting `agent_launches` (#655).
+- **Org skills now include a bundle imported from `anthropics/knowledge-work-plugins`.** `monomind org skills import` pulled in the Apache-2.0/MIT-licensed set (licence, source repo, path and commit recorded on each skill; `.md` files only); the partner-built zoom-plugin set was left out because its SDK docs carry example credentials that trip the secret scan. Five names clash with already-bundled skills and take the imported version: `content-strategy`, `customer-research`, `design-system`, `seo-audit`, `statistical-analysis`. Doc counts were regenerated, and the Jev shortlist cap was lifted so the bundled skills cannot crowd out the seeded ones.
+
+### Fixed
+
+- **A sections org's scheduled audit tick could be skipped for an unsigned definition or a failed precheck (Fixes #656).**
+- **monobrowse's browse-concurrency test could abort with SIGABRT instead of skipping on a low-memory host (Fixes #651).** Chrome is aborted at launch when the host is out of memory, which showed up as a flaky-looking test failure rather than a code defect. The test now computes the memory it needs (max 3 concurrent Chromes × 512 MiB) and skips with a logged reason when `MemAvailable` is below that; assertions are unchanged when memory is sufficient.
+
+### Dependencies
+
+- Bumped `sharp` 0.35.4 → 0.35.5 and the `npm_and_yarn` group (`proxy-addr` 2.0.7 → 2.0.8, `source-map-js` 1.2.1 → 1.2.2).
+
 ## [2.24.3] — 2026-10-06
 
 ### Fixed
