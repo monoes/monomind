@@ -316,7 +316,7 @@ export async function executeUpgrade(
         const defaultSettings = generateSettings(DEFAULT_INIT_OPTIONS);
         atomicWriteFile(settingsPath, JSON.stringify(defaultSettings, null, 2));
         result.created.push('.claude/settings.json');
-        result.settingsUpdated = ['Created new settings.json with Agent Teams'];
+        result.settingsUpdated = ['Created new settings.json'];
       }
     }
 

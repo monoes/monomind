@@ -163,3 +163,18 @@ describe('executeUpgrade(dir, true) merges hooks into settings.json', () => {
     expect(again.settingsUpdated?.some((s) => s.startsWith('hooks.PreToolUse'))).toBe(false);
   });
 });
+
+describe('executeUpgrade(dir, true) creating a new settings.json (#665)', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'upgrade-new-settings-'));
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it('does not claim Agent Teams when the opt-in was not given', async () => {
+    const result = await executeUpgrade(dir, true);
+    const settings = JSON.parse(readFileSync(join(dir, '.claude', 'settings.json'), 'utf-8'));
+    expect(settings.env ?? {}).not.toHaveProperty('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS');
+    expect(result.settingsUpdated).toEqual(['Created new settings.json']);
+  });
+});

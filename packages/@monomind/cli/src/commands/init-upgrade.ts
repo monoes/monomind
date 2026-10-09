@@ -159,7 +159,7 @@ export const upgradeCommand: Command = {
     } else if (addMissing) {
       output.writeln(output.dim('Updates helpers and adds any missing skills/agents/commands'));
     } else if (upgradeSettings) {
-      output.writeln(output.dim('Updates helpers and merges new settings (Agent Teams, hooks)'));
+      output.writeln(output.dim('Updates helpers and merges new settings (hooks)'));
     } else {
       output.writeln(output.dim('Updates helpers while preserving your existing data'));
     }
@@ -256,7 +256,7 @@ export const upgradeCommand: Command = {
       output.printInfo('Existing metrics and learning data were preserved');
 
       if (upgradeSettings && result.settingsUpdated && result.settingsUpdated.length > 0) {
-        output.printSuccess('Settings.json updated with new Agent Teams configuration');
+        output.printSuccess('Settings.json updated');
       }
 
       if (addMissing) {
