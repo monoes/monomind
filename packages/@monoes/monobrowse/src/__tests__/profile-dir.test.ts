@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  chromeSpawnEnv,
   isOwnedProfileDir,
   isProfileDirInUse,
   profileDirOwnerPid,
@@ -192,5 +193,23 @@ describe('#395 isOwnedProfileDir / removeOwnedProfileDir', () => {
       expect(existsSync(dir)).toBe(true);
     },
     15_000,
+  );
+});
+
+describe('chromeSpawnEnv (#663)', () => {
+  const env = { TMPDIR: '/x', KEEP: '1' };
+
+  it.skipIf(process.platform === 'win32')(
+    'leaves the env alone when the singleton socket path fits',
+    () => {
+      expect(chromeSpawnEnv(env, '/tmp/mb-abcdef')).toBe(env);
+    },
+  );
+
+  it.skipIf(process.platform === 'win32')(
+    'redirects TMPDIR to /tmp when it would overflow the socket path',
+    () => {
+      expect(chromeSpawnEnv(env, `/tmp/${'x'.repeat(80)}`)).toEqual({ TMPDIR: '/tmp', KEEP: '1' });
+    },
   );
 });

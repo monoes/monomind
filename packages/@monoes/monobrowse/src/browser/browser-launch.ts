@@ -18,6 +18,7 @@ import { reapIdleLaunchedBrowser } from './browser-lifecycle.js';
 import { launchedPids, launchedUserDataDirs, ownedUserDataDirPorts } from './browser-state.js';
 import { DEFAULT_CDP_PORT } from './cdp-port.js';
 import {
+  chromeSpawnEnv,
   launchProfileDirPath,
   removeOwnedProfileDir,
   sweepStaleProfileDirs,
@@ -236,6 +237,7 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
   const args = [...defaultArgs, ...callerArgs];
   const child = spawn(chromePath, args, {
     detached: true,
+    env: chromeSpawnEnv(process.env),
     // stderr carries the fixed-port ownership proof (see above). The pipe is
     // closed as soon as this launch settles, so a Chrome that outlives us
     // never blocks writing to it.

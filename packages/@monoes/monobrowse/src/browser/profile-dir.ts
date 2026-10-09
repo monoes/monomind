@@ -38,6 +38,25 @@ const HOLDER_WAIT_MS = 2000;
 const POLL_MS = 50;
 const RM_RETRY_DELAY_MS = 250;
 
+/** Longest unix socket path Chrome's singleton lock can bind (sun_path is 104
+ *  bytes on macOS, 108 on Linux; both include the NUL). */
+const MAX_SOCKET_PATH = 103;
+/** `/org.chromium.Chromium.XXXXXX/SingletonSocket` — what Chrome appends to TMPDIR. */
+const SINGLETON_SOCKET_SUFFIX_LEN = '/org.chromium.Chromium.XXXXXX/SingletonSocket'.length;
+
+/**
+ * Environment to spawn Chrome with (#663). Chrome binds its singleton lock
+ * socket under $TMPDIR regardless of --user-data-dir, and aborts at startup
+ * (`FATAL: Socket path too long`, SIGABRT) once that path passes the unix
+ * socket limit — which a deep TMPDIR (CI work dirs, sandboxed runners) does.
+ * Only then is TMPDIR redirected to /tmp; otherwise the env is untouched.
+ */
+export function chromeSpawnEnv(env: NodeJS.ProcessEnv, tmp = tmpdir()): NodeJS.ProcessEnv {
+  if (process.platform === 'win32') return env;
+  if (Buffer.byteLength(tmp) + SINGLETON_SOCKET_SUFFIX_LEN <= MAX_SOCKET_PATH) return env;
+  return { ...env, TMPDIR: '/tmp' };
+}
+
 /** Name for a new default launch profile, directly under `root`. */
 export function launchProfileDirPath(port: number, id: string, root = tmpdir()): string {
   return join(root, `monomind-browser-${port}-${process.pid}-${id}`);
