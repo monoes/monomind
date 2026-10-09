@@ -8,6 +8,7 @@
  * differently: it must never kill a Chrome it did not launch.
  */
 
+import { CDP_PROBE_PORTS, DEFAULT_CDP_PORT } from '../browser/cdp-port.js';
 import { detectAttentionNeeded, switchToHeaded } from './attention-wall.js';
 import { output } from './output.js';
 import {
@@ -299,22 +300,28 @@ export const closeCommand: Command = {
 export const connectCommand: Command = {
   name: 'connect',
   description:
-    'Connect to existing Chrome instance; later commands reuse this session (note: `open` without --port still launches on its own default). Usage: monomind browse connect [--port 9222] [--target <id>] [--auto-connect]',
+    'Connect to existing Chrome instance; later commands reuse this session (note: `open` without --port still launches on its own default). Usage: monomind browse connect [--port 9422] [--target <id>] [--auto-connect]',
   options: [
-    { name: 'port', short: 'p', type: 'number', description: 'CDP port', default: 9222 },
+    {
+      name: 'port',
+      short: 'p',
+      type: 'number',
+      description: 'CDP port',
+      default: DEFAULT_CDP_PORT,
+    },
     { name: 'target', type: 'string', description: 'Target ID to attach to' },
     {
       name: 'auto-connect',
       type: 'boolean',
-      description: 'Auto-discover running Chrome on ports 9222 and 9229',
+      description: 'Auto-discover running Chrome on ports 9422, 9222 and 9229',
       default: false,
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    let port = (ctx.flags.port as number) ?? 9222;
+    let port = (ctx.flags.port as number) ?? DEFAULT_CDP_PORT;
 
     if (ctx.flags['auto-connect']) {
-      const probePorts = [9222, 9229];
+      const probePorts = CDP_PROBE_PORTS;
       let found = false;
       for (const p of probePorts) {
         try {

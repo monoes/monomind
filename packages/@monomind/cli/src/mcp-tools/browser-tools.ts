@@ -3,7 +3,7 @@
  *
  * Uses @monoes/monobrowse CDP client directly — no external binary required.
  * Sessions are keyed by session ID; each maps to a persistent CDP connection
- * on the configured port (default: MONOBROWSE_CDP_PORT env var or 9222).
+ * on the configured port (default: MONOBROWSE_CDP_PORT env var or 9422).
  */
 
 import { browserInstrumentTools } from './browser-instrument-tools.js';

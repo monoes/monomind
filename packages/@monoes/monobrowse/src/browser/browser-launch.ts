@@ -16,6 +16,7 @@ import {
 } from './browser-discovery.js';
 import { reapIdleLaunchedBrowser } from './browser-lifecycle.js';
 import { launchedPids, launchedUserDataDirs, ownedUserDataDirPorts } from './browser-state.js';
+import { DEFAULT_CDP_PORT } from './cdp-port.js';
 import {
   launchProfileDirPath,
   removeOwnedProfileDir,
@@ -23,7 +24,6 @@ import {
 } from './profile-dir.js';
 import type { BrowserConfig } from './types.js';
 
-const DEFAULT_PORT = 9222;
 const LAUNCH_TIMEOUT = 10_000;
 const POLL_INTERVAL = 200;
 
@@ -40,7 +40,7 @@ const LAUNCH_PORT_SCAN_TRIES = 10;
 class ChromeExitedEarlyError extends Error {}
 
 export async function launchBrowser(config: BrowserConfig = {}): Promise<number> {
-  const rawPort = config.port ?? DEFAULT_PORT;
+  const rawPort = config.port ?? DEFAULT_CDP_PORT;
   // Port 0 means "let Chrome bind a free port and tell us which" — see
   // launchOnFreePort. Otherwise validate port is in a safe range for
   // localhost CDP debugging.

@@ -1,4 +1,5 @@
 import type { CdpClient } from '@monoes/monobrowse';
+import { DEFAULT_CDP_PORT } from '@monoes/monobrowse/cdp-port';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
@@ -7,7 +8,7 @@ const SUPPORTED_PLATFORMS = ['linkedin', 'instagram', 'x', 'gemini'];
 const connectSubcommand: Command = {
   name: 'connect',
   description: 'Open browser, log in to a platform, save session',
-  options: [{ name: 'port', type: 'number', description: 'CDP port', default: 9222 }],
+  options: [{ name: 'port', type: 'number', description: 'CDP port', default: DEFAULT_CDP_PORT }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const platform = ctx.args[0];
     if (!platform || !SUPPORTED_PLATFORMS.includes(platform)) {
@@ -20,7 +21,7 @@ const connectSubcommand: Command = {
     const browser = await import('@monoes/monobrowse');
 
     const adapter = getAdapter(platform);
-    const port = (ctx.flags.port as number) ?? 9222;
+    const port = (ctx.flags.port as number) ?? DEFAULT_CDP_PORT;
 
     output.printInfo(`Opening browser → navigating to ${adapter.loginURL()}`);
     output.printInfo('Please log in. Detection is automatic — checking every 2s...');

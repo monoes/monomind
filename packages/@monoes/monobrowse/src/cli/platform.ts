@@ -8,9 +8,10 @@ import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { Command } from 'commander';
+import { resolveCdpPort } from '../browser/cdp-port.js';
 import { getAdapter } from '../index.js';
 
-const CDP_PORT = Number(process.env.MONOMIND_CDP_PORT ?? 9222);
+const CDP_PORT = resolveCdpPort();
 
 const SESSIONS_FILE = join(homedir(), '.monomind', 'sessions.json');
 

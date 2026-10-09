@@ -38,8 +38,18 @@ import { WebSocketTransport } from './transport.js';
 /** Header the Go relay authenticates with; mirrors internal/extension/token.go. */
 export const BRIDGE_TOKEN_HEADER = 'X-Monoagent-Extension-Token';
 
-/** Default relay endpoint; mirrors the extension server's default port. */
-export const DEFAULT_BRIDGE_URL = 'ws://127.0.0.1:9222/monoagent/cdp';
+/**
+ * Relay endpoints tried in order: the extension server's default port, then
+ * the one mono-agent falls back to when 9222 is held. MONOAGENT_BRIDGE_URL
+ * (or the `url` option; comma-separated for several) overrides the list.
+ */
+export const DEFAULT_BRIDGE_URLS: readonly string[] = [
+  'ws://127.0.0.1:9222/monoagent/cdp',
+  'ws://127.0.0.1:9323/monoagent/cdp',
+];
+
+/** The first default relay endpoint. */
+export const DEFAULT_BRIDGE_URL = DEFAULT_BRIDGE_URLS[0];
 
 /** How long the attach handshake may take before open() gives up. */
 const DEFAULT_ATTACH_TIMEOUT_MS = 15_000;
@@ -67,7 +77,7 @@ export interface BridgeTransportOptions {
    * to hand, only a browser with the user's session in it.
    */
   tabId?: number;
-  /** Relay endpoint. Defaults to DEFAULT_BRIDGE_URL. */
+  /** Relay endpoint. Defaults to MONOAGENT_BRIDGE_URL, else DEFAULT_BRIDGE_URLS in order. */
   url?: string;
   /** Relay token, from ~/.monoagent (the Go side writes it). */
   token?: string;
@@ -114,7 +124,10 @@ interface OutboundCdp {
 export class BridgeTransport implements CdpTransport {
   /** 0 until the extension resolves the active tab (see open()). */
   private tabId: number;
-  private readonly socket: CdpTransport;
+  private socket: CdpTransport | undefined;
+  /** Endpoints open() tries in order; empty when a socket was injected. */
+  private readonly urls: readonly string[];
+  private readonly headers: Record<string, string> | undefined;
   private readonly attachTimeoutMs: number;
   private handlers: CdpTransportHandlers | null = null;
   private nextEnvelopeId = 1;
@@ -124,24 +137,62 @@ export class BridgeTransport implements CdpTransport {
   constructor(opts: BridgeTransportOptions) {
     this.tabId = opts.tabId ?? 0;
     this.attachTimeoutMs = opts.attachTimeoutMs ?? DEFAULT_ATTACH_TIMEOUT_MS;
-    this.socket =
-      opts.socket ??
-      new WebSocketTransport(
-        opts.url ?? DEFAULT_BRIDGE_URL,
-        opts.token ? { [BRIDGE_TOKEN_HEADER]: opts.token } : undefined,
-      );
+    this.socket = opts.socket;
+    const pinned = (opts.url ?? process.env.MONOAGENT_BRIDGE_URL)
+      ?.split(',')
+      .map((u) => u.trim())
+      .filter(Boolean);
+    this.urls = opts.socket ? [] : pinned?.length ? pinned : DEFAULT_BRIDGE_URLS;
+    this.headers = opts.token ? { [BRIDGE_TOKEN_HEADER]: opts.token } : undefined;
+  }
+
+  private get sock(): CdpTransport {
+    if (!this.socket) throw new Error('extension bridge is not open');
+    return this.socket;
+  }
+
+  /** Open the relay socket, falling through the candidate endpoints. */
+  private async openSocket(handlers: CdpTransportHandlers): Promise<CdpTransport> {
+    const live: CdpTransportHandlers = {
+      message: handlers.message,
+      close: (err) => this.onGone(err ?? new Error('extension bridge closed')),
+      error: (err) => this.onGone(err),
+    };
+    if (this.socket) {
+      await this.socket.open(live);
+      return this.socket;
+    }
+    let last: unknown;
+    for (const url of this.urls) {
+      // A refused endpoint rejects open(); its error callback must not
+      // report the bridge gone while the next endpoint is still to try.
+      let connecting = true;
+      const socket = new WebSocketTransport(url, this.headers);
+      try {
+        await socket.open({
+          message: live.message,
+          close: (err) => !connecting && live.close(err),
+          error: (err) => !connecting && live.error(err),
+        });
+        connecting = false;
+        return socket;
+      } catch (err) {
+        last = err;
+      }
+    }
+    throw last instanceof Error ? last : new Error('extension bridge unreachable');
   }
 
   async open(handlers: CdpTransportHandlers): Promise<void> {
     this.handlers = handlers;
-    await this.socket.open({
+    this.socket = await this.openSocket({
       message: (data) => this.onBridgeMessage(data),
-      close: (err) => this.onGone(err ?? new Error('extension bridge closed')),
-      error: (err) => this.onGone(err),
+      close: () => {},
+      error: () => {},
     });
     const reply = await this.command('cdp_attach', undefined, this.attachTimeoutMs);
     if (reply.success === false) {
-      this.socket.close();
+      this.sock.close();
       const where = this.tabId ? `tab ${this.tabId}` : 'the active tab';
       throw new Error(`bridge attach to ${where} failed: ${reply.error ?? 'unknown'}`);
     }
@@ -149,7 +200,7 @@ export class BridgeTransport implements CdpTransport {
     // the only way to learn the id when we asked for "whatever is active".
     if (typeof reply.data?.tabId === 'number') this.tabId = reply.data.tabId;
     if (!this.tabId) {
-      this.socket.close();
+      this.sock.close();
       throw new Error('bridge attach did not report a tab id');
     }
   }
@@ -199,7 +250,7 @@ export class BridgeTransport implements CdpTransport {
     // attached leaves Chrome's debugging banner on the user's tab. The
     // extension's idle sweep would eventually detach anyway.
     void this.command('cdp_detach').catch(() => {});
-    this.socket.close();
+    this.socket?.close();
     this.failPending(new Error('extension bridge closed'));
   }
 
@@ -252,7 +303,7 @@ export class BridgeTransport implements CdpTransport {
         if (timer) clearTimeout(timer);
         resolve(reply);
       });
-      this.socket.send(JSON.stringify(envelope)).catch((err) => {
+      this.sock.send(JSON.stringify(envelope)).catch((err) => {
         if (timer) clearTimeout(timer);
         this.pending.delete(id);
         reject(err);

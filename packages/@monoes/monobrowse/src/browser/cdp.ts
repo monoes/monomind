@@ -1,3 +1,4 @@
+import { DEFAULT_CDP_PORT } from './cdp-port.js';
 import type { CdpTransport } from './transport.js';
 import { WebSocketTransport } from './transport.js';
 import type { CdpCommand, CdpResponse, CdpTarget } from './types.js';
@@ -233,7 +234,10 @@ export interface BrowserPage {
   close(): Promise<void>;
 }
 
-export async function createBrowserPage(url: string, port = 9222): Promise<BrowserPage> {
+export async function createBrowserPage(
+  url: string,
+  port = DEFAULT_CDP_PORT,
+): Promise<BrowserPage> {
   const target = await fetchNewTarget(port, url);
   const wsDebuggerUrl = target.webSocketDebuggerUrl;
   if (!wsDebuggerUrl) {

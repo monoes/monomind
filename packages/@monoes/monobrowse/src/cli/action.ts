@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Command } from 'commander';
+import { resolveCdpPort } from '../browser/cdp-port.js';
 import type { ActionDef, StepDef } from '../index.js';
 import { type AnalyzerPage, analyzePageForAction } from '../index.js';
 
@@ -72,7 +73,7 @@ export function createActionCommand(): Command {
           | null;
         if (!createBrowserPage) {
           throw new Error(
-            'Browser CDP client not available. Ensure Chrome is running with --remote-debugging-port=9222',
+            'Browser CDP client not available. Ensure Chrome is running with --remote-debugging-port=9422',
           );
         }
         const page = await createBrowserPage(opts.url);
@@ -119,7 +120,7 @@ export function createActionCommand(): Command {
       const { clickElement, fillElement, evaluateJs } = await import('../browser/actions.js');
       const { findBySelector } = await import('../browser/find.js');
       const { waitFor } = await import('../browser/wait.js');
-      const port = parseInt(process.env.MONOBROWSE_PORT ?? '9222', 10);
+      const port = resolveCdpPort();
       const { client, sessionId } = await connectToTarget(port);
       const refs = new Map<string, import('../browser/types.js').ElementRef>();
 

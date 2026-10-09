@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { DEFAULT_CDP_PORT } from '@monoes/monobrowse/cdp-port';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
@@ -15,7 +16,7 @@ const buildSubcommand: Command = {
       description: 'What you want the action to do',
       required: true,
     },
-    { name: 'port', type: 'number', description: 'CDP port', default: 9222 },
+    { name: 'port', type: 'number', description: 'CDP port', default: DEFAULT_CDP_PORT },
     {
       name: 'output',
       short: 'o',
@@ -27,7 +28,7 @@ const buildSubcommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const url = ctx.flags.url as string;
     const task = ctx.flags.task as string;
-    const port = (ctx.flags.port as number) ?? 9222;
+    const port = (ctx.flags.port as number) ?? DEFAULT_CDP_PORT;
     const outDir = join(ctx.cwd, (ctx.flags.output as string) ?? '.monomind/actions');
 
     if (!url || !task) {
@@ -186,7 +187,7 @@ const runSubcommand: Command = {
   options: [
     { name: 'account', short: 'a', type: 'string', description: 'Platform account username' },
     { name: 'params', short: 'p', type: 'array', description: 'Params as key=value pairs' },
-    { name: 'port', type: 'number', description: 'CDP port', default: 9222 },
+    { name: 'port', type: 'number', description: 'CDP port', default: DEFAULT_CDP_PORT },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const actionId = ctx.args[0];
@@ -195,7 +196,7 @@ const runSubcommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
-    const port = (ctx.flags.port as number) ?? 9222;
+    const port = (ctx.flags.port as number) ?? DEFAULT_CDP_PORT;
     const paramsRaw = (ctx.flags.params as string[]) ?? [];
     const params: Record<string, string> = {};
     for (const pair of paramsRaw) {

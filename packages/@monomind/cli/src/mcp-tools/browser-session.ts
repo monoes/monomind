@@ -8,6 +8,7 @@
  * stay readable and neither has to import the other.
  */
 
+import { resolveCdpPort } from '@monoes/monobrowse/cdp-port';
 import type { MCPToolResult } from './types.js';
 
 export const MAX_BROWSER_SESSIONS = 5;
@@ -39,7 +40,7 @@ export const connectionCache = new Map<string, BrowserConnection>();
 
 export async function pruneExpiredSessions(): Promise<void> {
   const cutoff = Date.now() - SESSION_TTL_MS;
-  const port = Number(process.env.MONOBROWSE_CDP_PORT ?? 9222);
+  const port = resolveCdpPort();
   for (const [id, info] of browserSessions) {
     if (new Date(info.lastActivity).getTime() < cutoff) {
       browserSessions.delete(id);
@@ -67,12 +68,12 @@ export async function getConnection(sessionId: string): Promise<BrowserConnectio
       );
       return conn;
     } catch {
-      const port = Number(process.env.MONOBROWSE_CDP_PORT ?? 9222);
+      const port = resolveCdpPort();
       connectionCache.delete(sessionId);
       await closeTarget(conn, port);
     }
   }
-  const port = Number(process.env.MONOBROWSE_CDP_PORT ?? 9222);
+  const port = resolveCdpPort();
   const { connectToTarget } = await import('@monoes/monobrowse');
   const { client, sessionId: cdpSessionId } = await connectToTarget(port);
   const conn: BrowserConnection = {
@@ -90,7 +91,7 @@ export async function releaseConnection(sessionId: string): Promise<void> {
   connectionCache.delete(sessionId);
   browserSessions.delete(sessionId);
   if (conn) {
-    const port = Number(process.env.MONOBROWSE_CDP_PORT ?? 9222);
+    const port = resolveCdpPort();
     // Close the actual Chrome tab — just closing the WebSocket leaves the
     // renderer process alive and consuming ~250MB+ RAM each. Awaited (not
     // fire-and-forget) so a burst of session churn can't pile up concurrent

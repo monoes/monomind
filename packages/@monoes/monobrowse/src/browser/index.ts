@@ -4,6 +4,7 @@ export * from './batch.js';
 export * from './bridge.js';
 export * from './browser.js';
 export * from './cdp.js';
+export * from './cdp-port.js';
 export * from './console-log.js';
 export * from './dialog.js';
 export * from './emulation.js';

@@ -27,7 +27,7 @@ export const browserNavigationTools: MCPTool[] = [
   {
     name: 'browser_open',
     description:
-      'Navigate browser to a URL via Chrome CDP (port set by MONOBROWSE_CDP_PORT, default 9222). Chrome must already be running with --remote-debugging-port.',
+      'Navigate browser to a URL via Chrome CDP (port set by MONOBROWSE_CDP_PORT, default 9422). Chrome must already be running with --remote-debugging-port.',
     category: 'browser',
     tags: ['navigation', 'web'],
     inputSchema: {
