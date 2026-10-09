@@ -2,6 +2,22 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [2.24.5] — 2026-10-09
+
+### Fixed
+
+- **`browse` defaults the CDP port to 9422 and falls back across bridge endpoints**, instead of failing when the previous default port was unavailable (Fixes #666).
+- **`init` no longer claims Agent Teams was configured when it was not opted into** (Fixes #665).
+- **`browse` redirects Chrome's `TMPDIR`** when the default singleton socket path would overflow Chrome's 108-byte limit, which previously crashed Chrome with `SIGABRT` (Fixes #663).
+
+### Security
+
+- **Pinned `@modelcontextprotocol/sdk` to `>=1.31.0`** (GHSA-6qxp-vccf-f47h); the braces DoS this advisory also covers remains unpatched upstream with no fix available yet (Refs #664).
+
+### Changed
+
+- **`@monoes/monobrowse` bumped to 2.24.1** (internal) — ships the CDP port default/fallback and TMPDIR redirect fixes above.
+
 ## [2.24.4] — 2026-10-08
 
 ### Changed
