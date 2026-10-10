@@ -1,6 +1,6 @@
 # Monobrowse Subsystem (`@monoes/monobrowse`)
 
-> **Monomind v2.9.0** · `@monoes/monobrowse` v1.0.6 · MIT  
+> `@monoes/monobrowse` · MIT  
 > Lightweight browser automation powered directly by the **Chrome DevTools Protocol (CDP)** over WebSockets. Designed specifically for AI agents, omitting the weight of Puppeteer or Playwright.
 
 ---
@@ -51,11 +51,30 @@ Includes an embedded dashboard (`browser/dashboard/server.js`) that hosts a live
 
 Located at `packages/@monoes/monobrowse/`.
 
-- **`src/cdp.ts`**: Pure WebSocket-based CDP client implementation.
-- **`src/browser.ts`**: Browser process launcher, PID management, and automatic port scanning.
-- **`src/snapshot.ts`**: Accessibility Tree extraction and reference labeling.
-- **`src/actions.ts`**: Interaction primitives (clicking, form filling, typing, hover, focus).
-- **`src/cli/commands.ts`**: Complete implementation of the 50+ subcommands.
+- **`src/browser/cdp.ts`**: Pure WebSocket-based CDP client implementation.
+- **`src/browser/browser-launch.ts`, `browser-lifecycle.ts`**: Browser process launcher, PID management, and automatic port scanning.
+- **`src/browser/cdp-port.ts`**: The default CDP port and its environment override (see [Ports](#35-ports-and-the-monoagent-bridge)).
+- **`src/browser/profile-dir.ts`**: Per-launch profile directories and the Chrome spawn environment.
+- **`src/browser/bridge.ts`**: CDP over the MonoAgent extension bridge (library export).
+- **`src/browser/snapshot.ts`**: Accessibility Tree extraction and reference labeling.
+- **`src/browser/actions*.ts`**: Interaction primitives (clicking, form filling, typing, hover, focus).
+- **`src/cli/commands*.ts`**: The `browse` subcommands, grouped by area.
+
+### 3.5 Ports and the MonoAgent bridge
+
+**Default CDP port: 9422.** `monomind browse open` launches its Chrome with `--remote-debugging-port=9422`, and `browse connect` defaults to the same port. 9222 used to be the default, but mono-agent's extension bridge permanently owns that port and answers only `/monoagent` routes, so a connect to it never reached Chrome (#666). 9422 sits outside the 922x/932x range mono-agent uses (9222 bridge, 9232 test bridge, 9323 bridge fallback).
+
+| Setting | Effect |
+|---|---|
+| `MONOBROWSE_CDP_PORT` | Sets the port that custom `action` runs and the platform login/session commands connect to. `MONOBROWSE_PORT` and `MONOMIND_CDP_PORT` are older aliases, read in that order after it. Default 9422 |
+| `--port <n>` | Port for `browse open` and `browse connect` (both default to 9422; they do not read the environment variable) |
+| `browse connect --auto-connect` | Probes 9422, 9222 and 9229 in that order, so a Chrome you started yourself with `--remote-debugging-port=9222` is still found |
+
+If the requested port is held by a process that is not Chrome, a launch scans upward for a free port (up to 10 tries). A Chrome that already answers on the requested port is attached to, not relaunched.
+
+**Bridge fallback.** `BridgeTransport` (exported from the package, not a `browse` flag) drives the browser you are signed into through the MonoAgent Chrome extension, using `chrome.debugger` through mono-agent's relay at `/monoagent/cdp`. It tries `ws://127.0.0.1:9222/monoagent/cdp` first and `ws://127.0.0.1:9323/monoagent/cdp` second, the port mono-agent falls back to when 9222 is held, instead of failing when the first is unavailable. `MONOAGENT_BRIDGE_URL` (comma-separated for several) overrides the list. `HeapProfiler` and `Browser` are not exposed by `chrome.debugger`, so heap snapshots and `Browser.close` fail over the bridge.
+
+**Chrome's `TMPDIR` and the singleton socket.** Chrome binds a `SingletonSocket` under `$TMPDIR/org.chromium.Chromium.XXXXXX/` whatever `--user-data-dir` says, and aborts with `SIGABRT` (`FATAL: Socket path too long`) when that path passes the unix socket limit (103 bytes), which a deep `TMPDIR` in CI work directories or sandboxed runners can do (#663). When `TMPDIR` plus that suffix would pass the limit, monobrowse starts Chrome with `TMPDIR=/tmp`. Otherwise the environment is untouched, and Windows is never changed. Your own shell's `TMPDIR` is not modified.
 
 ### Package Exports
 ```json
@@ -64,6 +83,10 @@ Located at `packages/@monoes/monobrowse/`.
     ".": {
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
+    },
+    "./cdp-port": {
+      "types": "./dist/src/browser/cdp-port.d.ts",
+      "import": "./dist/src/browser/cdp-port.js"
     },
     "./cli": {
       "types": "./dist/src/cli.d.ts",

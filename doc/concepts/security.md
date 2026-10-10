@@ -1,6 +1,6 @@
 # Security Subsystem (MonoFence AI)
 
-> **Monomind v2.9.0** incorporates **MonoFence AI** (`packages/monofence-ai/`), an embedded, local-first AI Manipulation Defense System (AIMDS). MonoFence AI protects agents and tools against prompt injection, jailbreaks, data exfiltration, obfuscation evasions, and PII leaks with sub-10ms single-scan latency.
+> Monomind incorporates **MonoFence AI** (`packages/monofence-ai/`), an embedded, local-first AI Manipulation Defense System (AIMDS). MonoFence AI protects agents and tools against prompt injection, jailbreaks, data exfiltration, obfuscation evasions, and PII leaks with sub-10ms single-scan latency.
 
 ---
 
@@ -119,6 +119,12 @@ MonoFence AI reports real-time latency and threat metrics via the CLI and MCP to
 | `monofence_analyze` | `input` (string), `context` | Detailed risk breakdown across threat categories and evasion layers |
 | `monofence_stats` | `none` | Returns telemetry metrics (total scans, average latency in ms, learned patterns, mitigation effectiveness) |
 | `monofence_learn` | `pattern`, `category`, `mitigation` | Registers a newly discovered attack pattern or mitigation rule |
+| `monofence_is_safe` | `input` (string) | Fast boolean check that input is safe |
+| `monofence_has_pii` | `input` (string) | Checks input for PII (emails, SSNs, API keys, passwords and similar) |
+| `monofence_scan_output` | `output` (string), `originalPrompt` (string, optional) | Scans LLM output for PII, prompt echo and policy violations; passing the original prompt enables echo detection |
+| `monofence_context` | `reset` (boolean, optional) | Reports the multi-turn escalation state and cumulative threat score; `reset` starts a new session |
+
+`monofence-ai` is not installed with the CLI. The first `monofence_*` tool, `security defend`, `security redteam` or org role fence that needs it installs the pinned version into `~/.monomind/deps` (never into your project), and its files must match SHA-256 hashes that ship with monomind. See [Privacy](../privacy.md#installed-on-first-use).
 
 ---
 

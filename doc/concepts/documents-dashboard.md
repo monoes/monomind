@@ -1,6 +1,5 @@
 # Documents Dashboard
 
-> **Monomind v2.9.0**
 > Covers the "Documents" tab of the existing web dashboard (`localhost:4242`) — what it is,
 > how it starts, its two API routes, and its security model. This is **not** a new server or
 > a CLI subcommand — it's a tab inside the same control-server UI that already hosts Now /
@@ -84,11 +83,3 @@ This dashboard has a documented history of security fixes in this project, so th
    allowed project roots — `403` if outside, `400` if the resolved file doesn't end in `.md`
    ([`server-routes-docs.mjs → handleRoutesDocs`](packages/@monomind/cli/src/ui/server-routes-docs.mjs#handleRoutesDocs)). The symlink-resolution step was added in a follow-up fix after the initial ship (a
    symlink-escape report) — this section describes only the current, already-patched behavior.
-
----
-
-## 5. Not To Be Confused With
-
-[`doc/adrs/org-dashboard-v2-design.md`](../adrs/org-dashboard-v2-design.md) exists but predates this feature and covers a
-different dashboard tab (Chat / live events) — it does not describe the Documents view and
-doesn't need updating for it.

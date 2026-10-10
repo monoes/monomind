@@ -826,7 +826,7 @@ $ monomind agent scan --json
 
 One entry per known runner (set grows with monomind releases). Honors `<NAME>_CLI_BIN`
 overrides. Binary probes run in parallel with a 5s per-binary timeout so a hung `--version`
-probe cannot stall the scan. Exit 0 always (detection, not a test). **rev 5**: `streams_incrementally`
+probe cannot stall the scan. Exit 0 always (detection, not a test). Each entry also carries `execution_supported` and `execution_unsupported_reason` (`null` when supported). `execution_supported` is `false` for `freebuff` always (its CLI has no headless transport) and for `kilo` when the installed version is not the verified one; see [Freebuff and Kilo transport readiness](#freebuff-and-kilo-transport-readiness-600-601). **rev 5**: `streams_incrementally`
 is static per-runtime metadata (`RunnerSpec.streamsIncrementally`, §9) — unlike `installed`/`version`,
 it never depends on probing the binary, so it's always present even when `installed:false`. **rev 12**: `full_access` is likewise static per-runtime metadata (`RunnerSpec.supportsFullAccess`) — whether `agent exec --access full` (§3.1) is implemented for this runtime (**rev 19**: every coding runtime; `false` for vercel, hermes, qwen-rpc, pi-rpc; **rev 20**:
 pi-rpc, cline, aider and dsh are `true`). **rev 12**

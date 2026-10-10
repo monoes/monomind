@@ -1,6 +1,6 @@
 # Antigravity (agy)
 
-> Monomind supports Google's [Antigravity](https://antigravity.google) CLI (`agy`) alongside Claude Code, OpenCode, Kimi Code, and Codex. Plain `monomind init` initializes every supported system; `monomind init --target antigravity` initializes only Antigravity.
+> Monomind supports Google's [Antigravity](https://antigravity.google) CLI (`agy`) alongside Claude Code, OpenCode, Kimi Code, and Codex. `monomind init` sets up the coding systems it finds installed; `monomind init --target antigravity` initializes only Antigravity.
 
 ---
 
@@ -13,7 +13,7 @@ monomind init                   # initializes all supported coding systems
 monomind init --target antigravity # initializes only Antigravity
 ```
 
-Open the project in Antigravity. agy reads `GEMINI.md` (its `CLAUDE.md` equivalent), the rules file, and wires the monomind status bar via `.gemini/settings.json`. The monomind MCP server (knowledge graph, memory, swarm tools) is configured the same way as for Claude Code — agy supports the same `.mcp.json`:
+Open the project in Antigravity. agy reads `GEMINI.md` (its `CLAUDE.md` equivalent), the rules file, and wires the monomind status bar via `.gemini/settings.json`. The monomind MCP server (knowledge graph, memory, picking and design tools) is configured the same way as for Claude Code — agy supports the same `.mcp.json`:
 
 ```bash
 agy mcp add monomind -- npx -y monomind@latest mcp start   # or reuse the existing .mcp.json
@@ -51,7 +51,7 @@ The provider resolver sets `GEMINI_API_KEY` for that role's session and strips t
 ## How isolation works
 
 - agy reads `.gemini/` and `GEMINI.md`; Claude Code reads `.claude/`; opencode reads `opencode.json` + `.opencode/`; Kimi Code reads `.kimi-code/`. They never touch each other's files.
-- `monomind init` emits agy output by default. Use `--target antigravity` for Antigravity only; `--target claude` for Claude only. `--skip-claude` remains the legacy runtime-only mode.
+- `monomind init` emits agy output when Antigravity is detected (`gemini`, `agy` or `antigravity` on your `PATH`, or `~/.gemini` / `~/.antigravity`). Use `--target antigravity` for Antigravity only; `--target claude` for Claude only. `--skip-claude` remains the legacy runtime-only mode.
 - The statusline wrapper delegates to `.gemini/helpers/statusline.cjs`, falling back to `.claude/helpers/statusline.cjs` — one implementation, two entry points.
 
 The agy target follows the same additive pattern as the other adapters in this family (the agy generator is the oldest; opencode and kimi were modeled on it).

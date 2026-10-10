@@ -109,13 +109,14 @@ providers.
 
 ### Installed on first use
 
-Two heavy dependencies are no longer part of the install. The feature that
+Three dependencies are no longer part of the install (two of them heavy). The feature that
 needs one installs it the first time it runs, once per machine:
 
 | What | Installed when | Size |
 |---|---|---|
 | `@anthropic-ai/claude-agent-sdk`, pinned to the version monomind is tested with, and the native Claude binary it brings as a per-platform package | The first Claude org role, `agent exec --runtime claude` or `agent models --runtime claude` | about 300 MB; about 4 MB, without the binary, when an [installed Claude Code](#an-installed-claude-code) is used |
 | `@puppeteer/browsers` (the downloader puppeteer itself uses), then Chrome for Testing | The first `monomind browse` command that launches a browser, or `design detect` of a URL, **only if** no Chrome, Chromium or Edge is installed. An installed browser is always used first | about 2 MB, then about 400 MB of Chrome |
+| `monofence-ai`, pinned to an exact version, with file hashes checked | The first `monofence_*` MCP tool, `security defend` or org role fence that needs it | under 1 MB |
 
 Where and how:
 

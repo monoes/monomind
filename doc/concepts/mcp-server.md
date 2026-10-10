@@ -1,7 +1,7 @@
 # MCP Server Architecture & Integration Reference
 
 > Public reference for the MonoMind Model Context Protocol (MCP) subsystem.
-> Core Protocol Engine: `@monoes/mcp` `v1.0.1` | CLI Integration: `@monoes/monomindcli` `v2.9.0`
+> Core Protocol Engine: `@monoes/mcp` | CLI Integration: `@monoes/monomindcli` (versions: see [CHANGELOG.md](../../CHANGELOG.md); only `monomind` and `@monoes/monomindcli` track the release number)
 
 ---
 
@@ -9,11 +9,11 @@
 
 MonoMind provides a complete Model Context Protocol (MCP) subsystem, split into two dedicated packages:
 
-1. **Core Protocol Engine (`@monoes/mcp` v1.0.1)**  
+1. **Core Protocol Engine (`@monoes/mcp`)**  
    - Located at `packages/@monomind/mcp/` ([package.json](packages/@monomind/mcp/package.json)).  
    - Standalone, lightweight protocol engine implementing stdio, HTTP (Express/Cors/Helmet), and WebSocket (`ws`) transports, connection pooling (`src/connection-pool.ts`), tool registry with Zod validation (`src/tool-registry.ts`), prompt registry (`src/prompt-registry.ts`), resource registry (`src/resource-registry.ts`), rate limiting, and session lifecycle management.
 
-2. **CLI Integration Package (`@monoes/monomindcli` v2.9.0)**  
+2. **CLI Integration Package (`@monoes/monomindcli`)**  
    - Located at `packages/@monomind/cli/` ([package.json](packages/@monomind/cli/package.json)).  
    - Integrates the MCP engine into the CLI, exposing `monomind mcp` CLI subcommands, background daemon process management, and over 30 domain-specific tool modules under `src/mcp-tools/`.
 
@@ -26,7 +26,7 @@ The subsystem exposes three distinct entry points:
 | Entry Point | Location | Description & Behavior |
 |---|---|---|
 | **Binary Stdio Server (`monomind-mcp`)** | `bin/mcp-server.js` ([`handleMessage`](packages/@monomind/cli/bin/mcp-server.js#handleMessage)) | Executable entry point for stdio protocol streams (e.g. `claude mcp add monomind -- monomind-mcp`). - **Protocol Version:** Complies with MCP specification release `2024-11-05` ([`packages/@monomind/cli/src/mcp-server.ts → handleMCPMessage`](packages/@monomind/cli/src/mcp-server.ts#handleMCPMessage) & [`packages/@monomind/mcp/src/server.ts → protocolVersion`](packages/@monomind/mcp/src/server.ts#protocolVersion)). - **Server Identity Version:** Hardcodes server identity `version: '3.0.0'` in `bin/mcp-server.js` (`VERSION = '3.0.0'` at [`bin/mcp-server.js → VERSION`](packages/@monomind/cli/bin/mcp-server.js#VERSION)) in its `initialize` handshake (`serverInfo: { name: 'monomind', version: '3.0.0' }`). |
-| **CLI Command Module (`monomind mcp`)** | `src/commands/mcp.ts` ([`mcpCommand`](packages/@monomind/cli/src/commands/mcp.ts#mcpCommand)) | Provides 9 CLI subcommands: `start`, `stop`, `status`, `health`, `restart`, `tools`, `toggle`, `exec`, `logs`. |
+| **CLI Command Module (`monomind mcp`)** | `src/commands/mcp.ts` ([`mcpCommand`](packages/@monomind/cli/src/commands/mcp.ts#mcpCommand)) | Provides 10 CLI subcommands: `start`, `stop`, `status`, `health`, `restart`, `tools`, `toggle`, `exec`, `logs`, `verify` (run it after `claude mcp add` to confirm the server answers). A hidden `monoes-proxy` subcommand is an internal stdio-to-HTTP proxy that Claude Code spawns; you do not run it. |
 | **Daemon Process Manager (`MCPServerManager`)** | `src/mcp-server.ts` ([`MCPServerManager`](packages/@monomind/cli/src/mcp-server.ts#MCPServerManager)) | Manages background MCP server processes, PID lifecycle (`~/.monomind/mcp-server.pid`), port binding, and background logging. |
 
 ---

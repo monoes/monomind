@@ -1,6 +1,6 @@
 # Org Runtime Subsystem
 
-> **Monomind v2.9.0** Autonomous Agent Organizations — every role is a live,
+> Autonomous Agent Organizations — every role is a live,
 > provider-backed AI session coordinated by the **OrgDaemon**.
 > This page covers architecture, runner backends, daemon lifecycle, config schema,
 > inter-role communication, fault tolerance, and the human-in-the-loop flow.
@@ -12,8 +12,8 @@
 ```
 monomind org <subcommand>
          │
-         ▼  commands/org.ts (36 subcommands)
-     OrgDaemon  (orgrt/daemon.ts — 1 076 lines)
+         ▼  commands/org.ts (<!-- doc-count:org-subcommands -->39<!-- /doc-count:org-subcommands --> subcommands)
+     OrgDaemon  (orgrt/daemon.ts)
          │
          ├── startOrg()
          │    ├── OrgBus (bus.ts)           ← append-only JSONL event log + in-process fanout
@@ -46,7 +46,9 @@ interface AgentRunner {
 }
 ```
 
-Three concrete implementations are available:
+Nineteen runtime ids are registered (`RUNNER_SPECS` in [`orgrt/runner-specs.ts`](packages/@monomind/cli/src/orgrt/runner-specs.ts)): `claude`, `codex`, `kimicode`, `opencode`, `vercel`, `antigravity`, `grok`, `qwen`, `qwen-rpc`, `crush`, `copilot`, `pi`, `pi-rpc`, `hermes`, `cline`, `aider`, `dsh`, `kilo` and `freebuff`. `freebuff` is discovered but never runs: its CLI has no headless transport, so selecting it fails with `unsupported` before any process starts (`agent scan` reports `execution_supported: false`). `kilo` runs only with explicit full access (see [Coder Mode Security](./coder-mode-security.md)). The sections below describe the runners in detail one by one; the rest follow the same `AgentRunner` interface and are specified in [Agent Exec Protocol](../agent-exec-protocol.md) §6.
+
+The first three are described first:
 
 ### 2.1 ClaudeAgentRunner (Default)
 
@@ -54,6 +56,7 @@ Three concrete implementations are available:
 - **SDK:** `@anthropic-ai/claude-agent-sdk` — wraps `query`, `tool`, `createSdkMcpServer`. Not a dependency of the published package: it is installed on first use into `~/.monomind/deps` ([#428](https://github.com/monoes/monomind/issues/428), `utils/optional-deps.ts`).
 - **Activation:** Default when `MONOMIND_RUNTIME` is unset. Also the fallback inside `runOneSession()`.
 - **Singleton:** `defaultClaudeRunner` (line 132) — stateless, reused across sessions.
+- **Which `claude` binary:** the SDK runs an installed Claude Code instead of its own 300 MB copy when it can find a usable one. The order is `--claude-path <absolute-file|bundled>`, then `MONOMIND_CLAUDE_PATH`, then `monomind config set claude.path`; `bundled` turns detection off. With no operator choice it looks for `claude` on `PATH`, `~/.local/bin/claude` and `~/.claude/local/claude`, and accepts a binary found that way only if it is a system install (owned by root, not group- or world-writable, not under `$HOME`, a temp dir or the cwd), because the org daemons run it outside every role sandbox. An explicit path may point anywhere the operator owns; org roles get it read-only. `agent scan --json` and `doctor -c claude-runtime` report the choice. Source: [`orgrt/claude-sdk.ts`](packages/@monomind/cli/src/orgrt/claude-sdk.ts).
 - **Provider auth:** `subscription` kind deletes all `ANTHROPIC_*` env vars so the session
   uses the `claude login` credential already in the keychain — **no API key needed**.
 
@@ -191,7 +194,7 @@ Source: [org-start.ts → startOrg](packages/@monomind/cli/src/orgrt/org-start.t
    ```
    An org def may set a top-level `"runtime"` — one of `"claude"`, `"kimicode"`, `"opencode"`,
    `"vercel"`, `"codex"`, `"antigravity"`, `"grok"`, `"qwen"`, `"crush"`, `"copilot"`, `"pi"`,
-   `"pi-rpc"`, `"qwen-rpc"`, `"hermes"` (the `RuntimeKind` union in [`daemon.ts`](packages/@monomind/cli/src/orgrt/daemon.ts), dispatched by `resolveRunner()`) —
+   `"pi-rpc"`, `"qwen-rpc"`, `"hermes"`, `"cline"`, `"aider"`, `"dsh"`, `"freebuff"`, `"kilo"` (the `RuntimeKind` union in [`daemon.ts`](packages/@monomind/cli/src/orgrt/daemon.ts), dispatched by `resolveRunner()`) —
    to pin its own runtime regardless of the env var (`"claude"` forces the default
    Claude path even when `MONOMIND_RUNTIME` selects another runner). Each role may
    additionally set its own `runtime` field, which overrides the org-level value
@@ -240,6 +243,13 @@ Routes `org_send` tool calls:
 
 ---
 
+### 4.6 Concurrency, liveness and workspace hygiene
+
+- **Deferred roles.** When more roles want to run than `max_concurrent_agents` allows, the extra role is deferred, not dropped. It stays a known assignee, its tasks wait `ready` with one `concurrency-limit` audit each (`resource-pressure` when the host is short of resources), and a freed slot goes to the role deferred first. If no slot frees in time, the tasks waiting on the role are failed with the reason and the coordinator is told. When the org-wide token ceiling runs out, pending deferrals are cancelled (`deferred-spawn-cancelled`) and their tasks held with the budget reason.
+- **Dead runs are detected.** `runtime.json` records the process's start identity (`pidStart`), so a pid reused by another process is not mistaken for the run. `org status`, `org run` and `org serve` rewrite a `running` record whose run is dead as `crashed` (`closedBy: "liveness-check"`, appended to `liveness.jsonl`) and keep the checkpoint, so `org run --resume` still works. `org run` refuses to start an org whose recorded run is still alive in another process ("already running (pid N)").
+- **Sandbox stubs stay out of the repository's change list.** A role in a repo checkout holds empty stub files in the repo root for the whole run (`.bashrc`, `.gitconfig`, `.claude/hooks`, …). While they exist the runtime lists them in a marked block of the repo's `info/exclude` (linked worktrees included), and removes the block when they are gone. A real file of the same name with content is never listed.
+- **The Claude SDK is installed on the host, not by the role.** `~/.monomind/deps` is read-only to roles, so before it starts a role whose effective runtime is `claude` the runtime installs the pinned SDK through the hash-pinned installer (`role-deps-installed` audit; `role-deps-missing` when it fails, retried after 10 minutes). Roles on other runtimes trigger no download. `MONOMIND_NO_AUTO_INSTALL=1` turns the host install off, and `monomind deps install` installs into the cache regardless. That command refuses to run inside an org role.
+
 ## 5. Org Config Schema
 
 **Source:** [`orgrt/types.ts`](packages/@monomind/cli/src/orgrt/types.ts)  
@@ -265,7 +275,34 @@ alongside the shared `'worktree'` mode ([`org-stop.ts → finishStop`](packages/
 | `bash_timeout_ms` | `600000` | Claude-runtime roles only: the Bash tool's default and maximum command timeout, set as `BASH_DEFAULT_TIMEOUT_MS` and `BASH_MAX_TIMEOUT_MS` in the role's session env ([`bash-timeout.ts`](packages/@monomind/cli/src/orgrt/bash-timeout.ts)). Claude Code's own default is 2 minutes, too short for an install or a full build. A positive integer up to 3600000. Other runtimes ignore it |
 | `circuit_breaker` | _(unset)_ | `{ failure_threshold?, cooldown_ms? }` — trip after N consecutive non-success session results from a role and close its mailbox instead of looping ([`types.ts → circuit_breaker`](packages/@monomind/cli/src/orgrt/types.ts#circuit_breaker), applied [`role-session-opts.ts → circuitBreaker`](packages/@monomind/cli/src/orgrt/role-session-opts.ts#circuitBreaker)) |
 | `completion_evidence` | `false` | Gate `org_task_done` on machine-checkable evidence: `{ headSha, worktree?, checks: [{ command, exitCode, expectExit?, expectReason?, output }] }`. A check passes iff `exitCode === (expectExit ?? 0)` — declare `expectExit` for a criterion met by a non-zero exit (a lookup that must 404 → 1, a timeout that must fire → 124) rather than appending `\|\| true`. A non-zero `expectExit` is only for a SINGLE-PURPOSE command and always needs a one-line `expectReason` ("404 = branch not protected"), which renders with the code everywhere (`exit 1 (expected 1: 404 = branch not protected)`) and raises an `evidence-expect-exit` audit event when accepted; on a test suite or other aggregate runner (`vitest`, `jest`, an `npm`/`pnpm`/`yarn` test script, `node --test`, `pnpm -r`, `pnpm --filter … test`, `run verify`, `test:all`) it is refused, because a suite's exit code means "at least one of many things failed" and accepting it accepts every other failure too — run the failing test file alone and declare `expectExit` on that, or exclude it and record the exclusion. A report task (QA, audit) closes on commands proving the report exists and is complete (e.g. `test -s <report>`); the failures it found go in `result`, not `checks`. Evidence from outside a git worktree (a scratch dir, an installed tarball) is pinned to the worktree the artifact was built from. `headSha` must be `headSha` must be the current head of some local work — the `HEAD` of any worktree of the repository or the tip of any local branch; with `worktree` named, that worktree's `HEAD` exactly. A relative `worktree` is resolved against the workspace, and if that is not a worktree, it names the one worktree of the repository whose path ends with it: `src` or `work/src` for `.monomind/orgs/release/work/src`. If it fits more than one worktree, the close is refused and the refusal lists each. A sha that is the head of nothing is stale and refused — unless git has no commit by that name at all, which is refused as an unknown commit (typo?) instead; a `worktree` that is an unfilled placeholder (a literal `<…>`/`{{…}}`, or a nonexistent all-caps path such as `…/SRC`) is refused with a hint to pin the real worktree path ([`completion-gate.ts → checkTaskEvidence`](packages/@monomind/cli/src/orgrt/completion-gate.ts#checkTaskEvidence), heads from [`decisions.ts → localHeads`](packages/@monomind/cli/src/orgrt/decisions.ts#localHeads)). `max_evidence_attempts` (default 3) bounds refused proofs before the task is escalated; a call with no `evidence` object at all is refused without counting |
+| `verify_writes` | `true` | Refuse a completion over a demonstrably failed write. A write ledger watches the bus for `Write`/`Edit`/`MultiEdit`/`NotebookEdit` calls, policy denials and `tool_result ok:false`. `org_task_done` is refused, naming the path, when that role has a failed write with no later success and the file is still missing or empty on disk; an `achieved` `org_complete` is refused for any role's unwritten deliverable. A report that names the path and says it is blocked is accepted. Each `(scope, path)` is refused at most twice. `false` opts out ([`write-ledger.ts`](packages/@monomind/cli/src/orgrt/write-ledger.ts)) |
+| `lead_watch` | on | Nudges a lead when a role stalls. A role with open work (an open `org_task`, or an actionable message from its `reports_to` or the boss) that has no session after `not_started_s` (default 90) or no bus event for `silent_s` (default 180) gets one `[watch]` message in its lead's mailbox, with doubling backoff and at most 3 per episode. It never fires for a role with no open work, one that is progressing, or during a pending human wait. `false` disables; `unread_s` applies to sections orgs ([`lead-watch.ts`](packages/@monomind/cli/src/orgrt/lead-watch.ts)) |
+| `context` | _(unset)_ | Opt-in context surface: `{ require_brief?, notes?, session_cap?: { tasks?, tokens? } }`. See [Context surface](#context-surface-run_configcontext) |
+| `notify_task_creator` | `false` | When a task completes, send the role that created it a `[task:<id>] DONE` message with the result and evidence summary. Without it a completion is only a bus event |
 | `stale_base_threshold` | `0` (disabled) | Warn when the working tree is more than N commits behind its tracking branch ([`types.ts → stale_base_threshold`](packages/@monomind/cli/src/orgrt/types.ts#stale_base_threshold), checked at start in [`org-start.ts → startOrgInner`](packages/@monomind/cli/src/orgrt/org-start.ts#startOrgInner) — best-effort, skips silently if git or an upstream tracking branch is unavailable) |
+
+### Context surface (`run_config.context`)
+
+Setting any key under `run_config.context` adopts a surface that controls what each role is handed and carries between sessions. An org with no `context` key keeps its tool list and prompt byte for byte, because tool definitions are part of the cached prompt prefix; adopting a key starts new prefixes. Source: [`context-surface.ts`](packages/@monomind/cli/src/orgrt/context-surface.ts).
+
+| Key | Effect |
+|---|---|
+| `require_brief` | `org_task` and each `org_plan_graph` task take typed fields `objective`, `output`, `tools`, `boundaries` and `acceptance`, rendered with the free-text `brief` into the one brief the assignee receives (same 4,000-character limit; a longer brief is rejected, not truncated). With `require_brief: true` a task missing `objective` or `acceptance` is rejected (for `org_plan_graph`, the whole graph, so no half-built plan is left); other missing fields come back as `warnings`. Without it, a missing `objective` or `acceptance` is only a warning |
+| `notes` | `true` gives each role `org_note_append`, which appends to its own `<org dir>/notes/<role>.md`. The file is append-only: to curate, append an entry with `current_state: true` restating what still matters. Each fresh SDK session of that role starts with its last current state and the entries after it, ahead of the task, within 4,000 characters (an entry is included whole or not at all; one over 4,000 characters is rejected). A resumed session is left alone. Notes are not protected from other roles' direct file access |
+| `session_cap` | `{ tasks, tokens }`. A role's SDK session ends between turns once it has been given that many distinct tasks or used that many tokens. The turn that crosses the cap finishes; the next message starts a fresh generation whose first message opens with a rotation digest (what the last generation did, the role's open tasks, the budget used, and a warning after two rotations in a row without a finished task), within 4,000 characters, with what is dropped named. Counters persist in the run's `session-counters.json`; a `session-rotated` audit event records each rotation, and `session-cap-usage-missing` flags a runner that reports no usage |
+
+Any `context` key also changes three things for the whole org:
+
+- **Context packets.** `org_task` and `org_plan_graph` tasks take `references` (`files`, `memory_keys`, `task_ids`), listed after the brief in the task's dispatch. A packet over 256 distinct references, or whose title, brief and references together pass 12,000 characters, is rejected with a remedy. References are listed, not snapshotted. The run's `packets.jsonl` records each dispatched packet with the hash of every part, and the first message of each fresh SDK session with its hash.
+- **Summary-only returns.** `org_task_done`'s `result` is a summary of at most 1,000 characters plus the ids and file paths of what the role produced. A longer result is rejected with a remedy and the task stays open.
+- **Per-call context logging.** Every model call a role makes appends one record to the run's `context.jsonl`: context size (uncached input plus cache reads plus cache writes), session age, cache read and write tokens, and whether it was a session's first call, a resumed session or a subagent call. `monomind org report <org> --context` prints, per role, the calls, sessions, mean and max context, cache hit ratio and the session-start cache split (`--json` gives the same figures).
+
+### Validation checklist
+
+`org validate`, the start of `org run` and `org serve`, `org reload`, `org create` and the dashboard's config patch, import and create all run the same caveat checklist ([`validate-checklist.ts`](packages/@monomind/cli/src/orgrt/validate-checklist.ts)). Errors stop the save or the start. Warnings never block, and a start records them on the run's bus as `checklist-warning`.
+
+- **Errors:** a feature that is designed but not built (`loops`, always; `sections`, `documents`, `requires` and the run_config keys `budget_usd`, `budget_mode` and `experimental` unless the org uses sections) fails with "not yet supported" instead of being ignored silently.
+- **Warnings:** an unknown top-level or `run_config` key (the runtime would ignore it); file scopes that do not cover the paths a role's duties name; shell duties with Bash denied; `max_concurrent_agents` below the role count (a finished worker keeps its slot, so roles past the cap wait); no `budget_usd` on any priced role; `budget_usd` on a codex or antigravity role, which reports no USD and is never closed by it; tools (Bash, WebFetch, WebSearch) that wait for a human approval nobody answers, including in a scheduled org; role text that tells a role to use `SendMessage`; a dated detail in a role prompt, which breaks the cached prefix; a boss prompt that does not require self-contained briefs; a role with no explicit model.
 
 ### Role fields (`RoleSchema`)
 
@@ -275,7 +312,7 @@ alongside the shared `'worktree'` mode ([`org-stop.ts → finishStop`](packages/
 | `type` | `'specialist'` | `'boss'` or `'specialist'` |
 | `reports_to` | _(required)_ | `null` → boss |
 | `adapter_config.model` | runtime/vendor default | Model string passed to runner. When unset, `resolveModel()` in [`session.ts`](packages/@monomind/cli/src/orgrt/session.ts) picks the vendor default, then the runtime default — `claude-sonnet-5` (`DEFAULT_CLAUDE_MODEL` in [`vercel-providers.ts`](packages/@monomind/cli/src/orgrt/vercel-providers.ts)) for the `claude` runtime and when no runtime is set. `/mastermind:createorg` and `monomind org create` always write it explicitly (the latest model for the role's runtime) so a created org doesn't drift when the default changes |
-| `runtime` | _(unset)_ | Per-role runtime override: `'claude'` \| `'kimicode'` \| `'opencode'` \| `'vercel'` \| `'codex'` \| `'antigravity'` \| `'grok'` \| `'qwen'` \| `'crush'` \| `'copilot'` \| `'pi'` \| `'pi-rpc'` \| `'qwen-rpc'` \| `'hermes'`; beats the org-level `runtime` and `MONOMIND_RUNTIME` for this role's sessions |
+| `runtime` | _(unset)_ | Per-role runtime override: `'claude'` \| `'kimicode'` \| `'opencode'` \| `'vercel'` \| `'codex'` \| `'antigravity'` \| `'grok'` \| `'qwen'` \| `'crush'` \| `'copilot'` \| `'pi'` \| `'pi-rpc'` \| `'qwen-rpc'` \| `'hermes'` \| `'cline'` \| `'aider'` \| `'dsh'` \| `'kilo'` \| `'freebuff'` (never runs); beats the org-level `runtime` and `MONOMIND_RUNTIME` for this role's sessions |
 | `budget_tokens` | _(unset)_ | Per-role token budget override — replaces this role's even split of `run_config.budget_tokens`, so a token-hungry model (e.g. GLM via opencode) doesn't force an inflated org-wide budget. `policy.maxTokens`, when set, still wins. The coordinator is told once when the role passes 80% of its token cap |
 | `max_turns_per_message` | _(unset)_ | Per-role override of `run_config.max_turns_per_message` — a role doing long build/fix/verify cycles can get more turns without raising the cap for every other role |
 | `max_tool_rounds` | _(unset)_ | Per-role override of `run_config.max_tool_rounds`, for a role that makes many tool calls in reply to one message |
@@ -304,9 +341,9 @@ alongside the shared `'worktree'` mode ([`org-stop.ts → finishStop`](packages/
 `org run -y` only skips the cost prompt; it approves nothing. A run with no one to approve `org_complete` (for example an unattended one-shot `org run --task … -y`) needs either `autoApproveTools: ["org_complete"]` on the boss or `org run --auto-approve org_complete`, which pre-approves the listed tools for every role for that run only. A name that nothing in the org gates is refused at start. The list survives a boss auto-restart and is dropped at the next start. `org run` prints each queued approval with the `org approve`/`org deny` command that resolves it.
 | `fence` | _(unset)_ | Per-role MonoFence tool-fence config (`FenceConfigSchema`) — see [Fence Protocol](#fence-protocol-tool-fencets) |
 | `git` | `'read'` | `'none'` \| `'read'` \| `'commit'` \| `'push'` — see [Git policy enforcement](#git-policy-enforcement) |
-| `sandbox` | `{ mode: 'auto' }` | OS sandbox for claude-runtime roles below `git: 'push'`: `mode` `'auto'` \| `'required'` \| `'off'`; `allowedDomains` (default `['*']`); `deniedDomains` (opt-in host deny list); `allowWrite` (extra writable paths); `denyWrite` (paths made read-only for the role's shell and file tools, relative paths resolved against the org root — `["."]` keeps a QA role from writing anywhere in the checkout it tests from); `allowUnixSockets` (default `true` — Chrome needs one) |
+| `sandbox` | `{ mode: 'auto' }` | OS sandbox for claude-runtime roles below `git: 'push'`: `mode` `'auto'` \| `'required'` \| `'off'`; `allowedDomains` (default `['*']`); `deniedDomains` (opt-in host deny list); `allowWrite` (extra writable paths); `denyWrite` (paths made read-only for the role's shell and file tools, relative paths resolved against the org root — `["."]` keeps a QA role from writing anywhere in the checkout it tests from); `allowUnixSockets` (default `true` — Chrome needs one). Three opt-in keys use a bubblewrap layer around the role's whole process tree (including a nested SDK sandbox) and fail closed without bubblewrap: `denyExec` (programs the role must not run, by name, `*` glob or absolute path: every matching binary is replaced and fails, and the role's Bash commands naming one are refused), `denyRead` (absolute paths of existing files and directories that appear empty to the role's shell) and `homeWriteAllow` (when set, even to `[]`, the real `$HOME` is mounted through a throwaway overlay so a write lands nowhere real except under the listed subpaths; the runners' own login and state directories belong in it). A role without them is unchanged |
 | `access` | `'scoped'` | `'full'` removes every field above — see [Full access](#full-access-policyaccess-full) below. Human-only; never effective without a matching `access_ack` |
-| `settings` | _(unset)_ | `'user'`\|`'project'`\|`'local'` sources loaded when `access: 'full'` is active (reuses the `agent exec --settings` mechanism). Ignored for a scoped role |
+| `settings` | _(unset)_ | `'user'`\|`'project'`\|`'local'` sources loaded when `access: 'full'` is active (reuses the `agent exec --settings` mechanism). On the Claude runtime a role with `settings` set is a coder-mode session: its selected model and effort are pinned over the loaded settings' own `env`, and `Agent` launches are capped by `MONOMIND_CODER_MAX_AGENTS` and `MONOMIND_CODER_MAX_REVIEW_AGENTS` (see [Coder Mode Security §2.10](./coder-mode-security.md#210-model-and-effort-pinning-delegation-caps-and-what-the-result-reports-rev-30-issue-655)). Ignored for a scoped role |
 | `access_ack` | _(unset)_ | `{by:'human', at, hash, sig}` — written only by `monomind org role set-access`. `sig` is an HMAC over `hash` under a machine-local key (see below) — `hash` alone is a public, recomputable drift check, not proof of a human grant. Never author this by hand |
 
 **Path placeholders.** `{{org_root}}` (the org's project root, not the role's cwd) and `{{home}}` (the home directory of the user running the org) expand in a role's `responsibilities` and in its path-holding policy lists: `fileRead`, `fileWrite`, `sandbox.allowWrite` and `sandbox.denyWrite` ([`prompt-vars.ts`](packages/@monomind/cli/src/orgrt/prompt-vars.ts)). The policy lists expand when the daemon loads the org (at start, on `org reload`, and for a replay), so the file-tool roots and the OS sandbox only ever see absolute paths, and a tracked config can grant `"allowWrite": ["{{home}}/mrg-tmp"]` without hard-coding anyone's home. An unknown placeholder is left verbatim and `org validate` reports it as an error, naming the field.
@@ -990,6 +1027,7 @@ Resume state persistence:
 
 Constructs system prompt containing:
 - Agent id, title, org goal
+- A `Task for this run:` block with the `org run --task` text, whenever it differs from the goal (every role gets it, not only the coordinator; a run with no task, or one equal to the goal, adds nothing)
 - Coordinator vs worker role differentiation
 - Responsibilities list from org config
 - Pinned skills and the on-demand skill catalog (§6.6)
@@ -1213,6 +1251,12 @@ compared with the last value the previous process reported for the same session:
 means the total was carried over and only the increase counts; lower means it restarted and all of
 it counts. Within one process a total that dips floors at 0. Before this, a resumed session's first
 turn was billed as `max(0, small − previous) = 0`.
+
+**`budget_usd` is a hard stop on Claude roles.** USD cost arrives only when a turn ends, so each Claude query carries the SDK's `maxBudgetUsd`, set to what the role has left of its cap, and the SDK stops the query once it is exceeded. Overshoot is limited to the model call in flight. That stop closes the role for budget like any exhausted cap; it is not a failed turn, does not trip the circuit breaker and is not reported as a crash. A role with no USD left starts no query. Codex and antigravity roles report no USD and are unchanged.
+
+**The token meter counts each model response once.** One API response can reach the SDK stream as several assistant messages that share a `message.id` and repeat the same input and cache usage. The Claude runner passes the response id through, and the meter counts only what a message adds over the largest usage already seen for that response (and takes the final output count, not the placeholder on earlier messages). Subagent responses have their own ids and are still counted. Before this fix (#597) roles were metered at roughly twice their real tokens and `budget_tokens` caps closed sessions early.
+
+**A role stopped mid-query still reports its cost.** When an org completes or is stopped, the Claude runner interrupts a working query first. The SDK answers with a result carrying the cost so far, which is recorded as an `interrupted` stop that is not a failed turn. A query that does not answer within 3 seconds is aborted as before.
 
 A turn cut off before its `result` — by `org_complete`, an org stop, or a crash — still gets a
 `usage` event for the turns already metered (`subtype: "aborted"`, `cost_usd: null`, since the SDK

@@ -12,12 +12,12 @@
 ### CLI Subsystem
 - The core CLI engine is `@monoes/monomindcli` (`packages/@monomind/cli/`).
 - Entrypoint: [`packages/@monomind/cli/src/commands/index.ts`](packages/@monomind/cli/src/commands/index.ts)
-- Exposes 38 top-level commands (e.g. `monomind monograph`, `monomind route`, `monomind org`).
+- Exposes <!-- doc-count:cli-commands -->38<!-- /doc-count:cli-commands --> top-level commands (e.g. `monomind monograph`, `monomind pick`, `monomind org`). `monoswarm` and `autopilot` were removed in 2.22.0: spawn subagents with Claude Code's Task tool or run an org with `monomind org run`.
 
 ### Model Context Protocol (MCP) Server
 - Core protocol engine is `@monoes/mcp` (`packages/@monomind/mcp/`).
 - CLI integration exposing `monomind mcp` commands.
-- Exposes 23 tool groups including `guidance_*`, `monograph_*`, `memory_*`, `knowledge_*`.
+- `tools/list` advertises a core of <!-- doc-count:mcp-tools-default -->20<!-- /doc-count:mcp-tools-default --> tools by default (`monograph_*`, `pick`, `knowledge_*`, `monodesign_*`, `memory_*`); `MONOMIND_MCP_FULL=1` advertises all <!-- doc-count:mcp-tools-full -->198<!-- /doc-count:mcp-tools-full -->. Every other tool (`guidance_*`, `hooks_*`, `agent_*` and more) stays callable by name and is found with `monomind_tool_search`.
 - Concept Doc: [`doc/concepts/mcp-server.md`](doc/concepts/mcp-server.md)
 
 ### Memory Subsystem
@@ -33,7 +33,7 @@
 ### Agents, Skills & Org Skills
 - Agents: `.claude/agents/<category>/<name>.md` (project), `~/.claude/agents/**` (user; the project wins a name clash), `$MONOMIND_EXTRA_AGENT_PATHS` or a sibling `../agency-agents` (extra roots, win slug clashes); originals ship in `packages/@monomind/cli/.claude/agents`. Indexed in `.monomind/registry.json`. Frontmatter: `name` (the spawnable Task `subagent_type`), `description` and `when_to_use` (each <=160 chars; `when_to_use` starts "Use when"), `tags`, `category`, optional `deprecated`/`deprecatedBy`, `slug`.
 - Skills: `.claude/skills/<name>/SKILL.md` and `~/.claude/skills`; slash commands: `.claude/commands/<group>/<name>.md` -> `/<group>:<name>`. Indexed per machine in `.claude/helpers/skill-registry.json` (never shipped). `pick: low` ranks an admin/meta entry below equal matches; `type: helper`, README/overview/reference pages and `_`-prefixed files are never entries.
-- Org skills: `.monomind/org-skills` (project), `~/.monomind/org-skills` (user), `packages/@monomind/cli/org-skills` (bundled; tags from `TAGS.md`), plus active catalog skills. Frontmatter: `name`, `description`, `tags`, `tools`, `license`. Read with `monomind org skills show <name>` or the `org_skill_show` MCP tool; org roles use `skills`, `skill_pool`, `org_skill_load`, `org_skill_search`.
+- Org skills: `.monomind/org-skills` (project), `~/.monomind/org-skills` (user), `packages/@monomind/cli/org-skills` (bundled, <!-- doc-count:org-skills -->560<!-- /doc-count:org-skills --> skills; tags from `TAGS.md`; 189 were imported from `anthropics/knowledge-work-plugins` with their licence and source recorded and have no tags), plus active catalog skills. Frontmatter: `name`, `description`, `tags`, `tools`, `license`. Read with `monomind org skills show <name>` or the `org_skill_show` MCP tool; org roles use `skills`, `skill_pool`, `org_skill_load`, `org_skill_search`.
 - Verify: `monomind pick -t "<task>" --agents|--skills [--explain]`, `monomind doctor -c pick`, `monomind org skills search`; contributors: `pnpm run pick:eval`, `pnpm run lint:agent-refs`, `node scripts/sync-claude-trees.mjs`.
 - Concept Doc: [`doc/concepts/agents-and-skills.md`](doc/concepts/agents-and-skills.md)
 
@@ -52,6 +52,7 @@
 
 ### Hooks Subsystem
 - Lifecycle event interception including pre-edit, post-edit, pre-command, post-command, pre-task, and post-task hooks.
+- Claude Code Agent Teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`) are opt-in: `init` and `init upgrade` write nothing for them unless you pass `--agent-teams`. `monomind doctor -c cost-settings` reports settings that multiply token use.
 - Concept Doc: [`doc/concepts/hooks.md`](doc/concepts/hooks.md)
 
 ### Security (MonoFence AI)
@@ -62,13 +63,18 @@
 
 ### Org Runtime
 - Autonomous multi-agent organization coordinator (`OrgDaemon`).
-- Supports 14 runtime execution backends (`AgentRunner` implementations), including `claude`, `codex`, `kimicode`, `opencode`, `vercel`, `antigravity`, `grok`, `qwen`, `crush`, `copilot`, `pi`, and `hermes`.
+- Supports 19 registered runtime ids (`AgentRunner` implementations): `claude`, `codex`, `kimicode`, `opencode`, `vercel`, `antigravity`, `grok`, `qwen`, `qwen-rpc`, `crush`, `copilot`, `pi`, `pi-rpc`, `hermes`, `cline`, `aider`, `dsh`, `kilo` and `freebuff`. `freebuff` is discovered but never runs (`execution_supported: false`: its CLI has no headless transport, so it is blocked upstream); `kilo` runs with explicit full access only.
+- An org definition takes effect only after the operator signs it (`monomind org sign`). Sections orgs (sub-orgs that exchange work only through documents) are generally available. `run_config.context` opts into typed task briefs, role notes and a session cap. The repository's own `release` org (10 roles, `config/orgs/release.json`) runs a release unattended, with a human asked only at PREFLIGHT.
 - Concept Doc: [`doc/concepts/org-runtime.md`](doc/concepts/org-runtime.md)
 
 ### Coder Mode Security (`agent exec --access full`)
 - Threat model and non-negotiable guardrails for full, unrestricted native-tool access via `monomind agent exec --access full` (the Coder mode epic).
 - No transitive escalation (only a human-typed CLI invocation can request it — audited across MCP tools, the org runtime, workflow/routine nodes, UI routes, and hooks), env hygiene, and a per-turn audit log (`~/.monomind/logs/agent-exec-full-access.log`).
 - Concept Doc: [`doc/concepts/coder-mode-security.md`](doc/concepts/coder-mode-security.md)
+
+### Agent Exec Protocol
+- `monomind agent exec` and `agent scan|models|test` give other programs a stable NDJSON interface to every runtime, with capabilities announced in a handshake.
+- Concept Doc: [`doc/agent-exec-protocol.md`](doc/agent-exec-protocol.md)
 
 ### Monodesign Subsystem
 - Frontend design intelligence system targeting OKLCH design tokens.
@@ -78,9 +84,10 @@
 ### Monobrowse Subsystem
 - Native browser automation directly over Chrome DevTools Protocol (CDP) WebSocket connections.
 - Automatically handles headless-to-headed redirects for login/CAPTCHA walls.
+- Launches Chrome on CDP port 9422 by default (`browse connect --auto-connect` also probes 9222 and 9229). The MonoAgent extension bridge tries `ws://127.0.0.1:9222/monoagent/cdp`, then 9323. Chrome's `TMPDIR` is redirected to `/tmp` when the default singleton socket path would be too long.
 - Concept Doc: [`doc/concepts/monobrowse.md`](doc/concepts/monobrowse.md)
 
 ### Documents Dashboard
-- "Documents" tab in the existing web dashboard (`localhost:4242`, auto-spawned by a SessionStart hook) — not a new server or CLI subcommand.
+- "Documents" tab in the existing web dashboard (`localhost:4242`; start it with `monomind ui`, or opt in to starting it at every session with `monomind init --dashboard`) — not a new server or CLI subcommand.
 - Master/detail markdown browser for mastermind-generated docs (plans/specs/reviews/reports/wikis/decisions/ideas/improvements/tasks) across every project plus the global brain.
 - Concept Doc: [`doc/concepts/documents-dashboard.md`](doc/concepts/documents-dashboard.md)

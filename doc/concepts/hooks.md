@@ -82,9 +82,19 @@ It also runs the graph gate (`pre-search` does the same for `Grep`/`Glob`). The 
 
 Calls `intelligence.recordEdit(file)` — appends to `pending-insights.jsonl` for later consolidation.
 
-### `TeammateIdle / TaskCompleted` → `post-task`
+### `SubagentStart` / `SubagentStop`
 
-1. Routing pattern save
+`SubagentStart` runs `capture-handler.cjs subagent-start` (agent telemetry for the org dashboard) and `monolean-propagate.cjs`. `SubagentStop` runs `hook-handler.cjs post-task` (routing pattern save and the `routing-feedback.jsonl` line described above) and `capture-handler.cjs subagent-stop`.
+
+`TeammateIdle` and `TaskCompleted` are not valid Claude Code settings keys, so `init` writes neither and `init upgrade` removes them from an existing `settings.json`. `init` registers no `Stop` or `Notification` hook either, because the two it used to write only printed a line (#417).
+
+### Claude Code Agent Teams are opt-in
+
+`monomind init` and `init upgrade` do not write `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` or the `monomind.agentTeams` settings block. Nothing in Monomind reads either, and teammate messages wake the parent context, which adds token cost. Pass `monomind init --agent-teams` to write them. An existing flag or block is left as it is, and `monomind doctor` reports it. To remove one an earlier `init` wrote, run `monomind init upgrade --settings`: it removes the flag and the block only when the block carries Monomind's own marker (`coordination.sharedMemoryNamespace: agent-teams`), keeps a `settings.json.bak-agent-teams` backup, and leaves a flag you set yourself.
+
+### Duplicate hooks
+
+Hooks are identified by event, matcher and helper script plus argument, not by the exact command string. `monomind init --force` retires an older command form of a hook it regenerates, and `doctor` flags the same helper and argument registered twice (in one settings file or in two), since each registration runs.
 
 ### `SessionEnd` → `session-end`
 
@@ -157,9 +167,9 @@ monomind hooks worker run <name>  # run a worker on demand
 
 ---
 
-## CLI Subcommands (29)
+## CLI Subcommands (<!-- doc-count:hooks-subcommands -->28<!-- /doc-count:hooks-subcommands -->)
 
-> These are `monomind hooks <subcommand>` CLI entry points (`packages/@monomind/cli/src/commands/hooks.ts`, confirmed 29-entry `subcommands` array) — a different mechanism from the "Internal Hook Events" above. None of the names below are `HookEvent` enum members.
+> These are `monomind hooks <subcommand>` CLI entry points (`packages/@monomind/cli/src/commands/hooks.ts`, the `subcommands` array) — a different mechanism from the "Internal Hook Events" above. None of the names below are `HookEvent` enum members.
 
 ### Lifecycle hooks (8)
 ```bash
@@ -240,9 +250,9 @@ There is no `monomind hooks progress` or `monomind hooks token-optimize` subcomm
 }
 ```
 
-## MCP Tools (hooks — Version 2.9.0 Ground Truth)
+## MCP Tools (hooks)
 
-Monomind v2.9.0 exposes 8 primary lifecycle & routing MCP tools registered in `packages/@monomind/cli/src/mcp-tools/hooks-tools.ts` and implemented across `hooks-edit-command.ts`, `hooks-route.ts`, `hooks-task.ts` (re-exported by `hooks-routing.ts`), `hooks-embedding.ts`, and `hooks-intelligence.ts`:
+Monomind exposes 8 primary lifecycle & routing MCP tools registered in `packages/@monomind/cli/src/mcp-tools/hooks-tools.ts` and implemented across `hooks-edit-command.ts`, `hooks-route.ts`, `hooks-task.ts` (re-exported by `hooks-routing.ts`), `hooks-embedding.ts`, and `hooks-intelligence.ts`:
 
 | MCP Tool | Implementation | Purpose & Key Payloads |
 |---|---|---|
@@ -278,7 +288,7 @@ Commands with a risk level of `0.7` or higher (`sudo`, `curl | sh`, `rm -rf`) ar
 
 ## Configuration & Persistent Outcome Stores
 
-- **Status Line Integration**: Local status bar / hook integration helper is executed via `.gemini/helpers/statusline.sh` and [`node .gemini/helpers/statusline.cjs`](.gemini/helpers/statusline.cjs).
+- **Status Line Integration**: Claude Code runs `.claude/helpers/statusline.cjs` (the `statusLine` entry in `.claude/settings.json`); see [Statusline](./statusline.md).
 - **Persistent Routing Outcome Store**: Task and routing outcomes are persisted under `.monomind/routing-outcomes.json` ([`hooks-embedding-routing.ts → getRoutingOutcomesPath`](packages/@monomind/cli/src/mcp-tools/hooks-embedding-routing.ts#getRoutingOutcomesPath)) and appended to `.monomind/route-outcomes.jsonl`.
 - **Memory Store**: Standard JSON memory fallback state is stored at `.monomind/memory/store.json`.
 
@@ -292,7 +302,10 @@ Confirmed read by hooks/helpers source:
 |---|---|
 | `MONOMIND_CONTROL_NO_SPAWN` | Disables spawning the control-plane process |
 | `MONOMIND_CONTROL_PORT` | Overrides the control-plane port |
+| `MONOMIND_DASHBOARD_AUTOSTART` | The `SessionStart` hook `control-start.cjs` starts the dashboard only when this is `1` or `.monomind/dashboard.json` has `{"autostart": true}` (written by `monomind init --dashboard`). `0` turns it off for a project that opted in. A running server is left alone |
 | `MONOMIND_DEBUG` | Verbose hook/helper debug logging |
+| `MONOMIND_CODER_MAX_AGENTS` | Cap on `Agent` launches in a coder-mode turn (default 40, `0` lifts it); see [Coder Mode Security](./coder-mode-security.md#210-model-and-effort-pinning-delegation-caps-and-what-the-result-reports-rev-30-issue-655) |
+| `MONOMIND_CODER_MAX_REVIEW_AGENTS` | Cap on review-described `Agent` launches in a coder-mode turn (default 12, `0` lifts it) |
 | `MONOMIND_JEV_HOOK_TIMEOUT_MS` | How long the `route` hook waits for the Jev decision model, in ms (default 1500; values above 3000 are capped at 3000, values below 100 fall back to the default) |
 | `MONOMIND_GRAPH_GATE` | Set to `off` to disable the monograph gate's one-time reminder (`.claude/helpers/utils/monograph.cjs`) |
 | `MONOMIND_MONOFENCE_GATE` | Set to `off` to disable the monofence threat-scan gate (`.claude/helpers/handlers/gates-handler.cjs`) |
@@ -301,35 +314,54 @@ Confirmed read by hooks/helpers source:
 
 ---
 
+## Token Cost Settings check
+
+`monomind doctor` (or `monomind doctor -c cost-settings`) has a read-only **Token Cost Settings** check. It reads `~/.claude/settings.json`, `.claude/settings.json`, `.claude/settings.local.json` and the process environment, and warns about settings that multiply token use:
+
+- `CLAUDE_CODE_EFFORT_LEVEL`, which outranks every `/effort` and `effortLevel` choice
+- `CLAUDE_CODE_AUTO_COMPACT_WINDOW` above 400,000, which lets context grow that far before compaction
+- `CLAUDE_CODE_MAX_OUTPUT_TOKENS` above 64,000
+- `ENABLE_TOOL_SEARCH=false`, which loads every MCP tool schema into each request
+- the same hook helper and argument registered twice
+
+It also notes a leftover `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` or `monomind.agentTeams` block. It names the file and key and never edits your settings. The Claude settings keys are Claude Code's, not Monomind's.
+
+---
+
 ## Settings Configuration
 
-Hooks are wired in `.claude/settings.json`:
+`monomind init` writes the hooks into `.claude/settings.json`. Each command resolves the project directory itself (it checks `$CLAUDE_PROJECT_DIR`, falls back to `$PWD` and walks up to the nearest `.claude/helpers`), and `timeout` is in seconds. An abridged example:
 
 ```json
 {
   "hooks": {
     "SessionStart": [
-      {"command": "node .claude/helpers/hook-handler.cjs session-restore", "timeout": 15000}
+      {"hooks": [
+        {"type": "command", "command": "sh -c '… exec node \"$p/.claude/helpers/hook-handler.cjs\" session-restore'", "timeout": 15}
+      ]}
     ],
     "UserPromptSubmit": [
-      {"command": "node .claude/helpers/hook-handler.cjs route", "timeout": 10000}
+      {"hooks": [
+        {"type": "command", "command": "sh -c '… exec node \"$p/.claude/helpers/hook-handler.cjs\" route'", "timeout": 12}
+      ]}
     ],
     "PreToolUse": [
-      {"matcher": "Bash", "command": "node .claude/helpers/hook-handler.cjs pre-bash", "timeout": 5000}
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "… hook-handler.cjs pre-bash", "timeout": 5}]},
+      {"matcher": "Write|Edit|MultiEdit|NotebookEdit", "hooks": [{"type": "command", "command": "… hook-handler.cjs pre-write", "timeout": 5}]},
+      {"matcher": "Task|Agent", "hooks": [{"type": "command", "command": "… hook-handler.cjs pre-agent", "timeout": 3}]},
+      {"matcher": "Grep|Glob", "hooks": [{"type": "command", "command": "… hook-handler.cjs pre-search", "timeout": 4}]}
     ],
     "PostToolUse": [
-      {"matcher": "Write|Edit|MultiEdit", "command": "node .claude/helpers/hook-handler.cjs post-edit", "timeout": 10000}
+      {"matcher": "Write|Edit|MultiEdit", "hooks": [{"type": "command", "command": "… hook-handler.cjs post-edit", "timeout": 10}]}
     ],
-    "TeammateIdle": [
-      {"command": "node .claude/helpers/hook-handler.cjs post-task", "timeout": 5000}
-    ],
-    "TaskCompleted": [
-      {"command": "node .claude/helpers/hook-handler.cjs post-task", "timeout": 5000}
+    "SubagentStop": [
+      {"hooks": [{"type": "command", "command": "… hook-handler.cjs post-task", "timeout": 5}]}
     ],
     "SessionEnd": [
-      {"command": "node .claude/helpers/hook-handler.cjs session-end", "timeout": 10000}
+      {"hooks": [{"type": "command", "command": "… hook-handler.cjs session-end", "timeout": 10}]}
     ]
   }
 }
 ```
 
+The real file also registers `PostToolUse` hooks for `Bash` (`post-bash`) and the Monograph tools (`post-graph-tool`), the `SessionStart` helpers `monograph-freshen.cjs`, `control-start.cjs` and `monolean-activate.cjs`, `UserPromptSubmit`'s `monolean-tracker.cjs`, `PreCompact` (`compact-manual` and `compact-auto`) and `SubagentStart`. Run `monomind doctor` to check the result.

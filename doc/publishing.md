@@ -2,7 +2,7 @@
 
 > Restored from the pre-regeneration CLAUDE.md (git HEAD). CLAUDE.md is now generator output, so this operational runbook lives here instead — edit it directly, do not paste it back into CLAUDE.md.
 
-**These 9 packages are real.** Each has exactly one source directory in this repo and is
+**These 10 packages are real.** Each has exactly one source directory in this repo and is
 the only correct thing to publish. Anything on the npm account that is not in this table
 is not a live package — see "Deprecated aliases" below.
 
@@ -12,7 +12,7 @@ is not a live package — see "Deprecated aliases" below.
 | `@monoes/monomindcli` | `packages/@monomind/cli/` | The real CLI engine (all commands, MCP server, `.claude` tree) |
 | `@monoes/monograph` | `packages/@monomind/monograph/` | Knowledge graph |
 | `@monoes/memory` | `packages/@monomind/memory/` | Memory backend library |
-| `@monoes/hooks` | `packages/@monomind/hooks/` | Hook registry + 9 on-demand workers |
+| `@monoes/hooks` | `packages/@monomind/hooks/` | Hook registry + <!-- doc-count:workers -->9<!-- /doc-count:workers --> on-demand workers |
 | `@monoes/mcp` | `packages/@monomind/mcp/` | MCP server framework |
 | `@monoes/routing` | `packages/@monomind/routing/` | Semantic routing |
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | CDP browser automation |
@@ -104,12 +104,47 @@ Publish the CLI **before** the umbrella: the umbrella pins the CLI exactly, so p
 it first leaves a window where `npm i monomind` cannot resolve its own dependency.
 
 Sub-packages (`@monoes/memory`, `@monoes/monograph`, …) version and publish independently
-from their own directories — they are not part of the umbrella's lockstep.
+from their own directories — they are not part of the umbrella's lockstep. Only `monomind`
+and `@monoes/monomindcli` take the release number. The 2.24.0 release published eight
+sub-packages (`@monoes/monobrowse`, `@monoes/monodesign`, `@monoes/hooks`, `@monoes/mcp`,
+`@monoes/memory`, `@monoes/monograph`, `@monoes/routing`, `monofence-ai`) at 2.24.0 instead of
+on their own lines; that cannot be unpublished, so their lines continue from 2.24.0. To stop
+it happening again, `scripts/check-package-bumps.mjs` (part of `npm run check:versions`) fails
+when a sub-package's major version rose since the last release tag without a breaking commit
+(`type(scope)!:` or a `BREAKING CHANGE:` footer) touching it. It skips when no release tag is
+reachable, and `MONOMIND_ALLOW_MAJOR_BUMP=1` is the escape hatch. A package with a first-use
+pin (`monofence-ai`, which the CLI installs on first use) moves its pin, lock entry and file
+hashes in the same commit as its version.
+
+Root `prepublishOnly` also runs `node scripts/generate-doc-counts.mjs --check` and
+`node scripts/check-doc-refs.mjs`, so a doc that states a stale tool, agent, skill or worker
+count, or cites a source symbol that no longer exists, blocks the publish. Regenerate counts
+with `pnpm run docs:counts`.
+
+## The release org
+
+A release is run by the `release` org, defined in `.monomind/orgs/release.json` and mirrored in
+`config/orgs/release.json`. It has ten roles: `release-captain` (boss), `builder`, `cli-qa`,
+`integration-qa`, `runtime-qa`, `maintainer`, `fixer`, `docs-writer`, `publisher` and
+`release-auditor`. It runs with a 4,000,000-token budget, task-scoped sessions and
+`completion_evidence` on, so a task closes only on commands and exit codes pinned to a commit.
+
+One run is meant to be unattended. PREFLIGHT comes first: it checks npm publish rights without
+an OTP, GitHub and git push rights, a Claude login for the agent trials, tools and disk, and
+asks the human once, only when something is missing. After that the org verifies, fixes, updates
+docs and the site, bumps the version and CHANGELOG, and re-verifies the release commit. On an
+evidence-backed GO it publishes to npm, fast-forwards `main`, tags, creates the GitHub release,
+confirms the website deploy, syncs local `main`, files GitHub issues for anything left unfixed
+and cleans up. Only the `publisher` role has `policy.git: push`; the captain and the auditor are
+read-only.
+
+The operator signs the org before it runs (`monomind org sign release`) and signs it again after
+anything changes its instructions, including the release rules skill it loads. Start it with
+`monomind org run release`; [Org Runtime](concepts/org-runtime.md) covers how org runs work.
 
 ## Several sessions, one repo
 
-Several Claude sessions can work in the same clone and release from it (the release org,
-`.monomind/orgs/release.json`, mirrored in `config/orgs/release.json`).
+Several Claude sessions can work in the same clone and release from it.
 
 **CHANGELOG.md merge driver.** A release turns `## [Unreleased]` into `## [X.Y.Z] — <date>`
 on origin. A session that added entries under `## [Unreleased]` in the meantime used to hit

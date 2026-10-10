@@ -357,6 +357,45 @@ strictest one there is, which is looser than asked. `run` runs the runtime defau
 `status` notice and report `sandbox_requested` and `sandbox_applied` on `start`, so a caller that
 uses them must read `sandbox_applied` (and `native_sandbox`) rather than assume the request held.
 
+### 2.10 Model and effort pinning, delegation caps, and what the result reports (rev 30, issue #655)
+
+Applies to the Claude runtime when the turn loads Claude Code settings (`--settings user|project|local`),
+which is what makes it a coder-mode turn. Those settings files can carry an `env` block, and the
+ambient environment can too. `CLAUDE_CODE_EFFORT_LEVEL=max` in either outranks the `--effort` flag, and a
+subagent can name its own model, so a session could run on a different model or effort than the one
+you selected. `orgrt/coder-pin.ts` closes both:
+
+- **Effort.** When `--effort` is set (and is not `off`), monomind sets `CLAUDE_CODE_EFFORT_LEVEL` to
+  it in the spawned environment and in the inline `settings` option. Inline settings outrank the
+  user, project and local files.
+- **Model.** When `--model` is set (and is not `default`/`inherit`), monomind sets
+  `CLAUDE_CODE_SUBAGENT_MODEL` to it. A per-call `Agent.model` or an agent's frontmatter model
+  wins over that variable, so a PreToolUse hook also denies any `Agent`/`Task` launch that names a
+  different model and tells the model to omit the argument. An alias that matches the selected
+  model (`sonnet` for `claude-sonnet-5-5`) is allowed.
+- **Delegation caps.** The same hook counts `Agent`/`Task` launches in the session and denies
+  further ones past a cap. `MONOMIND_CODER_MAX_AGENTS` (default 40) caps all launches;
+  `MONOMIND_CODER_MAX_REVIEW_AGENTS` (default 12) caps launches whose description or
+  `subagent_type` contains "review". Set either to `0` to lift that cap. A value that is not a
+  non-negative integer falls back to the default. The caps apply even when no model or effort is
+  selected.
+
+`agent exec`'s `result` event reports what the turn actually ran on, so an escalation is visible instead of
+inferred (Claude runtime only; each field is present only when it has a value):
+
+| Field | Meaning |
+|---|---|
+| `model_usage` | Tokens per model the API served (`input`, `output`, `cache_read`, `cache_creation`), child agents included |
+| `unexpected_models` | Served models that do not match `--model` |
+| `effort` | The effort the request was sent with |
+| `peak_context_tokens` | Largest main-thread context sent in one call (input + cache read + cache write) |
+| `context_warning` | `true` when `peak_context_tokens` is above 200,000 |
+| `agent_launches` | `{total, review}`: `Agent` launches this turn (coder mode) |
+
+The fields come from `agent exec`'s final `result` event; the org run bus does not carry them. `monomind doctor`
+also has a read-only **Token Cost Settings** check for the settings that multiply token use
+(see [hooks.md](hooks.md#token-cost-settings-check)). Wire format: [agent-exec-protocol.md](../agent-exec-protocol.md) §3.2.
+
 ## 3. What callers own (not monomind's job)
 
 - **mono-agent's coder-mode gating**: off by default, a risk-confirmation dialog before first use,

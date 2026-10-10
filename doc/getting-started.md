@@ -75,6 +75,8 @@ monomind init --project ./some/other/dir --if-missing --json --yes --no-watch --
 
 Full contract: `doc/agent-exec-protocol.md` §11 (capability `init-json`).
 
+**Claude Code Agent Teams are opt-in.** `init` and `init upgrade` do not write `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` or the `monomind.agentTeams` settings block, because nothing in Monomind reads them and teammate messages add background token use. Pass `monomind init --agent-teams` if you want them. `monomind doctor` reports a leftover flag or block, and `monomind init upgrade --settings` removes the ones an earlier `init` wrote.
+
 **Optional — power-user setup:**
 
 ```bash
@@ -183,9 +185,11 @@ To have it start at every Claude Code session start in this project, run `monomi
 
 ## Troubleshooting
 
-**`monomind doctor` warns on fresh install** — expected. The doctor checks 28 categories; on a fresh project, several report "not configured yet." Run `monomind doctor --fix` to auto-resolve what's fixable, or `monomind doctor --verbose` for details.
+**`monomind doctor` warns on fresh install** — expected. The doctor checks many categories (`monomind doctor -c <name>` runs one; an unknown name prints the valid ones); on a fresh project, several report "not configured yet." Run `monomind doctor --fix` to auto-resolve what's fixable, or `monomind doctor --verbose` for details.
 
 **Embedding model download** — the first `monomind doc ingest` fetches a ~90 MB model from HuggingFace. If offline, search degrades gracefully to keyword matching. It is not the only outbound request monomind makes — see [doc/privacy.md](privacy.md) for the full list (update checks, `doctor`, crash reporting, etc.) and how to opt out of each.
+
+**Token costs add up faster than you expect** — `monomind doctor -c cost-settings` is a read-only check for Claude settings that multiply token use: a `CLAUDE_CODE_EFFORT_LEVEL` that overrides your `/effort` choice, a very large compaction window, tool search turned off, a high output cap, or the same hook registered twice. See [Hooks](concepts/hooks.md#token-cost-settings-check).
 
 **Cost of `org run`** — running an org daemon spends real provider tokens. Always use `--dry-run` first to preview, and `--budget-usd` to set a hard limit:
 

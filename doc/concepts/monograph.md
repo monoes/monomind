@@ -1,7 +1,7 @@
 # Monograph Subsystem Concept & Architecture (`@monoes/monograph`)
 
 > Public reference for Monograph, Monomind's codebase knowledge graph subsystem.
-> Architectural guide and technical reference for `@monoes/monograph` `v1.5.6` (CLI integration `@monoes/monomindcli` `v2.9.0`).
+> Architectural guide and technical reference for `@monoes/monograph` (CLI integration `@monoes/monomindcli`).
 
 ---
 

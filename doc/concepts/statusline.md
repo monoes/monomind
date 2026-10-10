@@ -41,7 +41,7 @@ Items only appear when they have data — `📚`, `🎯`, `🐝` are hidden when
 Toggled with `/ts`. Prints a multi-line dashboard above every response. Three sections always appear — Header, 🤖 AGENT, 🧠 CONTEXT — each separated by a divider line. Two more appear only when there's live state to show them; see [Conditional additions](#conditional-additions) below.
 
 ```
-▊Monomind v2.8.3  ● LIVE  monoes/monomind  │  ◎monomind  │  ⬡nokhodian  │  ⎇main +1 ~12 ?3 ↑5  ⏱42m
+▊Monomind v2.24.5  ● LIVE  monoes/monomind  │  ◎monomind  │  ⬡nokhodian  │  ⎇main +1 ~12 ?3 ↑5  ⏱42m
 ──────────────────────────────────────────────────────
 🤖 AGENT  👤 Coder  81%  │  🔄 no active loops
 ──────────────────────────────────────────────────────
@@ -55,14 +55,14 @@ That's what a populated session shows. A fresh one — no git remote, no routed 
 ### Header
 
 ```
-▊Monomind v2.8.3  ● LIVE  monoes/monomind  │  ◎monomind  │  ⬡nokhodian  │  ⎇main +1 ~12 ?3 ↑5  ⏱42m
+▊Monomind v2.24.5  ● LIVE  monoes/monomind  │  ◎monomind  │  ⬡nokhodian  │  ⎇main +1 ~12 ?3 ↑5  ⏱42m
 ```
 
 Source: `generateDashboard()`, `.claude/helpers/statusline.cjs:1208-1226`.
 
 | Element              | Meaning                                        | Source                                                                                                                                                                          |
 | --------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `▊Monomind v2.8.3`   | Brand mark and package version                 | `getVersion()`: walk up from the script for a `monomind`/`@monomind/cli`/`@monoes/monomindcli` `package.json`; else the npm global prefix's `node_modules` (and, on macOS/Linux, `lib/node_modules`), checking `monomind`, `@monoes/monomindcli` and `monomind/node_modules/@monoes/monomindcli`; else `monomind --version` on PATH. Shows no version (bare `▊Monomind`) instead of a guessed one when none resolve (#368) |
+| `▊Monomind v2.24.5`   | Brand mark and package version                 | `getVersion()`: walk up from the script for a `monomind`/`@monomind/cli`/`@monoes/monomindcli` `package.json`; else the npm global prefix's `node_modules` (and, on macOS/Linux, `lib/node_modules`), checking `monomind`, `@monoes/monomindcli` and `monomind/node_modules/@monoes/monomindcli`; else `monomind --version` on PATH. Shows no version (bare `▊Monomind`) instead of a guessed one when none resolve (#368) |
 | `● LIVE` / `○ IDLE`  | Whether subagents look active                  | `getMonoswarmStatus()` — first of 2 tiers that finds live state wins: agent-registration files in `.monomind/agents/registrations/` (<30 min old), else `monoswarm-activity.json` (<5 min old) |
 | `monoes/monomind`    | Project identifier                             | `getProjectName()` — `owner/repo` parsed from `git remote get-url origin`; falls back to the working-directory folder name when there's no remote                              |
 | `◎monomind`          | Working directory name                         | `path.basename(CWD)`                                                                                                                                                             |

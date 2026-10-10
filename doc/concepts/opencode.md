@@ -1,6 +1,6 @@
 # opencode
 
-> Monomind runs on [OpenCode](https://opencode.ai) alongside Claude Code, Antigravity, Kimi Code, and Codex. Plain `monomind init` initializes every supported system; `monomind init --target opencode` initializes only OpenCode.
+> Monomind runs on [OpenCode](https://opencode.ai) alongside Claude Code, Antigravity, Kimi Code, and Codex. `monomind init` sets up the coding systems it finds installed (see [Getting Started](../getting-started.md#step-2-initialize-your-project)); `monomind init --target opencode` initializes only OpenCode.
 
 ---
 
@@ -12,9 +12,9 @@ cd your-project
 monomind init --target opencode # emits opencode.json + .opencode/ + AGENTS.md
 ```
 
-Open the project in opencode. The monomind MCP server (knowledge graph, memory, swarm tools) is wired in via `opencode.json`, and `monomind doctor --fix` confirms health.
+Open the project in opencode. The monomind MCP server (knowledge graph, memory, picking and design tools) is wired in via `opencode.json`, and `monomind doctor --fix` confirms health.
 
-`--target opencode` is the single-system mode. Plain `monomind init` also emits OpenCode artifacts alongside the other supported coding systems. The legacy `--opencode` flag remains an alias for `--target opencode`.
+`--target opencode` is the single-system mode. `monomind init` also emits OpenCode artifacts when `opencode` is on your `PATH` or its config directory exists; `--platforms` names systems explicitly. The legacy `--opencode` flag remains an alias for `--target opencode`.
 
 ---
 
@@ -66,7 +66,7 @@ It executes `node .claude/helpers/statusline.cjs --compact` (with an `npx monomi
 
 OpenCode artifacts are additive and isolated from the other platform configs:
 
-- `monomind init` emits OpenCode by default; use `--target opencode` when only OpenCode should be initialized.
+- `monomind init` emits OpenCode when OpenCode is detected; use `--target opencode` when only OpenCode should be initialized.
 - opencode reads `opencode.json` and `.opencode/`; Claude Code reads `.claude/`; Antigravity reads `.gemini/`. They never touch each other's files.
 - The hook-shim plugin only **spawns** monomind's existing `.claude/helpers/*.cjs` gate handlers unchanged — it never edits them, so Claude Code's own hook path is unaffected.
 

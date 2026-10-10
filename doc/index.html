@@ -241,7 +241,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <img src="assets/logo.svg" alt="Monomind logo" width="32" height="32" style="border-radius:6px;flex-shrink:0">
     <div>
       <div class="logo-text">Monomind</div>
-      <div class="logo-ver">v2.9.0</div>
+      <div class="logo-ver">v2.24.5</div>
     </div>
   </div>
   <div class="nav-section">
@@ -302,7 +302,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <canvas id="hero-canvas" aria-hidden="true"></canvas>
     <div class="hero-eyebrow">Autonomous Claude Code Orchestration</div>
     <h1 class="hero-title">Pick. Remember. Coordinate.<br><em>For Claude Code, Codex and more.</em></h1>
-    <p class="hero-sub">Monomind wraps Claude Code with persistent memory, multi-agent swarms, a code knowledge graph, and one picker that chooses the right agent and skill for every task — all wired into one CLI.</p>
+    <p class="hero-sub">Monomind wraps Claude Code with persistent memory, multi-agent orgs, a code knowledge graph, and one picker that chooses the right agent and skill for every task — all wired into one CLI.</p>
     <div class="hero-actions">
       <button class="btn btn-primary" data-page="getting-started">Get Started →</button>
       <button class="btn btn-ghost" data-page="architecture">Architecture</button>
@@ -326,7 +326,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 19 MCP tools by default (27 more via MONOGRAPH_MCP_ADVANCED=1) for impact analysis, dead code detection, path finding, and multi-repo queries.</div></div>
       <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Agent &amp; Skill Picking</div><div class="card-desc">One index of your agents and skills, ranked for every prompt and delivered to Claude as a <code>[PICK]</code> line. Adherence and outcomes are logged and measured by <code>doctor -c pick</code>. <a href="#agents" style="color:var(--accent)">Agents &amp; Skills</a></div></div>
       <div class="card reveal"><div class="card-icon">🔁</div><div class="card-title">Autonomous Loops</div><div class="card-desc">--tillend runs a command until nothing is left to do. /mastermind:review --tillend finds, fixes, and re-verifies until a round comes back clean.</div></div>
-      <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">20 typed hook events (PreEdit, PostEdit, SessionStart...) in the registry/executor, plus 29 separate hooks CLI subcommands and <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers. Zero-overhead dispatch across editing, tasks, sessions, and agent teams.</div></div>
+      <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">20 typed hook events (PreEdit, PostEdit, SessionStart...) in the registry/executor, plus <!-- doc-count:hooks-subcommands -->28<!-- /doc-count:hooks-subcommands --> separate hooks CLI subcommands and <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers. Zero-overhead dispatch across editing, tasks, sessions, and subagents.</div></div>
     </div>
     <div class="section-title reveal">Quick Install</div>
     <div class="code-block reveal"><span class="comment"># Install globally</span>
@@ -364,7 +364,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
 <span class="comment"># Verify tools are registered</span>
 <span class="cmd">claude mcp list</span></div>
     <div class="section-title reveal">3. Project Initialization</div>
-    <p class="reveal" style="color:var(--text2);margin-bottom:16px;font-size:14px;line-height:1.7;"><code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">npx monomind init</code> initializes every supported coding system: Claude Code, Antigravity, OpenCode, Kimi Code, and Codex. To initialize only one, use <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">--target &lt;system&gt;</code> with <code>claude</code>, <code>antigravity</code>, <code>opencode</code>, <code>kimicode</code>, or <code>codex</code>. The legacy <code>--codex</code>, <code>--opencode</code>, and <code>--kimicode</code> flags remain aliases.</p>
+    <p class="reveal" style="color:var(--text2);margin-bottom:16px;font-size:14px;line-height:1.7;"><code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">npx monomind init</code> initializes the coding systems it finds installed on your machine (Claude Code, Antigravity, OpenCode, Kimi Code and Codex are the options; Claude Code if none is found). To choose, use <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">--platforms claude,codex</code> or <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">--all-platforms</code>. To initialize only one, use <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">--target &lt;system&gt;</code> with <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">claude</code>, <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">antigravity</code>, <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">opencode</code>, <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">kimicode</code>, or <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">codex</code>. The legacy <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">--codex</code>, <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">--opencode</code>, and <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">--kimicode</code> flags remain aliases.</p>
     <div class="code-block reveal"><span class="cmd">cd your-project</span>
 <span class="cmd">npx monomind init</span>
 <span class="comment"># Interactive wizard: topology, memory backend, hooks</span>
@@ -419,7 +419,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="page-header">
       <span class="page-tag">Architecture</span>
       <h1 class="page-title">How Monomind is built</h1>
-      <p class="page-desc">A TypeScript monorepo with 9 packages, each owning a bounded context (published individually, plus as the <code>monomind</code> umbrella from the repo root), plus an SDK-backed org runtime for persistent background agents. Claude Code's Task tool handles in-session execution; MCP tools coordinate; the org runtime drives its own real Agent SDK sessions.</p>
+      <p class="page-desc">A TypeScript monorepo with <!-- doc-count:packages -->9<!-- /doc-count:packages --> packages, each owning a bounded context (published individually, plus as the <code>monomind</code> umbrella from the repo root), plus an SDK-backed org runtime for persistent background agents. Claude Code's Task tool handles in-session execution; MCP tools coordinate; the org runtime drives its own real Agent SDK sessions.</p>
     </div>
     <div class="section-title reveal">System Diagram</div>
     <div class="arch-diagram reveal">
@@ -439,7 +439,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <rect class="arch-box" x="270" y="270" width="220" height="110" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
         <rect class="arch-box" x="530" y="270" width="220" height="110" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
         <text class="arch-label" x="120" y="62" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/cli</text>
-        <text class="arch-sub" x="120" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">39 commands</text>
+        <text class="arch-sub" x="120" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0"><!-- doc-count:cli-commands -->38<!-- /doc-count:cli-commands --> commands</text>
         <text class="arch-sub" x="120" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Entry point</text>
         <text class="arch-label" x="380" y="62" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monoes/hooks</text>
         <text class="arch-sub" x="380" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">20 hook events · <!-- doc-count:workers -->9<!-- /doc-count:workers --> workers</text>
@@ -479,14 +479,14 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <thead><tr><th>Package</th><th>Path</th><th>Purpose</th></tr></thead>
       <tbody>
         <tr><td class="mono">@monomind/cli</td><td class="mono">packages/@monomind/cli/</td><td>CLI entry point — <!-- doc-count:cli-commands -->38<!-- /doc-count:cli-commands --> commands, including <code>org</code> (org runtime, see <code>src/orgrt/</code>) and <code>catalog</code> (skill catalog lifecycle)</td></tr>
-        <tr><td class="mono">@monoes/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>20 typed hook events (registry/executor) + <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers; exposed via 29 <code>hooks</code> CLI subcommands</td></tr>
+        <tr><td class="mono">@monoes/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>20 typed hook events (registry/executor) + <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers; exposed via <!-- doc-count:hooks-subcommands -->28<!-- /doc-count:hooks-subcommands --> <code>hooks</code> CLI subcommands</td></tr>
         <tr><td class="mono">@monoes/memory</td><td class="mono">packages/@monomind/memory/</td><td>Memory backends — local SQLite with embedded vectors (default engine, local HF embeddings); a dormant pure-JS HNSW index is the scale-up path. LanceDB was removed 2026-07</td></tr>
         <tr><td class="mono">@monoes/mcp</td><td class="mono">packages/@monomind/mcp/</td><td>MCP server framework for explicit HTTP/WebSocket transports (<code>mcp start -t http|websocket</code>). The default stdio path (<code>claude mcp add ... mcp start</code>) uses a separate hand-rolled JSON-RPC loop in the CLI itself, not this package.</td></tr>
         <tr><td class="mono">@monoes/routing</td><td class="mono">packages/@monomind/routing/</td><td>Embedding-based route layer (keyword pre-filter → local embedding → cosine similarity → Haiku fallback), used by <code>route semantic</code>, <code>agent spawn --task</code> and <code>hooks_route_semantic</code> only after the central picker has no confident answer. <code>monomind pick</code>, <code>route task</code> and the <code>[PICK]</code> hook use the picker alone.</td></tr>
         <tr><td class="mono">monofence-ai</td><td class="mono">packages/monofence-ai/</td><td>AI manipulation defense — prompt injection, jailbreak, evasion detection</td></tr>
         <tr><td class="mono">monograph</td><td class="mono">packages/@monomind/monograph/</td><td>Code knowledge graph — 19 default MCP tools, 27 advanced via <code>MONOGRAPH_MCP_ADVANCED=1</code> — published standalone as <code>@monoes/monograph</code></td></tr>
         <tr><td class="mono">@monoes/monobrowse</td><td class="mono">packages/@monoes/monobrowse/</td><td>Browser automation via CDP</td></tr>
-        <tr><td class="mono">@monoes/monodesign</td><td class="mono">packages/@monoes/monodesign/</td><td>Frontend design intelligence v1.2.4 — design tokens + 51-rule antipattern detector (slop/quality/performance/accessibility). Sole design agent — 8 retired agents consolidated into it. Produces image prompts, not images (image generation is the separate <code>monoagent-image</code> skill).</td></tr>
+        <tr><td class="mono">@monoes/monodesign</td><td class="mono">packages/@monoes/monodesign/</td><td>Frontend design intelligence — design tokens + 51-rule antipattern detector (slop/quality/performance/accessibility). Sole design agent — 8 retired agents consolidated into it. Produces image prompts, not images (image generation is the separate <code>monoagent-image</code> skill).</td></tr>
         <tr><td class="mono">monomind</td><td class="mono">/ (root)</td><td>Umbrella package published to npm</td></tr>
       </tbody>
     </table>
@@ -640,7 +640,7 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="page-header">
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Hooks &amp; Workers</h1>
-      <p class="page-desc"><!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers, a pattern store that logs edits, task outcomes and session trajectories to local JSON files, and hook dispatch through 29 <code>hooks</code> CLI subcommands (a curated 17 shown below) built on 20 internally typed hook events (<code>PreEdit</code>, <code>PostEdit</code>, <code>SessionStart</code>...). Workers run in-process at session start — there is no separate daemon.</p>
+      <p class="page-desc"><!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers, a pattern store that logs edits, task outcomes and session trajectories to local JSON files, and hook dispatch through <!-- doc-count:hooks-subcommands -->28<!-- /doc-count:hooks-subcommands --> <code>hooks</code> CLI subcommands (a curated 17 shown below) built on 20 internally typed hook events (<code>PreEdit</code>, <code>PostEdit</code>, <code>SessionStart</code>...). Workers run in-process at session start — there is no separate daemon.</p>
     </div>
     <div class="section-title reveal">Hook Commands</div>
     <p class="reveal" style="color:var(--text2);font-size:13.5px;margin-bottom:12px;max-width:720px">These are <code>hooks</code> CLI subcommands (invoke as <code>npx monomind hooks &lt;name&gt;</code>) — a curated subset of the full 29. They aren't a 1:1 list of the 20 typed <code>HookEvent</code> registry/executor events (e.g. <code>PreEdit</code>/<code>PostEdit</code>); some rows below, like the intelligence and teams commands, are separate CLI/Claude-Code mechanisms rather than registry events.</p>
@@ -1286,7 +1286,7 @@ Session N: empty round (zero findings AND zero actions)
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>ADRs tab:</strong> ADRs are created via the slash command or discovered automatically from existing ADR files:</p>
     <div class="code-block reveal"><span class="cmd">/mastermind:adr</span>    <span class="comment"># draft an ADR from accumulated decision markers in the codebase</span></div>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Swarm tab:</strong> reflects Task-tool subagent activity, not org runtime activity. For a running <code>monomind org run</code> org, watch its own live dashboard instead:</p>
-    <div class="code-block reveal"><span class="cmd">monomind org run &lt;name&gt;</span>    <span class="comment"># live view at http://localhost:4243</span></div>
+    <div class="code-block reveal"><span class="cmd">monomind org run &lt;name&gt;</span>    <span class="comment"># live view at http://localhost:4242</span></div>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Chunks tab:</strong> Chunks are built by indexing your project's documentation and skill files:</p>
     <div class="code-block reveal"><span class="comment"># From the dashboard: click "⊕ Build Docs" in the Chunks tab</span>
 
@@ -1296,7 +1296,7 @@ Session N: empty round (zero findings AND zero actions)
 
     <!-- ORGS -->
     <div class="section-title reveal">Orgs</div>
-    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Run agent organizations via the org runtime daemon (live dashboard on :4243, separate from this :4242 dashboard):</p>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Run agent organizations via the org runtime daemon (the live view is the Orgs page of this same :4242 dashboard):</p>
     <div class="code-block reveal"><span class="cmd">monomind org run &lt;name&gt;</span>    <span class="comment"># start an org — real Claude Agent SDK sessions per role</span>
 <span class="cmd">monomind org status / list / stop</span>    <span class="comment"># check, list, or stop</span>
 
@@ -1828,14 +1828,14 @@ You are an API contract reviewer. ...</div>
   <div class="orgs-hero-grid"></div>
   <div class="orgs-eyebrow">Autonomous Organizations</div>
   <h1 class="orgs-title">Assemble an AI team.<br>Let it <em>run itself.</em></h1>
-  <p class="orgs-sub">Define an org as a JSON file — roles, hierarchy, per-role policy — then start it as a real SDK-backed daemon. Live WebSocket dashboard, cross-process discovery, persistent memory, and policy-gated tool access, all real and running today.</p>
+  <p class="orgs-sub">Define an org as a JSON file — roles, hierarchy, per-role policy — then start it as a real SDK-backed daemon. Live dashboard (server-sent events), cross-process discovery, persistent memory, and policy-gated tool access, all real and running today.</p>
   <div class="orgs-hero-cmds">
     <div class="orgs-cmd"><span class="oc-prompt">$</span>&nbsp;<span class="oc-name">monomind org run</span>&nbsp;<span class="oc-arg">content-team --task "..."</span>&nbsp;<span class="oc-cmt"># start it</span></div>
     <div class="orgs-cmd"><span class="oc-prompt">$</span>&nbsp;<span class="oc-name">monomind org status</span>&nbsp;<span class="oc-arg">content-team</span>&nbsp;<span class="oc-cmt"># check it</span></div>
   </div>
   <div class="orgs-badges">
     <span class="obadge ob-a">Real SDK sessions</span>
-    <span class="obadge ob-b">Live dashboard :4243</span>
+    <span class="obadge ob-b">Live dashboard :4242</span>
     <span class="obadge ob-c">Memory-backed</span>
     <span class="obadge ob-a">Policy-gated</span>
     <span class="obadge ob-b">Cross-process</span>
@@ -1860,13 +1860,13 @@ You are an API contract reviewer. ...</div>
       <div class="hc-num">02</div>
       <div class="hc-cmd">monomind org run &lt;name&gt;</div>
       <div class="hc-title">Start the daemon</div>
-      <p class="hc-desc">OrgDaemon loads the definition, starts a real Agent SDK session per role, and serves a live WebSocket dashboard. Every tool call is checked against that role's PolicyEngine gates.</p>
+      <p class="hc-desc">OrgDaemon loads the definition, starts a real Agent SDK session per role, and serves a live dashboard. Every tool call is checked against that role's PolicyEngine gates. The first start asks you to review and sign the org (<code>monomind org sign &lt;name&gt;</code> does it ahead of time for unattended runs).</p>
     </div>
     <div class="how-cell">
       <div class="hc-num">03</div>
-      <div class="hc-cmd">http://localhost:4243</div>
+      <div class="hc-cmd">http://localhost:4242</div>
       <div class="hc-title">Watch it run</div>
-      <p class="hc-desc">Live feed of agent chat, inter-agent messages, tool calls with allow/deny decisions, and files written — streamed over WebSocket, no polling.</p>
+      <p class="hc-desc">Live feed of agent chat, inter-agent messages, tool calls with allow/deny decisions, and files written — streamed over server-sent events, no polling.</p>
     </div>
   </div>
 </div>
@@ -1889,7 +1889,7 @@ You are an API contract reviewer. ...</div>
         <span class="tl ti">&nbsp;&nbsp;<span class="t-k">"roles"</span>: [</span>
         <span class="tl ti">&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="t-k">"id"</span>: <span class="t-v">"boss"</span>, <span class="t-k">"type"</span>: <span class="t-v">"boss"</span>, <span class="t-k">"reports_to"</span>: <span class="t-v">null</span> },</span>
         <span class="tl ti">&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="t-k">"id"</span>: <span class="t-v">"writer"</span>, <span class="t-k">"reports_to"</span>: <span class="t-v">"boss"</span>,</span>
-        <span class="tl ti">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-k">"policy"</span>: { <span class="t-k">"denyTools"</span>: [<span class="t-v">"bash"</span>] } },</span>
+        <span class="tl ti">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-k">"policy"</span>: { <span class="t-k">"denyTools"</span>: [<span class="t-v">"Bash"</span>] } },</span>
         <span class="tl ti">&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="t-k">"id"</span>: <span class="t-v">"seo"</span>, <span class="t-k">"reports_to"</span>: <span class="t-v">"boss"</span> }</span>
         <span class="tl ti">&nbsp;&nbsp;]</span>
         <span class="tl">}</span>
@@ -1910,9 +1910,9 @@ You are an API contract reviewer. ...</div>
 
 <!-- live dashboard -->
 <div class="orgs-section alt">
-  <div class="osec-label">Live dashboard — :4243</div>
+  <div class="osec-label">Live dashboard — :4242</div>
   <h2 class="osec-title">Watch the org run, live</h2>
-  <p class="osec-sub">A real WebSocket feed, not a polling API: agent status, chat and inter-agent messages, and every tool call's policy decision, streamed as they happen.</p>
+  <p class="osec-sub">A live server-sent-events stream, not a polling API: agent status, chat and inter-agent messages, and every tool call's policy decision, streamed as they happen.</p>
   <div class="run-split">
     <div>
       <div style="font-family:var(--ff-d);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;">Agents</div>
@@ -1933,7 +1933,7 @@ You are an API contract reviewer. ...</div>
           <span class="tl"><span class="t-k">boss</span>/<span class="t-v">boss</span>: assigning "Draft: Claude Code vs Cursor" to writer</span>
           <span class="tl"><span class="t-k">writer</span> <span class="t-v">write_file</span> <span style="color:var(--accent)">allow</span></span>
           <span class="tl"><span class="t-k">writer</span> 📄 <b>drafts/claude-vs-cursor.md</b></span>
-          <span class="tl"><span class="t-k">seo</span> <span class="t-v">bash</span> <span style="color:#f85149">deny</span> — denyTools: bash</span>
+          <span class="tl"><span class="t-k">seo</span> <span class="t-v">Bash</span> <span style="color:#f85149">deny</span> — denyTools: Bash</span>
           <span class="tl">⇄ <span class="t-k">content-team/boss</span> → <span class="t-v">growth-org/lead</span> [handoff] draft ready for review</span>
         </div>
       </div>
@@ -2424,7 +2424,7 @@ function renderOCase(idx) {
   if (!rolesEl) return;
   rolesEl.innerHTML = c.roles.map(r => `<div class="ocd-role"><div class="ocdr-d" style="background:${c.color}"></div><div><div class="ocdr-n">${r.t}</div><div class="ocdr-t">${r.y}</div></div></div>`).join('');
   termTtl.textContent = c.org;
-  termBd.innerHTML = `<span class="tl"><span class="t-p">$ </span><span class="t-c">monomind org run</span> <span class="t-a">${c.org}</span> <span class="t-m">--task "${c.goal}"</span></span><span class="tl">&nbsp;</span><span class="tl"><span class="t-s">✓</span> Loaded .monomind/orgs/${c.org}.json</span><span class="tl"><span class="t-s">✓</span> Live dashboard: http://localhost:4243</span><span class="tl">&nbsp;</span><span class="tl ti"><span class="t-k">boss</span> <span class="t-o">session started</span></span>${c.roles.slice(1).map(r => `<span class="tl ti"><span class="t-k">${r.y}</span> <span class="t-o">session started</span></span>`).join('')}<span class="tl">&nbsp;</span><span class="tl t-o">&nbsp;&nbsp;memory: org:${c.org}</span><span class="tl">&nbsp;</span><span class="tcur"></span>`;
+  termBd.innerHTML = `<span class="tl"><span class="t-p">$ </span><span class="t-c">monomind org run</span> <span class="t-a">${c.org}</span> <span class="t-m">--task "${c.goal}"</span></span><span class="tl">&nbsp;</span><span class="tl"><span class="t-s">✓</span> Loaded .monomind/orgs/${c.org}.json</span><span class="tl"><span class="t-s">✓</span> Live dashboard: http://localhost:4242</span><span class="tl">&nbsp;</span><span class="tl ti"><span class="t-k">boss</span> <span class="t-o">session started</span></span>${c.roles.slice(1).map(r => `<span class="tl ti"><span class="t-k">${r.y}</span> <span class="t-o">session started</span></span>`).join('')}<span class="tl">&nbsp;</span><span class="tl t-o">&nbsp;&nbsp;memory: org:${c.org}</span><span class="tl">&nbsp;</span><span class="tcur"></span>`;
 }
 
 document.querySelectorAll('[data-ocase]').forEach(card => {

@@ -11,7 +11,7 @@ cd your-project
 monomind init --target codex
 ```
 
-Plain `monomind init` initializes every supported coding system. The `--target codex` form writes only the Codex integration. The legacy `--codex` flag is an alias.
+Plain `monomind init` sets up the coding systems it finds installed (`codex` on your `PATH`, or `~/.codex` / `$CODEX_HOME`); see [Getting Started](../getting-started.md#step-2-initialize-your-project). The `--target codex` form writes only the Codex integration. The legacy `--codex` flag is an alias.
 
 ## Generated files
 

@@ -1,6 +1,5 @@
 # Routing Subsystem
 
-> **Version 2.9.0**  
 > Routing in Monomind answers one question: which agent (and which skill) fits this task. Every selector asks the same **central picker** — one index of registry agents and skills, ranked by the Jev decision model when one is configured and by a BM25-style keyword ranker otherwise. The prompt hook delivers its answer to Claude as a `[PICK]` line, the `pick` MCP tool and `monomind pick` return it on request, and `hooks_route`, `hooks_pre-task`, `hooks_explain`, `route task` and `guidance_recommend` are wrappers over it. The embedding-based route layer (`@monoes/routing`: regex pre-filter, cosine similarity, Haiku fallback) runs only for `route semantic`, `hooks_route_semantic` and `agent spawn --task`, and only after the picker has no confident answer.
 >
 > Where agents, skills and Org skills live, their frontmatter and how to add one are on [Agents & Skills](./agents-and-skills.md); this page is the mechanism.

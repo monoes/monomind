@@ -1,6 +1,6 @@
 # Kimi Code
 
-> Monomind runs on [Kimi Code](https://www.kimi.com/code/) alongside Claude Code, Antigravity, OpenCode, and Codex. Plain `monomind init` initializes every supported system; `monomind init --target kimicode` initializes only Kimi Code.
+> Monomind runs on [Kimi Code](https://www.kimi.com/code/) alongside Claude Code, Antigravity, OpenCode, and Codex. `monomind init` sets up the coding systems it finds installed; `monomind init --target kimicode` initializes only Kimi Code.
 
 ---
 
@@ -12,7 +12,7 @@ cd your-project
 monomind init --target kimicode # emits .kimi-code/ + AGENTS.md
 ```
 
-Open the project in Kimi Code. The monomind MCP server (knowledge graph, memory, swarm tools) is wired in via `.kimi-code/mcp.json`, and `monomind doctor --fix` confirms health.
+Open the project in Kimi Code. The monomind MCP server (knowledge graph, memory, picking and design tools) is wired in via `.kimi-code/mcp.json`, and `monomind doctor --fix` confirms health.
 
 For slash commands and security gates, install the generated plugin once:
 
@@ -21,7 +21,7 @@ For slash commands and security gates, install the generated plugin once:
 /reload
 ```
 
-`--target kimicode` is the single-system mode. Plain `monomind init` also emits Kimi Code artifacts alongside the other supported coding systems. The legacy `--kimicode` flag remains an alias for `--target kimicode`.
+`--target kimicode` is the single-system mode. `monomind init` also emits Kimi Code artifacts when `kimi` is on your `PATH` or `~/.kimi` / `~/.kimi-code` exists. The legacy `--kimicode` flag remains an alias for `--target kimicode`.
 
 ---
 
@@ -71,7 +71,7 @@ MONOMIND_RUNTIME=kimicode monomind org run <name> --task "..."
 
 Kimi Code artifacts are additive and isolated from the other platform configs:
 
-- `monomind init` emits Kimi Code by default; use `--target kimicode` when only Kimi Code should be initialized.
+- `monomind init` emits Kimi Code when Kimi Code is detected; use `--target kimicode` when only Kimi Code should be initialized.
 - Kimi reads `.kimi-code/` and `AGENTS.md`; Claude Code reads `.claude/`; Antigravity reads `.gemini/`; opencode reads `opencode.json` + `.opencode/`. They never touch each other's files.
 - The gate bridge only **spawns** monomind's existing `.claude/helpers/hook-handler.cjs` unchanged — it never edits it, so Claude Code's own hook path is unaffected. When the handler is absent, the bridge fails open (allows), matching both platforms' "hook errors never block" policy.
 - The org runner is only constructed when `MONOMIND_RUNTIME=kimicode` is set; there is no new package dependency (it shells out to the `kimi` binary).
