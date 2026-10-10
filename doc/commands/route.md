@@ -1,6 +1,5 @@
 # `monomind route` Command Reference
 
-> **Version 2.9.0**  
 > CLI reference for `monomind route` subcommands. Task routing maps developer tasks to registry agents through the central picker (`route task`, the default — the same ranking as `monomind pick` and the `pick` MCP tool), 256-D vector cosine similarity (`RouteLayer`, via `route semantic` — deprecated), and coverage gap analysis (`route coverage`) — backed by an outcome-tracking ledger (`route stats`/`feedback`) that measures routing accuracy over time. There is no reinforcement learning of any kind: no Q-table, no epsilon exploration, no learned state-action values. `route task` is `monomind pick --agents` ([`routing/agent-pick.ts → pickForTask`](packages/@monomind/cli/src/routing/agent-pick.ts#pickForTask)); the outcome-ledger subcommands still use `createKeywordRouter` (`monovector/index.ts`).
 
 ---
@@ -114,7 +113,7 @@ monomind route feedback -t "write tests" -a tester -r -0.5
   - `-t, --task <string>`: Task description context (**required**).
   - `-a, --agent <id>`: Agent ID that executed the task (**required**).
   - `-r, --reward <number>`: Reward value between `-1.0` and `1.0` (default: `0.8`).
-  - `-n, --next-task <string>`: Accepted but currently has no effect — threaded through to `KeywordRouter.update()` (`monovector/index.ts:127`), whose implementation takes only `task`/`agentId`/`reward` and never stores or reads `nextTask` in the TS source. Not wired to any multi-step-learning behavior.
+  - `-n, --next-task <string>`: Accepted but currently has no effect — threaded through to `KeywordRouter.update()` (`monovector/index.ts`), whose implementation takes only `task`/`agentId`/`reward` and never stores or reads `nextTask` in the TS source. Not wired to any multi-step-learning behavior.
 
 ---
 
@@ -140,7 +139,7 @@ monomind route coverage --gaps
 
 All four operate on the same route-outcomes ledger (`route-outcomes.jsonl`). The pick prior's aggregate, `.monomind/pick-stats.json`, is separate: these commands neither export nor clear it (inspect it with `monomind pick --explain` or `doctor -c pick`).
 
-- `monomind route stats`: Displays outcome count, accuracy, adherence, and trend (recent-half vs. prior-half accuracy), split by native/JS backend (`KeywordRouterStats`, `monovector/index.ts:66-72`).
+- `monomind route stats [-j]`: Displays outcome count, accuracy, adherence, and trend (recent-half vs. prior-half accuracy), split by native/JS backend (`KeywordRouterStats`, `monovector/index.ts`).
 - `monomind route reset [-f]`: Clears the route-outcomes history file. In an interactive session this requires `--force` to skip a confirmation warning; non-interactive runs (e.g. CI) proceed without it.
 - `monomind route export [-f <file.json>]`: Exports route-outcome history as JSON — to stdout, or to a file (path must resolve inside the project directory and end in `.json`).
 - `monomind route import -f <file.json>`: Imports route-outcome history from JSON (enforces a 50MB file size limit and the same path containment / `.json`-extension checks as export).

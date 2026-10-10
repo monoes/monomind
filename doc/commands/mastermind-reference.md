@@ -25,6 +25,10 @@ Mastermind is a command namespace for high-level autonomous operations. Each com
 
 Mode flags (`--auto` / `--confirm`) are parsed per command, not universally — e.g. `review`, `plan`, `execute`, `debug`, `createorg`.
 
+### Which commands `init` installs
+
+`monomind init` installs the core pack of commands: `/mastermind`, `/mastermind:do`, `review`, `plan`, `execute`, `debug`, `design`, `research`, `idea`, `worktree`, `receive-review`, `createtask`, `ideate`, `improve`, `repeat` and `help`. The `orgs` pack adds `createorg`, `runorg`, `stoporg`, `orgs`, `orgstatus`, `budget`, `loops`, `memory` and `specialagents`. The `business` pack adds `marketing`, `sales`, `finance`, `content` and `ops`. The `extras` pack adds `adr`, `brain`, `code-review`, `graph-status`, `master`, `okf-export`, `okf-import`, `release`, `skill-builder`, `techport` and `understand`. Add a pack with `monomind init --packs <name>` or `monomind packs add <name>`; `monomind packs list` shows what each contains.
+
 ---
 
 ## `/mastermind` (no namespace)
@@ -42,7 +46,7 @@ Mode flags (`--auto` / `--confirm`) are parsed per command, not universally — 
 
 ### `/mastermind:review`
 
-**Purpose:** Iterative code review until clean.
+**Purpose:** Review code, security, content or strategy, or "review this session" / "review this worktree"; `--tillend` loops find-fix-verify until clean. `/mastermind:code-review` is the multi-agent iterative variant: it runs parallel reviewers each round, auto-fixes what it can, and appends items that need human judgment to a dated `humaninloopreview-YYYY-MM-DD.md` in the project root.
 
 ```
 /mastermind:review review the auth module
@@ -51,10 +55,9 @@ Mode flags (`--auto` / `--confirm`) are parsed per command, not universally — 
 ```
 
 **What it does:**
-- Runs reviewer + Security Engineer + Reality Checker in parallel
-- Auto-fixes findings
-- Writes human-in-loop items to `humaninloopreview-YYYY-MM-DD.md` for decisions requiring human input
-- Repeats until zero findings (with `--tillend`)
+- Spawns specialist reviewers for the target (code, security, content or strategy) and collects their findings
+- Default mode is `auto`: fixable findings (bugs, style problems, security issues with a clear fix) are fixed in the same run; design questions and trade-offs are reported, not acted on. `--confirm` asks which findings to fix instead
+- With `--tillend`, repeats find, fix, verify until a round comes back empty (confirmed by `git diff`)
 
 ---
 
@@ -80,6 +83,39 @@ Mode flags (`--auto` / `--confirm`) are parsed per command, not universally — 
 
 ---
 
+### Planning and execution
+
+| Command | Purpose |
+|---|---|
+| `/mastermind:design` | Design session: explore intent, clarify requirements, compare approaches and get a spec approved before implementation. |
+| `/mastermind:plan` | Write a comprehensive implementation plan from a spec or requirements; saved to `docs/mastermind/plans/`. |
+| `/mastermind:execute` | Execute a written implementation plan step by step, with review checkpoints and a finishing handoff. |
+| `/mastermind:debug` | Root-cause debugging before any fix: bugs, test or build failures, regressions. |
+| `/mastermind:receive-review` | Evaluate code review feedback with technical rigor: verify before implementing, ask about unclear items, push back when warranted. |
+| `/mastermind:worktree` | Set up an isolated git worktree for feature work or before executing a plan. |
+| `/mastermind:createtask` | Turn a prompt, file or folder into agent-ready tasks in `docs/tasks/`, or on a monotask board with `--monotask`. |
+| `/mastermind:do` | Execute tasks from `docs/tasks/` or a monotask board in parallel, minimal or sequential agent modes, with review cycles. |
+| `/mastermind:ideate` | Research and evaluate ideas from a prompt, then split them into subtasks in `docs/ideas/` or a monotask board. |
+| `/mastermind:improve` | Analyze a component, research improvements, and write improvement tasks to `docs/improvements/` or a monotask board. |
+| `/mastermind:adr` | Draft an Architecture Decision Record from the decision markers accumulated in this session's prompts. |
+| `/mastermind:skill-builder` | Create, edit or verify mastermind skills with the test-first cycle for docs. |
+| `/mastermind:repeat` | Repeat a prompt or slash command on a schedule (default every 15 minutes, 10 times); the loop wrapper behind `--repeat` and `--tillend`. |
+
+### Memory, graph and status
+
+| Command | Purpose |
+|---|---|
+| `/mastermind:memory` | Store, search, retrieve, list and delete cross-session memory (local SQLite with vector embeddings). |
+| `/mastermind:brain` | Inspect, compact, refresh and control the three-tier business memory (memory store plus Monograph). |
+| `/mastermind:understand` | Run semantic enrichment on the project's Monograph graph, using the active Claude Code session for the LLM work (no API key). |
+| `/mastermind:graph-status` | One-line graph stats: nodes, edges, freshness, usage. |
+| `/mastermind:budget` | Show budget status: today, month, limits, whether autotuning is on. |
+| `/mastermind:loops` | List active loops with command, type, run count and human-in-the-loop status. |
+| `/mastermind:specialagents` | Activate a specialist agent persona: browse by category, activate by slug, or auto-select from the conversation. |
+| `/mastermind:help` | Overview of the mastermind skills, CLI subcommands and MCP tools available in this session. |
+
+---
+
 ## Business & Strategy
 
 ### `/mastermind:idea`
@@ -93,7 +129,7 @@ Mode flags (`--auto` / `--confirm`) are parsed per command, not universally — 
 
 ---
 
-### `/mastermind-goals` / `/mastermind:ops`
+### `/mastermind:ops`
 
 **Purpose:** Operations planning and tracking.
 
@@ -178,6 +214,14 @@ Approve or deny a role's pending tool request with `monomind org approve <org> <
 
 ---
 
+### `/mastermind:stoporg`, `/mastermind:orgs`, `/mastermind:orgstatus`
+
+`/mastermind:stoporg` stops a running org by wrapping `monomind org stop`; the daemon polls the stop file and exits within about 2 seconds. `/mastermind:orgs` lists every saved org with its runtime status, schedule and last run time, and flags crashed runs and config files still in the legacy format. `/mastermind:orgstatus <org>` shows one org in detail: runtime state, schedule, config health, pending approvals, recent activity and roles.
+
+An org must carry an operator signature before it runs. `/mastermind:createorg` runs `monomind org sign` without `--yes`, shows you the review and asks you to sign in your own terminal; see [`org sign`](org.md#sign).
+
+---
+
 ### `/mastermind:release`
 
 **Purpose:** Manage a software release.
@@ -196,6 +240,19 @@ Approve or deny a role's pending tool request with `monomind org approve <org> <
 ```
 /mastermind:master
 ```
+
+---
+
+## Portable workflows: `monomind mastermind`
+
+Platforms without native skills (Antigravity, Codex, OpenCode, Kimi Code) read the same workflows through the CLI.
+
+```bash
+monomind mastermind --list              # canonical workflows and their aliases
+monomind mastermind run plan --print    # print one workflow package to stdout
+```
+
+`--list` shows ten workflows: `mastermind` (alias `router`, `master`), `idea`, `design`, `plan`, `review`, `debug`, `research`, `execute`, `org` (aliases `organization`, `orgs`) and `memory`. `--print` prints the selected workflow package.
 
 ---
 

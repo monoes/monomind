@@ -57,7 +57,7 @@ Start an org in the **foreground**. If a live `org serve` daemon is detected (vi
 the task is sent as a runfile to the daemon instead of competing with it.
 
 ```bash
-monomind org run <name> [--task "..."] [--resume] [--no-cross-process] [--dry-run] [--budget-usd <n>] [--yes] [--auto-approve <tools>]
+monomind org run <name> [--task "..."] [--resume] [--no-cross-process] [--dry-run] [--budget-usd <n>] [--yes] [--auto-approve <tools>] [--claude-path <path|bundled>]
 ```
 
 | Flag | Purpose |
@@ -65,10 +65,13 @@ monomind org run <name> [--task "..."] [--resume] [--no-cross-process] [--dry-ru
 | `--task "..."` | Override the org's `goal` for this run |
 | `--resume` | Resume from the org's persisted checkpoint instead of starting fresh |
 | `--cross-process` | Register with broker for cross-daemon `org_send` delivery (default on; `--no-cross-process` disables) |
-| `--dry-run` | Validate config and print plan without starting |
+| `--dry-run` | Validate the config and print each role's briefing without starting any agent session |
 | `--budget-usd <n>` | Abort before any session starts if the upfront cost estimate exceeds `n` USD |
 | `--yes`, `-y` | Skip the interactive cost-estimate confirmation (only asked on a TTY). It does not approve tool calls |
+| `--claude-path <path\|bundled>` | The operator's choice of Claude Code binary for Claude roles: an absolute file, or `bundled` to use the SDK's own. It overrides `MONOMIND_CLAUDE_PATH` and `monomind config set claude.path`. An untrusted home or config directory that names no `claude.path` is no choice (one warning), not a failure |
 | `--auto-approve <tools>` | Comma-separated tools every role may call without human approval for this run only, e.g. `org_complete` for an unattended one-shot `--task` run. Adds to each role's `policy.autoApproveTools`; other gated tools still wait. A name no role gates (not `Bash`, `WebFetch`, `WebSearch`, `org_complete` or a role's `approvalTools`) is refused, so a typo can't leave the run waiting. Also refused when an `org serve` daemon owns the project |
+
+A definition with a `sections` block starts like any other org. Each section runs as its own sub-org with its own roles, budget and lifecycle, and the only channel between sections is the shared document store. An org that still sets `run_config.experimental: "eval"` keeps the old behavior: `org run` and `org serve` refuse it and only the eval harness starts it. The `sections` schema is described in [Org Runtime](../concepts/org-runtime.md).
 
 The org's definition must carry a valid operator signature (see [`sign`](#sign)). An org that has
 never been signed gets a one-time review-and-sign prompt on a TTY; otherwise `run` exits 1 with the
@@ -173,17 +176,18 @@ Detects stale PIDs (process no longer alive).
 Long-running daemon that hosts **all scheduled orgs** and responds to runfiles/stopfiles.
 
 ```bash
-monomind org serve [--no-cross-process]
+monomind org serve [--no-cross-process] [--claude-path <path|bundled>]
 ```
 
 | Flag | Purpose |
 |---|---|
+| `--claude-path <path\|bundled>` | Same as on [`run`](#run): the operator's Claude Code binary for Claude roles |
 | `--cross-process` | Register hosted orgs with the broker for cross-daemon delivery (default on; `--no-cross-process` disables) |
 
 - Polls stopfiles every 2 seconds (`pollStopfiles()`).
 - Polls runfiles every 2 seconds (`pollRunfiles()`).
 - Writes heartbeat to `serve-heartbeat.json` every 30 seconds.
-- Runs `OrgScheduler` for orgs with a `schedule` field.
+- Runs `OrgScheduler` for orgs with a `schedule` field. Every scheduled start is a fresh run with its own run id, through the same start path as a manual one, so the signature check, host preflight and daemon lock apply. A tick that cannot start (a refused precheck or preflight), lands on a run that is already live, or lands mid-run appends a line to `<org dir>/schedule-audit.jsonl`. A sections org may be scheduled, unless it declares `run_config.experimental: "eval"`.
 
 **Source:** [`commands/org-serve.ts → serveAction`](packages/@monomind/cli/src/commands/org-serve.ts#serveAction)
 
@@ -242,8 +246,8 @@ monomind org logs <name> [options]
 | `--filter-tool <name>` | Show only tool events for this tool |
 | `--filter-role <id>` | Show only events from this role |
 | `--tools-only` | Show only `tool` type events |
-| `--audit-filter` | Show only `audit` events |
-| `--follow` | Follow live (like `tail -f`) |
+| `--audit-filter allow\|deny` | Show only tool events with that audit decision |
+| `--follow`, `-f` | Follow live (like `tail -f`) |
 
 ---
 
@@ -312,11 +316,12 @@ monomind org report <name> [options]
 | Flag | Purpose |
 |---|---|
 | `--run <run-id>` | Report on a specific run |
-| `--all` | Report across all runs |
-| `--by-role` | Break down by role |
-| `--audit` | Include audit events |
-| `--tool` | Include tool summary |
-| `--format json\|table` | Output format |
+| `--all` | List all recorded runs from history |
+| `--by-role` | Per-role cost breakdown |
+| `--context` | Per-role context size and prefix-cache read versus write per model call, from the run's `context.jsonl`: calls, sessions, mean and max context, cache hit ratio and the session-start cache split |
+| `--audit` | Show the tool audit trail |
+| `--tool <name>` | With `--audit`, only that tool |
+| `--format mermaid\|json` | `mermaid` prints a flowchart; `json` prints the report as JSON (also for `--context`) |
 
 Each role's line shows its total tokens, split into input+output and cache tokens, and — when the org config is readable — how much of its token budget it has used. That percentage is computed on the basis `budget_tokens` is enforced on: input+output by default, or the full billable total (cache included) when `run_config.budget_tokens_basis` is `"billable"`. A role is marked `near limit` at 80% and `EXHAUSTED` at 100% of that basis.
 
@@ -336,6 +341,7 @@ monomind org memory <name> <subcommand>
 | `search <query>` | Semantic search of cross-run memory |
 | `rules` | List up to 50 stored "when X do Y" rules |
 | `rollback <run-ref>` | Undo all memory written by a specific run |
+| `promote <run-ref>` | Share one run's claims with project-wide knowledge; the output names the origin ref that withdraws the promotion |
 
 **Source:** [`commands/org-memory-command.ts → memorySubcommand`](packages/@monomind/cli/src/commands/org-memory-command.ts#memorySubcommand)
 
@@ -358,6 +364,8 @@ monomind org skills import <owner/repo | git-url | path> [--global | --into <dir
 | `search` | Keyword-ranks name, tags and description (a name or tag hit weighs more); when a Jev decision model is configured it re-ranks the shortlist and each hit shows its probability |
 | `show` | One skill: description, tags, `tools`, license, source and origin, reference files and the full body. The same content as the `org_skill_show` MCP tool |
 | `import` | Copies a repository's skills into `.monomind/org-skills` (`--global`: `~/.monomind/org-skills`; `--into`: any directory). Only MIT and Apache-2.0 skills are imported; others are listed as skipped |
+
+The bundled set includes skills imported with `import` from `anthropics/knowledge-work-plugins` (Apache-2.0 and MIT, `.md` files only). Each one records its licence, source repository, path and commit; `show` prints them. Where a name clashes with an older bundled skill, the imported version replaces it (`content-strategy`, `customer-research`, `design-system`, `seo-audit`, `statistical-analysis`).
 
 `--format json` prints JSON for every verb. `monomind org validate` fails on a `skills` or `skill_pool` entry that names no skill, or a `tag:` selector that matches none.
 
