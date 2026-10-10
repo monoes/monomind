@@ -35,8 +35,8 @@ Monomind is an **open-source CLI and MCP server** that plugs into Claude Code, [
 
 - **Codebase knowledge graph** — tree-sitter parses your code into a SQLite-backed graph of files, functions, classes, and their relationships. Query imports, callers, and blast radius before making changes.
 - **Persistent memory** — a JSON pattern store with episodic recall that survives across sessions. Agents and orgs share context without re-prompting.
-- **Multi-agent coordination** — in-session, spawn ad-hoc agent teams via Claude Code's Task tool; for persistent background work, `monomind org run` starts a real SDK-backed daemon with policy-gated role agents and a live dashboard.
-- **Agents, skills and picking** — ships <!-- doc-count:pickable-agents -->83<!-- /doc-count:pickable-agents --> pickable agents, <!-- doc-count:pickable-skills -->82<!-- /doc-count:pickable-skills --> skills and <!-- doc-count:org-skills -->560<!-- /doc-count:org-skills --> Org skills, and you add your own as Markdown files. One index of all of them ranks the best fit for each task; the prompt hook puts it in Claude's context as a `[PICK]` line, and `monomind pick` or the `pick` MCP tool return it on request. See [Agents & Skills](doc/concepts/agents-and-skills.md) and [Routing](doc/concepts/routing.md).
+- **Multi-agent coordination** — in-session, spawn ad-hoc agent teams via Claude Code's Task tool; for persistent background work, `monomind org run` starts a real SDK-backed daemon with policy-gated role agents and a live dashboard. Roles can run on Claude or on other installed coding agents (see [Agent runtimes](#agent-runtimes)).
+- **Agents, skills and picking** — ships <!-- doc-count:pickable-agents -->83<!-- /doc-count:pickable-agents --> pickable agents, <!-- doc-count:pickable-skills -->82<!-- /doc-count:pickable-skills --> skills and <!-- doc-count:org-skills -->560<!-- /doc-count:org-skills --> Org skills, and you add your own as Markdown files. One index of all of them ranks the best fit for each task, by keyword or, when you configure one, with a Jev decision model (`MONOMIND_JEV_URL` for a self-hosted OpenJev server). The prompt hook puts the result in Claude's context as a `[PICK]` line, and `monomind pick` or the `pick` MCP tool return it on request. See [Agents & Skills](doc/concepts/agents-and-skills.md) and [Routing](doc/concepts/routing.md).
 - **Reusable slash commands** — <!-- doc-count:mastermind-commands -->40<!-- /doc-count:mastermind-commands --> workflows (plan, execute, review, debug, release, research, worktree) available as `/mastermind:*` commands inside Claude Code.
 
 ```bash
@@ -47,9 +47,13 @@ claude mcp add monomind -- npx -y monomind@latest mcp start
 
 `monomind init` installs the **core pack**: the everyday `/mastermind:*` workflows (plan, execute, review, debug, do, …), 20 core agents and the memory, GitHub and browser toolkits, small enough that Claude Code shows every description. Everything else ships as opt-in packs (`orgs`, `org-admin`, `swarm`, `github`, `testing`, `specialists`, `business`, `extras`): pick them with `monomind init --packs orgs,github` or `--all-packs`, or add one later with `monomind packs add <pack>`. `monomind packs list` shows each pack and how much of the listing it uses.
 
+Org skills come from the bundled library, from your own Markdown files, and from imports: `monomind org skills import` pulls MIT or Apache-2.0 skills from another repo and records the licence, source and commit on each one (the library includes a bundle from `anthropics/knowledge-work-plugins`). For skills you want reviewed before roles can use them, `monomind catalog` stages, approves and activates them under a policy ([Catalog](doc/concepts/catalog.md)).
+
 `monomind init` sets up only the coding systems installed on your machine: Claude Code, Antigravity, OpenCode, Kimi Code and Codex each count when their CLI is on your `PATH` or their config directory is in your home, and Claude Code is the default when none is found. A re-run also keeps every system the project already has. It prints what it detected; `--platforms claude,codex` names the systems yourself and `--all-platforms` writes all five. It never runs `npm install` or edits your `package.json`: the code graph uses the `@monoes/monograph` copy bundled with the CLI.
 
-`monomind init` itself writes `.mcp.json` (and the configs of the other coding systems it sets up) pinned to the installed version, so a start reuses the npx cache instead of re-resolving `@latest`; `--pin latest` keeps the floating `monomind@latest`, and `monomind init --force` re-pins after an upgrade.
+Two things `init` leaves off unless you ask: Claude Code's experimental Agent Teams (`--agent-teams` writes `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`; nothing in Monomind reads it) and dashboard auto-start at every session (`--dashboard`). `monomind doctor` reports a leftover Agent Teams flag from an older `init`, and `monomind init upgrade --settings` removes it (a backup stays in `settings.json.bak-agent-teams`).
+
+`init` writes `.mcp.json` (and the other systems' configs) pinned to the installed version; `--pin latest` keeps the floating `monomind@latest`, and `monomind init --force` re-pins after an upgrade.
 
 <details>
 <summary><strong>Using Antigravity (agy)?</strong></summary>
@@ -94,7 +98,6 @@ project before it loads project-scoped configuration. To run persistent
 Monomind organizations through Codex, set `"runtime": "codex"` in the org
 definition.
 
-Plain `monomind init` sets up only the coding systems installed on your machine (Codex when `codex` is on PATH or `~/.codex` exists), and Claude Code when it finds none; `--all-platforms` sets up all five and `--platforms claude,codex` names them. Init never runs `npm install` in your project.
 Use `monomind init --target codex` (or `--codex`) to initialize only Codex. See [Codex guide →](doc/concepts/codex.md).
 
 </details>
@@ -104,7 +107,7 @@ Use `monomind init --target codex` (or `--codex`) to initialize only Codex. See 
 | Concern | Answer |
 |---|---|
 | **License** | [Apache 2.0](LICENSE) — use it however you want |
-| **Data privacy** | Monomind runs locally and stores its state locally: memory, code graph, document index and org state, embedded by a local model. The AI tools it drives (Claude Code, Codex, OpenCode, Kimi Code, Antigravity, and org roles, whose model calls monomind makes itself when a role uses an AI-SDK provider) send your prompts and code to their model providers, including the memory and Second Brain excerpts injected into those prompts. Monomind itself also makes a few outbound calls: the one-time embedding model download, the first-use installs of the Claude SDK and (without an installed browser) Chrome, the npm update check, and opt-in features; launching it through `npx monomind@latest` adds an npm registry lookup on every start, and opening the dashboard loads its scripts and fonts from public CDNs. See [doc/privacy.md](doc/privacy.md) for the complete list of what's sent, when, and how to opt out of each. |
+| **Data privacy** | Monomind runs locally and stores its state locally: memory, code graph, document index and org state, embedded by a local model. The AI tools it drives (Claude Code, Codex, OpenCode, Kimi Code, Antigravity, and org roles, whose model calls monomind makes itself when a role uses an AI-SDK provider) send your prompts and code to their model providers, including the memory and Second Brain excerpts injected into those prompts. Monomind itself also makes a few outbound calls: the one-time embedding model download, the first-use installs of the Claude SDK and (without an installed browser) Chrome, the npm update check, the Jev decision model if you configure one, and opt-in features; launching it through `npx monomind@latest` adds an npm registry lookup on every start, and opening the dashboard loads its scripts and fonts from public CDNs. See [doc/privacy.md](doc/privacy.md) for the complete list of what's sent, when, and how to opt out of each. |
 | **Dependencies** | Standard npm packages. A fresh `npm install monomind` (Linux x64) adds 263 packages and 938 MB of `node_modules`, most of it `onnxruntime-node` (548 MB, local embeddings) and `onnxruntime-web` (141 MB). Four packages run install scripts, and two of them download binaries: `onnxruntime-node` (CUDA libraries from NuGet on Linux x64; `ONNXRUNTIME_NODE_INSTALL=skip` skips them) and `better-sqlite3` (a prebuilt addon from GitHub). Two heavy pieces are installed on first use instead, once, into `~/.monomind/deps` and never into your project: the Claude Agent SDK with its Claude binary (about 300 MB, on the first Claude org role or `agent exec --runtime claude`), and Chrome for `monomind browse` (about 400 MB, only when no Chrome, Chromium or Edge is installed). `MONOMIND_NO_AUTO_INSTALL=1` turns that off and prints the install command instead. Native addons: better-sqlite3 and onnxruntime-node; tree-sitter (`web-tree-sitter`) and sql.js are WASM. Full breakdown: [doc/privacy.md](doc/privacy.md#install-time-downloads). |
 | **Permissions** | Registers as an MCP server — Claude Code controls what tools are available and prompts you before executing anything sensitive. |
 | **Source** | Fully open. Read every line at [github.com/monoes/monomind](https://github.com/monoes/monomind). |
@@ -118,7 +121,7 @@ Use `monomind init --target codex` (or `--codex`) to initialize only Codex. See 
 
 ### The idea
 
-Every business function needs a team. Define the org once as a JSON file — goal, roles, who reports to whom, per-role tool/file/budget policy — then run it as a real background daemon backed by the Claude Agent SDK. It persists across sessions, streams live into the dashboard Claude Code auto-starts for the project, and can discover and message other Monomind orgs running on the same machine.
+Every business function needs a team. Define the org once as a JSON file — goal, roles, who reports to whom, per-role tool/file/budget policy — then run it as a real background daemon backed by the Claude Agent SDK. It persists across sessions, streams live into the dashboard (`monomind org run` starts it unless `MONOMIND_DASHBOARD_AUTOSTART=0`), and can discover and message other Monomind orgs running on the same machine. The operator signs each definition before it runs, so editing an org file never grants a role new authority on its own.
 
 ```mermaid
 flowchart TD
@@ -129,7 +132,7 @@ flowchart TD
     W["Writer"]
     S["SEO Specialist"]
     R["Reviewer"]
-    DASH[("Dashboard\n:4242\nauto-started by\nClaude Code hook")]
+    DASH[("Dashboard\n:4242")]
     XORG[("Other orgs\ncross-process")]
 
     U --> DEF --> RUN --> BOSS
@@ -149,14 +152,15 @@ flowchart TD
 ```bash
 # .monomind/orgs/<name>.json defines the org: goal, roles, policy.
 # See .monomind/orgs/sample-team.json in a fresh `monomind init` for a working example.
-# Open the project in Claude Code first — a SessionStart hook auto-launches
-# the dashboard at http://localhost:4242 if it isn't already running.
+# Review and sign a definition once, as the operator (a run without a TTY refuses an unsigned org):
+monomind org sign content-team
 
 monomind org run content-team --task "Build and publish 3 blog posts per week"
 
 # ✓ Boss agent (Claude Agent SDK session) spawns, reads the org goal,
 #   assigns work to role agents, coordinates until the task completes
-#   or you stop it. Every event streams into the dashboard above.
+#   or you stop it. Every event streams into the dashboard above
+#   (log in with `monomind dashboard open`).
 
 monomind org status content-team    # runtime state (detects crashed daemons)
 monomind org stop content-team      # request a graceful stop
@@ -173,7 +177,10 @@ monomind org answer content-team q-123 "yes" # answer live or queued — no dash
 monomind org create blog --template content-team --goal "3 posts/week"   # scaffold from a template
 monomind org validate blog                   # schema + structural checks before running
 monomind org run blog --dry-run              # preview each role's exact briefing
+monomind org run blog -y --auto-approve org_complete   # unattended: skip the cost prompt, let roles end the run
 ```
+
+An org can also be split into **sections**: isolated sub-orgs, each with its own roles, budget and lifecycle, that share work only through documents. Sections are generally available and can run on a schedule. For long runs, the opt-in `run_config.context` surface adds typed task briefs, role notes, session caps with rotation digests and per-call context logging (`context.jsonl`). See [Org Runtime Architecture](doc/concepts/org-runtime.md).
 
 Orgs carry context between runs: the coordinator records every run's outcome (`org_complete`), the next run is briefed on it, and all agents can query accumulated cross-run memory with `org_recall` — a scheduled org starts each cycle with what earlier cycles recorded instead of starting cold. Crashed agent sessions restart automatically with backoff.
 
@@ -182,26 +189,41 @@ Orgs carry context between runs: the coordinator records every run's outcome (`o
 | What | How |
 |---|---|
 | **OrgDaemon** | Hosts one or more orgs in a single process; real Claude Agent SDK sessions per role, not simulated |
-| **PolicyEngine** | Per-role gates on tool access, file read/write scope, web access, token budget — enforced, with a full audit trail |
-| **Dashboard** | `org run` forwards every event to the control server on `:4242` (found via `.monomind/control.json`) — that server is auto-launched by a Claude Code SessionStart hook, not by any CLI command; there's no separate per-org dashboard process |
+| **PolicyEngine** | Per-role gates on tool access, file read/write scope, web access, token budget — enforced, with a full audit trail. Opt-in sandbox settings add `denyRead`, `denyExec` and `homeWriteAllow` for a role's whole process tree |
+| **Dashboard** | `org run` forwards every event to the control server on `:4242` (found via `.monomind/control.json`). Start it by hand with `monomind ui`; the session-start hook starts it only if you ran `monomind init --dashboard` or set `MONOMIND_DASHBOARD_AUTOSTART=1`. The dashboard needs a login: `monomind dashboard open` prints a one-time link. There's no separate per-org dashboard process |
 | **Cross-process comms** | `--cross-process` (default on) lets orgs on different `monomind` processes/projects discover and message each other |
 | **Scheduling** | `monomind org serve` hosts orgs whose definition has a `schedule` field, running them on interval |
 
 ### Org management commands
 
-```bash
-monomind org run <name> [--task "..."] [--cross-process]  # start a daemon
-monomind org stop <name>            # request a running org to stop
-monomind org status [name]          # runtime state for one or all orgs
-monomind org list                   # list every org + status
-monomind org serve [--cross-process]  # host-only mode, runs scheduled orgs
-monomind org delete <name>          # remove an org
-monomind org memory <name>          # cross-run KG memory: stats (default) | search <q> | rules | rollback <run-ref>
-```
+`monomind org run | stop | status | list | serve | delete | sign | memory` cover the lifecycle. `org` has <!-- doc-count:org-subcommands -->39<!-- /doc-count:org-subcommands --> subcommands total (skills, run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory, costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete, role, sign, approve-paths).
 
-`org` has <!-- doc-count:org-subcommands -->39<!-- /doc-count:org-subcommands --> subcommands total (skills, run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory, costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete, role, sign, approve-paths).
+The repo ships one worked example beyond the sample: `config/orgs/release.json`, an autonomous `release` org that verifies, versions, publishes and confirms a Monomind release, with a preflight that asks a human once for any missing access and runs unattended after that.
 
 > **Note:** `/mastermind:runorg` delegates directly to the Org Runtime daemon (the same path as `monomind org run`) — there is no boss agent, no monotask board, and no manual curl calls in this path. `/mastermind:runorg` converts legacy-format org config files with `monomind org migrate` before starting the daemon. New orgs should use `monomind org run` (or `/mastermind:runorg`) against a hand-authored `.monomind/orgs/<name>.json`.
+
+---
+
+## <a id="agent-runtimes"></a>🔌 Agent Runtimes
+
+Org roles and `monomind agent exec` run on whichever coding agent you have installed, through the [Agent Exec Protocol](doc/agent-exec-protocol.md): one turn in, NDJSON events out, the same shape for every runtime.
+
+```bash
+monomind agent scan                              # which runtimes are installed (19 known: claude, codex, opencode, kimicode, kilo, qwen, grok, copilot, hermes, aider, …)
+monomind agent models --runtime codex --json     # a runtime's own model list
+monomind agent test claude --json                # smoke-test a runtime with one tiny turn
+monomind agent exec --runtime codex --prompt "summarize ./README" --effort high
+```
+
+| Flag | Purpose |
+|---|---|
+| `--access scoped\|read\|full` | Allow-list only (default), read-only, or unrestricted native tools. `full` is coder mode: it needs `--cwd`, refuses root, kills the whole process tree on stop or timeout, and writes an audit record per run. In an org, set `policy.access: "full"` on a role. |
+| `--sandbox <mode>` / `--sandbox-fallback` | Use the vendor CLI's own sandbox; choose what happens when a runtime lacks the mode. |
+| `--effort off\|low\|medium\|high\|xhigh\|max` | Reasoning effort, mapped per runtime. |
+| `--settings none\|user,project,local` | Let Claude load your CLAUDE.md, skills, hooks and MCP servers. |
+| `--claude-path <file\|bundled>` | Choose the Claude Code binary (also `MONOMIND_CLAUDE_PATH` or `monomind config set claude.path`). |
+
+In coder mode the model and effort you select win over `CLAUDE_CODE_EFFORT_LEVEL` in your settings, and a subagent launch that names a different model is refused. `MONOMIND_CODER_MAX_AGENTS` (default 40) and `MONOMIND_CODER_MAX_REVIEW_AGENTS` (default 12) cap how many subagents a turn may launch; 0 turns a cap off. Threat model: [Coder mode security](doc/concepts/coder-mode-security.md).
 
 ---
 
@@ -243,6 +265,8 @@ claude mcp add monomind -- npx -y monomind@latest mcp start
 monomind doctor --fix
 ```
 
+`monomind doctor` also reports Token Cost Settings (an effort env var overriding `effortLevel`, a huge compaction window, tool search off, duplicate hooks). `doctor --json` prints every check for programs to read, and `--read-only` / `--offline` keep it from changing files or using the network.
+
 > **Semantic routing (opt-in download):** embedding-based task routing needs a local model (~88 MB, `Snowflake/snowflake-arctic-embed-xs` via transformers.js). `monomind init` asks interactively whether to download it — the default is No, and non-interactive/CI installs never download it silently. Declining is fine: agent picking (`monomind pick`, the `[PICK]` hook line, `hooks route`) never needs the model; only `route semantic`, `hooks_route_semantic` and `agent spawn --task` use it, after the picker, and fall back to keyword and hash matching without it. Fetch it any time with `monomind download-embeddings` (or `node scripts/download-embedding-model.mjs` on a source checkout).
 
 > **Native module install blocked?** If `doctor` reports a missing `better-sqlite3` binding (`Could not locate the bindings file`, or npm logs an install script that was "blocked because it is not covered by allowScripts"), your npm's `allowScripts` policy blocked its native build — this isn't a Monomind bug. Run `npm install-scripts approve better-sqlite3 && npm rebuild better-sqlite3`, then re-run `monomind doctor --fix`.
@@ -251,7 +275,7 @@ Open Claude Code. The core `/mastermind:*` workflows are available (all <!-- doc
 
 ```bash
 /mastermind:review --tillend      # review and fix until nothing is left
-monomind org run sample-team      # run your first AI org (init writes a runnable sample-team.json — edit it, or run it as-is)
+monomind org run sample-team      # run your first AI org (init writes sample-team.json; the first run offers to review and sign it)
 /mastermind:help                  # show all commands
 ```
 
@@ -324,6 +348,8 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 
 19 default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
 
+The MCP server advertises a lean core of <!-- doc-count:mcp-tools-default -->20<!-- /doc-count:mcp-tools-default --> tools by default to keep Claude's context small. Every other tool stays callable by name, and `monomind_tool_search` finds it. `MONOMIND_MCP_FULL=1` advertises all <!-- doc-count:mcp-tools-full -->198<!-- /doc-count:mcp-tools-full --> ([MCP server](doc/concepts/mcp-server.md)).
+
 ---
 
 ## 🎣 Hooks & Workers
@@ -346,6 +372,21 @@ flowchart LR
 
 ---
 
+## 🌐 Browser Automation
+
+`monomind browse` drives Chrome over the DevTools Protocol with a native TypeScript client, so there is no external binary to install. It takes accessibility snapshots with ref handles (`@e1`), then clicks, fills, uploads, takes screenshots and handles tabs, cookies and storage.
+
+```bash
+monomind browse open https://example.com
+monomind browse snapshot             # element refs: @e1, @e2, ...
+monomind browse click @e1
+monomind browse screenshot page.png
+```
+
+The CDP port defaults to 9422 and falls back across bridge endpoints; `--session <name>` selects an isolated named session. Without an installed Chrome, Chromium or Edge, the first run installs Chrome (see [Trust & Security](#trust--security)). Details: [Browse reference](doc/commands/browse.md).
+
+---
+
 ## 🛡️ MonoFence AI — Security Layer
 
 Every agent boundary is defended by **monofence-ai** — real-time detection of prompt injection, jailbreaks, homoglyphs, base64 evasion, multi-turn escalation, and PII leakage.
@@ -359,6 +400,8 @@ const fence = createMonoDefence({ enableContextTracking: true });
 const result = await fence.detect(userInput);
 // result.safe · result.threats · result.overallRisk
 ```
+
+From the shell, `monomind security defend` runs the same detection on text you pass it. `security scan`, `cve`, `secrets`, `audit` and `redteam` cover code, dependency and prompt-library checks ([Security reference](doc/commands/security.md)).
 
 In Claude Code, the live pre-bash/pre-write gate is wired up via its own lazy-loaded integration in `.claude/helpers/handlers/gates-handler.cjs` (`MONOMIND_MONOFENCE_GATE=off` to disable) — not via monofence-ai's `registerSecurityHooks()` API, which is a separate integration point consumed only by `@monoes/hooks`' in-process `HookExecutor`.
 
@@ -380,12 +423,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `/mastermind:worktree` | Feature work in isolated git worktree |
 
 ### Organizations
-| Command | What it does |
-|---|---|
-| `monomind org run <name>` | Start an org as a real SDK-backed daemon |
-| `monomind org status` / `list` | Runtime state for one or all orgs |
-| `monomind org stop <name>` | Request a graceful stop |
-| `monomind org approve <name>` / `deny` | Act on pending approval requests |
+See [Org management commands](#org-management-commands): `monomind org run`, `sign`, `status`, `stop`, `approve`/`deny`.
 
 ### Business Domains
 | Command | What it does |
@@ -411,7 +449,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `@monoes/hooks` | [![npm](https://img.shields.io/npm/v/@monoes/hooks?style=flat-square&color=10B981)](https://www.npmjs.com/package/@monoes/hooks) | Hook registry + 9 on-demand workers |
 | `@monoes/mcp` | [![npm](https://img.shields.io/npm/v/@monoes/mcp?style=flat-square&color=3B82F6)](https://www.npmjs.com/package/@monoes/mcp) | MCP server framework (stdio/HTTP/WebSocket) |
 | `@monoes/routing` | [![npm](https://img.shields.io/npm/v/@monoes/routing?style=flat-square&color=F97316)](https://www.npmjs.com/package/@monoes/routing) | Semantic task-to-agent routing |
-| `@monoes/monobrowse` | [![npm](https://img.shields.io/npm/v/@monoes/monobrowse?style=flat-square&color=06B6D4)](https://www.npmjs.com/package/@monoes/monobrowse) | Browser automation via CDP |
+| `@monoes/monobrowse` | [![npm](https://img.shields.io/npm/v/@monoes/monobrowse?style=flat-square&color=06B6D4)](https://www.npmjs.com/package/@monoes/monobrowse) | Browser automation via CDP (default port 9422) |
 | `@monoes/monodesign` | [![npm](https://img.shields.io/npm/v/@monoes/monodesign?style=flat-square&color=EC4899)](https://www.npmjs.com/package/@monoes/monodesign) | Frontend design intelligence |
 | `monofence-ai` | [![npm](https://img.shields.io/npm/v/monofence-ai?style=flat-square&color=EF4444)](https://www.npmjs.com/package/monofence-ai) | AI manipulation defence |
 
@@ -446,6 +484,8 @@ graph TD
     style ORG fill:#F59E0B22,stroke:#F59E0B
 ```
 
+The earlier `monoswarm` and `autopilot` commands are gone (removed in 2.22.0); use the Task tool or `monomind org run` instead.
+
 **Claude Code's Task tool drives in-session multi-agent work; `monomind org run` drives persistent background orgs.** Monomind keeps its own state on your machine; the AI tools it drives send prompts and code to their model providers — see [Trust & Security](#trust--security).
 
 ---
@@ -455,6 +495,7 @@ graph TD
 - 📖 [Full Documentation](https://monoes.github.io/monomind/)
 - 🖥️ [CLI Command Reference](https://github.com/monoes/monomind/blob/main/doc/commands/cli-reference.md)
 - 🏢 [Org Runtime Architecture](https://github.com/monoes/monomind/blob/main/doc/concepts/org-runtime.md)
+- 🔌 [Agent Exec Protocol](https://github.com/monoes/monomind/blob/main/doc/agent-exec-protocol.md)
 - 🏢 [Autonomous Orgs](https://monoes.github.io/monomind/#orgs)
 - ⚡ [Mastermind Reference](https://monoes.github.io/monomind/#mastermind)
 - 📋 [All Slash Commands](https://monoes.github.io/monomind/#slash)
