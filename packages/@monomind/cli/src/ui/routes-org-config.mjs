@@ -31,7 +31,7 @@ function writeOrgDefinition(res, corsOrigin, dir, name, getCfg) {
     const checklistErrors = checklistErrorsForRaw(cfg);
     if (checklistErrors.length)
       return sendJson(res, corsOrigin, 400, { error: checklistErrors.join('; ') });
-    assertValidOrgDef(cfg);
+    const warnings = assertValidOrgDef(cfg);
     if (orgIsRunning(dir, name))
       return sendJson(res, corsOrigin, 409, {
         error: `org "${name}" is running — stop it before replacing its definition`,
@@ -44,6 +44,7 @@ function writeOrgDefinition(res, corsOrigin, dir, name, getCfg) {
       ok: true,
       name,
       file: destFile,
+      warnings,
       signature: orgSignatureState(dir, name),
     });
   } catch (e) {

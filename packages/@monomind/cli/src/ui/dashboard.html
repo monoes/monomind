@@ -6801,6 +6801,7 @@ function v2RenderAgentDrawer(data) {
   let html = '';
   if (def.description) html += `<div class="oad-desc">${esc(def.description)}</div>`;
   if (chars.length) html += `<div class="oad-sec"><div class="oad-sec-h">Characteristics</div><div class="oad-chars">${chars.map(([k, v]) => `<div class="oad-char"><span class="oad-char-k">${esc(k)}</span><span class="oad-char-v">${esc(v)}</span></div>`).join('')}</div></div>`;
+  html += _v2RoleEditorHtml(role);
   if (resps.length) html += `<div class="oad-sec"><div class="oad-sec-h">Responsibilities</div><ul class="oad-list">${resps.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
   if (taskTypes.length) html += `<div class="oad-sec"><div class="oad-sec-h">Task types</div><div class="oad-chips">${taskTypes.map(s => `<span class="oad-chip alt">${esc(s)}</span>`).join('')}</div></div>`;
   if (def.found && def.document) {
@@ -6810,6 +6811,85 @@ function v2RenderAgentDrawer(data) {
   }
   bodyEl.innerHTML = html;
   bodyEl.scrollTop = 0;
+  _v2FillRuntimeSelects();
+}
+
+// ── role editor (agent drawer) ───────────────
+// Edits the runtime fields of one role through POST /api/org/:n/agent/:id/config.
+// Policy, tool providers, skills and provider stay in the JSON. The server's
+// error text is shown; advice warnings never block the save.
+function _v2RoleEditorHtml(role) {
+  if (!role?.id) return '';
+  if (role.kind === 'endpoint')
+    return '<div class="oad-sec"><div class="oad-sec-h">Runtime settings</div><div class="oad-empty">An endpoint role is an HTTP automation: it has no runtime, model or budget.</div></div>';
+  const cfg = _v2OrgData?.config || _v2OrgData || {};
+  const tierEntry = cfg.cost_tiers?.roles?.[role.id];
+  const curTier = tierEntry && typeof tierEntry === 'object' ? (tierEntry.tier || '') : (tierEntry || '');
+  const tiers = [...new Set(['standard', 'economy', 'budget', 'exempt', ...Object.keys(cfg.cost_tiers?.tiers || {}), curTier].filter(Boolean))];
+  const inp = (id, val, extra) => `<input class="filter-input" id="${id}" type="number" value="${esc(String(val ?? ''))}" ${extra || ''} style="width:100%;box-sizing:border-box">`;
+  const sel = (id, opts, cur) => `<select class="filter-input" id="${id}" style="width:100%;box-sizing:border-box;cursor:pointer">${opts.map(([v, l]) => `<option value="${esc(v)}"${String(cur ?? '') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const fld = (lbl, html, hint) => `<div style="display:flex;flex-direction:column;gap:4px"><div style="font-size:10px;color:var(--text-lo)">${lbl}</div>${html}${hint ? `<div style="font-size:10px;color:var(--text-xs)">${hint}</div>` : ''}</div>`;
+  return `<div class="oad-sec" id="oad-edit"><div class="oad-sec-h">Runtime settings</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${fld('Runtime', `<select class="filter-input" id="re-runtime" data-runtime-sel data-cur="${esc(role.runtime || '')}" data-blank="org default" style="width:100%;box-sizing:border-box;cursor:pointer"><option value="">${esc(role.runtime || 'org default')}</option></select>`)}
+      ${fld('Model', `<input class="filter-input" id="re-model" type="text" value="${esc(role.adapter_config?.model || '')}" placeholder="runtime default" style="width:100%;box-sizing:border-box">`)}
+      ${fld('Cost tier', sel('re-tier', [['', 'org default'], ...tiers.map(t => [t, t])], curTier), '"exempt" for a deliberative role.')}
+      ${fld('Session scope', sel('re-scope', [['', 'org default'], ['role', 'role'], ['task', 'task']], role.session_scope || ''))}
+      ${fld('Max turns per message', inp('re-turns', role.max_turns_per_message, 'min="1"'))}
+      ${fld('Max tool rounds', inp('re-rounds', role.max_tool_rounds, 'min="1" max="200"'))}
+      ${fld('Budget tokens', inp('re-tokens', role.budget_tokens, 'min="1"'), 'Unset: an even share of the run budget.')}
+      ${fld('Budget USD', inp('re-usd', role.budget_usd, 'min="0" step="any"'), 'Unset: no USD cap.')}
+      ${fld('Review input', sel('re-review', [['', 'ordinary role'], ['artifact-only', 'artifact-only — cold reviewer']], role.review_input || ''))}
+      ${fld('Deliberative', sel('re-delib', [['', 'no'], ['true', 'yes — no evidence gate']], role.deliberative === true ? 'true' : ''))}
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-top:10px"><button class="btn" style="border-color:var(--accent);color:var(--accent)" onclick="v2SaveRoleConfig('${String(role.id).replace(/['\\]/g, '\\$&')}')">Save</button><span id="re-msg" style="font-size:11px;color:var(--text-lo);white-space:pre-wrap"></span></div>
+    <div id="re-notes" style="margin-top:8px"></div></div>`;
+}
+async function _v2SaveRoleConfig(roleId) {
+  if (!_v2SelOrg) return;
+  const g = id => document.getElementById(id);
+  const msg = g('re-msg');
+  const fail = text => { if (msg) { msg.style.color = 'oklch(60% 0.22 25)'; msg.textContent = `Not saved:\n${text}`; } };
+  const num = (id, label) => {
+    const v = (g(id)?.value || '').trim();
+    if (v === '') return null;
+    if (!Number.isFinite(Number(v))) throw new Error(`${label} must be a number`);
+    return Number(v);
+  };
+  const str = id => { const v = (g(id)?.value || '').trim(); return v === '' ? null : v; };
+  let patch;
+  try {
+    patch = {
+      runtime: str('re-runtime'),
+      model: str('re-model'),
+      cost_tier: str('re-tier'),
+      session_scope: str('re-scope'),
+      max_turns_per_message: num('re-turns', 'Max turns per message'),
+      max_tool_rounds: num('re-rounds', 'Max tool rounds'),
+      budget_tokens: num('re-tokens', 'Budget tokens'),
+      budget_usd: num('re-usd', 'Budget USD'),
+      review_input: str('re-review'),
+      deliberative: g('re-delib')?.value === 'true' ? true : null,
+    };
+  } catch (e) { fail(e.message); return; }
+  if (msg) { msg.style.color = 'var(--text-lo)'; msg.textContent = 'Saving…'; }
+  try {
+    const r = await fetch(`/api/org/${enc(_v2SelOrg)}/agent/${enc(roleId)}/config${DIR ? `?dir=${enc(DIR)}` : ''}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
+    });
+    const json = await r.json().catch(() => ({}));
+    if (!r.ok || !json.ok) throw new Error((json.error || `HTTP ${r.status}`).split('; ').join('\n'));
+    const roles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+    const i = roles.findIndex(x => x.id === roleId);
+    if (i >= 0) roles[i] = { ...roles[i], ...json.role };
+    const cfg = _v2OrgData?.config;
+    if (cfg) { cfg.roles = (cfg.roles || []).map(x => x.id === roleId ? json.role : x); cfg.cost_tiers = json.cost_tiers ?? undefined; }
+    if (_v2OrgData) _v2OrgData.cost_tiers = json.cost_tiers ?? undefined;
+    const notes = g('re-notes');
+    if (notes) notes.innerHTML = _v2ConfigNotesHtml({ errors: [], warnings: json.warnings || [] }, json.signature, null, true);
+    if (msg) { msg.style.color = 'oklch(68% 0.20 150)'; msg.textContent = 'Saved — applies from the next run'; setTimeout(() => { if (msg) msg.textContent = ''; }, 4000); }
+    showToast('Role saved', roleId, 'ok');
+  } catch (e) { fail(e.message); }
 }
 
 // ── custom role avatar upload ────────────────
@@ -8358,10 +8438,59 @@ function _v2RuntimeNudge(ev) {
 }
 
 // ── ORG CONFIG ─────────────────────────────────────────────
-// Edits the Org Runtime v2 definition (goal, schedule, run_config, default
-// cost tier). Saved through POST /api/org/:n/config, which merges into the file
-// on disk and refuses anything `org run` would refuse. Roles, policies and
-// providers stay in the JSON (Files tab / `monomind org edit`).
+// Edits the Org Runtime v2 definition (goal, schedule, runtime, run_config,
+// default cost tier). Saved through POST /api/org/:n/config, which merges into the file
+// on disk and refuses anything `org run` would refuse; the server's own error
+// text is shown. Per-role settings: the agent drawer (POST .../agent/:id/config).
+// Policies, providers, tool providers and sections stay in the JSON (Files tab / `monomind org edit`).
+let _v2AdaptersCache = null;
+async function _v2LoadAdapters() {
+  if (!_v2SelOrg) return [];
+  if (_v2AdaptersCache?.org === _v2SelOrg) return _v2AdaptersCache.list;
+  try {
+    const r = await fetch(`/api/org/${encodeURIComponent(_v2SelOrg)}/adapters${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`);
+    const list = r.ok ? ((await r.json()).adapters || []) : [];
+    _v2AdaptersCache = { org: _v2SelOrg, list };
+    return list;
+  } catch (_) { return []; }
+}
+// Fills every runtime <select data-runtime-sel> from the server's adapter list
+// (a runtime the registry cannot drive is shown disabled with its reason).
+async function _v2FillRuntimeSelects() {
+  const list = await _v2LoadAdapters();
+  document.querySelectorAll('select[data-runtime-sel]').forEach(s => {
+    const cur = s.dataset.cur || '';
+    const known = list.some(a => a.type === cur);
+    s.innerHTML = `<option value="">${esc(s.dataset.blank || 'default')}</option>`
+      + (cur && !known ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : '')
+      + list.map(a => `<option value="${esc(a.type)}"${a.disabled ? ' disabled' : ''}${a.type === cur ? ' selected' : ''} title="${esc(a.disabledReason || a.installHint || '')}">${esc(a.label)}${a.disabled ? ' (unavailable)' : ''}</option>`).join('');
+    s.value = cur;
+  });
+}
+// Checklist errors block a save (deferred features) and are shown with the
+// checklist's own wording; warnings are advice and never block.
+function _v2ConfigNotesHtml(checklist, signature, def, warningsOnly) {
+  const box = (color, title, items) => items.length
+    ? `<div style="margin-bottom:8px;font-size:11px;color:${color}"><div style="font-weight:600">${title}</div><ul style="margin:3px 0 0;padding-left:16px">${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : '';
+  const errs = warningsOnly ? [] : (checklist?.errors || []);
+  let h = box('oklch(60% 0.22 25)', 'Not supported by the runtime (it refuses this definition)', errs)
+    + box('var(--amber, #d29922)', 'Advice (does not block saving)', checklist?.warnings || []);
+  const ro = ['sections', 'documents', 'requires'].filter(k => def?.[k] !== undefined).concat(def?.run_config?.experimental !== undefined ? ['run_config.experimental'] : []);
+  if (ro.length) h += `<div style="margin-bottom:8px;font-size:11px;color:var(--text-lo)">Read-only here: ${ro.map(esc).join(', ')} — set in the definition JSON (Files tab).</div>`;
+  if (signature?.notice) h += `<div style="margin-bottom:8px;font-size:11px;color:var(--text-lo)">Signature: ${esc(signature.state)}${signature.enforced ? '' : ' (not enforced)'} — ${esc(signature.notice)}</div>`;
+  return h;
+}
+async function _v2LoadConfigNotes() {
+  const org = _v2SelOrg;
+  if (!org) return;
+  try {
+    const r = await fetch(`/api/org/${encodeURIComponent(org)}/runtime${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`);
+    if (!r.ok || _v2SelOrg !== org) return;
+    const v = await r.json();
+    const el = document.getElementById('oc-notes');
+    if (el) el.innerHTML = _v2ConfigNotesHtml(v.checklist, v.signature, _v2OrgData.config || _v2OrgData);
+  } catch (_) { /* notes are advisory */ }
+}
 function v2RenderOrgConfig() {
   const el = document.getElementById('odt-config');
   if (!el || !_v2OrgData || !_v2SelOrg) return;
@@ -8372,61 +8501,99 @@ function v2RenderOrgConfig() {
   const fld = (lbl, html, hint) => `<div style="display:flex;flex-direction:column;gap:4px"><div style="font-size:10px;color:var(--text-lo)">${lbl}</div>${html}${hint ? `<div style="font-size:10px;color:var(--text-xs)">${hint}</div>` : ''}</div>`;
   const sec = (title, inner) => `<div style="margin-bottom:22px"><div style="font-size:9px;letter-spacing:2px;color:var(--text-xs);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border)">${title}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">${inner}</div></div>`;
   const tiers = ['standard', 'economy', 'budget', ...Object.keys(d.cost_tiers?.tiers || {})];
+  const lw = rc.lead_watch;
+  const lwObj = lw && typeof lw === 'object' ? lw : {};
   el.innerHTML = '<div style="padding:18px;overflow-y:auto;max-width:720px">'
+    + '<div id="oc-notes"></div>'
     + sec('GENERAL',
       fld('Name', inp('oc-name', d.name || '', 'text', 'readonly style="opacity:0.5"'))
-      + fld('Schedule', inp('oc-schedule', d.schedule ?? '', 'text', 'placeholder="cron, or empty for none"'))
+      + fld('Schedule', inp('oc-schedule', d.schedule ?? '', 'text', 'placeholder="15m, 2h, 45s — or empty for none"'), 'An interval ("45s", "15m", "2h") or minutes. Cron is not supported.')
+      + fld('Default runtime', `<select class="filter-input" id="oc-runtime" data-runtime-sel data-cur="${esc(d.runtime || '')}" data-blank="claude (default)" style="width:100%;box-sizing:border-box;cursor:pointer"><option value="">${esc(d.runtime || 'claude (default)')}</option></select>`, 'A role\'s own runtime overrides it.')
       + `<div style="grid-column:1/-1">${fld('Goal', `<textarea id="oc-goal" class="filter-input" rows="4" style="width:100%;box-sizing:border-box;resize:vertical;line-height:1.5">${esc(d.goal || '')}</textarea>`)}</div>`)
     + sec('BUDGET & CONCURRENCY',
       fld('Budget tokens (per run)', inp('oc-budget', rc.budget_tokens ?? '', 'number', 'min="1" placeholder="1000000"'), 'Must be positive.')
-      + fld('Budget basis', sel('oc-basis', [['', 'uncached (default)'], ['uncached', 'uncached — input + output'], ['billable', 'billable — includes cache tokens']], rc.budget_tokens_basis ?? ''), 'billable is ~100x larger on a cached run; resize the budget with it.')
+      + fld('Budget basis', sel('oc-basis', [['', 'uncached (default)'], ['uncached', 'uncached — input + output'], ['billable', 'billable — includes cache tokens']], rc.budget_tokens_basis ?? ''), 'billable is ~100x larger on a cached run; resize the budget with it. Per-role USD caps: the agent drawer.')
       + fld('Max concurrent agents', inp('oc-max-agents', rc.max_concurrent_agents ?? '', 'number', 'min="1" placeholder="4"'))
-      + fld('Max turns per message', inp('oc-max-turns', rc.max_turns_per_message ?? '', 'number', 'min="1"')))
+      + fld('Max turns per message', inp('oc-max-turns', rc.max_turns_per_message ?? '', 'number', 'min="1"'))
+      + fld('Max tool rounds per message', inp('oc-tool-rounds', rc.max_tool_rounds ?? '', 'number', 'min="1" max="200" placeholder="10"'), 'Runtimes other than claude and vercel; at most 200. A role can override it.'))
     + sec('COMPLETION',
       fld('org_complete gate', sel('oc-completion', [['', 'boss (default)'], ['boss', 'boss — partial needs a real blocker'], ['dag', 'dag — also refuse while tasks are runnable']], (rc.completion && typeof rc.completion === 'object' ? rc.completion.mode : rc.completion) ?? ''))
       + fld('Evidence gate on org_task_done', sel('oc-evidence', [['false', 'off'], ['true', 'on — commands + exit codes pinned to HEAD']], String(!!rc.completion_evidence)))
-      + fld('Escalate after N evidence refusals', inp('oc-evidence-max', rc.max_evidence_attempts ?? '', 'number', 'min="1" placeholder="3"'), 'Then the task is failed and handed to the boss.'))
+      + fld('Escalate after N evidence refusals', inp('oc-evidence-max', rc.max_evidence_attempts ?? '', 'number', 'min="1" placeholder="3"'), 'Then the task is failed and handed to the boss.')
+      + fld('Refuse completion over a failed write', sel('oc-verify-writes', [['', 'on (default)'], ['false', 'off']], rc.verify_writes === false ? 'false' : ''))
+      + fld('Notify the task creator on completion', sel('oc-notify', [['', 'off (default)'], ['true', 'on']], rc.notify_task_creator === true ? 'true' : '')))
     + sec('SESSIONS & WATCHDOG',
       fld('Idle minutes (0 disables)', inp('oc-idle', rc.idle_minutes ?? '', 'number', 'min="0" step="any" placeholder="10"'), 'Every hold on the idle clock expires after an hour.')
       + fld('Session scope', sel('oc-scope', [['', 'role (default)'], ['role', 'role — one session per role'], ['task', 'task — one session per task']], rc.session_scope ?? ''))
+      + fld('Process exits after idle (ms)', inp('oc-idle-exit', rc.session_idle_exit_ms ?? '', 'number', 'min="1"'), 'Unset: a parked role keeps its process. The next message resumes the session.')
+      + fld('Bash timeout (ms, claude roles)', inp('oc-bash-timeout', rc.bash_timeout_ms ?? '', 'number', 'min="1" max="3600000" placeholder="600000"'), 'At most 3600000 (one hour).')
+      + fld('Re-check a blocked task every (minutes)', inp('oc-recheck', rc.block_recheck_minutes ?? '', 'number', 'min="0" max="60" step="any" placeholder="5"'), 'More than 0, at most 60.')
+      + fld('Lead watch', sel('oc-lw-mode', [['', 'on — defaults'], ['custom', 'on — custom thresholds'], ['off', 'off']], lw === false ? 'off' : (lw && typeof lw === 'object' ? 'custom' : '')), 'Tells a lead when a role holding open work stalls.')
+      + fld('Lead watch: not started after (s)', inp('oc-lw-ns', lwObj.not_started_s ?? '', 'number', 'min="0" step="any" placeholder="90"'), 'Custom only.')
+      + fld('Lead watch: silent after (s)', inp('oc-lw-silent', lwObj.silent_s ?? '', 'number', 'min="0" step="any" placeholder="180"'), 'Custom only.')
       + fld('Workspace', inp('oc-workspace', rc.workspace ?? '', 'text', 'placeholder="repo | isolated | worktree | worktree-per-role | /abs/path"'))
       + fld('Memory namespace', inp('oc-namespace', rc.memory_namespace ?? '', 'text', `placeholder="org:${esc(d.name || '')}"`)))
     + sec('COST TIERS',
-      fld('Default tier', sel('oc-tier', [['', 'none — models as configured'], ...[...new Set(tiers)].map(t => [t, t])], d.cost_tiers?.default ?? ''), 'Per-role tiers and exemptions: edit cost_tiers.roles in the JSON.'))
+      fld('Default tier', sel('oc-tier', [['', 'none — models as configured'], ...[...new Set(tiers)].map(t => [t, t])], d.cost_tiers?.default ?? ''), 'Per-role tiers: the agent drawer. Tier definitions and effort overrides: edit cost_tiers in the JSON.'))
     + '<div style="display:flex;align-items:flex-start;gap:10px"><button class="btn" style="border-color:var(--accent);color:var(--accent)" onclick="v2SaveOrgConfig()">Save Config</button><span id="oc-status-msg" style="font-size:11px;color:var(--text-lo);white-space:pre-wrap"></span></div>'
     + '</div>';
+  _v2FillRuntimeSelects();
+  _v2LoadConfigNotes();
 }
 
 async function _v2SaveOrgConfig() {
   if (!_v2SelOrg || !_v2OrgData) return;
   const g = id => document.getElementById(id);
-  // '' = not set → null removes the key so the runtime default applies.
-  const num = id => { const v = (g(id)?.value || '').trim(); return v === '' ? null : Number(v); };
-  const str = id => { const v = (g(id)?.value || '').trim(); return v === '' ? null : v; };
-  const patch = {
-    goal: g('oc-goal')?.value ?? '',
-    // A numeric schedule (an interval) stays a number; a cron stays a string.
-    schedule: (() => {
-      const v = str('oc-schedule');
-      const was = (_v2OrgData.config || _v2OrgData).schedule;
-      return v !== null && typeof was === 'number' && /^\d+$/.test(v) ? Number(v) : v;
-    })(),
-    run_config: {
-      budget_tokens: num('oc-budget'),
-      budget_tokens_basis: str('oc-basis'),
-      max_concurrent_agents: num('oc-max-agents'),
-      max_turns_per_message: num('oc-max-turns'),
-      completion: str('oc-completion'),
-      completion_evidence: g('oc-evidence')?.value === 'true' ? true : null,
-      max_evidence_attempts: num('oc-evidence-max'),
-      idle_minutes: num('oc-idle'),
-      session_scope: str('oc-scope'),
-      workspace: str('oc-workspace'),
-      memory_namespace: str('oc-namespace'),
-    },
-    cost_tiers_default: str('oc-tier') || '',
-  };
   const msg = g('oc-status-msg');
+  const fail = text => { if (msg) { msg.style.color = 'oklch(60% 0.22 25)'; msg.textContent = `Not saved:\n${text}`; } };
+  // '' = not set → null removes the key so the runtime default applies.
+  const num = (id, label) => {
+    const v = (g(id)?.value || '').trim();
+    if (v === '') return null;
+    if (!Number.isFinite(Number(v))) throw new Error(`${label} must be a number`);
+    return Number(v);
+  };
+  const str = id => { const v = (g(id)?.value || '').trim(); return v === '' ? null : v; };
+  const old = _v2OrgData.config || _v2OrgData;
+  let patch;
+  try {
+    const lwMode = g('oc-lw-mode')?.value || '';
+    const oldLw = old.run_config?.lead_watch;
+    const lead_watch = lwMode === 'off' ? false : lwMode === 'custom'
+      ? Object.fromEntries([
+          ...Object.entries(oldLw && typeof oldLw === 'object' ? oldLw : {}).filter(([k]) => k !== 'not_started_s' && k !== 'silent_s'),
+          ['not_started_s', num('oc-lw-ns', 'Lead watch: not started after')],
+          ['silent_s', num('oc-lw-silent', 'Lead watch: silent after')],
+        ].filter(([, v]) => v !== null))
+      : null;
+    patch = {
+      goal: g('oc-goal')?.value ?? '',
+      // A bare number is minutes (an interval); "15m" stays a string.
+      schedule: (() => { const v = str('oc-schedule'); return v !== null && /^\d+$/.test(v) ? Number(v) : v; })(),
+      runtime: str('oc-runtime'),
+      run_config: {
+        budget_tokens: num('oc-budget', 'Budget tokens'),
+        budget_tokens_basis: str('oc-basis'),
+        max_concurrent_agents: num('oc-max-agents', 'Max concurrent agents'),
+        max_turns_per_message: num('oc-max-turns', 'Max turns per message'),
+        max_tool_rounds: num('oc-tool-rounds', 'Max tool rounds per message'),
+        completion: str('oc-completion'),
+        completion_evidence: g('oc-evidence')?.value === 'true' ? true : null,
+        max_evidence_attempts: num('oc-evidence-max', 'Escalate after N evidence refusals'),
+        verify_writes: g('oc-verify-writes')?.value === 'false' ? false : null,
+        notify_task_creator: g('oc-notify')?.value === 'true' ? true : null,
+        idle_minutes: num('oc-idle', 'Idle minutes'),
+        session_scope: str('oc-scope'),
+        session_idle_exit_ms: num('oc-idle-exit', 'Process exits after idle'),
+        bash_timeout_ms: num('oc-bash-timeout', 'Bash timeout'),
+        block_recheck_minutes: num('oc-recheck', 'Re-check a blocked task every'),
+        lead_watch,
+        workspace: str('oc-workspace'),
+        memory_namespace: str('oc-namespace'),
+      },
+      cost_tiers_default: str('oc-tier') || '',
+    };
+  } catch (e) { fail(e.message); return; }
   if (msg) { msg.style.color = 'var(--text-lo)'; msg.textContent = 'Saving…'; }
   try {
     const r = await fetch(`/api/org/${enc(_v2SelOrg)}/config${DIR ? `?dir=${enc(DIR)}` : ''}`, {
@@ -8435,11 +8602,13 @@ async function _v2SaveOrgConfig() {
     const json = await r.json().catch(() => ({}));
     if (!r.ok || !json.ok) throw new Error((json.error || `HTTP ${r.status}`).split('; ').join('\n'));
     if (_v2OrgData.config) _v2OrgData.config = json.def;
-    Object.assign(_v2OrgData, { goal: json.def.goal, schedule: json.def.schedule, run_config: json.def.run_config, cost_tiers: json.def.cost_tiers });
+    Object.assign(_v2OrgData, { goal: json.def.goal, schedule: json.def.schedule, runtime: json.def.runtime, run_config: json.def.run_config, cost_tiers: json.def.cost_tiers });
+    const notes = document.getElementById('oc-notes');
+    if (notes) notes.innerHTML = _v2ConfigNotesHtml({ errors: [], warnings: json.warnings || [] }, json.signature, json.def, true);
     if (msg) { msg.style.color = 'oklch(68% 0.20 150)'; msg.textContent = 'Saved — applies from the next run'; setTimeout(() => { if (msg) msg.textContent = ''; }, 4000); }
     showToast('Config saved', 'Validated against the org schema', 'ok');
   } catch (e) {
-    if (msg) { msg.style.color = 'oklch(60% 0.22 25)'; msg.textContent = `Not saved:\n${e.message}`; }
+    fail(e.message);
   }
 }
 
@@ -8772,8 +8941,11 @@ async function v2HandleImportFile(e) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...data, name, dir: DIR || undefined }),
     });
-    if (!r.ok) { const d = await r.json().catch(()=>({})); throw new Error(d.error || `HTTP ${r.status}`); }
-    showToast('Imported', `Org "${name}" imported`, 'ok');
+    const d = await r.json().catch(()=>({}));
+    if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+    // The server's advice warnings never block an import; a changed definition is unsigned until the operator signs it.
+    const note = [d.signature?.notice, ...(d.warnings || []).slice(0, 3)].filter(Boolean).join(' · ');
+    showToast('Imported', `Org "${name}" imported${note ? ` — ${note}` : ''}`, d.warnings?.length ? 'warn' : 'ok');
     await renderOrgs();
     if (name) v2SelectOrg(name);
   } catch(e) { showToast('Import failed', e.message, 'err'); }
@@ -13718,6 +13890,7 @@ Object.assign(window, {
   orgGateAction: _orgGateAction,
   setOdtChatMode: _setOdtChatMode,
   v2SaveOrgConfig: _v2SaveOrgConfig,
+  v2SaveRoleConfig: _v2SaveRoleConfig,
   setHeatmapFilter: _setHeatmapFilter,
   setDailyTrendFilter: _setDailyTrendFilter,
   removeCustomTag: _removeCustomTag,

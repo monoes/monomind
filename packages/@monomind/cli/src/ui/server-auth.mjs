@@ -30,7 +30,7 @@ const _HUMAN_ROUTES = [
   /^\/api\/orgs$/,
   /^\/api\/orgs\/[^/]+$/,
   /^\/api\/orgs\/[^/]+\/(import|copy)$/,
-  /^\/api\/org\/[^/]+\/agent\/[^/]+\/avatar$/,
+  /^\/api\/org\/[^/]+\/agent\/[^/]+\/(avatar|config)$/,
 ];
 const _isHumanRoute = (url) => _HUMAN_ROUTES.some((re) => re.test(url));
 const _isOpenRoute = (url, method) =>

@@ -2599,8 +2599,12 @@ async function handleImportFile(e) {
     const result = await r.json();
     if (r.ok && result.ok) {
       loadOrgs();
+      // Advice warnings never block an import; a changed definition stays unsigned until the operator signs it.
+      const note = [result.signature?.notice, ...(result.warnings || [])].filter(Boolean).join('\n');
+      if (note) alert(`Imported "${importTargetOrg}".\n${note}`);
     } else {
       console.warn('[orgs] Import failed:', result.error || r.statusText);
+      alert(`Import failed: ${result.error || r.statusText}`);
     }
   } catch(e) {
     console.warn('[orgs] Import failed:', e.message);

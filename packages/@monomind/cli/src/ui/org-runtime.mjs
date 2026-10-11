@@ -12,14 +12,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
-import { resolveRoleCostTier, validateCostTiers } from '../orgrt/cost-tier.js';
-import { completionDisplay, patchCompletion } from '../orgrt/documents/completion-accessor.js';
+import { resolveRoleCostTier } from '../orgrt/cost-tier.js';
+import { completionDisplay } from '../orgrt/documents/completion-accessor.js';
 import { readIdleStatus } from '../orgrt/idle-deadline.js';
 import { orgSignatureEnforced, verifyOrgDef } from '../orgrt/org-signature.js';
 import { recordedPidLiveness } from '../orgrt/run-liveness.js';
 import { OrgDefSchema } from '../orgrt/types.js';
-import { checklistFindings } from '../orgrt/validate-checklist.js';
-import { hostingDaemon, writeFileAtomic } from './org-hil.mjs';
+import { orgChecklist } from './org-config-patch.mjs';
+import { hostingDaemon } from './org-hil.mjs';
 import { _readTailLines } from './server-fileutils.mjs';
 
 const orgDir = (root, org) => path.join(root, '.monomind', 'orgs', org);
@@ -353,6 +353,8 @@ export async function runtimeView(root, org) {
     problems: parsed.success
       ? []
       : parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`),
+    // Section 7.3 checklist: errors block a save, warnings are advice.
+    checklist: parsed.success ? orgChecklist(parsed.data) : { errors: [], warnings: [] },
     signature: orgSignatureState(root, org),
     live: isLive,
     liveError: live?.unreachable ?? null,
@@ -391,94 +393,10 @@ export async function runtimeView(root, org) {
   };
 }
 
-/** run_config keys the dashboard's Config tab may set. Everything else in the
- *  definition is left exactly as it is on disk. */
-const EDITABLE_RUN_CONFIG = new Set([
-  'max_concurrent_agents',
-  'budget_tokens',
-  'budget_tokens_basis',
-  'idle_minutes',
-  'completion',
-  'completion_evidence',
-  'max_evidence_attempts',
-  'session_scope',
-  'workspace',
-  'memory_namespace',
-  'max_turns_per_message',
-]);
-
-export class ConfigRejected extends Error {
-  constructor(problems) {
-    super(problems.join('; '));
-    this.problems = problems;
-  }
-}
-
-/** Throw ConfigRejected unless `def` passes the OrgDefSchema parse, cost-tier
- *  check and checklist `org run` applies. Used before any dashboard write of a
- *  whole definition (config patch, import, create). */
-export function assertValidOrgDef(def) {
-  const parsed = OrgDefSchema.safeParse(def);
-  if (!parsed.success)
-    throw new ConfigRejected(
-      parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`),
-    );
-  const tierProblems = validateCostTiers(parsed.data);
-  if (tierProblems.length) throw new ConfigRejected(tierProblems);
-  // Org sections spec 7.3: the shared checklist; advice never blocks a save.
-  const checklistProblems = checklistFindings(parsed.data).errors;
-  if (checklistProblems.length) throw new ConfigRejected(checklistProblems);
-}
-
-/** Apply `patch` ({ goal?, schedule?, run_config?, cost_tiers_default? }) to
- *  the org definition on disk and write it only if the result passes the same
- *  OrgDefSchema parse (and cost-tier check) `org run` performs. A `null`
- *  run_config value removes that key, so the runtime default applies. Returns
- *  the definition as written. */
-export function patchOrgConfig(root, org, patch) {
-  const file = path.join(root, '.monomind', 'orgs', `${org}.json`);
-  let raw;
-  try {
-    raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch (err) {
-    throw new ConfigRejected([`cannot read ${file}: ${err.message}`]);
-  }
-  const problems = [];
-  const next = { ...raw };
-  if (patch.goal !== undefined) {
-    if (typeof patch.goal === 'string') next.goal = patch.goal;
-    else problems.push('goal must be a string');
-  }
-  if (patch.schedule !== undefined) next.schedule = patch.schedule === '' ? null : patch.schedule;
-  if (patch.run_config !== undefined) {
-    const rc = { ...(raw.run_config ?? {}) };
-    for (const [k, v] of Object.entries(patch.run_config ?? {})) {
-      if (!EDITABLE_RUN_CONFIG.has(k)) {
-        problems.push(`run_config.${k} is not editable here`);
-        continue;
-      }
-      if (k === 'completion') {
-        const c = patchCompletion(rc, v);
-        if (!c.ok) {
-          problems.push(c.problem);
-          continue;
-        }
-        if (c.value === null) delete rc[k];
-        else rc[k] = c.value;
-      } else if (v === null) delete rc[k];
-      else rc[k] = v;
-    }
-    next.run_config = rc;
-  }
-  if (patch.cost_tiers_default !== undefined) {
-    const ct = { ...(raw.cost_tiers ?? {}) };
-    if (patch.cost_tiers_default) ct.default = String(patch.cost_tiers_default);
-    else delete ct.default;
-    if (Object.keys(ct).length) next.cost_tiers = ct;
-    else delete next.cost_tiers;
-  }
-  if (problems.length) throw new ConfigRejected(problems);
-  assertValidOrgDef(next);
-  writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`);
-  return next;
-}
+export {
+  assertValidOrgDef,
+  ConfigRejected,
+  orgChecklist,
+  patchOrgConfig,
+  patchOrgRole,
+} from './org-config-patch.mjs';

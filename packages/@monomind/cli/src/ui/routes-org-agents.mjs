@@ -1,8 +1,32 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { RUNNER_SPECS } from '../orgrt/runner-registry.js';
 import { writeFileAtomic } from './org-hil.mjs';
-import { orgSignatureState } from './org-runtime.mjs';
+import { ConfigRejected, orgChecklist, orgSignatureState, patchOrgRole } from './org-runtime.mjs';
 import { readBodyOrReply } from './routes-org-helpers.mjs';
+
+// Display names for the runtime ids; an id missing here is shown as itself.
+const ADAPTER_LABELS = {
+  claude: 'Claude',
+  codex: 'Codex CLI',
+  antigravity: 'Antigravity (Google CLI)',
+  grok: 'Grok CLI',
+  qwen: 'Qwen CLI',
+  crush: 'Crush CLI',
+  copilot: 'GitHub Copilot CLI',
+  pi: 'Pi CLI',
+  opencode: 'OpenCode CLI',
+  kimicode: 'KimiCode CLI',
+  freebuff: 'Freebuff CLI',
+  kilo: 'Kilo CLI',
+  'qwen-rpc': 'Qwen CLI (RPC)',
+  'pi-rpc': 'Pi CLI (RPC)',
+  hermes: 'Hermes',
+  cline: 'Cline CLI',
+  aider: 'Aider',
+  dsh: 'DSH (DeepSeek Harness)',
+  vercel: 'Vercel AI SDK (multi-vendor, incl. Gemini/OpenAI)',
+};
 
 // Org dashboard routes: adapters, agent detail and agent avatar.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
@@ -34,156 +58,23 @@ export async function handleOrgAgentRoutes(req, res, url, corsOrigin, ctx) {
           'Content-Type': 'application/json',
           ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
         });
-        // This list mirrors the runtimes orgrt/daemon.ts actually registers
-        // (resolveRunner()'s if-chain + the ClaudeAgentRunner default it falls
-        // through to) rather than an independent, hand-maintained catalog — a
-        // standalone 'gemini-local' entry used to be advertised here even
-        // though no runner is ever registered for it (autoRuntimeFromProvider
-        // has no 'gemini' case, so a role requesting it silently falls back to
-        // Claude — see daemon.ts#startOrg's fail-fast warning). Gemini is only
-        // actually reachable via the 'vercel' runtime (vendor: 'google') or via
-        // 'antigravity' (Google-account CLI), both listed below. 'http' maps to
-        // provider.kind === 'base-url' (ANTHROPIC_BASE_URL + optional auth
-        // token) — a real, usable path, not disabled.
+        // One entry per runtime id the registry knows (orgrt/runner-registry.ts),
+        // so a newly added runtime shows up without editing this list. `type` is
+        // the value a role's or an org's `runtime` takes. A runtime whose
+        // binary is discoverable but cannot be driven (freebuff) is listed
+        // disabled, with the registry's reason.
         res.end(
           JSON.stringify({
             default_adapter: defaultAdapter,
-            adapters: [
-              {
-                type: 'claude-local',
-                label: 'Claude (local CLI)',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 3,
-              },
-              {
-                type: 'codex-local',
-                label: 'Codex CLI',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'antigravity',
-                label: 'Antigravity (Google CLI)',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'grok',
-                label: 'Grok CLI',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'qwen',
-                label: 'Qwen CLI',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'crush',
-                label: 'Crush CLI',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'copilot',
-                label: 'GitHub Copilot CLI',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              { type: 'pi', label: 'Pi CLI', source: 'built-in', disabled: false, modelsCount: 1 },
-              {
-                type: 'opencode',
-                label: 'OpenCode CLI',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'kimicode',
-                label: 'KimiCode CLI',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'freebuff',
-                label: 'Freebuff CLI',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'kilo',
-                label: 'Kilo CLI',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'qwen-rpc',
-                label: 'Qwen CLI (RPC)',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'pi-rpc',
-                label: 'Pi CLI (RPC)',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'hermes',
-                label: 'Hermes',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'cline',
-                label: 'Cline CLI',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'aider',
-                label: 'Aider',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'dsh',
-                label: 'DSH (DeepSeek Harness)',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 1,
-              },
-              {
-                type: 'vercel',
-                label: 'Vercel AI SDK (multi-vendor, incl. Gemini/OpenAI)',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 14,
-              },
-              {
-                type: 'http',
-                label: 'Custom HTTP (base-url provider)',
-                source: 'built-in',
-                disabled: false,
-                modelsCount: 0,
-              },
-            ],
+            adapters: RUNNER_SPECS.map((spec) => ({
+              type: spec.id,
+              label: ADAPTER_LABELS[spec.id] ?? spec.id,
+              source: 'built-in',
+              disabled: !!spec.executionUnsupportedReason,
+              disabledReason: spec.executionUnsupportedReason ?? null,
+              binary: spec.binary,
+              installHint: spec.installHint,
+            })),
           }),
         );
         return true;
@@ -364,6 +255,48 @@ export async function handleOrgAgentRoutes(req, res, url, corsOrigin, ctx) {
       res.end(JSON.stringify({ ok: false, error: String(e.message || e) }));
     }
     return true;
+  }
+
+  // POST /api/org/:name/agent/:roleId/config — edit one role's runtime, model,
+  // turn/tool-round and budget limits, session scope, review/deliberative flags
+  // and cost tier. Refused unless the result passes what `org run` applies.
+  if (
+    req.method === 'POST' &&
+    /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/agent\/[a-z0-9][a-z0-9_-]{0,63}\/config$/i.test(url)
+  ) {
+    const body = await readBodyOrReply(req, res, 65536, corsOrigin);
+    if (body === null) return true;
+    const send = (status, payload) => {
+      res.writeHead(status, {
+        'Content-Type': 'application/json',
+        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+      });
+      res.end(JSON.stringify(payload));
+      return true;
+    };
+    try {
+      const parts = url.split('/');
+      const orgName = decodeURIComponent(parts[3]);
+      const roleId = decodeURIComponent(parts[5]);
+      const patch = JSON.parse(body);
+      if (!patch || typeof patch !== 'object' || Array.isArray(patch))
+        return send(400, { ok: false, error: 'JSON object body required' });
+      const qs = new URL(req.url, 'http://localhost').searchParams;
+      const d = path.resolve(qs.get('dir') || ctx.projectDir || process.cwd());
+      const def = patchOrgRole(d, orgName, roleId, patch);
+      return send(200, {
+        ok: true,
+        role: def.roles.find((r) => r.id === roleId),
+        cost_tiers: def.cost_tiers ?? null,
+        warnings: orgChecklist(def).warnings,
+        signature: orgSignatureState(d, orgName),
+      });
+    } catch (e) {
+      return send(e instanceof ConfigRejected || e instanceof SyntaxError ? 400 : 500, {
+        ok: false,
+        error: String(e.message || e),
+      });
+    }
   }
   return false;
 }

@@ -271,7 +271,12 @@ export async function handleOrgStatusRoutes(req, res, url, corsOrigin, ctx) {
         throw Object.assign(new Error('JSON body required'), { status: 400 });
       try {
         const def = orgRuntime.patchOrgConfig(root, orgName, body);
-        return { ok: true, def, signature: orgRuntime.orgSignatureState(root, orgName) };
+        return {
+          ok: true,
+          def,
+          warnings: orgRuntime.orgChecklist(def).warnings,
+          signature: orgRuntime.orgSignatureState(root, orgName),
+        };
       } catch (err) {
         if (err instanceof orgRuntime.ConfigRejected)
           throw Object.assign(new Error(err.message), { status: 400 });
