@@ -2,6 +2,18 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [2.24.6] — 2026-10-11
+
+### Fixed
+
+- **Dashboard server hardening.** Request handlers now isolate errors per-request instead of risking a process crash, body reads abort safely when a client disconnects mid-request, org JSONL tailing is lossless across rotations, and spool/read-batch replay now requires authentication. Shutdown handling is registered early so the server exits cleanly, a heartbeat now checks pid liveness before evicting a stale session, directory and loop-id request parameters are validated, and the browse-dashboard WebSocket now enforces an origin check.
+- **Org routes: human-session gate on org-definition-writing routes.** Writing an org definition while that org is running now returns 409 with an operator-signature notice instead of silently racing the live run; writes are atomic and reads are bounded. The runtime view now surfaces a flag when a reported cost is only a known lower bound (cost unknown).
+- **Frontend/XSS hardening.** The `/mastermind` page now requires authentication, `innerHTML` assignments are escaped, and the markdown sanitizer now renders raw HTML blocks as inert escaped text instead of blacklist-stripping tags — closing a bypass via unusual tag/attribute spacing. Unpriced costs now display distinctly from a priced zero, and SSE reconnect logic was fixed.
+
+### Changed
+
+- **Dashboard UI: org Config tab and Role Editor.** A new Config tab exposes `run_config`, `runtime`, and per-role fields for editing; the adapters list is now sourced from the runner registry instead of a hardcoded list, and deferred org features (sections, documents, requires) are shown read-only until supported.
+
 ## [2.24.5] — 2026-10-09
 
 ### Fixed
