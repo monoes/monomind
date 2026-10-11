@@ -255,6 +255,17 @@ Routes `org_send` tool calls:
 **Source:** [`orgrt/types.ts`](packages/@monomind/cli/src/orgrt/types.ts)  
 **Location:** `.monomind/orgs/<name>.json`
 
+**Dashboard editor.** The dashboard's **Config** tab and a per-role **Role Editor** expose this
+schema visually instead of hand-edited JSON — the `run_config`, `runtime` and role fields below,
+grouped by section. Deferred features (`sections`, `documents`, `requires`) show read-only, with
+the validate-checklist's own wording for why. The runtime/adapter dropdown lists whatever `RUNNER_SPECS` in
+[`orgrt/runner-registry.ts`](packages/@monomind/cli/src/orgrt/runner-registry.ts) has
+registered — add a runner there and it appears without a dashboard change. A save runs the same
+checklist and `org validate` access check `org run` applies, shows the checklist's advice and the
+operator signature notice (see [`sign`](../commands/org.md#sign)) on success, and is refused with
+409 while the org is running (`org "<name>" is running — stop it before replacing its
+definition`) rather than overwriting a definition a live daemon still holds.
+
 `workspace: 'worktree-per-role'` is a real, distinct fourth mode beyond the three above: each
 non-boss role gets its own `git worktree add <path> HEAD --detach` under
 `.monomind/orgs/<name>/worktree-<role-id>/` ([`role-incarnation.ts → spawnRoleIncarnation`](packages/@monomind/cli/src/orgrt/role-incarnation.ts#spawnRoleIncarnation)), cleaned up on stop
@@ -1262,6 +1273,13 @@ A turn cut off before its `result` — by `org_complete`, an org stop, or a cras
 `usage` event for the turns already metered (`subtype: "aborted"`, `cost_usd: null`, since the SDK
 reports cost only on `result`). A session aborted by the org's own stop reports a `session-stopped`
 status rather than `session-error`.
+
+**Dashboard display of an unpriced model.** When a session used a model with no pricing row, the
+server flags it `costIncomplete`: the summed `totalCost` is a floor, not an exact figure, because
+the unpriced model's spend is missing from the sum entirely. The dashboard's `fmtCost()` says so
+instead of showing a number that looks exact: a fully-priced session prints `$1.23`; an
+incomplete one prints `≥$1.23`; one where nothing could be priced prints `unpriced` rather than a
+misleading `$0.00`.
 
 ### Sandbox Faults
 
