@@ -187,9 +187,6 @@ function registerProcessErrorHandlers() {
   process.on('unhandledRejection', (reason) => {
     console.error('[server] unhandledRejection:', reason);
   });
-  process.on('uncaughtException', (err) => {
-    console.error('[server] uncaughtException:', err);
-  });
 }
 
 export async function startServer({

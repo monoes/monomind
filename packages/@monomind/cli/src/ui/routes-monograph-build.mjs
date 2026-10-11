@@ -5,15 +5,25 @@ import { resolveAllowedProjectDir } from './server-fileutils.mjs';
 
 const _MAX_BUILD_DOCS_STATE = 500;
 // ua-*.mjs live in the repo's scripts/ dir, resolved from this file, never from process.cwd().
-const _SCRIPTS_DIR = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-  '..',
-  '..',
-  '..',
-  '..',
-  'scripts',
-);
+// Walk up from this module (src/ui or dist/src/ui) to the first scripts/ dir holding ua-import.mjs.
+const _SCRIPTS_DIR = (() => {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 8; i++) {
+    if (fs.existsSync(path.join(dir, 'scripts', 'ua-import.mjs'))) return path.join(dir, 'scripts');
+    const up = path.dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  return path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'scripts',
+  );
+})();
 
 // Monograph dashboard routes (extracted from routes-monograph.mjs).
 // Registered, in order, by handleMonographRoutes in routes-monograph.mjs.

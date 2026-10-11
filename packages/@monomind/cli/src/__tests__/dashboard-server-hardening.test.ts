@@ -77,7 +77,7 @@ describe('server.mjs source wiring', () => {
     expect(src).toMatch(/await _handleRequest\(req, res\)/);
     expect(src).toMatch(/res\.headersSent/);
     expect(src).toMatch(/process\.on\('unhandledRejection'/);
-    expect(src).toMatch(/process\.on\('uncaughtException'/);
+    expect(src).not.toMatch(/process\.on\('uncaughtException'/); // a swallowed uncaught exception leaves unknown state
     expect(src).toMatch(/_processErrorHandlersRegistered/);
   });
   it('registers signal handlers right after bind, before the lifecycle setup', () => {

@@ -48,6 +48,18 @@ function isSameOriginRequest(req: IncomingMessage): boolean {
   }
 }
 
+// The main dashboard (another loopback port) opens the live-events socket, so a
+// WebSocket handshake may come from any loopback origin; DNS-rebinding and web-page origins still fail.
+function isLoopbackOrigin(req: IncomingMessage): boolean {
+  const origin = req.headers.origin;
+  if (typeof origin !== 'string') return false;
+  try {
+    return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // 4243: the main monomind dashboard owns 4242 — keep this server off that port
 const DEFAULT_PORT = 4243;
@@ -238,7 +250,8 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
 
   const wss = new WebSocketServer({
     server: httpServer,
-    verifyClient: ({ req }: { req: IncomingMessage }) => isSameOriginRequest(req),
+    verifyClient: ({ req }: { req: IncomingMessage }) =>
+      isSameOriginRequest(req) || isLoopbackOrigin(req),
   });
   wss.on('connection', (ws: WebSocket) => {
     clients.add(ws);

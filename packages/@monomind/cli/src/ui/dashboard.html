@@ -2695,6 +2695,11 @@ async function apiFetch(url, timeout = 15000) {
   try {
     const r = await fetch(url, { signal: ctrl.signal });
     if (!r.ok) throw new Error(`HTTP ${r.status}${r.statusText ? ` ${r.statusText}` : ''}`);
+    // A long run is served as its newest events only; say so rather than show a silent partial history.
+    const _evOffset = Number(r.headers.get('X-Events-Offset') || 0);
+    if (_evOffset > 0 && typeof showToast === 'function') {
+      showToast('Run history truncated', `Showing the newest events only — ${_evOffset} earlier events not loaded (of ${r.headers.get('X-Total-Events')}). Page with ?offset= to load more.`, 'warn', 8000);
+    }
     return r.json();
   } catch (e) {
     if (e.name === 'AbortError') throw new Error('Request timed out');
@@ -8265,7 +8270,7 @@ async function v2RenderOrgRuntime() {
   const pct = b.tokens && b.used !== null ? Math.min(100, (b.used / b.tokens) * 100) : null;
   const budget = b.used === null ? 'unknown' : `${_rtTok(b.used)} / ${_rtTok(b.tokens)}`;
   const budgetWhy = b.used === null ? ' · run predates cache metering' : '';
-  const budgetSub = `${esc(b.basis)} basis${pct !== null ? ` · ${pct.toFixed(1)}%` : ''}${budgetWhy} · ${v.totals?.cost_usd == null ? 'cost unknown' : fmtCost(v.totals.cost_usd)}`;
+  const budgetSub = `${esc(b.basis)} basis${pct !== null ? ` · ${pct.toFixed(1)}%` : ''}${budgetWhy} · ${v.totals?.cost_usd == null ? 'cost unknown' : fmtCost(v.totals.cost_usd, v.totals.costLowerBound)}`;
   const gate = s.completion_evidence ? 'evidence required' : 'off';
   const gateSub = s.completion_evidence
     ? `escalate after ${esc(s.max_evidence_attempts)} refusals · org_complete: ${esc(s.completion)}`
@@ -8299,7 +8304,7 @@ async function v2RenderOrgRuntime() {
         ? [`<span title="Recorded before the meter split input, output and cache tokens">${mono(_rtTok(r.usage.legacy_tokens))} in+out</span>`, '—', '—', '—']
         : [mono(_rtTok(r.usage.tokens_in)), mono(_rtTok(r.usage.tokens_out)),
            mono(_rtTok(r.usage.cache_read)), mono(_rtTok(r.usage.cache_creation))]),
-      r.usage.cost_usd == null ? '<span style="color:var(--text-xs)">unknown</span>' : mono(fmtCost(r.usage.cost_usd)),
+      r.usage.cost_usd == null ? '<span style="color:var(--text-xs)">unknown</span>' : mono(fmtCost(r.usage.cost_usd, r.usage.costComplete === false)),
       `<span style="color:var(--text-xs)">${r.lastActivity ? relTime(r.lastActivity) : '—'}</span>`,
     ]), 'No roles');
 
@@ -13613,7 +13618,7 @@ async function mmRenderGraph(body) {
       </div>`).join('')}` : ''}
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn" onclick="switchView('monograph');closeMastermind()">Open Monograph →</button>
-        <button class="btn" onclick="mgRebuildGraph()">↺ Rebuild Graph</button>
+        <button class="btn" onclick="_mgRebuildGraph()">↺ Rebuild Graph</button>
       </div>
     `;
   } catch (e) { body.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }

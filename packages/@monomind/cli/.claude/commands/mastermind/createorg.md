@@ -83,15 +83,10 @@ Stop after listing. Do not proceed to skill invocation.
 2. In confirm mode (default): ask "Delete org '${delete_name}' and all its data? This cannot be undone. Type 'yes' to confirm."
    In auto mode: proceed without asking.
 3. Delete via the CLI (it refuses to delete a running org unless --force, and
-   removes every artifact side-car file); fall back to the dashboard server's
-   DELETE endpoint only if the CLI is unavailable:
+   removes every artifact side-car file). The dashboard's DELETE endpoint needs
+   a human session, so there is no token-only fallback:
    ```bash
-   npx -y monomind@latest org delete "${delete_name}" --yes || {
-     REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-     CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-     result=$(curl -s -X DELETE -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" "${CTRL_URL}/api/orgs/${delete_name}")
-     echo "$result" | jq -r 'if .ok then "Org '\'''"${delete_name}"'''\'' deleted." else "Error: " + (.error // "unknown") end'
-   }
+   npx -y monomind@latest org delete "${delete_name}" --yes
    ```
 4. Stop after deleting. Do not proceed to skill invocation.
 

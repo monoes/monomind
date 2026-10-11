@@ -192,3 +192,26 @@ describe('dashboard / orgs static fixes', () => {
     }
   });
 });
+
+describe('review follow-ups', () => {
+  it('the Rebuild Graph button calls a function that exists', () => {
+    const html = read('dashboard.html');
+    const m = html.match(/onclick="(_?mgRebuildGraph)\(\)"/);
+    expect(m).toBeTruthy();
+    expect(html).toMatch(new RegExp(`function ${m?.[1]}\\(`));
+  });
+
+  it('apiFetch tells the user when run history was served truncated', () => {
+    expect(read('dashboard.html')).toMatch(/X-Events-Offset[\s\S]{0,200}Run history truncated/);
+  });
+
+  it('the heartbeat only evicts the run runtime.json still records as running', () => {
+    expect(read('server-lifecycle.mjs')).toMatch(/_hbRt\.status !== 'running'/);
+  });
+
+  it('cost lower-bound flags reach the org runtime view', () => {
+    const html = read('dashboard.html');
+    expect(html).toContain('fmtCost(v.totals.cost_usd, v.totals.costLowerBound)');
+    expect(html).toContain('r.usage.costComplete === false');
+  });
+});

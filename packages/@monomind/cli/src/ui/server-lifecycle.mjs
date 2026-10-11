@@ -444,6 +444,9 @@ function setupServerLifecycle({ projectDir, MONOMIND_HOME, boundPort, dashboardA
           fs.readFileSync(path.join(_orgsRuntimeDir, _hbOrg, 'runtime.json'), 'utf8'),
         );
         if (typeof _hbRt?.pid !== 'number') continue;
+        // A newer run may not have rewritten runtime.json yet: only judge the run it records.
+        if (_hbRt.status !== 'running' || (_hbRt.run && _hbRun && _hbRt.run !== String(_hbRun)))
+          continue;
         if (recordedPidLiveness(_hbRt.pid, _hbRt.pidStart) === 'alive') continue;
         activeOrgRuns.delete(_hbOrg);
         emitOrgStop(_hbOrg, String(_hbRun || ''), 'pid-dead');
