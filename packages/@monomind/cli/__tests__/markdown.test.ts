@@ -112,12 +112,26 @@ describe('markdown.js: renderDocMarkdown', () => {
     expect(renderDocMarkdown('---')).toBe('<hr>');
   });
 
-  it('sanitizes an inline HTML block: strips <script>, on* handlers, and javascript: URLs', () => {
+  it('sanitizes an inline HTML block: no live <script>, on* handler, or javascript: URL', () => {
     const html = renderDocMarkdown('<div onclick="evil()"><script>bad()</script><a href="javascript:evil()">x</a></div>');
-    expect(html).not.toContain('<script>');
-    expect(html).not.toContain('onclick=');
-    expect(html).not.toContain('javascript:evil()');
-    expect(html).toContain('<div>');
+    // #124-review: "no raw HTML passthrough" means the whole block is
+    // HTML-escaped and shown as inert text inside a <pre> -- not stripped of
+    // its dangerous parts and re-emitted as live markup. That makes a plain
+    // substring check for "onclick=" the wrong tool: the escaped text
+    // legitimately contains those literal bytes (only `<`, `>`, `"`, `&` are
+    // entity-escaped; an attribute's own value, e.g. `onclick=`, must stay
+    // legible to be readable at all) while still being completely inert, so
+    // such a check can never pass for ANY escaping scheme. Assert liveness
+    // directly instead: a real tag/attribute starts with an UNESCAPED `<`
+    // immediately followed by a tag name, which this output never has.
+    expect(html).toContain('<pre class="md-raw-html">');
+    expect(html).not.toMatch(/<script[\s>]/i);
+    expect(html).not.toMatch(/<[a-z][^&]*\bonclick=/i);
+    expect(html).not.toMatch(/<a\b[^&]*\bhref="javascript:/i);
+    // ...and the dangerous markup is present only as escaped, inert text.
+    expect(html).toContain('&lt;script&gt;bad()&lt;/script&gt;');
+    expect(html).toContain('onclick=&quot;evil()&quot;');
+    expect(html).toContain('javascript:evil()');
   });
 
   it('empty/falsy input returns an empty string', () => {
