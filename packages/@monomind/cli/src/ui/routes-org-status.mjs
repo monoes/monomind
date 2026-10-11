@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as orgRuntime from './org-runtime.mjs';
 import { approvalsOrEmpty, hilRespond, hilRoot, readHilBody } from './routes-org-helpers.mjs';
+import { _readTailLines } from './server-fileutils.mjs';
 
 // Org dashboard routes: search, health, plugins, runtime, live config and agent stats.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
@@ -113,7 +114,7 @@ export async function handleOrgStatusRoutes(req, res, url, corsOrigin, ctx) {
       // Recent activity events
       const eventsFile = path.join(d, 'data', 'mastermind-events.jsonl');
       if (fs.existsSync(eventsFile)) {
-        const lines = fs.readFileSync(eventsFile, 'utf8').split('\n').filter(Boolean).slice(-500);
+        const lines = _readTailLines(eventsFile).slice(-500);
         for (const l of lines) {
           try {
             const e = JSON.parse(l);
@@ -269,7 +270,8 @@ export async function handleOrgStatusRoutes(req, res, url, corsOrigin, ctx) {
       if (!body || typeof body !== 'object')
         throw Object.assign(new Error('JSON body required'), { status: 400 });
       try {
-        return { ok: true, def: orgRuntime.patchOrgConfig(root, orgName, body) };
+        const def = orgRuntime.patchOrgConfig(root, orgName, body);
+        return { ok: true, def, signature: orgRuntime.orgSignatureState(root, orgName) };
       } catch (err) {
         if (err instanceof orgRuntime.ConfigRejected)
           throw Object.assign(new Error(err.message), { status: 400 });

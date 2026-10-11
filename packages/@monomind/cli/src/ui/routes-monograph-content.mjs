@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { isPathInside } from './server-fileutils.mjs';
 
 // Monograph dashboard routes (extracted from routes-monograph.mjs).
 // Registered, in order, by handleMonographRoutes in routes-monograph.mjs.
@@ -58,8 +59,9 @@ export async function handleMonographContentRoutes(req, res, url, corsOrigin, ct
         }
         // Fallback: read from actual file
         if (!content && filePath) {
-          const absPath = path.isAbsolute(filePath) ? filePath : path.join(d, filePath);
+          const absPath = path.resolve(d, filePath);
           try {
+            if (!isPathInside(d, absPath)) throw new Error('outside project dir');
             const lines = fs.readFileSync(absPath, 'utf-8').split('\n');
             const sl = Math.max(0, (startLine || 1) - 1);
             const el = Math.min(lines.length, (endLine || startLine || lines.length) + 5);
@@ -257,10 +259,9 @@ export async function handleMonographContentRoutes(req, res, url, corsOrigin, ct
           } catch {}
         }
         if (!content && node.file_path) {
-          const absPath = path.isAbsolute(node.file_path)
-            ? node.file_path
-            : path.join(d, node.file_path);
+          const absPath = path.resolve(d, node.file_path);
           try {
+            if (!isPathInside(d, absPath)) throw new Error('outside project dir');
             const lines = fs.readFileSync(absPath, 'utf-8').split('\n');
             const sl = Math.max(0, (node.start_line || 1) - 1);
             const el = Math.min(

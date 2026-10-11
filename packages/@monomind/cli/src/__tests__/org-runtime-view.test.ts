@@ -165,6 +165,7 @@ describe('runtimeView — org not running', () => {
       tokens_in: 160,
       tokens_out: 90,
       cache_read: 900,
+      costComplete: true,
       cache_creation: 50,
       cost_usd: 0.6,
       turns: 2,

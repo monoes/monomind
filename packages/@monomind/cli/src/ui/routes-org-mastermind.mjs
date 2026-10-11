@@ -20,7 +20,7 @@ export async function handleOrgMastermindRoutes(req, res, url, corsOrigin, ctx) 
         res.end(JSON.stringify({ error: 'path required' }));
         return true;
       }
-      const _filePath = path.resolve(decodeURIComponent(_rawPath));
+      const _filePath = path.resolve(_rawPath);
       // Security: this endpoint used to allow reads anywhere under the project
       // root or any data/known-projects.json entry — letting any dashboard
       // client read .env, .git/config, or other arbitrary project files.
@@ -31,8 +31,8 @@ export async function handleOrgMastermindRoutes(req, res, url, corsOrigin, ctx) 
       const _artMonoDir =
         ctx._getGitMonomindDir(_artProjDir) || path.join(_artProjDir, '.monomind');
       const _artOrgDir = path.join(_artMonoDir, 'orgs', _artOrgName);
-      const _safe = _filePath === _artOrgDir || _filePath.startsWith(_artOrgDir + path.sep);
-      if (!_safe) {
+      const _within = (p, base) => p === base || p.startsWith(base + path.sep);
+      if (!_within(_filePath, _artOrgDir)) {
         res.writeHead(403);
         res.end(JSON.stringify({ error: 'path not allowed' }));
         return true;
@@ -40,6 +40,23 @@ export async function handleOrgMastermindRoutes(req, res, url, corsOrigin, ctx) 
       if (!fs.existsSync(_filePath)) {
         res.writeHead(404);
         res.end(JSON.stringify({ error: 'file not found' }));
+        return true;
+      }
+      // Re-check containment after resolving symlinks so a link inside the
+      // org dir cannot point the read outside it.
+      let _realFile;
+      let _realOrgDir;
+      try {
+        _realFile = fs.realpathSync(_filePath);
+        _realOrgDir = fs.realpathSync(_artOrgDir);
+      } catch (_) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'file not found' }));
+        return true;
+      }
+      if (!_within(_realFile, _realOrgDir)) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: 'path not allowed' }));
         return true;
       }
       const _mime = ctx._detectMimeType(_filePath);
@@ -297,6 +314,11 @@ export async function handleOrgMastermindRoutes(req, res, url, corsOrigin, ctx) 
     try {
       html = fs.readFileSync(htmlPath, 'utf8');
     } catch (_) {}
+    // Same auth-token injection as GET / and GET /orgs.
+    html = String(html).replace(
+      '<head>',
+      `<head>\n<meta name="mm-token" content="${ctx.dashboardAuthValue}">`,
+    );
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(html);
     return true;

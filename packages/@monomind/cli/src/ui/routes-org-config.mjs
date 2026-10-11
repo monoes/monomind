@@ -1,7 +1,55 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { checklistErrorsForRaw } from '../orgrt/validate-checklist.js';
-import { approvalsOrEmpty } from './routes-org-helpers.mjs';
+import { writeFileAtomic } from './org-hil.mjs';
+import {
+  assertValidOrgDef,
+  orgIsRunning,
+  orgRunningState,
+  orgSignatureState,
+} from './org-runtime.mjs';
+import { approvalsOrEmpty, readBodyOrReply } from './routes-org-helpers.mjs';
+import { _readTailLines } from './server-fileutils.mjs';
+
+const sendJson = (res, corsOrigin, status, body) => {
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+  });
+  res.end(JSON.stringify(body));
+  return true;
+};
+
+/** Validate and write `<dir>/.monomind/orgs/<name>.json` for import and create:
+ *  the same checklist and OrgDefSchema parse `org run` applies, no write over
+ *  an org that is running (409), and an atomic write. The definition is not
+ *  signed here; the response says whether it is (`monomind org sign`). */
+function writeOrgDefinition(res, corsOrigin, dir, name, getCfg) {
+  try {
+    const cfg = { ...getCfg(), name };
+    // Org sections spec 7.3: a deferred feature is refused, not saved.
+    const checklistErrors = checklistErrorsForRaw(cfg);
+    if (checklistErrors.length)
+      return sendJson(res, corsOrigin, 400, { error: checklistErrors.join('; ') });
+    assertValidOrgDef(cfg);
+    if (orgIsRunning(dir, name))
+      return sendJson(res, corsOrigin, 409, {
+        error: `org "${name}" is running — stop it before replacing its definition`,
+      });
+    const orgsDir = path.join(dir, '.monomind', 'orgs');
+    fs.mkdirSync(orgsDir, { recursive: true });
+    const destFile = path.join(orgsDir, `${name}.json`);
+    writeFileAtomic(destFile, JSON.stringify(cfg, null, 2));
+    return sendJson(res, corsOrigin, 200, {
+      ok: true,
+      name,
+      file: destFile,
+      signature: orgSignatureState(dir, name),
+    });
+  } catch (e) {
+    return sendJson(res, corsOrigin, 400, { error: e.message });
+  }
+}
 
 // Org dashboard routes: org list, import, create, config and activity.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
@@ -44,8 +92,9 @@ export async function handleOrgConfigRoutes(req, res, url, corsOrigin, ctx) {
             const _rs = ctx._readRunState(_lOrgName, _opd);
             const _ttl = Math.max((_rs?.checkpointInterval || 600000) * 2, 7200000);
             const running =
-              (_rs?.status === 'running' && Date.now() - (_rs?.lastEventAt || 0) < _ttl) ||
-              ctx.activeOrgRuns.has(_lOrgName);
+              orgRunningState(_opd, _lOrgName) ??
+              ((_rs?.status === 'running' && Date.now() - (_rs?.lastEventAt || 0) < _ttl) ||
+                ctx.activeOrgRuns.has(_lOrgName));
             orgs.push({
               name: cfg.name,
               goal: cfg.goal,
@@ -81,93 +130,37 @@ export async function handleOrgConfigRoutes(req, res, url, corsOrigin, ctx) {
 
   // POST /api/orgs/:name/import — import an org config by name (orgs.html upload flow)
   if (req.method === 'POST' && /^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/import$/i.test(url)) {
-    let body = '';
-    req.on('data', (c) => {
-      body += c;
-      if (body.length > 2e6) req.destroy();
-    });
-    req.on('end', () => {
-      try {
-        const urlParts = url.split('/');
-        const orgName = decodeURIComponent(urlParts[3]);
-        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid org name' }));
-          return;
-        }
-        const cfg = JSON.parse(body);
-        // Org sections spec 7.3: a deferred feature is refused, not saved.
-        const checklistErrors = checklistErrorsForRaw({ ...cfg, name: orgName });
-        if (checklistErrors.length) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: checklistErrors.join('; ') }));
-          return;
-        }
-        const _importQs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = path.resolve(_importQs.get('dir') || ctx.projectDir || process.cwd());
-        const orgsDir = path.join(dir, '.monomind', 'orgs');
-        fs.mkdirSync(orgsDir, { recursive: true });
-        const destFile = path.join(orgsDir, `${orgName}.json`);
-        fs.writeFileSync(destFile, JSON.stringify({ ...cfg, name: orgName }, null, 2), 'utf8');
-        res.writeHead(200, {
-          'Content-Type': 'application/json',
-          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
-        });
-        res.end(JSON.stringify({ ok: true, name: orgName, file: destFile }));
-      } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
-      }
-    });
-    return true;
+    const body = await readBodyOrReply(req, res, 2e6, corsOrigin);
+    if (body === null) return true;
+    const orgName = decodeURIComponent(url.split('/')[3]);
+    if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+      return sendJson(res, corsOrigin, 400, { error: 'Invalid org name' });
+    }
+    const _importQs = new URL(req.url, 'http://localhost').searchParams;
+    const dir = path.resolve(_importQs.get('dir') || ctx.projectDir || process.cwd());
+    return writeOrgDefinition(res, corsOrigin, dir, orgName, () => JSON.parse(body));
   }
 
   // POST /api/orgs — import / create org from JSON body
   if (req.method === 'POST' && url === '/api/orgs') {
-    let body = '';
-    req.on('data', (c) => {
-      body += c;
-      if (body.length > 2e6) req.destroy();
-    });
-    req.on('end', () => {
-      try {
-        const cfg = JSON.parse(body);
-        const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || cfg.dir || ctx.projectDir || process.cwd();
-        const name = (cfg.name || '')
-          .toLowerCase()
-          .replace(/[^a-z0-9_-]/g, '-')
-          .replace(/^-+|-+$/g, '')
-          .slice(0, 64);
-        if (!name) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid org name' }));
-          return;
-        }
-        const orgsDir = path.join(path.resolve(dir), '.monomind', 'orgs');
-        fs.mkdirSync(orgsDir, { recursive: true });
-        const destFile = path.join(orgsDir, `${name}.json`);
-        const cleanCfg = Object.fromEntries(
-          Object.entries({ ...cfg, name }).filter(([k]) => !k.startsWith('_')),
-        );
-        const checklistErrors = checklistErrorsForRaw(cleanCfg);
-        if (checklistErrors.length) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: checklistErrors.join('; ') }));
-          return;
-        }
-        fs.writeFileSync(destFile, JSON.stringify(cleanCfg, null, 2), 'utf8');
-        res.writeHead(200, {
-          'Content-Type': 'application/json',
-          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
-        });
-        res.end(JSON.stringify({ ok: true, name, file: destFile }));
-      } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
-      }
-    });
-    return true;
+    const body = await readBodyOrReply(req, res, 2e6, corsOrigin);
+    if (body === null) return true;
+    let cfg;
+    try {
+      cfg = JSON.parse(body);
+    } catch (e) {
+      return sendJson(res, corsOrigin, 400, { error: e.message });
+    }
+    const qs = new URL(req.url, 'http://localhost').searchParams;
+    const dir = qs.get('dir') || cfg.dir || ctx.projectDir || process.cwd();
+    const name = (cfg.name || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 64);
+    if (!name) return sendJson(res, corsOrigin, 400, { error: 'Invalid org name' });
+    const clean = Object.fromEntries(Object.entries(cfg).filter(([k]) => !k.startsWith('_')));
+    return writeOrgDefinition(res, corsOrigin, path.resolve(dir), name, () => clean);
   }
 
   // GET /api/orgs/:name — get specific org config (exact path: /api/orgs/<slug>)
@@ -310,9 +303,11 @@ export async function handleOrgConfigRoutes(req, res, url, corsOrigin, ctx) {
       const _runstateAlive =
         _runstateData?.status === 'running' &&
         Date.now() - (_runstateData?.lastEventAt || 0) < _runstateTtl;
+      const _v2Running = orgRunningState(d, orgName);
       const running =
-        !fs.existsSync(stopFile) &&
-        (_runstateAlive || ctx.activeOrgRuns.has(orgName) || _loopRunning);
+        _v2Running ??
+        (!fs.existsSync(stopFile) &&
+          (_runstateAlive || ctx.activeOrgRuns.has(orgName) || _loopRunning));
 
       // Read real tasks from the task store and group by status column
       const taskStoreData = readJsonSafe(path.join(d, '.monomind', 'tasks', 'store.json'));
@@ -397,8 +392,7 @@ export async function handleOrgConfigRoutes(req, res, url, corsOrigin, ctx) {
       // 1) Global mastermind events that EXPLICITLY belong to this org (strict — no untagged leak)
       const eventsFile = path.join(d, 'data', 'mastermind-events.jsonl');
       if (fs.existsSync(eventsFile)) {
-        const lines = fs.readFileSync(eventsFile, 'utf8').split('\n').filter(Boolean);
-        for (const l of lines.slice(-1000)) {
+        for (const l of _readTailLines(eventsFile).slice(-1000)) {
           try {
             const e = JSON.parse(l);
             if (e && e.org === orgName) events.push(e);

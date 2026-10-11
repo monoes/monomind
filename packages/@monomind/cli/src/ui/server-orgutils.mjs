@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { writeFileAtomic } from './org-hil.mjs';
 import { _getGitMonomindDir } from './server-fileutils.mjs';
 
 function _resolveOrgProjectDir(orgName, serverRoot) {
@@ -130,7 +131,7 @@ function _updateRunState(event, rootDir) {
     cur.lastEventAt = ts;
     try {
       fs.mkdirSync(orgsDir, { recursive: true });
-      fs.writeFileSync(file, JSON.stringify(cur, null, 2));
+      writeFileAtomic(file, JSON.stringify(cur, null, 2));
     } catch (_) {}
   } else {
     // Frequent event: debounce lastEventAt write by 5s
@@ -142,7 +143,7 @@ function _updateRunState(event, rootDir) {
         if (!fs.existsSync(file)) return;
         const rs = JSON.parse(fs.readFileSync(file, 'utf8'));
         rs.lastEventAt = Date.now();
-        fs.writeFileSync(file, JSON.stringify(rs, null, 2));
+        writeFileAtomic(file, JSON.stringify(rs, null, 2));
       } catch (_) {}
     }, 5000);
     _runstateDebouncers.set(orgName, { timer });

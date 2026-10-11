@@ -22,27 +22,54 @@ export function hilRoot(req, ctx) {
 
 const HIL_BODY_MAX = 65536;
 
-/** JSON body (≤64KB); null when malformed. Call inside hilRespond: an
- *  oversized body throws 413 and an aborted upload 400, instead of an
- *  unhandled rejection that would take the dashboard process down. Bytes are
- *  decoded once at the end, so a character split across chunks survives. */
-export async function readHilBody(req) {
+/** Request body as a string, at most `max` bytes. An oversized body throws 413
+ *  and an aborted upload 400 (status on the error), instead of an unhandled
+ *  rejection that would take the dashboard process down. Past the cap it keeps
+ *  draining (without keeping) so the 413 still reaches the client — leaving
+ *  the iterator early destroys the socket. Bytes are decoded once at the end,
+ *  so a character split across chunks survives. */
+export async function readRawBody(req, max = HIL_BODY_MAX) {
   const chunks = [];
   let size = 0;
   try {
-    // Past the cap, keep draining (without keeping) so the 413 still reaches
-    // the client — leaving the iterator early destroys the socket.
     for await (const chunk of req) {
       size += chunk.length;
-      if (size <= HIL_BODY_MAX) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      if (size <= max) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
   } catch (err) {
     throw Object.assign(new Error(`request body not received: ${err.message}`), { status: 400 });
   }
-  if (size > HIL_BODY_MAX)
-    throw Object.assign(new Error('request body is over 64KB'), { status: 413 });
+  if (size > max)
+    throw Object.assign(new Error(`request body is over ${Math.round(max / 1024)}KB`), {
+      status: 413,
+    });
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+/** readRawBody for routes that answer on their own: the body, or null after
+ *  replying 400/413 (the caller just returns). */
+export async function readBodyOrReply(req, res, max, corsOrigin) {
   try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+    return await readRawBody(req, max);
+  } catch (err) {
+    if (!res.headersSent) {
+      res.writeHead(err.status || 400, {
+        'Content-Type': 'application/json',
+        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+      });
+    }
+    res.end(JSON.stringify({ ok: false, error: err.message }));
+    return null;
+  }
+}
+
+/** JSON body (≤64KB); null when malformed. Call inside hilRespond: an
+ *  oversized body throws 413 and an aborted upload 400, instead of an
+ *  unhandled rejection that would take the dashboard process down. */
+export async function readHilBody(req) {
+  const text = await readRawBody(req, HIL_BODY_MAX);
+  try {
+    return JSON.parse(text || '{}');
   } catch (_) {
     return null;
   }

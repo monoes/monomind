@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { resolveAllowedProjectDir } from './server-fileutils.mjs';
 import { pathToSlug } from './server-slug.mjs';
 
 // ScheduleWakeup / loop-runner routes.
@@ -178,16 +179,22 @@ export async function handleRoutesLoops(req, res, url, corsOrigin, ctx) {
     req.on('end', () => {
       try {
         const { id } = JSON.parse(body);
-        if (!id) {
+        if (typeof id !== 'string' || !/^loop-[\w-]+$/.test(id)) {
           res.writeHead(400);
-          res.end(JSON.stringify({ error: 'id required' }));
+          res.end(JSON.stringify({ error: 'valid loop id required' }));
           return true;
         }
         const _stopQs = new URL(req.url, 'http://localhost').searchParams;
         const _stopDir = path.resolve(_stopQs.get('dir') || projectDir || process.cwd());
         const loopsDir = path.join(_stopDir, '.monomind', 'loops');
+        const stopFile = path.resolve(loopsDir, `${id}.stop`);
+        if (path.dirname(stopFile) !== path.resolve(loopsDir)) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'invalid loop id' }));
+          return true;
+        }
         fs.mkdirSync(loopsDir, { recursive: true });
-        fs.writeFileSync(path.join(loopsDir, `${id}.stop`), `stop-requested-${Date.now()}`);
+        fs.writeFileSync(stopFile, `stop-requested-${Date.now()}`);
         res.writeHead(200, {
           'Content-Type': 'application/json',
           ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
@@ -240,11 +247,13 @@ export async function handleRoutesLoops(req, res, url, corsOrigin, ctx) {
           res.end(JSON.stringify({ error: 'prompt required' }));
           return true;
         }
-        const loopsDir = path.join(
-          path.resolve(_qs.get('dir') || projectDir || process.cwd()),
-          '.monomind',
-          'loops',
-        );
+        const _createDir = resolveAllowedProjectDir(_qs.get('dir'), projectDir);
+        if (!_createDir) {
+          res.writeHead(403);
+          res.end(JSON.stringify({ error: 'dir is not the server project or a known project' }));
+          return true;
+        }
+        const loopsDir = path.join(_createDir, '.monomind', 'loops');
         fs.mkdirSync(loopsDir, { recursive: true });
         const id = `loop-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const nowMs = Date.now();

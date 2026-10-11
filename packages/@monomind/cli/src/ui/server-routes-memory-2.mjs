@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveAllowedProjectDir } from './server-fileutils.mjs';
 import { _getKnowledgeBridge } from './server-knowledge-bridge.mjs';
 
 // Second-Brain knowledge-entry and knowledge-chunk routes.
@@ -190,7 +191,12 @@ export async function handleRoutesMemory2(req, res, url, corsOrigin, ctx) {
     req.on('end', () => {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const d = path.resolve(qs.get('dir') || projectDir || process.cwd());
+        const d = resolveAllowedProjectDir(qs.get('dir'), projectDir);
+        if (!d) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'dir is not the server project or a known project' }));
+          return true;
+        }
         const chunksFile = path.join(d, '.monomind', 'knowledge', 'chunks.jsonl');
         const { chunkId } = JSON.parse(body);
         if (!chunkId || typeof chunkId !== 'string') {
@@ -253,7 +259,12 @@ export async function handleRoutesMemory2(req, res, url, corsOrigin, ctx) {
     req.on('end', () => {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const d = path.resolve(qs.get('dir') || projectDir || process.cwd());
+        const d = resolveAllowedProjectDir(qs.get('dir'), projectDir);
+        if (!d) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'dir is not the server project or a known project' }));
+          return true;
+        }
         const chunksFile = path.join(d, '.monomind', 'knowledge', 'chunks.jsonl');
         const { chunkId, text } = JSON.parse(body);
         if (!chunkId || typeof chunkId !== 'string' || typeof text !== 'string') {

@@ -341,8 +341,10 @@ describe('org-hil with a running org (daemon registered in the broker)', () => {
     });
     try {
       const err = await hil.resolveGate(root, ORG, 'gate-1', true).catch((e: Error) => e);
+      // The daemon's 401/403 is about the operator credential, not the browser
+      // session: reported as a bad gateway with the daemon's own message.
       expect(hil.hilErrorStatus(err)).toEqual({
-        status: 403,
+        status: 502,
         error: 'forbidden: operator credential required',
       });
       expect(readOrgFile('gates.json').gates[0].status).toBe('pending');

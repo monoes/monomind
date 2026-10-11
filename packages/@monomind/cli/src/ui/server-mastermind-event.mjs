@@ -17,17 +17,27 @@ import { broadcastMm, writeSse } from './sse-manager.mjs';
 function createHandleMastermindEvent({ projectDir, MONOMIND_HOME }) {
   return async function handleMastermindEvent(req, res, corsOrigin) {
     let body = '';
-    for await (const chunk of req) {
-      body += chunk;
-      if (body.length > 2097152) {
-        req.destroy();
-        break;
+    try {
+      for await (const chunk of req) {
+        body += chunk;
+        if (body.length > 2097152) {
+          req.destroy();
+          break;
+        }
       }
+    } catch (_) {
+      // Client aborted mid-body — nothing to answer.
+      return;
     }
     let event = {};
     try {
       event = JSON.parse(body);
     } catch (_) {}
+    if (event === null || typeof event !== 'object' || Array.isArray(event)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'event must be a JSON object' }));
+      return;
+    }
     event.ts = event.ts || Date.now();
     // Event type validation: accept any {scope}:{action} pattern — future event types
     // auto-work without whitelist maintenance. Malformed types are logged and rejected.

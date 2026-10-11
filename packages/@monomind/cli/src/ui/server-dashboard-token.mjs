@@ -5,6 +5,16 @@ import path from 'node:path';
 // start state) and mutated a private _dashboardTokenFilePath — now tokenState.path,
 // a plain object so shutdown()/the /api/identity route can read the live value
 // after this moved out of startServer's own closure.
+// Port named by a control.json url, parsed (a substring test would match :4242 in :42421).
+function _controlUrlPort(rawUrl) {
+  try {
+    const u = new URL(String(rawUrl || ''));
+    return Number(u.port) || (u.protocol === 'https:' ? 443 : 80);
+  } catch (_) {
+    return null;
+  }
+}
+
 function createDashboardTokenManager({ projectDir, dashboardAuthValue }) {
   const tokenState = { path: null };
   // #366: control-start spawns a server only as THIS project's primary (it
@@ -141,7 +151,7 @@ function createDashboardTokenManager({ projectDir, dashboardAuthValue }) {
           const _kpMono = path.join(_kp, '.monomind');
           const _kpCtl = JSON.parse(fs.readFileSync(path.join(_kpMono, 'control.json'), 'utf8'));
           // Only pair projects that direct their traffic to this server's port.
-          if (_kpCtl && String(_kpCtl.url || '').includes(`:${actualPort}`)) {
+          if (_kpCtl && _controlUrlPort(_kpCtl.url) === Number(actualPort)) {
             ensureDashboardTokenGitignoreCoverage(_kpMono);
             const _kpTokenPath = path.join(_kpMono, 'dashboard-token');
             fs.writeFileSync(_kpTokenPath, dashboardAuthValue, { mode: 0o600 });

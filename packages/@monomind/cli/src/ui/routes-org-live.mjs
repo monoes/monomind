@@ -7,6 +7,7 @@ import path from 'node:path';
 // companionEvents() are pure — no filesystem or process side effects — so
 // importing them here doesn't pull in attachForwarder's spawn/heal logic.
 import { companionEvents, translate } from '../orgrt/forwarder.js';
+import { _readTailLines } from './server-fileutils.mjs';
 import { getMmClientCount } from './sse-manager.mjs';
 
 // Org dashboard routes: loops, status, current run, history and memory.
@@ -51,11 +52,7 @@ export async function handleOrgLiveRoutes(req, res, url, corsOrigin, ctx) {
       let recentEvents = [];
       try {
         const evPath = path.join(root, 'data', 'mastermind-events.jsonl');
-        const lines = fs
-          .readFileSync(evPath, 'utf8')
-          .split('\n')
-          .filter((l) => l.trim())
-          .slice(-10);
+        const lines = _readTailLines(evPath).slice(-10);
         recentEvents = lines
           .map((l) => {
             try {
@@ -155,11 +152,7 @@ export async function handleOrgLiveRoutes(req, res, url, corsOrigin, ctx) {
       const detectedRunId = isV2
         ? path.basename(path.dirname(runFile))
         : path.basename(runFile, '.jsonl');
-      const lines = fs
-        .readFileSync(runFile, 'utf8')
-        .split('\n')
-        .filter((l) => l.trim())
-        .slice(-100);
+      const lines = _readTailLines(runFile).slice(-100);
       const rawEvents = lines
         .map((l) => {
           try {
@@ -203,10 +196,7 @@ export async function handleOrgLiveRoutes(req, res, url, corsOrigin, ctx) {
       const histFile = path.join(monoDir, 'orgs', orgName, 'history.jsonl');
       let runs = [];
       if (fs.existsSync(histFile)) {
-        runs = fs
-          .readFileSync(histFile, 'utf8')
-          .split('\n')
-          .filter((l) => l.trim())
+        runs = _readTailLines(histFile)
           .map((l) => {
             try {
               return JSON.parse(l);

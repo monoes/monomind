@@ -7,6 +7,13 @@ import path from 'node:path';
 // companionEvents() are pure — no filesystem or process side effects — so
 // importing them here doesn't pull in attachForwarder's spawn/heal logic.
 import { companionEvents, translate } from '../orgrt/forwarder.js';
+import {
+  EVENTS_DEFAULT_LIMIT,
+  EVENTS_MAX_LIMIT,
+  v2RunStatus,
+  v2Summary,
+  v2Window,
+} from './org-run-summary.mjs';
 
 // Org dashboard routes: run list and run events.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
@@ -102,33 +109,18 @@ export async function handleOrgRunRoutes(req, res, url, corsOrigin, ctx) {
         try {
           const busFile = path.join(orgDir, runId, 'bus.jsonl');
           if (!fs.existsSync(busFile)) return null;
-          const raw = fs
-            .readFileSync(busFile, 'utf8')
-            .split('\n')
-            .filter(Boolean)
-            .map((l) => {
-              try {
-                return JSON.parse(l);
-              } catch {
-                return null;
-              }
-            })
-            .filter(Boolean);
-          if (!raw.length) return null;
-          const translated = raw.flatMap((e) => [...companionEvents(e), translate(e)]);
-          const done = translated.find(
-            (e) => e.type === 'session:complete' || e.type === 'org:complete',
-          );
-          const start = translated.find((e) => e.type === 'org:start');
-          const firstComms = translated.find((e) => e.type === 'org:comms' && e.msg);
+          const sum = v2Summary(busFile);
+          if (!sum) return null;
+          const { status, closedBy } = v2RunStatus(orgDir, runId, sum);
           return {
             runId,
-            startedAt: raw[0]?.ts || 0,
-            endedAt: done?.ts || 0,
-            status: done ? 'complete' : 'running',
-            eventCount: raw.length,
-            cycleCount: translated.filter((e) => e.type === 'org:checkpoint').length,
-            goal: start?.goal || firstComms?.msg?.slice(0, 80) || '',
+            startedAt: sum.startedAt,
+            endedAt: sum.endedAt,
+            status,
+            ...(closedBy ? { closedBy } : {}),
+            eventCount: sum.eventCount,
+            cycleCount: sum.cycleCount,
+            goal: sum.goal,
             bossRole: '',
           };
         } catch (_) {
@@ -332,24 +324,15 @@ export async function handleOrgRunRoutes(req, res, url, corsOrigin, ctx) {
           );
         for (const _v2File of _v2Candidates) {
           if (!fs.existsSync(_v2File)) continue;
-          const raw = fs
-            .readFileSync(_v2File, 'utf8')
-            .split('\n')
-            .filter(Boolean)
-            .map((l) => {
-              try {
-                return JSON.parse(l);
-              } catch {
-                return null;
-              }
-            })
-            .filter(Boolean);
+          const { raw, total, offset } = v2Window(_v2File, _rvQs);
           const events = raw.flatMap((e) => [...companionEvents(e), translate(e)]);
           events.sort((a, b) => (a.ts || 0) - (b.ts || 0));
           res.writeHead(200, {
             'Content-Type': 'application/json',
             ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
             'Cache-Control': 'no-cache',
+            'X-Total-Events': String(total),
+            'X-Events-Offset': String(offset),
           });
           res.end(JSON.stringify(events));
           return true;
@@ -414,12 +397,22 @@ export async function handleOrgRunRoutes(req, res, url, corsOrigin, ctx) {
       // For in-progress runs (no .warm.jsonl), org:comms also go to .convs.jsonl (stripped form).
       // They're already in .jsonl as full events, so .convs.jsonl would duplicate — skip it.
       events.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      const _rvLimit = Math.min(
+        Math.max(Number.parseInt(_rvQs.get('limit') ?? '', 10) || EVENTS_DEFAULT_LIMIT, 1),
+        EVENTS_MAX_LIMIT,
+      );
+      const _rvOffset =
+        _rvQs.get('offset') === null
+          ? Math.max(0, events.length - _rvLimit)
+          : Math.max(Number.parseInt(_rvQs.get('offset'), 10) || 0, 0);
       res.writeHead(200, {
         'Content-Type': 'application/json',
         ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
         'Cache-Control': 'no-cache',
+        'X-Total-Events': String(events.length),
+        'X-Events-Offset': String(_rvOffset),
       });
-      res.end(JSON.stringify(events));
+      res.end(JSON.stringify(events.slice(_rvOffset, _rvOffset + _rvLimit)));
     } catch (_) {
       res.writeHead(500);
       res.end('[]');

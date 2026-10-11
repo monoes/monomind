@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { writeFileAtomic } from './org-hil.mjs';
+import { readBodyOrReply } from './routes-org-helpers.mjs';
 
 // Org dashboard routes: budgets, threads, routines and goals.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
@@ -58,7 +60,7 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
           tokens_in: s.tokens_in || 0,
           tokens_out: s.tokens_out || 0,
           tokens_used: s.tokens_used || (s.tokens_in || 0) + (s.tokens_out || 0),
-          total_cost_usd: s.total_cost_usd || 0,
+          total_cost_usd: s.total_cost_usd ?? null,
         }));
       } catch (_) {}
       // Scan org run jsonl files for usage events (fallback when state.json has no token data).
@@ -86,6 +88,7 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
                   tokens_out: 0,
                   tokens_used: 0,
                   total_cost_usd: null, // null = no cost reported (unknown, rev 28)
+                  cost_complete: true, // false = some usage event had no cost: a lower bound
                 };
               _usageByRole[role].tokens_in += tokensIn;
               _usageByRole[role].tokens_out += tokensOut;
@@ -93,6 +96,7 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
               if (costUsd !== null && costUsd !== undefined && Number.isFinite(Number(costUsd)))
                 _usageByRole[role].total_cost_usd =
                   (_usageByRole[role].total_cost_usd ?? 0) + Number(costUsd);
+              else _usageByRole[role].cost_complete = false;
             };
             for (const f of fs.readdirSync(_runsDir)) {
               if (!f.endsWith('.jsonl') || f.startsWith('._')) continue;
@@ -126,7 +130,8 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
                   tokens_in: u.tokens_in || 0,
                   tokens_out: u.tokens_out || 0,
                   tokens_used: u.tokens_used || (u.tokens_in || 0) + (u.tokens_out || 0),
-                  total_cost_usd: u.total_cost_usd || 0,
+                  total_cost_usd: u.total_cost_usd ?? null,
+                  cost_complete: u.cost_complete ?? true,
                 };
               });
               // Add any roles that appeared in events but aren't in config
@@ -141,7 +146,14 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
       // Do NOT fall back to zero-value role stubs — empty agents array is the honest signal
       // that no usage has been tracked yet; the UI shows "No cost data" rather than $0.0000 rows.
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ...budgetData, agents }));
+      res.end(
+        JSON.stringify({
+          ...budgetData,
+          agents,
+          // true = at least one agent's cost_usd leaves out usage that reported none.
+          cost_lower_bound: agents.some((a) => a.cost_complete === false),
+        }),
+      );
     } catch (_) {
       res.writeHead(500);
       res.end('{"org_budget":{},"agent_budgets":{},"agents":[]}');
@@ -308,14 +320,8 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
   // POST /api/org/:name/goals — upsert the org goals file
   // Body: { goals: [{id, title, description, status, priority, assignee_id, created_at}] }
   if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/goals$/i)) {
-    let body = '';
-    for await (const chunk of req) {
-      body += chunk;
-      if (body.length > 2097152) {
-        req.destroy();
-        break;
-      }
-    }
+    const body = await readBodyOrReply(req, res, 2097152, corsOrigin);
+    if (body === null) return true;
     try {
       const orgName = decodeURIComponent(url.split('/')[3]);
       if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
@@ -336,10 +342,8 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
         'orgs',
         `${orgName}-goals.json`,
       );
-      const tmp = `${goalsFile}.tmp`;
       const payload = { org: orgName, updated_at: new Date().toISOString(), goals: parsed.goals };
-      fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf-8');
-      fs.renameSync(tmp, goalsFile);
+      writeFileAtomic(goalsFile, JSON.stringify(payload, null, 2));
       res.writeHead(200, {
         'Content-Type': 'application/json',
         ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
@@ -355,14 +359,8 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
   // POST /api/org/:name/routines — upsert the org routines file
   // Body: { routines: [{name, description, schedule, enabled, last_run, next_run}] }
   if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/routines$/i)) {
-    let body = '';
-    for await (const chunk of req) {
-      body += chunk;
-      if (body.length > 2097152) {
-        req.destroy();
-        break;
-      }
-    }
+    const body = await readBodyOrReply(req, res, 2097152, corsOrigin);
+    if (body === null) return true;
     try {
       const orgName = decodeURIComponent(url.split('/')[3]);
       if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
@@ -383,14 +381,12 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
         'orgs',
         `${orgName}-routines.json`,
       );
-      const tmp = `${routinesFile}.tmp`;
       const payload = {
         org: orgName,
         updated_at: new Date().toISOString(),
         routines: parsed.routines,
       };
-      fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf-8');
-      fs.renameSync(tmp, routinesFile);
+      writeFileAtomic(routinesFile, JSON.stringify(payload, null, 2));
       res.writeHead(200, {
         'Content-Type': 'application/json',
         ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),

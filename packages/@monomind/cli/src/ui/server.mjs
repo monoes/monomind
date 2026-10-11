@@ -103,8 +103,13 @@ function _sjGetPricing(model) {
   let canonical = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
   canonical = _ALIAS[canonical] || canonical;
   if (_SJ_PRICING[canonical]) return _SJ_PRICING[canonical];
-  for (const k of Object.keys(_SJ_PRICING)) {
-    if (canonical.startsWith(k) || canonical.includes(k)) return _SJ_PRICING[k];
+  // Longest key wins so 'gpt-4o-mini' never resolves to the cheaper-to-match 'gpt-4o'.
+  const keys = Object.keys(_SJ_PRICING).sort((a, b) => b.length - a.length);
+  for (const k of keys) {
+    if (canonical.startsWith(k)) return _SJ_PRICING[k];
+  }
+  for (const k of keys) {
+    if (canonical.includes(k)) return _SJ_PRICING[k];
   }
   return null;
 }
@@ -120,7 +125,8 @@ export function _sjHasPricing(model) {
 }
 export function _sjCalcCost(model, usage) {
   const p = _sjGetPricing(model);
-  if (!p || !usage) return 0;
+  if (!p) return null; // unpriced model — callers must not count it as a genuine $0
+  if (!usage) return 0;
   const webSearch = (usage.server_tool_use?.web_search_requests || 0) * 0.01;
   return (
     (usage.input_tokens || 0) * p.in +
@@ -173,6 +179,19 @@ function alreadyRunningResult(existing) {
   };
 }
 
+// Log (never exit) on stray async errors so one bad request cannot take the dashboard down.
+let _processErrorHandlersRegistered = false;
+function registerProcessErrorHandlers() {
+  if (_processErrorHandlersRegistered) return;
+  _processErrorHandlersRegistered = true;
+  process.on('unhandledRejection', (reason) => {
+    console.error('[server] unhandledRejection:', reason);
+  });
+  process.on('uncaughtException', (err) => {
+    console.error('[server] uncaughtException:', err);
+  });
+}
+
 export async function startServer({
   port = 4242,
   projectDir,
@@ -222,6 +241,8 @@ export async function startServer({
   // Handed to routes-org-mastermind.mjs via ctx below; never called directly here.
   const handleMastermindEvent = createHandleMastermindEvent({ projectDir, MONOMIND_HOME });
 
+  registerProcessErrorHandlers();
+
   // Set once the server is bound (server-shutdown.mjs); the request handler and
   // the signal handlers call through this.
   let _shutdown = null;
@@ -231,7 +252,7 @@ export async function startServer({
     dashboardAuthValue,
   });
 
-  const server = http.createServer(async (req, res) => {
+  const _handleRequest = async (req, res) => {
     const gate = checkRequestGate({
       req,
       res,
@@ -281,6 +302,21 @@ export async function startServer({
     // ------------------------------------------------------------------ 404
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not found');
+  };
+  const server = http.createServer(async (req, res) => {
+    try {
+      await _handleRequest(req, res);
+    } catch (err) {
+      console.error(`[server] request handler failed (${req.method} ${req.url}):`, err);
+      try {
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Internal server error' }));
+        } else {
+          res.destroy();
+        }
+      } catch (_) {}
+    }
   });
 
   // ── Gap-fill ordering (ADR Issue 7): rebuild activeOrgRuns BEFORE the server
@@ -315,6 +351,8 @@ export async function startServer({
           let _gfActive = _gfRt.status === 'running';
           if (_gfActive && typeof _gfRt.pid === 'number') {
             _gfActive = recordedPidLiveness(_gfRt.pid, _gfRt.pidStart) === 'alive';
+          } else if (_gfActive) {
+            _gfActive = false; // running record without a numeric pid cannot be verified alive
           }
           if (_gfActive) activeOrgRuns.set(_gfOrg, _gfId);
         } catch (_) {}
@@ -340,11 +378,35 @@ export async function startServer({
   }
   const url = `http://localhost:${boundPort}`;
 
+  // Registered right after bind so a stop request during the startup window works;
+  // stopBackgroundTasks is late-bound (assigned once setupServerLifecycle has run).
+  let _stopBackgroundTasks = () => {};
+  _shutdown = createShutdown({
+    server,
+    stopBackgroundTasks: () => _stopBackgroundTasks(),
+    tokenState,
+    onClosed: () => {
+      running = false;
+      currentPort = null;
+      currentUrl = null;
+      _activeServer = null;
+    },
+  });
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
+  process.once('SIGHUP', shutdown);
+
   reportBoundPort(boundPort);
   await writeDashboardToken(boundPort);
   propagateDashboardToken(boundPort);
 
-  const { stopBackgroundTasks } = setupServerLifecycle({ projectDir, MONOMIND_HOME, boundPort });
+  const { stopBackgroundTasks } = setupServerLifecycle({
+    projectDir,
+    MONOMIND_HOME,
+    boundPort,
+    dashboardAuthValue,
+  });
+  _stopBackgroundTasks = stopBackgroundTasks;
   // Watchers and the ingest sweep start only once the port is ours (#477).
   setupKnowledgeBridgeWarmup({ projectDir, _getKnowledgeBridge, watchSafely, activeWatchers });
 
@@ -389,7 +451,7 @@ export async function startServer({
       watchSafely(_chokidarWatcher, 'orgs-chokidar');
       _chokidarWatcher.on('add', _handleChokidarPath);
       _chokidarWatcher.on('change', _handleChokidarPath);
-      activeWatchers.push({ close: () => _chokidarWatcher.close() });
+      activeWatchers.push(_chokidarWatcher);
       _watcherStarted = true;
     } catch (_chokidarErr) {
       /* chokidar unavailable — fall through to fs.watch */
@@ -403,23 +465,6 @@ export async function startServer({
   currentPort = boundPort;
   currentUrl = url;
   _activeServer = server;
-
-  // --------------------------------------------------------- Graceful shutdown
-  _shutdown = createShutdown({
-    server,
-    stopBackgroundTasks,
-    tokenState,
-    onClosed: () => {
-      running = false;
-      currentPort = null;
-      currentUrl = null;
-      _activeServer = null;
-    },
-  });
-
-  process.once('SIGTERM', shutdown);
-  process.once('SIGINT', shutdown);
-  process.once('SIGHUP', shutdown);
 
   // ---------------------------------------------------------- Auto-open
   if (openBrowser) {

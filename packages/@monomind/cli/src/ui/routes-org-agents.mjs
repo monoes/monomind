@@ -1,5 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { writeFileAtomic } from './org-hil.mjs';
+import { orgSignatureState } from './org-runtime.mjs';
+import { readBodyOrReply } from './routes-org-helpers.mjs';
 
 // Org dashboard routes: adapters, agent detail and agent avatar.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
@@ -106,6 +109,62 @@ export async function handleOrgAgentRoutes(req, res, url, corsOrigin, ctx) {
               {
                 type: 'kimicode',
                 label: 'KimiCode CLI',
+                source: 'built-in',
+                disabled: false,
+                modelsCount: 1,
+              },
+              {
+                type: 'freebuff',
+                label: 'Freebuff CLI',
+                source: 'built-in',
+                disabled: false,
+                modelsCount: 1,
+              },
+              {
+                type: 'kilo',
+                label: 'Kilo CLI',
+                source: 'built-in',
+                disabled: false,
+                modelsCount: 1,
+              },
+              {
+                type: 'qwen-rpc',
+                label: 'Qwen CLI (RPC)',
+                source: 'built-in',
+                disabled: false,
+                modelsCount: 1,
+              },
+              {
+                type: 'pi-rpc',
+                label: 'Pi CLI (RPC)',
+                source: 'built-in',
+                disabled: false,
+                modelsCount: 1,
+              },
+              {
+                type: 'hermes',
+                label: 'Hermes',
+                source: 'built-in',
+                disabled: false,
+                modelsCount: 1,
+              },
+              {
+                type: 'cline',
+                label: 'Cline CLI',
+                source: 'built-in',
+                disabled: false,
+                modelsCount: 1,
+              },
+              {
+                type: 'aider',
+                label: 'Aider',
+                source: 'built-in',
+                disabled: false,
+                modelsCount: 1,
+              },
+              {
+                type: 'dsh',
+                label: 'DSH (DeepSeek Harness)',
                 source: 'built-in',
                 disabled: false,
                 modelsCount: 1,
@@ -249,14 +308,8 @@ export async function handleOrgAgentRoutes(req, res, url, corsOrigin, ctx) {
     req.method === 'POST' &&
     /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/agent\/[a-z0-9][a-z0-9_-]{0,63}\/avatar$/i.test(url)
   ) {
-    let body = '';
-    for await (const chunk of req) {
-      body += chunk;
-      if (body.length > 8388608) {
-        req.destroy();
-        break;
-      }
-    }
+    const body = await readBodyOrReply(req, res, 8388608, corsOrigin);
+    if (body === null) return true;
     try {
       const parts = url.split('/');
       const orgName = decodeURIComponent(parts[3]);
@@ -300,14 +353,12 @@ export async function handleOrgAgentRoutes(req, res, url, corsOrigin, ctx) {
       }
       if (avatarDataUrl) role.avatar = avatarDataUrl;
       else delete role.avatar;
-      const tmp = `${orgFile}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify(config, null, 2), 'utf-8');
-      fs.renameSync(tmp, orgFile);
+      writeFileAtomic(orgFile, JSON.stringify(config, null, 2));
       res.writeHead(200, {
         'Content-Type': 'application/json',
         ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
       });
-      res.end(JSON.stringify({ ok: true }));
+      res.end(JSON.stringify({ ok: true, signature: orgSignatureState(d, orgName) }));
     } catch (e) {
       res.writeHead(500);
       res.end(JSON.stringify({ ok: false, error: String(e.message || e) }));

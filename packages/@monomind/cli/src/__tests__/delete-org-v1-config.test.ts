@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { humanSessionCookie } from '../ui/human-auth.mjs';
 import { startServer } from '../ui/server.mjs';
 
 describe('DELETE /api/orgs/:name — legacy .v1.json configs', () => {
@@ -45,9 +46,23 @@ describe('DELETE /api/orgs/:name — legacy .v1.json configs', () => {
       await new Promise((r) => setTimeout(r, 100));
     const authValue = readFileSync(authFile, 'utf8');
 
-    const del = await fetch(
+    // Deleting an org definition needs the human session, not just the token.
+    const refused = await fetch(
       `http://127.0.0.1:${srv.port}/api/orgs/orgrt-builders?dir=${encodeURIComponent(tmpDir)}`,
       { method: 'DELETE', headers: { 'x-monomind-token': authValue } },
+    );
+    expect(refused.status).toBe(403);
+    expect(existsSync(join(orgsDir, 'orgrt-builders.v1.json'))).toBe(true);
+
+    const del = await fetch(
+      `http://127.0.0.1:${srv.port}/api/orgs/orgrt-builders?dir=${encodeURIComponent(tmpDir)}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'x-monomind-token': authValue,
+          cookie: humanSessionCookie().split(';')[0],
+        },
+      },
     );
     expect(del.status).toBe(200);
     expect(existsSync(join(orgsDir, 'orgrt-builders.v1.json'))).toBe(false);

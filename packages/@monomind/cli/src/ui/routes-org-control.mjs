@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import * as hil from './org-hil.mjs';
+import { readBodyOrReply } from './routes-org-helpers.mjs';
 import { writeSse } from './sse-manager.mjs';
 
 // Org dashboard routes: mark-complete, current-run stream and chat.
@@ -179,14 +180,8 @@ export async function handleOrgControlRoutes(req, res, url, corsOrigin, ctx) {
 
   // ---- POST /api/orgs/:name/chat — user sends a message to a running org ----
   if (req.method === 'POST' && /^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/chat$/i.test(url)) {
-    let _chBody = '';
-    for await (const chunk of req) {
-      _chBody += chunk;
-      if (_chBody.length > 65536) {
-        req.destroy();
-        break;
-      }
-    }
+    const _chBody = await readBodyOrReply(req, res, 65536, corsOrigin);
+    if (_chBody === null) return true;
     try {
       const _chOrgName = decodeURIComponent(url.split('/')[3]);
       if (_chOrgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(_chOrgName)) {

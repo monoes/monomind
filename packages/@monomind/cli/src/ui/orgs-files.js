@@ -59,10 +59,10 @@ function mkFileCard(group) {
       <div class="fc-name">${esc(labelRaw)} ${vBadge}</div>
       <div class="fc-meta">${esc(meta)}</div>
     </div>
-    ${diffable ? `<button class="fc-diff" onclick="openDiffPanel(${JSON.stringify(art.path)})">Diff</button>` : ''}
+    ${diffable ? `<button class="fc-diff" onclick="openDiffPanel(${esc(JSON.stringify(art.path))})">Diff</button>` : ''}
     ${
       isText && art.path
-        ? `<button class="fc-view" onclick="viewArtifact(${JSON.stringify(art.path)},${JSON.stringify(labelRaw)})">View</button>`
+        ? `<button class="fc-view" onclick="viewArtifact(${esc(JSON.stringify(art.path))},${esc(JSON.stringify(labelRaw))})">View</button>`
         : `<span class="fc-binary">Binary</span>`
     }
   `;

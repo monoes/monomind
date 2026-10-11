@@ -7,12 +7,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
+import { Readable } from 'node:stream';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { orgCommand } from '../../src/commands/org.js';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
 import { ORG_DIR } from '../../src/orgrt/types.js';
-import { EventEmitter } from 'node:events';
 import { patchOrgConfig } from '../../src/ui/org-runtime.mjs';
 import { handleOrgConfigRoutes } from '../../src/ui/routes-org-config.mjs';
 
@@ -131,13 +131,14 @@ describe('org create', () => {
 describe('dashboard import and create routes', () => {
   /** Drive a route handler with a fake request body and capture the response. */
   async function post(root: string, url: string, body: unknown) {
-    const req = Object.assign(new EventEmitter(), { method: 'POST', url: `${url}?dir=${encodeURIComponent(root)}` });
+    const req = Object.assign(Readable.from([Buffer.from(JSON.stringify(body))]), {
+      method: 'POST',
+      url: `${url}?dir=${encodeURIComponent(root)}`,
+    });
     let status = 0;
     let out = '';
     const res = { writeHead: (s: number) => void (status = s), end: (s?: string) => void (out += s ?? '') };
     const done = handleOrgConfigRoutes(req, res, url, undefined, { projectDir: root });
-    req.emit('data', JSON.stringify(body));
-    req.emit('end');
     await done;
     return { status, out };
   }

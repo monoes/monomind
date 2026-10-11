@@ -32,6 +32,22 @@ const StepEventSchema = z.object({
   timestamp: z.number(),
 });
 
+const MAX_EVENT_BODY_BYTES = 64 * 1024;
+
+// Browsers always set Origin on a cross-origin request; a page in another tab forging an
+// event or opening a socket is caught by the Origin host not matching Host. Non-browser
+// callers (the forwarder) send no Origin and are unaffected.
+function isSameOriginRequest(req: IncomingMessage): boolean {
+  const origin = req.headers.origin;
+  if (typeof origin !== 'string') return true;
+  const host = req.headers.host;
+  try {
+    return !!host && new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // 4243: the main monomind dashboard owns 4242 — keep this server off that port
 const DEFAULT_PORT = 4243;
@@ -40,7 +56,16 @@ const MAX_PERSISTED_RUNS = 50;
 
 // Persist recent runs so the main dashboard's /api/workflow-runs endpoint stays live.
 // Atomic: write to a temp file, then rename over the target.
-async function persistRuns(runs: RunRecord[]): Promise<void> {
+// Writes are chained: concurrent calls share one temp file, so overlapping writes could
+// interleave or rename a half-written file.
+let persistChain: Promise<void> = Promise.resolve();
+function persistRuns(runs: RunRecord[]): Promise<void> {
+  const snapshot = runs.slice(0, MAX_PERSISTED_RUNS);
+  persistChain = persistChain.then(() => writeRuns(snapshot));
+  return persistChain;
+}
+
+async function writeRuns(runs: RunRecord[]): Promise<void> {
   try {
     await mkdir(dirname(RUNS_FILE), { recursive: true });
     const tmp = `${RUNS_FILE}.tmp`;
@@ -155,24 +180,27 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
       // before even reading the body. A same-machine, non-browser forwarder (the
       // endpoint's actual intended caller) sends no Origin header at all and is
       // unaffected.
-      const origin = req.headers.origin;
-      if (typeof origin === 'string') {
-        const host = req.headers.host;
-        let originHost: string | null = null;
-        try {
-          originHost = new URL(origin).host;
-        } catch {
-          /* malformed Origin — treated as mismatch below */
-        }
-        if (!host || originHost !== host) {
-          res.writeHead(403, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: 'cross-origin request rejected' }));
-          return;
-        }
+      if (!isSameOriginRequest(req)) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'cross-origin request rejected' }));
+        return;
       }
       const chunks: Buffer[] = [];
-      req.on('data', (chunk: Buffer) => chunks.push(chunk));
+      let received = 0;
+      let tooLarge = false;
+      req.on('data', (chunk: Buffer) => {
+        if (tooLarge) return;
+        received += chunk.length;
+        if (received > MAX_EVENT_BODY_BYTES) {
+          tooLarge = true;
+          res.writeHead(413, { 'Content-Type': 'application/json', Connection: 'close' });
+          res.end(JSON.stringify({ ok: false, error: 'payload too large' }), () => req.destroy());
+          return;
+        }
+        chunks.push(chunk);
+      });
       req.on('end', () => {
+        if (tooLarge) return;
         try {
           const body = Buffer.concat(chunks).toString('utf8');
           const parsed = StepEventSchema.parse(JSON.parse(body));
@@ -201,7 +229,17 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
     res.end();
   });
 
-  const wss = new WebSocketServer({ server: httpServer });
+  // e.g. EADDRINUSE: without a listener this is an unhandled 'error' that kills the
+  // process, and a cached instance would pretend a dead server is alive.
+  httpServer.on('error', (err: Error) => {
+    console.error('[dashboard] http server error:', err.message);
+    instance = null;
+  });
+
+  const wss = new WebSocketServer({
+    server: httpServer,
+    verifyClient: ({ req }: { req: IncomingMessage }) => isSameOriginRequest(req),
+  });
   wss.on('connection', (ws: WebSocket) => {
     clients.add(ws);
     // Send recent state on connect

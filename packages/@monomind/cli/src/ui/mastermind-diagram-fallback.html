@@ -345,6 +345,37 @@ html, body {
 
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
 <script>
+// Auth: attach the mm-token (injected by GET /mastermind) to every fetch and
+// SSE connection, same approach as dashboard.html. Mutations need the header;
+// EventSource cannot set headers so it gets the query param.
+(() => {
+  const AUTH_HEADER_NAME = 'x-monomind-' + 'token';
+  const AUTH_QUERY_PARAM = 'to' + 'ken';
+  const tag = document.querySelector('meta[name="mm-token"]');
+  const val = tag ? tag.content : '';
+  const origFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const method = (init?.method ? init.method : 'GET').toUpperCase();
+    if (val && method !== 'HEAD') {
+      init = init ? { ...init } : {};
+      init.headers = new Headers(init.headers || {});
+      if (!init.headers.has(AUTH_HEADER_NAME)) init.headers.set(AUTH_HEADER_NAME, val);
+    }
+    return origFetch(input, init);
+  };
+  window.mmEventSource = (url, opts) => {
+    if (val) {
+      const qp = new URLSearchParams(url.includes('?') ? url.split('?')[1] : '');
+      qp.set(AUTH_QUERY_PARAM, val);
+      url = `${url.split('?')[0]}?${qp.toString()}`;
+    }
+    return new EventSource(url, opts);
+  };
+})();
+// HTML-escape any event/session data before it is written via innerHTML.
+function esc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
 'use strict';
 
 // ── Graph constants ──────────────────────────────────────────────────────────
@@ -640,7 +671,7 @@ function addLog(tag,msg,color) {
   const wrap=document.getElementById('log-entries');
   const row=document.createElement('div');
   row.className='log-row';
-  row.innerHTML=`<span class="log-tag" style="color:${color}">${tag}</span><span class="log-msg">${msg}</span>`;
+  row.innerHTML=`<span class="log-tag" style="color:${esc(color)}">${esc(tag)}</span><span class="log-msg">${esc(msg)}</span>`;
   wrap.appendChild(row);
   gsap.fromTo(row,{opacity:0},{opacity:1,duration:0.3});
   const rows=wrap.querySelectorAll('.log-row');
@@ -786,7 +817,7 @@ function replaySessionGraph(events) {
 let evtSource = null;
 function connectSSE() {
   if (evtSource) evtSource.close();
-  evtSource = new EventSource('/api/mastermind-stream');
+  evtSource = window.mmEventSource('/api/mastermind-stream');
   evtSource.onmessage = (e) => {
     try {
       const ev = JSON.parse(e.data);
@@ -820,7 +851,9 @@ async function refreshSessions() {
       ? `/api/mastermind/sessions?project=${encodeURIComponent(activeProjectFilter)}`
       : '/api/mastermind/sessions';
     const res = await fetch(url);
+    if (!res.ok) return;
     const sessions = await res.json();
+    if (!Array.isArray(sessions)) return;
     // Populate project filter options
     const sel = document.getElementById('proj-filter');
     if (sel) {
@@ -829,7 +862,7 @@ async function refreshSessions() {
       sel.innerHTML = '<option value="">ALL PROJECTS</option>' +
         projects.map(p => {
           const name = p.split('/').pop();
-          return `<option value="${p}" ${p===current?'selected':''}>${name}</option>`;
+          return `<option value="${esc(p)}" ${p===current?'selected':''}>${esc(name)}</option>`;
         }).join('');
     }
     renderSessions(sessions);
@@ -856,14 +889,14 @@ function renderSessions(sessions) {
     const elapsed = s.endTs ? `${((s.endTs - s.ts)/1000).toFixed(0)}s` : (s.status==='running'?'RUNNING…':'?');
     const projName = s.project ? s.project.split('/').pop() : '';
     item.innerHTML = `
-      ${projName ? `<div class="sess-project">◈ ${projName}</div>` : ''}
-      <div class="sess-ts">${date} ${ts} · ${elapsed}</div>
-      <div class="sess-prompt">${s.prompt||'(no prompt)'}</div>
+      ${projName ? `<div class="sess-project">◈ ${esc(projName)}</div>` : ''}
+      <div class="sess-ts">${esc(date)} ${esc(ts)} · ${esc(elapsed)}</div>
+      <div class="sess-prompt">${esc(s.prompt||'(no prompt)')}</div>
       <div class="sess-badges">
-        <span class="sess-badge ${s.status==='running'?'running-badge':''}">${s.status||'?'}</span>
-        ${(s.domains||[]).slice(0,4).map(d=>`<span class="sess-badge">${d}</span>`).join('')}
+        <span class="sess-badge ${s.status==='running'?'running-badge':''}">${esc(s.status||'?')}</span>
+        ${(s.domains||[]).slice(0,4).map(d=>`<span class="sess-badge">${esc(d)}</span>`).join('')}
         ${(s.domains||[]).length>4?`<span class="sess-badge">+${s.domains.length-4}</span>`:''}
-        <a class="sess-trace-link" href="/api/mastermind/session/${s.id}/trace" target="_blank" title="View raw trace" onclick="event.stopPropagation()">trace↗</a>
+        <a class="sess-trace-link" href="/api/mastermind/session/${encodeURIComponent(s.id)}/trace" target="_blank" title="View raw trace" onclick="event.stopPropagation()">trace↗</a>
       </div>`;
     item.addEventListener('click', () => {
       wrap.querySelectorAll('.sess-item').forEach(x=>x.classList.remove('active'));
@@ -894,32 +927,32 @@ function _openDomainDetail(d) {
   body.innerHTML = `
     <div class="dp-section">
       <div class="dp-section-title">DOMAIN INFO</div>
-      <div class="dp-event"><span class="ev-type" style="color:${d.color}">${d.emoji||'◈'} ${d.label}</span></div>
-      ${d.cmd ? `<div class="dp-event">Command: <span style="color:#7080c0">${d.cmd}</span></div>` : ''}
+      <div class="dp-event"><span class="ev-type" style="color:${d.color}">${esc(d.emoji||'◈')} ${esc(d.label)}</span></div>
+      ${d.cmd ? `<div class="dp-event">Command: <span style="color:#7080c0">${esc(d.cmd)}</span></div>` : ''}
       <div class="dp-event">Status: <span style="color:${d.done?'#40e880':'#28c068'}">${d.done?'COMPLETE':'RUNNING'}</span></div>
       <div class="dp-event">Agents spawned: <span style="color:${d.color}">${agentNodes.length}</span></div>
     </div>
     ${agentNodes.length > 0 ? `
     <div class="dp-section">
       <div class="dp-section-title">AGENTS</div>
-      ${agentNodes.map(a => `<div class="dp-event"><span class="ev-type" style="color:${a.color||d.color}">${a.emoji||'◈'} ${a.label}</span></div>`).join('')}
+      ${agentNodes.map(a => `<div class="dp-event"><span class="ev-type" style="color:${a.color||d.color}">${esc(a.emoji||'◈')} ${esc(a.label)}</span></div>`).join('')}
     </div>` : ''}
     ${spawnEvts.length > 0 ? `
     <div class="dp-section">
       <div class="dp-section-title">TASKS</div>
-      ${spawnEvts.map(e => `<div class="dp-event" style="color:#506080;font-size:8px;white-space:normal;word-break:break-word;line-height:1.5">${e.agent ? `<b>${e.agent}</b>: ` : ''}${(e.task||'').slice(0,120)}</div>`).join('')}
+      ${spawnEvts.map(e => `<div class="dp-event" style="color:#506080;font-size:8px;white-space:normal;word-break:break-word;line-height:1.5">${e.agent ? `<b>${esc(e.agent)}</b>: ` : ''}${esc((e.task||'').slice(0,120))}</div>`).join('')}
     </div>` : ''}
     ${artifacts.length > 0 ? `
     <div class="dp-section">
       <div class="dp-section-title">ARTIFACTS</div>
-      ${artifacts.map(a => `<div class="dp-artifact">📄 ${a}</div>`).join('')}
+      ${artifacts.map(a => `<div class="dp-artifact">📄 ${esc(a)}</div>`).join('')}
     </div>` : ''}
     ${domEvts.length > 0 ? `
     <div class="dp-section">
       <div class="dp-section-title">RECENT EVENTS</div>
       ${domEvts.slice(-8).map(e => {
         const ts = new Date(e.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-        return `<div class="dp-event"><span class="ev-ts">${ts}</span> <span class="ev-type" style="color:${d.color}">${e.type}</span>${e.cmd?` ${e.cmd}`:e.agent?` ${e.agent}`:''}</div>`;
+        return `<div class="dp-event"><span class="ev-ts">${esc(ts)}</span> <span class="ev-type" style="color:${d.color}">${esc(e.type)}</span>${e.cmd?` ${esc(e.cmd)}`:e.agent?` ${esc(e.agent)}`:''}</div>`;
       }).join('')}
     </div>` : ''}
   `;
@@ -934,7 +967,8 @@ async function openSessionDetail(s) {
   body.innerHTML = '<div style="color:#303060;font-size:9px;padding:8px">Loading…</div>';
   panel.classList.add('open');
   try {
-    const res = await fetch(`/api/mastermind/session/${s.id}`);
+    const res = await fetch(`/api/mastermind/session/${encodeURIComponent(s.id)}`);
+    if (!res.ok) { body.innerHTML = `<div style="color:#a03030;font-size:9px">Failed to load session (HTTP ${esc(res.status)}).</div>`; return; }
     const full = await res.json();
     if (!full) { body.innerHTML = '<div style="color:#303060;font-size:9px">Session not found.</div>'; return; }
     const ts = new Date(full.ts).toLocaleString();
@@ -944,14 +978,14 @@ async function openSessionDetail(s) {
     body.innerHTML = `
       <div class="dp-section">
         <div class="dp-section-title">OVERVIEW</div>
-        <div class="dp-event">Started: <span style="color:#6060a0">${ts}</span></div>
-        <div class="dp-event">Duration: <span style="color:#6060a0">${elapsed}</span></div>
-        <div class="dp-event">Status: <span style="color:${full.status==='complete'?'#40e880':full.status==='running'?'#28c068':'#f87171'}">${full.status||'?'}</span></div>
-        <div class="dp-event">Domains: <span style="color:#8080c0">${domainSet.join(', ')||'—'}</span></div>
+        <div class="dp-event">Started: <span style="color:#6060a0">${esc(ts)}</span></div>
+        <div class="dp-event">Duration: <span style="color:#6060a0">${esc(elapsed)}</span></div>
+        <div class="dp-event">Status: <span style="color:${full.status==='complete'?'#40e880':full.status==='running'?'#28c068':'#f87171'}">${esc(full.status||'?')}</span></div>
+        <div class="dp-event">Domains: <span style="color:#8080c0">${esc(domainSet.join(', '))||'—'}</span></div>
       </div>
       <div class="dp-section">
         <div class="dp-section-title">PROMPT</div>
-        <div class="dp-event" style="color:oklch(58% 0.09 186);word-break:break-all;white-space:normal;line-height:1.6">${full.prompt||'—'}</div>
+        <div class="dp-event" style="color:oklch(58% 0.09 186);word-break:break-all;white-space:normal;line-height:1.6">${esc(full.prompt||'—')}</div>
       </div>
       ${domainSet.length ? `
       <div class="dp-section">
@@ -960,7 +994,7 @@ async function openSessionDetail(s) {
           const color = DOMAIN_COLORS[did] || '#8080c0';
           const emoji = DOMAIN_EMOJIS[did] || '◈';
           const label = (did||'').toUpperCase();
-          return `<div class="dp-event"><span style="color:${color}">${emoji} ${label}</span></div>`;
+          return `<div class="dp-event"><span style="color:${color}">${esc(emoji)} ${esc(label)}</span></div>`;
         }).join('')}
       </div>` : ''}
       <div class="dp-section">
@@ -969,28 +1003,28 @@ async function openSessionDetail(s) {
           const et = new Date(e.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
           const color = e.domain ? (DOMAIN_COLORS[e.domain] || '#6060a0') : '#6060a0';
           let detail = '';
-          if (e.type === 'session:start') detail = `<span style="color:#5050a0;font-size:8px;word-break:break-all">${e.prompt||''}</span>`;
-          else if (e.type === 'domain:dispatch') detail = `<span style="color:#5060a0;font-size:8px">${e.cmd||''}</span>`;
-          else if (e.type === 'agent:spawn') detail = `<span style="color:#507090;font-size:8px">agent: <b>${e.agent||''}</b> — ${(e.task||'').slice(0,50)}</span>`;
-          else if (e.type === 'intercom') detail = `<span style="color:#506070;font-size:8px">${e.from||'?'} → ${e.to||'?'}: ${e.msg||''}</span>`;
+          if (e.type === 'session:start') detail = `<span style="color:#5050a0;font-size:8px;word-break:break-all">${esc(e.prompt||'')}</span>`;
+          else if (e.type === 'domain:dispatch') detail = `<span style="color:#5060a0;font-size:8px">${esc(e.cmd||'')}</span>`;
+          else if (e.type === 'agent:spawn') detail = `<span style="color:#507090;font-size:8px">agent: <b>${esc(e.agent||'')}</b> — ${esc((e.task||'').slice(0,50))}</span>`;
+          else if (e.type === 'intercom') detail = `<span style="color:#506070;font-size:8px">${esc(e.from||'?')} → ${esc(e.to||'?')}: ${esc(e.msg||'')}</span>`;
           else if (e.type === 'domain:complete') {
-            const arts = (e.artifacts||[]).map(a=>`<span style="color:#407050;font-size:7px">📄 ${a}</span>`).join(' ');
-            detail = `<span style="color:#406050;font-size:8px">status: ${e.status||'?'}</span>${arts?` ${arts}`:''}`;
+            const arts = (e.artifacts||[]).map(a=>`<span style="color:#407050;font-size:7px">📄 ${esc(a)}</span>`).join(' ');
+            detail = `<span style="color:#406050;font-size:8px">status: ${esc(e.status||'?')}</span>${arts?` ${arts}`:''}`;
           }
-          else if (e.type === 'session:complete') detail = `<span style="color:#405080;font-size:8px">domains: ${(e.domains||[]).join(', ')}</span>`;
-          return `<div class="dp-event" style="flex-direction:column;align-items:flex-start;gap:1px"><div><span class="ev-ts">${et}</span> <span class="ev-type" style="color:${color}">${e.type}</span>${e.domain?` <span style="color:#404060;font-size:8px">[${e.domain}]</span>`:''}</div>${detail?`<div style="padding-left:4px">${detail}</div>`:''}</div>`;
+          else if (e.type === 'session:complete') detail = `<span style="color:#405080;font-size:8px">domains: ${esc((e.domains||[]).join(', '))}</span>`;
+          return `<div class="dp-event" style="flex-direction:column;align-items:flex-start;gap:1px"><div><span class="ev-ts">${esc(et)}</span> <span class="ev-type" style="color:${color}">${esc(e.type)}</span>${e.domain?` <span style="color:#404060;font-size:8px">[${esc(e.domain)}]</span>`:''}</div>${detail?`<div style="padding-left:4px">${detail}</div>`:''}</div>`;
         }).join('')}
       </div>
       <div class="dp-section">
         <div class="dp-section-title">EXPORT</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <a class="dp-export-btn" href="/api/mastermind/session/${full.id}/trace" target="_blank">📄 View Trace</a>
-          <button class="dp-export-btn" onclick="downloadSession('${full.id}')">⬇ Download JSON</button>
+          <a class="dp-export-btn" href="/api/mastermind/session/${encodeURIComponent(full.id)}/trace" target="_blank">📄 View Trace</a>
+          <button class="dp-export-btn" data-sid="${esc(full.id)}" onclick="downloadSession(this.dataset.sid)">⬇ Download JSON</button>
         </div>
       </div>
     `;
   } catch(err) {
-    body.innerHTML = `<div style="color:#a03030;font-size:9px">${err.message}</div>`;
+    body.innerHTML = `<div style="color:#a03030;font-size:9px">${esc(err.message)}</div>`;
   }
 }
 
@@ -1001,7 +1035,8 @@ function _closeDetail() {
 }
 
 async function _downloadSession(id) {
-  const res = await fetch(`/api/mastermind/session/${id}`);
+  const res = await fetch(`/api/mastermind/session/${encodeURIComponent(id)}`);
+  if (!res.ok) { showStatusBanner(`Download failed (HTTP ${res.status})`); return; }
   const data = await res.json();
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
@@ -1051,7 +1086,7 @@ function showStatusBanner(msg) {
 connectSSE();
 refreshSessions();
 pollStatus();
-fetch('/api/git-user').then(r=>r.json()).then(u=>{
+fetch('/api/git-user').then(r=>r.ok?r.json():{}).then(u=>{
   if (u.name) document.getElementById('git-user-name').textContent = u.name;
   if (u.cwd) {
     const parts = u.cwd.replace(/\\/g, '/').split('/');

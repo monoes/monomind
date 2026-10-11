@@ -1,7 +1,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { resolveAllowedProjectDir } from './server-fileutils.mjs';
 
 const _MAX_BUILD_DOCS_STATE = 500;
+// ua-*.mjs live in the repo's scripts/ dir, resolved from this file, never from process.cwd().
+const _SCRIPTS_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  'scripts',
+);
 
 // Monograph dashboard routes (extracted from routes-monograph.mjs).
 // Registered, in order, by handleMonographRoutes in routes-monograph.mjs.
@@ -12,8 +24,12 @@ export async function handleMonographBuildRoutes(req, res, url, corsOrigin, ctx)
   if (req.method === 'POST' && url === '/api/ua-enrich') {
     try {
       const qs = new URL(req.url, 'http://localhost').searchParams;
-      const dir = qs.get('dir') || ctx.projectDir || process.cwd();
-      const d = path.resolve(dir || process.cwd());
+      const d = resolveAllowedProjectDir(qs.get('dir'), ctx.projectDir);
+      if (!d) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'dir is not the server project or a known project' }));
+        return true;
+      }
       const dbFilePath = path.join(d, '.monomind', 'monograph.db');
 
       // Check for UA graph.json first
@@ -24,8 +40,8 @@ export async function handleMonographBuildRoutes(req, res, url, corsOrigin, ctx)
         path.join(d, '.ua', 'graph.json'),
       ];
       const uaGraph = uaGraphCandidates.find((p) => fs.existsSync(p));
-      const importScript = path.join(process.cwd(), 'scripts', 'ua-import.mjs');
-      const enrichScript = path.join(process.cwd(), 'scripts', 'ua-enrich.mjs');
+      const importScript = path.join(_SCRIPTS_DIR, 'ua-import.mjs');
+      const enrichScript = path.join(_SCRIPTS_DIR, 'ua-enrich.mjs');
 
       res.writeHead(202, {
         'Content-Type': 'application/json',

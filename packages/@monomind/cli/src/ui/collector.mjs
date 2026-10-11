@@ -97,6 +97,7 @@ function collectTokens(projectDir, days = 14) {
 
   const dailyMap = {}; // date-string → { cost, calls, tokensIn, tokensOut }
   const rows = []; // per-session summary
+  const unknownModels = new Set(); // models with no pricing row (their cost counts as 0)
   let totalTokensIn = 0,
     totalTokensOut = 0;
 
@@ -134,7 +135,8 @@ function collectTokens(projectDir, days = 14) {
     let sessTokensIn = 0,
       sessTokensOut = 0,
       sessCost = 0,
-      sessCalls = 0;
+      sessCalls = 0,
+      sessIncomplete = false;
     let sessLastPrompt = '';
 
     for (const line of lines) {
@@ -158,6 +160,8 @@ function collectTokens(projectDir, days = 14) {
         const usage = entry.message.usage;
         const model = entry.message.model || '';
         const cost = _tokCost(model, usage);
+        const unpriced = !_tokHasPricing(model);
+        if (unpriced) unknownModels.add(model || '(unknown)');
         const tokIn =
           (usage.input_tokens || 0) +
           (usage.cache_creation_input_tokens || 0) +
@@ -167,8 +171,10 @@ function collectTokens(projectDir, days = 14) {
         const day = ts.slice(0, 10); // "YYYY-MM-DD"
 
         if (day && day >= scanCutoffDate) {
-          if (!dailyMap[day]) dailyMap[day] = { cost: 0, calls: 0, tokensIn: 0, tokensOut: 0 };
+          if (!dailyMap[day])
+            dailyMap[day] = { cost: 0, calls: 0, tokensIn: 0, tokensOut: 0, costIncomplete: false };
           dailyMap[day].cost += cost;
+          if (unpriced) dailyMap[day].costIncomplete = true;
           dailyMap[day].calls++;
           dailyMap[day].tokensIn += tokIn;
           dailyMap[day].tokensOut += tokOut;
@@ -177,6 +183,7 @@ function collectTokens(projectDir, days = 14) {
         sessTokensIn += tokIn;
         sessTokensOut += tokOut;
         sessCost += cost;
+        if (unpriced) sessIncomplete = true;
         sessCalls++;
         totalTokensIn += tokIn;
         totalTokensOut += tokOut;
@@ -190,6 +197,7 @@ function collectTokens(projectDir, days = 14) {
         calls: sessCalls,
         tokens: sessTokensIn + sessTokensOut,
         cost: sessCost,
+        costIncomplete: sessIncomplete,
       });
     }
   }
@@ -205,6 +213,7 @@ function collectTokens(projectDir, days = 14) {
       calls: dailyMap[d].calls,
       tokensIn: dailyMap[d].tokensIn,
       tokensOut: dailyMap[d].tokensOut,
+      costIncomplete: dailyMap[d].costIncomplete,
     }));
 
   // Sort rows by cost descending
@@ -219,6 +228,7 @@ function collectTokens(projectDir, days = 14) {
   const todayEntry = dailyMap[todayKey];
   summary.todayCost = todayEntry ? todayEntry.cost : 0;
   summary.todayCalls = todayEntry ? todayEntry.calls : 0;
+  summary.todayCostIncomplete = !!todayEntry?.costIncomplete;
 
   // Overwrite stale monthCost/monthCalls from fresh JSONL dailyMap entries.
   // dailyMap now covers back to the start of the current month (scanCutoff), so
@@ -234,6 +244,14 @@ function collectTokens(projectDir, days = 14) {
   }
   summary.monthCost = monthCostAcc;
   summary.monthCalls = monthCallsAcc;
+  summary.monthCostIncomplete = Object.entries(dailyMap).some(
+    ([d, v]) => d.startsWith(monthPrefix) && v.costIncomplete,
+  );
+  // True when any scanned call used a model without a pricing row: the cost
+  // figures above then undercount (unpriced calls add $0), so UIs must not
+  // present them as exact.
+  summary.costIncomplete = unknownModels.size > 0;
+  summary.unknownPricingModels = [...unknownModels].sort();
 
   return { summary, daily, rows };
 }

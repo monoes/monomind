@@ -81,7 +81,11 @@ async function handleMcpToolsPart1(mcpCtx) {
     const { execSync } = await import('node:child_process');
     let changed = '';
     try {
-      changed = execSync('git diff --name-only HEAD', { cwd: d2, encoding: 'utf-8' });
+      changed = execSync('git diff --name-only HEAD', {
+        cwd: d2,
+        encoding: 'utf-8',
+        timeout: 5000,
+      });
     } catch {
       changed = '(git not available)';
     }

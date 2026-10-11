@@ -50,6 +50,26 @@ export function writeSse(client, msg, registry) {
   }
 }
 
+export const SSE_KEEPALIVE_MS = 25000;
+let _keepaliveTimer = null;
+/**
+ * Comment-line ping to idle clients so proxies and half-dead sockets surface as write
+ * errors (and are dropped by writeSse). Started on the first client, stopped when none remain.
+ */
+function ensureKeepalive() {
+  if (_keepaliveTimer) return;
+  _keepaliveTimer = setInterval(() => {
+    for (const registry of [sseClients, mmSseClients]) {
+      for (const client of registry) writeSse(client, ': ping\n\n', registry);
+    }
+    if (sseClients.size === 0 && mmSseClients.size === 0) {
+      clearInterval(_keepaliveTimer);
+      _keepaliveTimer = null;
+    }
+  }, SSE_KEEPALIVE_MS);
+  _keepaliveTimer.unref();
+}
+
 /** End every response in `registry` and empty it. */
 function endAll(registry) {
   for (const client of registry) {
@@ -83,6 +103,7 @@ export function closeAllSseClients(extraRegistries = []) {
  */
 export function addSseClient(res) {
   sseClients.add(res);
+  ensureKeepalive();
 }
 
 /**
@@ -126,6 +147,7 @@ export function closeSseClients() {
  */
 export function addMmClient(res) {
   mmSseClients.add(res);
+  ensureKeepalive();
 }
 
 /**

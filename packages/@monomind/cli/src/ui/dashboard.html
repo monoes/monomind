@@ -2468,7 +2468,7 @@ let userScrolled = false;
 let selectedEntryId = null;
 const allDrawers = [];
 const dismissedAlerts = new Set();
-const alertState = { todayCost: 0, errorCount: 0, longLoops: [], anomaly: null, budgetAlert: null, budgetCls: 'alert-warn' };
+const alertState = { todayCost: 0, todayCostIncomplete: false, errorCount: 0, longLoops: [], anomaly: null, budgetAlert: null, budgetCls: 'alert-warn' };
 let feedTimeFilter = 'all';
 let cmdFocusIdx = 0;
 let cmdItems = [];
@@ -2666,14 +2666,24 @@ function startPolling() {
 }
 
 let _sseSource = null;
+let _sseRetryTimer = null;
+let _sseRetryMs = 2000;
 function initSSE() {
+  clearTimeout(_sseRetryTimer);
   if (_sseSource) { try { _sseSource.close(); } catch {} _sseSource = null; }
   if (!DIR || !window.EventSource) { startPolling(); return; }
   try {
     const src = window.mmEventSource(`/api/events-stream?dir=${enc(DIR)}`);
     src.addEventListener('update', () => { if (currentView === 'now') refreshNowSilent(); });
-    src.addEventListener('connected', () => {});
-    src.onerror = () => { src.close(); _sseSource = null; startPolling(); };
+    src.addEventListener('connected', () => { _sseRetryMs = 2000; });
+    src.onerror = () => {
+      src.close(); _sseSource = null;
+      startPolling(); // keep refreshing while the stream is down
+      // Retry the stream with backoff instead of polling forever.
+      clearTimeout(_sseRetryTimer);
+      _sseRetryTimer = setTimeout(initSSE, _sseRetryMs);
+      _sseRetryMs = Math.min(_sseRetryMs * 2, 60000);
+    };
     _sseSource = src;
     clearInterval(pollTimer); // SSE replaces polling
   } catch { startPolling(); }
@@ -3128,9 +3138,9 @@ function updateAlerts() {
   const all = [];
 
   if (alertState.todayCost > 50) {
-    all.push({ id: 'cost-crit', cls: 'alert-crit', ico: '⚑', msg: `Critical spend: $${alertState.todayCost.toFixed(2)} today` });
+    all.push({ id: 'cost-crit', cls: 'alert-crit', ico: '⚑', msg: `Critical spend: ${fmtCost(alertState.todayCost, alertState.todayCostIncomplete)} today` });
   } else if (alertState.todayCost > 20) {
-    all.push({ id: 'cost-warn', cls: 'alert-warn', ico: '⚠', msg: `High spend: $${alertState.todayCost.toFixed(2)} today` });
+    all.push({ id: 'cost-warn', cls: 'alert-warn', ico: '⚠', msg: `High spend: ${fmtCost(alertState.todayCost, alertState.todayCostIncomplete)} today` });
   }
 
   if (alertState.errorCount >= 3) {
@@ -3212,24 +3222,25 @@ async function loadTodayMetrics() {
     const data = await apiFetch(`/api/section?name=tokens&dir=${enc(DIR)}`);
     const s = data?.tokens?.summary || {};
     alertState.todayCost = typeof s.todayCost === 'number' ? s.todayCost : 0;
+    alertState.todayCostIncomplete = !!s.todayCostIncomplete;
     updateAlerts();
     checkBudget();
     // topbar cost badge
     const badge = document.getElementById('topbar-cost');
     if (badge && typeof s.todayCost === 'number') {
-      badge.textContent = `$${s.todayCost.toFixed(2)} today`;
+      badge.textContent = `${fmtCost(s.todayCost, s.todayCostIncomplete)} today`;
       badge.classList.add('loaded');
     }
-    const cost  = typeof s.todayCost  === 'number' ? `$${s.todayCost.toFixed(2)}`  : '—';
+    const cost  = typeof s.todayCost  === 'number' ? fmtCost(s.todayCost, s.todayCostIncomplete)  : '—';
     const calls = s.todayCalls != null ? s.todayCalls : '—';
-    const moCost = typeof s.monthCost === 'number' ? `$${s.monthCost.toFixed(2)}` : '—';
+    const moCost = typeof s.monthCost === 'number' ? fmtCost(s.monthCost, s.monthCostIncomplete) : '—';
     // cost forecast: project monthly spend from daily average
     let forecast = '';
     if (typeof s.monthCost === 'number' && s.monthCost > 0) {
       const day = new Date().getDate();
       const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
       const projected = (s.monthCost / day) * daysInMonth;
-      forecast = `<div class="m-row"><span class="m-name">Month forecast</span><span class="m-val forecast">~$${projected.toFixed(2)}</span></div>`;
+      forecast = `<div class="m-row"><span class="m-name">Month forecast</span><span class="m-val forecast">~${s.monthCostIncomplete ? '≥' : ''}$${projected.toFixed(2)}</span></div>`;
     }
     document.getElementById('m-today').innerHTML = `
       <div class="m-group-title">Today</div>
@@ -3326,11 +3337,6 @@ async function loadStatusStrip() {
       pills.push(`<span class="ss-pill">CHUNKS ${Number(mem.chunks).toLocaleString()}</span>`);
     }
 
-    // Swarm status
-    if (window._appSwarmTopo) {
-      pills.push(`<span class="ss-pill on">SWARM ${esc(window._appSwarmTopo)}</span>`);
-    }
-
     // Last route agent
     if (window._lastRouteAgent) {
       pills.push(`<span class="ss-pill">ROUTE ${esc(window._lastRouteAgent)}</span>`);
@@ -3354,9 +3360,9 @@ async function loadTokensView() {
     const daily = Array.isArray(data?.tokens?.daily) ? data.tokens.daily : [];
     const rows  = Array.isArray(data?.tokens?.rows)  ? data.tokens.rows  : [];
     cards.innerHTML = [
-      { label:'Today Cost',   val: typeof s.todayCost   === 'number' ? `$${s.todayCost.toFixed(2)}`   : '—' },
+      { label:'Today Cost',   val: typeof s.todayCost   === 'number' ? fmtCost(s.todayCost, s.todayCostIncomplete)   : '—' },
       { label:'Today Calls',  val: s.todayCalls  ?? '—' },
-      { label:'Month Cost',   val: typeof s.monthCost   === 'number' ? `$${s.monthCost.toFixed(2)}`   : '—' },
+      { label:'Month Cost',   val: typeof s.monthCost   === 'number' ? fmtCost(s.monthCost, s.monthCostIncomplete)   : '—' },
       { label:'Total Tokens', val: s.totalTokens != null ? Number(s.totalTokens).toLocaleString() : '—' },
     ].map(c => `<div class="tok-card"><div class="tc-label">${esc(c.label)}</div><div class="tc-val">${esc(String(c.val))}</div></div>`).join('');
     renderTokChart(daily);
@@ -3370,7 +3376,7 @@ async function loadTokensView() {
           <td style="padding:4px 8px 4px 0;color:var(--text-hi);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.session || r.id || '—')}</td>
           <td style="padding:4px 8px;color:var(--text-lo)">${r.calls ?? '—'}</td>
           <td style="padding:4px 8px;color:var(--text-lo)">${r.tokens != null ? Number(r.tokens).toLocaleString() : '—'}</td>
-          <td style="padding:4px 8px;color:var(--accent)">$${Number(r.cost ?? 0).toFixed(4)}</td>
+          <td style="padding:4px 8px;color:var(--accent)">${fmtCost(r.cost, r.costIncomplete, 4)}</td>
         </tr>`).join('') +
         '</tbody></table></div>';
     } else { table.innerHTML = ''; }
@@ -3483,8 +3489,8 @@ async function _setTokPeriod(btn, period) {
     const rows  = Array.isArray(data?.rows)  ? data.rows
       : Array.isArray(data?.tokens?.rows)  ? data.tokens.rows  : [];
     if (cards) cards.innerHTML = [
-      { label: 'Cost',   val: typeof s.todayCost  === 'number' ? `$${s.todayCost.toFixed(2)}`
-                           : typeof s.cost === 'number' ? `$${s.cost.toFixed(2)}` : '—' },
+      { label: 'Cost',   val: typeof s.todayCost  === 'number' ? fmtCost(s.todayCost, s.todayCostIncomplete)
+                           : typeof s.cost === 'number' ? fmtCost(s.cost, s.costIncomplete) : '—' },
       { label: 'Calls',  val: s.todayCalls ?? s.calls ?? '—' },
       { label: 'Tokens', val: s.totalTokens != null ? Number(s.totalTokens).toLocaleString() : '—' },
       { label: 'Models', val: s.modelCount  ?? s.models ?? '—' },
@@ -3499,7 +3505,7 @@ async function _setTokPeriod(btn, period) {
           `<tr style="border-top:1px solid var(--border)">` +
           `<td style="padding:3px 8px 3px 0;color:var(--text-hi);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.session || r.label || r.id || '—')}</td>` +
           `<td style="padding:3px 8px;color:var(--text-lo)">${r.calls ?? '—'}</td>` +
-          `<td style="padding:3px 8px;color:var(--accent)">$${Number(r.cost ?? 0).toFixed(4)}</td>` +
+          `<td style="padding:3px 8px;color:var(--accent)">${fmtCost(r.cost, r.costIncomplete, 4)}</td>` +
           `</tr>`
         ).join('') +
         '</tbody></table></div>';
@@ -3510,7 +3516,7 @@ async function _setTokPeriod(btn, period) {
       const badge = document.getElementById('topbar-cost');
       const cost = s.todayCost ?? s.cost;
       if (badge && typeof cost === 'number') {
-        badge.textContent = `$${cost.toFixed(2)} today`;
+        badge.textContent = `${fmtCost(cost, s.todayCostIncomplete ?? s.costIncomplete)} today`;
       }
     }
   } catch (e) {
@@ -3678,7 +3684,7 @@ async function loadMemUsagePeriod(btn, period) {
         <tbody>${rows.slice(0,30).map(r => `<tr style="border-top:1px solid var(--border)">
           <td style="padding:3px 8px 3px 0;color:var(--text-hi);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:11px">${esc(r.session||r.label||r.id||'—')}</td>
           <td style="padding:3px 8px;color:var(--text-lo)">${r.calls??'—'}</td>
-          <td style="padding:3px 8px;color:var(--accent)">$${Number(r.cost??0).toFixed(4)}</td>
+          <td style="padding:3px 8px;color:var(--accent)">${fmtCost(r.cost, r.costIncomplete, 4)}</td>
         </tr>`).join('')}</tbody>
       </table></div>` : ''}
     `;
@@ -3948,7 +3954,7 @@ async function renderSessions() {
       const now = new Date();
       return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
     }).reduce((a, s) => a + (s.totalCost || 0), 0);
-    checkBudgetToast(todayCost, monthCost);
+    checkBudgetToast(todayCost, monthCost, anyCostIncomplete(allSessions));
     markLiveGlow('view-sessions');
   } catch (err) {
     el.innerHTML = `<div class="empty">Could not load sessions: ${esc(err.message)}</div>`;
@@ -4140,7 +4146,7 @@ async function renderGlobalTokens() {
       })))
     );
 
-    let aggTodayCost = 0, aggMonthCost = 0, aggTotalTokens = 0;
+    let aggTodayCost = 0, aggMonthCost = 0, aggTotalTokens = 0, aggTodayInc = false, aggMonthInc = false;
     const rows = [];
     for (const r of results) {
       if (r.status !== 'fulfilled') continue;
@@ -4150,25 +4156,28 @@ async function renderGlobalTokens() {
       const monthCost = typeof s.monthCost === 'number' ? s.monthCost : 0;
       const totalTokens = s.totalTokens != null ? Number(s.totalTokens) : 0;
       const totalCost = typeof s.totalCost === 'number' ? s.totalCost : (monthCost || todayCost);
+      const todayInc = !!s.todayCostIncomplete, monthInc = !!s.monthCostIncomplete;
+      aggTodayInc = aggTodayInc || todayInc;
+      aggMonthInc = aggMonthInc || monthInc;
       aggTodayCost += todayCost;
       aggMonthCost += monthCost;
       aggTotalTokens += totalTokens;
-      rows.push({ projName, todayCost, monthCost, totalTokens, totalCost });
+      rows.push({ projName, todayCost, monthCost, totalTokens, totalCost, todayInc, monthInc, totalInc: !!s.costIncomplete });
     }
     rows.sort((a, b) => b.totalCost - a.totalCost);
 
     const cards = [
-      { label: 'Today Cost',    val: `$${aggTodayCost.toFixed(2)}` },
-      { label: 'Month Cost',    val: `$${aggMonthCost.toFixed(2)}` },
+      { label: 'Today Cost',    val: fmtCost(aggTodayCost, aggTodayInc) },
+      { label: 'Month Cost',    val: fmtCost(aggMonthCost, aggMonthInc) },
       { label: 'Total Tokens',  val: aggTotalTokens > 0 ? Number(aggTotalTokens).toLocaleString() : '—' },
     ].map(c => `<div class="tok-card"><div class="tc-label">${esc(c.label)}</div><div class="tc-val">${esc(c.val)}</div></div>`).join('');
 
     const tableRows = rows.map(r => `<tr style="border-top:1px solid var(--border)">
       <td style="padding:4px 8px 4px 0;color:var(--text-hi);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.projName)}">${esc(r.projName)}</td>
-      <td style="padding:4px 8px;color:var(--accent)">$${r.todayCost.toFixed(2)}</td>
-      <td style="padding:4px 8px;color:var(--text-lo)">$${r.monthCost.toFixed(2)}</td>
+      <td style="padding:4px 8px;color:var(--accent)">${fmtCost(r.todayCost, r.todayInc)}</td>
+      <td style="padding:4px 8px;color:var(--text-lo)">${fmtCost(r.monthCost, r.monthInc)}</td>
       <td style="padding:4px 8px;color:var(--text-lo)">${r.totalTokens > 0 ? Number(r.totalTokens).toLocaleString() : '—'}</td>
-      <td style="padding:4px 8px;color:var(--accent)">$${r.totalCost.toFixed(2)}</td>
+      <td style="padding:4px 8px;color:var(--accent)">${fmtCost(r.totalCost, r.totalInc)}</td>
     </tr>`).join('');
 
     const projectCount = rows.length;
@@ -4810,12 +4819,12 @@ function checkBudget() {
   if (budget.daily) {
     const pct = cost / budget.daily;
     if (pct >= 1 && !dismissedAlerts.has('budget-daily-over')) {
-      alertState.budgetAlert = `Daily budget exceeded: $${cost.toFixed(2)} / $${budget.daily}`;
+      alertState.budgetAlert = `Daily budget exceeded: ${fmtCost(cost, alertState.todayCostIncomplete)} / $${budget.daily}`;
       alertState.budgetCls = 'alert-crit';
     } else if (pct >= 0.8 && !dismissedAlerts.has('budget-daily-warn')) {
-      alertState.budgetAlert = `Approaching daily budget: $${cost.toFixed(2)} / $${budget.daily}`;
+      alertState.budgetAlert = `Approaching daily budget: ${fmtCost(cost, alertState.todayCostIncomplete)} / $${budget.daily}`;
       alertState.budgetCls = 'alert-warn';
-      maybeNotify('monomind budget', `$${cost.toFixed(2)} of $${budget.daily} daily budget used`);
+      maybeNotify('monomind budget', `${fmtCost(cost, alertState.todayCostIncomplete)} of $${budget.daily} daily budget used`);
     } else {
       alertState.budgetAlert = null;
     }
@@ -8469,7 +8478,7 @@ async function v2RenderOrgFiles() {
             '</td></tr>';
         }).join('')+'</tbody></table></div>';
     }).join('')}</div>`;
-  } catch(e) { el.innerHTML = `<div style="padding:20px;color:oklch(60% 0.22 25)">Error: ${e.message}</div>`; }
+  } catch(e) { el.innerHTML = `<div style="padding:20px;color:oklch(60% 0.22 25)">Error: ${esc(e.message)}</div>`; }
 }
 
 function _ofCopyPath(filePath) {
@@ -8503,6 +8512,14 @@ function _ofMdTableRow(row) {
   return cells;
 }
 
+// Scheme allowlist for markdown link/image URLs (blocks javascript:, data:,
+// including leading-whitespace / control-char obfuscation).
+function _ofSafeUrl(u) {
+  var probe = String(u).replace(/[\u0000-\u0020\u007f-\u009f]/g, '');
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(probe) && !/^(https?|mailto|tel):/i.test(probe)) return '#';
+  return String(u);
+}
+
 function _ofMdToHtml(md) {
   return md
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -8529,12 +8546,12 @@ function _ofMdToHtml(md) {
     .replace(/^\s*[-*]\s+(.+)$/gm,'<li style="margin:2px 0;padding-left:4px">$1</li>')
     .replace(/(<li.*<\/li>\n?)+/g,'<ul style="padding-left:18px;margin:6px 0">$&</ul>')
     .replace(/^\d+\.\s+(.+)$/gm,'<li style="margin:2px 0;padding-left:4px">$1</li>')
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt, url) => `<img src="${String(url).replace(/"/g,'&quot;')}" alt="${String(alt).replace(/"/g,'&quot;')}" loading="lazy" style="max-width:100%;border-radius:4px;margin:8px 0;display:block">`)
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt, url) => `<img src="${_ofSafeUrl(url).replace(/"/g,'&quot;')}" alt="${String(alt).replace(/"/g,'&quot;')}" loading="lazy" style="max-width:100%;border-radius:4px;margin:8px 0;display:block">`)
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, txt, url) => {
       // #124: previously interpolated the href raw ('<a href="$2" ...>') — a
       // URL containing a `"` could break out of the attribute. Matches the
       // quote-escaping the image handler right above already does.
-      return `<a href="${String(url).replace(/"/g,'&quot;')}" style="color:var(--accent);text-decoration:underline" target="_blank" rel="noopener">${txt}</a>`;
+      return `<a href="${_ofSafeUrl(url).replace(/"/g,'&quot;')}" style="color:var(--accent);text-decoration:underline" target="_blank" rel="noopener">${txt}</a>`;
     })
     .replace(/\n\n+/g,'</p><p style="margin:0 0 8px">')
     .replace(/^(?!<[hupoli]|<pre|<hr)(.+)$/gm, '$1')
@@ -8635,7 +8652,10 @@ function _ofSaveImage(defaultName) {
 window.v2StopOrg = async () => {
   if (!_v2SelOrg) return;
   const stopped = _v2SelOrg;
-  try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`, {method:'POST'}); } catch(_) {}
+  try {
+    const r = await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`, {method:'POST'});
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || `HTTP ${r.status}`); }
+  } catch (e) { showToast('Stop failed', `Could not stop "${stopped}": ${e.message}`, 'err'); }
   setTimeout(async () => { await renderOrgs(); if (_v2SelOrg === stopped) v2SelectOrg(stopped); }, 600);
 };
 
@@ -9018,20 +9038,19 @@ function _setFeedTimeFilter(f) {
 }
 
 // ── mastermind skills catalogue ─────────────────────────────
+// Kept in sync with the files under .claude/commands/ (every entry has a command file).
 const _MASTERMIND_SKILLS = [
-  '/mastermind:autodev','mastermind:build','mastermind:review','mastermind:architect',
-  '/mastermind:research','mastermind:debug','mastermind:verify','mastermind:tdd',
-  '/mastermind:plan','mastermind:execute','mastermind:taskdev','mastermind:design',
-  '/mastermind:finish','mastermind:receive-review','mastermind:worktree',
-  '/mastermind:skill-builder','mastermind:idea','mastermind:content','mastermind:marketing',
-  '/mastermind:sales','mastermind:ops','mastermind:finance','mastermind:release',
-  '/mastermind:createorg','mastermind:runorg','mastermind:brain','mastermind:techport',
-  '/mastermind:master','mastermind:autodev --tillend','mastermind:review --tillend --auto',
-  '/monomind:do','monomind:createtask','monomind:idea','monomind:improve',
-  '/monomind:repeat','monomind:review','monomind:understand','monomind:adr',
-  '/monomind:budget','monomind:graph-status','monomind:loops','monomind:swarm',
-  '/swarm:development','swarm:analysis','swarm:testing','swarm:optimization',
-  '/github:pr-manager','github:issue-tracker','github:release-manager',
+  '/mastermind:review','/mastermind:code-review','/mastermind:research','/mastermind:debug',
+  '/mastermind:plan','/mastermind:execute','/mastermind:design','/mastermind:receive-review',
+  '/mastermind:worktree','/mastermind:skill-builder','/mastermind:idea','/mastermind:ideate',
+  '/mastermind:content','/mastermind:marketing','/mastermind:sales','/mastermind:ops',
+  '/mastermind:finance','/mastermind:release','/mastermind:createorg','/mastermind:runorg',
+  '/mastermind:stoporg','/mastermind:orgs','/mastermind:orgstatus','/mastermind:brain',
+  '/mastermind:techport','/mastermind:master','/mastermind:review --tillend',
+  '/mastermind:do','/mastermind:createtask','/mastermind:improve','/mastermind:repeat',
+  '/mastermind:understand','/mastermind:adr','/mastermind:budget','/mastermind:graph-status',
+  '/mastermind:loops','/mastermind:memory','/mastermind:specialagents',
+  '/github:pr-manager','/github:issue-tracker','/github:release-manager',
 ];
 window._allSkills = _MASTERMIND_SKILLS;
 
@@ -9489,7 +9508,7 @@ function showToast(title, msg, type = 'info', duration = 5000) {
   if (duration > 0) setTimeout(() => { try { div.remove(); } catch {} }, duration);
 }
 
-function checkBudgetToast(todayCost, monthCost) {
+function checkBudgetToast(todayCost, monthCost, incomplete) {
   const budget = (()=> { try { return JSON.parse(localStorage.getItem('mm-budget') || '{}'); } catch { return {}; } })();
   const daily = parseFloat(budget.daily) || 0;
   const monthly = parseFloat(budget.monthly) || 0;
@@ -9498,7 +9517,7 @@ function checkBudgetToast(todayCost, monthCost) {
     const key = `daily-${pct}`;
     if (key !== _toastLastBudgetKey) {
       _toastLastBudgetKey = key;
-      showToast('Budget alert', `Daily spend at ${pct}% ($${todayCost.toFixed(2)} of $${daily})`, todayCost >= daily ? 'err' : 'warn');
+      showToast('Budget alert', `Daily spend at ${pct}% (${fmtCost(todayCost, incomplete)} of $${daily})`, todayCost >= daily ? 'err' : 'warn');
     }
   }
   if (monthly > 0 && monthCost >= monthly * 0.9) {
@@ -9506,7 +9525,7 @@ function checkBudgetToast(todayCost, monthCost) {
     const key = `monthly-${pct}`;
     if (key !== _toastLastBudgetKey) {
       _toastLastBudgetKey = key;
-      showToast('Monthly budget', `Monthly spend at ${pct}% ($${monthCost.toFixed(2)} of $${monthly})`, monthCost >= monthly ? 'err' : 'warn');
+      showToast('Monthly budget', `Monthly spend at ${pct}% (${fmtCost(monthCost, incomplete)} of $${monthly})`, monthCost >= monthly ? 'err' : 'warn');
     }
   }
 }
@@ -9775,12 +9794,13 @@ async function loadProjCosts() {
     if (!data.projects?.length) { el.innerHTML = '<div class="loading-txt">No cost data across projects</div>'; return; }
     const maxCost = data.projects[0].cost;
     const rows = data.projects.slice(0, 10).map((p, i) => {
-      const barW = maxCost > 0 ? Math.round((p.cost / maxCost) * 100) : 0;
+      // An all-unpriced project has cost 0 but is not "cheap": show no bar width claim.
+      const barW = maxCost > 0 && !(p.costIncomplete && p.cost === 0) ? Math.round((p.cost / maxCost) * 100) : 0;
       const name = p.path.split('/').filter(Boolean).pop() || p.path;
       return `<tr onclick="switchProject('${esc(String(p.path).replace(/['\\]/g,'\\$&'))}')" style="cursor:pointer" title="${esc(p.path)}">
         <td class="lb-rank">${i + 1}</td>
         <td style="font-size:12px;color:var(--text-mid);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</td>
-        <td class="lb-cost">$${p.cost.toFixed(2)}</td>
+        <td class="lb-cost"${p.costIncomplete ? ` title="${esc(`Unpriced models: ${(p.unknownPricingModels || []).join(', ')}`)}"` : ''}>${fmtCost(p.cost, p.costIncomplete)}</td>
         <td style="width:80px;padding:4px 6px">
           <div style="height:4px;background:var(--surface-hi);border-radius:2px;overflow:hidden">
             <div style="height:100%;width:${barW}%;background:oklch(72% 0.18 75 / 0.7);border-radius:2px"></div>
@@ -10425,7 +10445,7 @@ async function loadWorkflowDefs() {
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
         <button class="wf-def-run-btn" title="Copy run command" onclick="navigator.clipboard?.writeText('npx monomind browse playbook run .monomind/playbooks/${esc(String(d.file).replace(/['\\]/g,'\\$&'))}').then(()=>this.textContent='Copied!').catch(()=>{});setTimeout(()=>this.textContent='▶ Run',1500)">▶ Run</button>
-        <button class="wf-def-run-btn" style="font-size:10px" title="Open in Builder" onclick="pbLoadDef(${JSON.stringify(d.id)});wfSwitchTab('builder')">✎ Edit</button>
+        <button class="wf-def-run-btn" style="font-size:10px" title="Open in Builder" onclick="pbLoadDef(${esc(JSON.stringify(d.id))});wfSwitchTab('builder')">✎ Edit</button>
       </div>
     </div>`;
   }).join('');
@@ -10911,6 +10931,9 @@ function pbInit() {
 
 function pbConnectEvents() {
   // Connect to the monobrowse dashboard WS/SSE on port 4243 for live step events
+  // NOTE: the monobrowse server address (localhost:4243) is hardcoded here and in
+  // pbLoadDef/pbRun; it is not served by this dashboard. When it is not running,
+  // callers degrade gracefully (fallback to /api/workflow-defs, 'Offline' toast).
   if (_pbWs) { try { _pbWs.close(); } catch {} _pbWs = null; }
   try {
     const ws = new WebSocket('ws://localhost:4243');
@@ -12701,23 +12724,21 @@ function setMgWikiMode(m) {
   mgRenderWikiList(document.getElementById('mg-wiki-search').value);
 }
 
+async function _mgRebuildGraph() {
+  try {
+    const r = await fetch(`/api/monograph-build?dir=${enc(DIR)}`, { method: 'POST' });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || `HTTP ${r.status}`); }
+    showToast('Building', 'Graph rebuild started', 'ok');
+  } catch (e) { showToast('Rebuild failed', e.message, 'err'); }
+}
+
 function _mgWikiSearchDebounced(q) {
   clearTimeout(_mgWikiSearchTimer);
   _mgWikiSearchTimer = setTimeout(() => {
     mgRenderWikiList(q);
     if (!q.trim()) return;
-    // fallback: server search if no results
-    const el = document.getElementById('mg-wiki-list');
-    if (el.innerHTML.includes('No nodes match')) {
-      apiFetch(`/api/monograph-wiki-search?q=${enc(q)}&dir=${enc(DIR)}`)
-        .then(d => {
-          if (!d?.nodes?.length) return;
-          el.innerHTML = d.nodes.slice(0, 50).map(n => {
-            const lbl = n.label || n.name || '';
-            return `<div class="mg-node-item"><div class="mni-ico">${mgNodeIcon(n.type)}</div><div class="mni-lbl">${esc(lbl)}</div><div class="mni-path">${esc(mgShortPath(lbl))}</div><div class="mni-deg">${n.degree || 0}</div></div>`;
-          }).join('');
-        }).catch(() => {});
-    }
+    // No server-side fallback: there is no /api/monograph-wiki-search route;
+    // the local mgRenderWikiList filter above is the whole search.
   }, 300);
 }
 
@@ -13391,20 +13412,12 @@ function closeDocModal() {
 // ── Mastermind overlay ─────────────────────────────────────
 let _mmCurrentTab = 'orgs';
 const _MM_SKILLS_CATALOG = [
-  { name: '/mastermind:autodev', desc: 'Autonomous research → build → review loop' },
-  { name: '/mastermind:autodev --tillend', desc: 'Run until nothing left to fix' },
-  { name: '/mastermind:build', desc: 'Build a specific feature or improvement' },
-  { name: '/mastermind:review --tillend --auto', desc: 'Review and auto-fix until clean' },
-  { name: '/mastermind:architect', desc: 'System architecture design and review' },
+  { name: '/mastermind:review --tillend', desc: 'Review and fix until clean' },
   { name: '/mastermind:research', desc: 'Deep research with structured output' },
   { name: '/mastermind:debug', desc: 'Systematic root-cause investigation before fixes' },
-  { name: '/mastermind:verify', desc: 'Confirm claims with evidence before completion' },
-  { name: '/mastermind:tdd', desc: 'Enforce test-first discipline (Red-Green-Refactor)' },
   { name: '/mastermind:plan', desc: 'Write a complete implementation plan (no placeholders)' },
   { name: '/mastermind:execute', desc: 'Run a written plan step-by-step' },
-  { name: '/mastermind:taskdev', desc: 'Execute plan via fresh subagents with 2-stage review' },
   { name: '/mastermind:design', desc: 'Design first — spec, approaches, approval gate before code' },
-  { name: '/mastermind:finish', desc: 'Complete a branch: verify → options → merge/PR/keep/discard' },
   { name: '/mastermind:receive-review', desc: 'Consume a code review correctly (verify before implementing)' },
   { name: '/mastermind:idea', desc: 'Idea generation and evaluation for the project' },
   { name: '/mastermind:content', desc: 'Blog, threads, docs, newsletters' },
@@ -13419,12 +13432,11 @@ const _MM_SKILLS_CATALOG = [
   { name: '/mastermind:techport', desc: 'Technical portfolio — port capabilities from other projects' },
   { name: '/mastermind:worktree', desc: 'Isolate work in a git worktree safely' },
   { name: '/mastermind:skill-builder', desc: 'Write or improve a mastermind skill with TDD discipline' },
-  { name: '/monomind:do', desc: 'Execute tasks from the monotask board' },
-  { name: '/monomind:createtask', desc: 'Decompose a prompt/file into tasks on monotask board' },
-  { name: '/monomind:idea', desc: 'Research → evaluate → create implementation tasks' },
-  { name: '/monomind:improve', desc: 'Deep component improvement pipeline' },
-  { name: '/monomind:review', desc: 'Multi-agent iterative review with auto-fix' },
-  { name: '/monomind:understand', desc: 'Semantic enrichment for Monograph knowledge graph' },
+  { name: '/mastermind:do', desc: 'Execute tasks from the monotask board' },
+  { name: '/mastermind:createtask', desc: 'Decompose a prompt/file into tasks on monotask board' },
+  { name: '/mastermind:improve', desc: 'Deep component improvement pipeline' },
+  { name: '/mastermind:review', desc: 'Multi-agent iterative review with auto-fix' },
+  { name: '/mastermind:understand', desc: 'Semantic enrichment for Monograph knowledge graph' },
   { name: '/mastermind', desc: 'Topology picker — recommends best swarm for your task' },
 ];
 
@@ -13558,21 +13570,18 @@ async function mmRenderMetrics(body) {
     const tok = tokData.status === 'fulfilled' ? (tokData.value?.tokens?.summary || tokData.value?.summary || {}) : {};
     const status = statusData.status === 'fulfilled' ? statusData.value : {};
     const lastRoute = window._lastRouteAgent || '—';
-    const swarmTopo = window._appSwarmTopo || 'IDLE';
 
     body.innerHTML = `
       <div class="m-group-title" style="margin-bottom:8px">Token Usage</div>
       <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-        <div class="chunk-stat"><div class="chunk-stat-val" style="color:var(--accent)">${typeof tok.todayCost==='number' ? `$${tok.todayCost.toFixed(3)}` : '—'}</div><div class="chunk-stat-lbl">Today</div></div>
+        <div class="chunk-stat"><div class="chunk-stat-val" style="color:var(--accent)">${typeof tok.todayCost==='number' ? fmtCost(tok.todayCost, tok.todayCostIncomplete, 3) : '—'}</div><div class="chunk-stat-lbl">Today</div></div>
         <div class="chunk-stat"><div class="chunk-stat-val">${tok.todayCalls??'—'}</div><div class="chunk-stat-lbl">API Calls</div></div>
-        <div class="chunk-stat"><div class="chunk-stat-val">${typeof tok.monthCost==='number' ? `$${tok.monthCost.toFixed(2)}` : '—'}</div><div class="chunk-stat-lbl">Month</div></div>
+        <div class="chunk-stat"><div class="chunk-stat-val">${typeof tok.monthCost==='number' ? fmtCost(tok.monthCost, tok.monthCostIncomplete) : '—'}</div><div class="chunk-stat-lbl">Month</div></div>
       </div>
       <div class="m-group-title" style="margin-bottom:8px">Routing Intelligence</div>
       <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--text-hi)">Last Route</span><span style="color:var(--accent);font-family:var(--mono)">${esc(lastRoute)}</span></div>
       </div>
-      <div class="m-group-title" style="margin-bottom:8px">Swarm</div>
-      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--text-hi)">Topology</span><span style="color:${swarmTopo !== 'IDLE' ? 'var(--green)' : 'var(--text-lo)'};font-family:var(--mono)">${esc(swarmTopo)}</span></div>
     `;
   } catch (e) { body.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
 }
@@ -13604,7 +13613,7 @@ async function mmRenderGraph(body) {
       </div>`).join('')}` : ''}
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn" onclick="switchView('monograph');closeMastermind()">Open Monograph →</button>
-        <button class="btn" onclick="fetch('/api/monograph-build?dir='+enc(DIR),{method:'POST'}).then(()=>showToast('Building','Graph rebuild started','ok'))">↺ Rebuild Graph</button>
+        <button class="btn" onclick="mgRebuildGraph()">↺ Rebuild Graph</button>
       </div>
     `;
   } catch (e) { body.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }

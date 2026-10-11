@@ -11,13 +11,16 @@
 //   - the org definition, resolved through cost_tiers like session.ts does.
 import fs from 'node:fs';
 import path from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 import { resolveRoleCostTier, validateCostTiers } from '../orgrt/cost-tier.js';
 import { completionDisplay, patchCompletion } from '../orgrt/documents/completion-accessor.js';
 import { readIdleStatus } from '../orgrt/idle-deadline.js';
+import { orgSignatureEnforced, verifyOrgDef } from '../orgrt/org-signature.js';
 import { recordedPidLiveness } from '../orgrt/run-liveness.js';
 import { OrgDefSchema } from '../orgrt/types.js';
 import { checklistFindings } from '../orgrt/validate-checklist.js';
 import { hostingDaemon, writeFileAtomic } from './org-hil.mjs';
+import { _readTailLines } from './server-fileutils.mjs';
 
 const orgDir = (root, org) => path.join(root, '.monomind', 'orgs', org);
 
@@ -46,6 +49,14 @@ export const RUNTIME_AUDIT_REASONS = new Set([
   'boss-context-limit',
   'boss-restart',
   'boss-restart-exhausted',
+  // Emitted as audit events (budget-closure.ts, org-reload.ts, role-respawn.ts)
+  // or status events (org-stop.ts).
+  'budget-warning',
+  'org-budget-reopened',
+  'role-budget-reopened',
+  'hot-reload-refused',
+  'role-respawn-failed',
+  'org-stopped',
 ]);
 const MAX_AUDIT = 60;
 
@@ -60,10 +71,9 @@ function readJson(p) {
 /** Add a usage event's cost to a running total. A missing/null cost is
  *  unknown (the runtime reports none, rev 28): it adds nothing and a total
  *  that never saw a real cost stays null — shown as unknown, never $0. */
-const addCost = (total, cost) =>
-  cost === null || cost === undefined || cost === '' || !Number.isFinite(Number(cost))
-    ? total
-    : (total ?? 0) + Number(cost);
+const costUnknown = (cost) =>
+  cost === null || cost === undefined || cost === '' || !Number.isFinite(Number(cost));
+const addCost = (total, cost) => (costUnknown(cost) ? total : (total ?? 0) + Number(cost));
 
 const zeroUsage = () => ({
   tokens: 0,
@@ -72,6 +82,9 @@ const zeroUsage = () => ({
   cache_read: 0,
   cache_creation: 0,
   cost_usd: null,
+  // false once any usage event of the role reported no cost: cost_usd is then
+  // a lower bound, not the spend.
+  costComplete: true,
   turns: 0,
   // Tokens from usage events recorded before the four-way split (ADR-O001
   // D1). Their `tokens` counted input + output only — no cache — so they add
@@ -85,6 +98,27 @@ const zeroUsage = () => ({
 const runCache = new Map();
 export const RUN_CACHE_MAX = 64;
 export const runCacheSize = () => runCache.size;
+
+/** The lines of `file`, read in 1MB chunks so a bus of tens of MB is never one
+ *  string. */
+export function* fileLines(file) {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const buf = Buffer.alloc(1 << 20);
+    const dec = new StringDecoder('utf8');
+    let tail = '';
+    for (;;) {
+      const n = fs.readSync(fd, buf, 0, buf.length, null);
+      if (n === 0) break;
+      const parts = (tail + dec.write(buf.subarray(0, n))).split('\n');
+      tail = parts.pop();
+      yield* parts;
+    }
+    yield tail + dec.end();
+  } finally {
+    fs.closeSync(fd);
+  }
+}
 
 /** Per-role usage, last activity and the runtime audit trail of one run. */
 export function readRunDigest(root, org, run) {
@@ -105,7 +139,7 @@ export function readRunDigest(root, org, run) {
   const lastActivity = {};
   const audit = [];
   let startedAt = null;
-  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+  for (const line of fileLines(file)) {
     if (!line) continue;
     let e;
     try {
@@ -118,6 +152,7 @@ export function readRunDigest(root, org, run) {
     if (e.type === 'usage' && e.from) {
       const u = (usage[e.from] ??= zeroUsage());
       const d = e.data ?? {};
+      if (costUnknown(d.cost_usd)) u.costComplete = false;
       if (d.tokens_in === undefined) {
         u.legacy_tokens += Number(d.tokens) || 0;
         u.cost_usd = addCost(u.cost_usd, d.cost_usd);
@@ -174,14 +209,14 @@ async function liveStatus(root, org) {
 /** Last `n` history.jsonl entries, newest first, trimmed to what a run
  *  outcome needs (`closedBy` before `outcome` — see reporting.ts). */
 export function readRecentHistory(root, org, n = 10) {
-  let raw;
+  let lines;
   try {
-    raw = fs.readFileSync(path.join(orgDir(root, org), 'history.jsonl'), 'utf8');
+    lines = _readTailLines(path.join(orgDir(root, org), 'history.jsonl'));
   } catch {
     return [];
   }
   const out = [];
-  for (const line of raw.split('\n').filter(Boolean).slice(-n).reverse()) {
+  for (const line of lines.slice(-n).reverse()) {
     try {
       const h = JSON.parse(line);
       out.push({
@@ -198,6 +233,8 @@ export function readRecentHistory(root, org, n = 10) {
         totalTokens: h.totalTokens ?? 0,
         // null = no role reported a cost (unknown, not $0).
         totalCostUsd: h.totalCostUsd ?? null,
+        // false = some role reported no cost: totalCostUsd is a lower bound.
+        costComplete: h.costComplete ?? null,
       });
     } catch {
       /* one bad line doesn't hide the rest */
@@ -231,12 +268,43 @@ export function describeRoleModel(role, def) {
 /** runtime.json's status when no daemon answers for the org: a 'running'
  *  record whose pid is gone, or now another process's, is a crashed run
  *  (#573) — the same rule `org status` applies. */
-function recordedStatus(runtime) {
+export function recordedStatus(runtime) {
   const status = runtime?.status ?? 'never run';
   if (status === 'running' && typeof runtime.pid === 'number') {
     if (recordedPidLiveness(runtime.pid, runtime.pidStart) !== 'alive') return 'crashed';
   }
   return status;
+}
+
+/** Whether `org` runs for `root` by Org Runtime v2's own records: true when a
+ *  daemon hosts it or runtime.json records a run whose pid is alive; false when
+ *  runtime.json records anything else (a crashed run included); null when the
+ *  org has no runtime.json, so only older state files can tell. */
+export function orgRunningState(root, org) {
+  if (hostingDaemon(root, org)) return true;
+  const runtime = readJson(path.join(orgDir(root, org), 'runtime.json'));
+  return runtime ? recordedStatus(runtime) === 'running' : null;
+}
+
+/** orgRunningState as a plain yes/no, for refusing a destructive write. */
+export const orgIsRunning = (root, org) => orgRunningState(root, org) === true;
+
+/** Whether the on-disk definition still matches the operator's signature
+ *  (#502). The dashboard never signs; a `notice` names the command that does. */
+export function orgSignatureState(root, org) {
+  const raw = readJson(path.join(root, '.monomind', 'orgs', `${org}.json`));
+  if (!raw) return { state: 'missing', enforced: orgSignatureEnforced(), notice: null };
+  let check;
+  try {
+    check = verifyOrgDef(root, org, raw);
+  } catch (err) {
+    check = { ok: false, reason: 'invalid-signature', message: err.message };
+  }
+  return {
+    state: check.ok ? 'signed' : check.reason,
+    enforced: orgSignatureEnforced(),
+    notice: check.ok ? null : `run 'monomind org sign ${org}' to sign the changed definition`,
+  };
 }
 
 export async function runtimeView(root, org) {
@@ -252,8 +320,8 @@ export async function runtimeView(root, org) {
   const isLive = !!(live && !live.unreachable);
   const run = (isLive ? live.run : null) ?? runtime?.run ?? null;
   const digest = run ? readRunDigest(root, org, run) : null;
-  const liveRoles = new Map((isLive ? live.roles : []).map((r) => [r.id, r]));
-  const pendingRoles = new Set(isLive ? live.pendingRoles : []);
+  const liveRoles = new Map((isLive ? (live.roles ?? []) : []).map((r) => [r.id, r]));
+  const pendingRoles = new Set(isLive ? (live.pendingRoles ?? []) : []);
 
   const roles = (def.roles || []).map((r) => {
     const lr = liveRoles.get(r.id);
@@ -269,10 +337,14 @@ export async function runtimeView(root, org) {
   });
   const totals = roles.reduce((t, r) => {
     for (const k of Object.keys(t)) {
-      t[k] = k === 'cost_usd' ? addCost(t[k], r.usage[k]) : t[k] + r.usage[k];
+      if (k === 'costComplete') t[k] = t[k] && r.usage[k];
+      else t[k] = k === 'cost_usd' ? addCost(t[k], r.usage[k]) : t[k] + r.usage[k];
     }
     return t;
   }, zeroUsage());
+  // cost_usd sums only the costs the runtime reported: a lower bound when a
+  // role's usage had none.
+  totals.costLowerBound = !totals.costComplete && totals.cost_usd !== null;
   const basis = rc.budget_tokens_basis ?? 'uncached';
 
   return {
@@ -281,6 +353,7 @@ export async function runtimeView(root, org) {
     problems: parsed.success
       ? []
       : parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`),
+    signature: orgSignatureState(root, org),
     live: isLive,
     liveError: live?.unreachable ?? null,
     run,
@@ -341,6 +414,22 @@ export class ConfigRejected extends Error {
   }
 }
 
+/** Throw ConfigRejected unless `def` passes the OrgDefSchema parse, cost-tier
+ *  check and checklist `org run` applies. Used before any dashboard write of a
+ *  whole definition (config patch, import, create). */
+export function assertValidOrgDef(def) {
+  const parsed = OrgDefSchema.safeParse(def);
+  if (!parsed.success)
+    throw new ConfigRejected(
+      parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`),
+    );
+  const tierProblems = validateCostTiers(parsed.data);
+  if (tierProblems.length) throw new ConfigRejected(tierProblems);
+  // Org sections spec 7.3: the shared checklist; advice never blocks a save.
+  const checklistProblems = checklistFindings(parsed.data).errors;
+  if (checklistProblems.length) throw new ConfigRejected(checklistProblems);
+}
+
 /** Apply `patch` ({ goal?, schedule?, run_config?, cost_tiers_default? }) to
  *  the org definition on disk and write it only if the result passes the same
  *  OrgDefSchema parse (and cost-tier check) `org run` performs. A `null`
@@ -389,16 +478,7 @@ export function patchOrgConfig(root, org, patch) {
     else delete next.cost_tiers;
   }
   if (problems.length) throw new ConfigRejected(problems);
-  const parsed = OrgDefSchema.safeParse(next);
-  if (!parsed.success)
-    throw new ConfigRejected(
-      parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`),
-    );
-  const tierProblems = validateCostTiers(parsed.data);
-  if (tierProblems.length) throw new ConfigRejected(tierProblems);
-  // Org sections spec 7.3: the shared checklist; advice never blocks a save.
-  const checklistProblems = checklistFindings(parsed.data).errors;
-  if (checklistProblems.length) throw new ConfigRejected(checklistProblems);
+  assertValidOrgDef(next);
   writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`);
   return next;
 }

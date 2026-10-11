@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { writeFileAtomic } from './org-hil.mjs';
 
 // Extracted from handleMastermindEvent (server-mastermind-event.mjs) to keep that
 // file under the line-count limit. Pure move — same logic, called inline.
@@ -21,7 +22,15 @@ function _accumulateAgentUsage(event, root, _orn) {
         let _st = {};
         try {
           _st = JSON.parse(fs.readFileSync(_stateFile, 'utf8'));
-        } catch (_e) {}
+        } catch (_e) {
+          // A missing file starts empty. One that exists but won't parse holds
+          // the accumulated usage: keep a copy before it is rewritten.
+          if (_e.code !== 'ENOENT') {
+            try {
+              fs.copyFileSync(_stateFile, `${_stateFile}.corrupt-${Date.now()}`);
+            } catch (_c) {}
+          }
+        }
         if (!_st.agents) _st.agents = {};
         const _ex = _st.agents[_arole] || {};
         // ADR-O001 D1: orgrt's 'org:usage' now carries the four billable
@@ -63,7 +72,7 @@ function _accumulateAgentUsage(event, root, _orn) {
             _costUsd === null ? (_ex.total_cost_usd ?? null) : (_ex.total_cost_usd ?? 0) + _costUsd,
           lastUpdated: event.ts,
         };
-        fs.writeFileSync(_stateFile, JSON.stringify(_st, null, 2));
+        writeFileAtomic(_stateFile, JSON.stringify(_st, null, 2));
       }
     } catch (_e) {}
   }

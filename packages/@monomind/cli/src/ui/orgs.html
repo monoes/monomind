@@ -2194,6 +2194,7 @@ function renderChatTab() {
   }
 }
 
+let mmReconnectTimer = null;
 function connectMmSSE() {
   if (mmSse) return; // already connected
   mmSse = window.mmEventSource('/api/mastermind-stream');
@@ -2214,8 +2215,14 @@ function connectMmSSE() {
     const lbl = document.getElementById('chat-live-label');
     if (dot) dot.classList.remove('on');
     if (lbl) lbl.textContent = 'RECONNECTING';
+    // close() first: EventSource auto-retries on its own, so an un-closed
+    // source plus our timer would stack duplicate connections.
+    const src = mmSse;
     mmSse = null;
-    setTimeout(connectMmSSE, 4000);
+    if (src) src.close();
+    if (!mmReconnectTimer) {
+      mmReconnectTimer = setTimeout(() => { mmReconnectTimer = null; connectMmSSE(); }, 4000);
+    }
   };
 }
 
@@ -2306,6 +2313,7 @@ let orgRunStartMs = null;
 let lsUptimeTimer = null;
 
 let evtSource = null;
+let sseReconnectTimer = null;
 function connectSSE() {
   if (evtSource) evtSource.close();
   evtSource = window.mmEventSource('/api/mastermind-stream');
@@ -2337,7 +2345,12 @@ function connectSSE() {
     } catch (_) {}
   };
   evtSource.onerror = () => {
-    setTimeout(connectSSE, 5000);
+    const src = evtSource;
+    evtSource = null;
+    if (src) src.close();
+    if (!sseReconnectTimer) {
+      sseReconnectTimer = setTimeout(() => { sseReconnectTimer = null; connectSSE(); }, 5000);
+    }
   };
 }
 
@@ -2408,7 +2421,7 @@ function appendLiveFeedRow(ev, isNew) {
   const row = document.createElement('div');
   row.className = `clf-row${isNew ? ' new' : ''}`;
   row.title = msg;
-  row.innerHTML = `<span class="clf-time">${time}</span><span class="clf-type">${type}</span><span class="clf-msg">${msg}</span>`;
+  row.innerHTML = `<span class="clf-time">${esc(time)}</span><span class="clf-type">${esc(type)}</span><span class="clf-msg">${esc(msg)}</span>`;
   rows.appendChild(row);
   if (rows.children.length > 30) rows.removeChild(rows.firstChild);
   rows.scrollTop = rows.scrollHeight;
@@ -2441,10 +2454,12 @@ function initLiveStrip() {
 async function loadOrgs() {
   try {
     const r = await fetch('/api/orgs');
-    allOrgs = await r.json();
-    if (!Array.isArray(allOrgs)) allOrgs = [];
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const list = await r.json();
+    if (!Array.isArray(list)) throw new Error('unexpected /api/orgs payload');
+    allOrgs = list;
   } catch (_) {
-    allOrgs = [];
+    // Keep the previous list: a transient error must not blank the sidebar.
   }
   renderSidebar();
 
@@ -2475,11 +2490,14 @@ window.openCopyModal = (name) => {
     listEl.innerHTML = projects.map(p => {
       const label = p.name || p.slug || p.path?.split('/').pop() || p.path;
       const isCurrentDir = p.path === (window._orgDir || '');
-      return `<div class="copy-proj-row${isCurrentDir ? ' selected' : ''}" title="${p.path}" onclick="selectCopyProject('${p.path.replace(/'/g,"\\'")}', this)">
-        <span style="color:var(--text-hi)">${label}</span>
-        <span style="color:var(--dim);font-size:10px;margin-left:6px">${p.path.replace(/\/Users\/[^/]+\//, '~/')}</span>
+      return `<div class="copy-proj-row${isCurrentDir ? ' selected' : ''}" title="${esc(p.path)}" data-path="${esc(p.path)}">
+        <span style="color:var(--text-hi)">${esc(label)}</span>
+        <span style="color:var(--dim);font-size:10px;margin-left:6px">${esc(p.path.replace(/\/Users\/[^/]+\//, '~/'))}</span>
       </div>`;
     }).join('');
+    listEl.querySelectorAll('.copy-proj-row').forEach((row) => {
+      row.addEventListener('click', () => window.selectCopyProject(row.dataset.path, row));
+    });
   }).catch(() => { listEl.innerHTML = '<div class="copy-proj-loading">Could not load projects</div>'; });
   setTimeout(() => document.getElementById('copy-dest-input').focus(), 60);
 };

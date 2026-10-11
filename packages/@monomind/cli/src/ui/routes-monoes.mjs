@@ -89,6 +89,7 @@ function _pruneExpiredStates() {
 
 async function _registerClient(redirectUri) {
   const res = await fetch(`${MONOES_BASE_URL}/api/auth/oauth2/register`, {
+    signal: AbortSignal.timeout(10000),
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -182,6 +183,7 @@ export async function getValidMonoesToken(monomindHome) {
 
   try {
     const res = await fetch(`${MONOES_BASE_URL}/api/auth/oauth2/token`, {
+      signal: AbortSignal.timeout(10000),
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -257,6 +259,7 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
     try {
       const existing = readMonoesConnection(MONOMIND_HOME);
       const tokenRes = await fetch(`${MONOES_BASE_URL}/api/auth/oauth2/token`, {
+        signal: AbortSignal.timeout(10000),
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
@@ -276,6 +279,7 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
       const tokenData = await tokenRes.json();
 
       const meRes = await fetch(`${MONOES_BASE_URL}/api/community/me`, {
+        signal: AbortSignal.timeout(10000),
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
       const me = meRes.ok ? await meRes.json() : { username: null };
@@ -425,6 +429,7 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
         const orgJson = fs.readFileSync(orgFile, 'utf8');
 
         const uploadRes = await fetch(`${MONOES_BASE_URL}/api/community/orgs`, {
+          signal: AbortSignal.timeout(10000),
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ orgJson }),

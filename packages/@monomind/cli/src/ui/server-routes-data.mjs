@@ -179,11 +179,12 @@ export async function handleRoutesData(req, res, url, corsOrigin, ctx) {
               }
               if (msg.usage && msg.model) {
                 const c = _sjCalcCost(msg.model, msg.usage);
-                totalCost += c;
+                // null = unpriced model: sum only priced models; flagged via unknownPricing below.
+                if (c !== null) totalCost += c;
                 const mk = msg.model.replace(/@.*$/, '').replace(/-\d{8}$/, '');
                 if (!modelBreakdown[mk]) modelBreakdown[mk] = { calls: 0, cost: 0 };
                 modelBreakdown[mk].calls++;
-                modelBreakdown[mk].cost += c;
+                modelBreakdown[mk].cost += c ?? 0;
                 // A model absent from the pricing table contributes 0 to the sum. Flag it
                 // instead of letting the UI render an authoritative-looking $0.00.
                 if (!_sjHasPricing(msg.model)) {

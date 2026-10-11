@@ -17,7 +17,9 @@ const _OPEN_ROUTES = new Set([
 // Pages that embed the token: served only to a browser with the human session.
 const _HUMAN_PAGES = new Set(['/', '/v2', '/orgs', '/mastermind']);
 // Mutations that act as the human supervising an org (org-hil.mjs,
-// org-runtime.mjs's config patch): the token alone is not enough.
+// org-runtime.mjs's config patch) or that write or destroy an org definition
+// or end a run: the token alone, which any local process can read, is not
+// enough. The dashboard pages send the human cookie with these.
 const _HUMAN_ROUTES = [
   /^\/api\/questions\/answer$/,
   /^\/api\/questions\/dismiss$/,
@@ -25,6 +27,10 @@ const _HUMAN_ROUTES = [
   /^\/api\/org\/[^/]+\/gates\/[^/]+$/,
   /^\/api\/org\/[^/]+\/config$/,
   /^\/api\/orgs\/[^/]+\/chat$/,
+  /^\/api\/orgs$/,
+  /^\/api\/orgs\/[^/]+$/,
+  /^\/api\/orgs\/[^/]+\/(import|copy)$/,
+  /^\/api\/org\/[^/]+\/agent\/[^/]+\/avatar$/,
 ];
 const _isHumanRoute = (url) => _HUMAN_ROUTES.some((re) => re.test(url));
 const _isOpenRoute = (url, method) =>

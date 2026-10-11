@@ -2,21 +2,19 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { _readTailLines } from './server-fileutils.mjs';
+
 // Org dashboard routes: metrics, playbooks, workflow defs, coverage and workflow runs.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
 export async function handleOrgWorkflowRoutes(req, res, url, corsOrigin, ctx) {
-  // GET /api/mastermind/metrics — aggregate system metrics from token-summary and monoswarm-activity
+  // GET /api/mastermind/metrics — aggregate system metrics from token-summary
   if (req.method === 'GET' && url === '/api/mastermind/metrics') {
     try {
       const base = path.join(ctx.projectDir || process.cwd(), '.monomind', 'metrics');
       let tokens = {},
-        monoswarm = {},
         events = [];
       try {
         tokens = JSON.parse(fs.readFileSync(path.join(base, 'token-summary.json'), 'utf8'));
-      } catch (_) {}
-      try {
-        monoswarm = JSON.parse(fs.readFileSync(path.join(base, 'monoswarm-activity.json'), 'utf8'));
       } catch (_) {}
       try {
         const evPath = path.join(
@@ -24,11 +22,7 @@ export async function handleOrgWorkflowRoutes(req, res, url, corsOrigin, ctx) {
           'data',
           'mastermind-events.jsonl',
         );
-        const lines = fs
-          .readFileSync(evPath, 'utf8')
-          .split('\n')
-          .filter((l) => l.trim())
-          .slice(-20);
+        const lines = _readTailLines(evPath).slice(-20);
         events = lines
           .map((l) => {
             try {
@@ -40,10 +34,10 @@ export async function handleOrgWorkflowRoutes(req, res, url, corsOrigin, ctx) {
           .filter(Boolean);
       } catch (_) {}
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ tokens, monoswarm, recentEvents: events }));
+      res.end(JSON.stringify({ tokens, recentEvents: events }));
     } catch (_) {
       res.writeHead(500);
-      res.end('{"tokens":{},"monoswarm":{},"recentEvents":[]}');
+      res.end('{"tokens":{},"recentEvents":[]}');
     }
     return true;
   }

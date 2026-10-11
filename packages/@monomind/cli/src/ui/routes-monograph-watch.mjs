@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveAllowedProjectDir } from './server-fileutils.mjs';
 
 // Monograph dashboard routes (extracted from routes-monograph.mjs).
 // Registered, in order, by handleMonographRoutes in routes-monograph.mjs.
@@ -38,8 +39,12 @@ export async function handleMonographWatchRoutes(req, res, url, corsOrigin, ctx)
   if (req.method === 'POST' && url === '/api/monograph-watch-toggle') {
     try {
       const qs = new URL(req.url, 'http://localhost').searchParams;
-      const dir = qs.get('dir') || ctx.projectDir || process.cwd();
-      const d = path.resolve(dir || process.cwd());
+      const d = resolveAllowedProjectDir(qs.get('dir'), ctx.projectDir);
+      if (!d) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'dir is not the server project or a known project' }));
+        return true;
+      }
       const pidPath = path.join(d, '.monomind', 'monograph.watch.pid');
       let wasRunning = false;
       for (const pidName of ['monograph.watch.pid', 'monograph-watch.pid']) {

@@ -158,7 +158,6 @@ function buildSectionData(name, dir) {
 function pathToSections(filename) {
   if (!filename) return null;
   const f = filename.toLowerCase();
-  if (f.includes('swarm')) return ['swarm'];
   if (f.includes('token')) return ['tokens'];
   if (f.includes('registry') || f.includes('registrations')) return ['agents'];
   if (f.includes('route') || f.includes('worker-dispatch')) return ['hooks'];
@@ -181,7 +180,7 @@ function pathToSections(filename) {
   )
     return ['metrics'];
   if (f.endsWith('.jsonl') || f.includes('sessions')) return ['sessions'];
-  return ['sessions', 'swarm', 'agents', 'tokens', 'hooks'];
+  return ['sessions', 'agents', 'tokens', 'hooks'];
 }
 
 export { buildSectionData, buildToolLabel, categorizeTool, parseSessionLines, pathToSections };

@@ -43,13 +43,21 @@ function _renderDocMarkdown(md) {
   const SAFE_URL_SCHEMES = /^(https?|mailto|tel):/i;
   const safeUrl = (u) => {
     const s = String(u);
-    const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s);
-    if (hasScheme && !SAFE_URL_SCHEMES.test(s)) return '#';
+    // Browsers drop leading C0 controls/whitespace and tabs/newlines inside the
+    // scheme before resolving a URL, so judge the scheme on the same view.
+    const probe = s.replace(/[\u0000-\u0020\u007f-\u009f]/g, '');
+    const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(probe);
+    if (hasScheme && !SAFE_URL_SCHEMES.test(probe)) return '#';
     return s;
   };
 
   // 1. Strip a leading YAML frontmatter block (mastermind plan/spec files have one).
-  let src = String(md).replace(/^﻿?---[\s\S]*?\n---\s*\n/, '');
+  // Placeholder sentinels are \u0000/\u0001-delimited, so those characters must
+  // not be able to occur in the source (else 'CB7' text or crafted input could
+  // collide with, or forge, a placeholder).
+  let src = String(md)
+    .replace(/[\u0000\u0001]/g, '')
+    .replace(/^﻿?---[\s\S]*?\n---\s*\n/, '');
 
   // 2. Extract fenced code blocks first so their contents are never reinterpreted.
   // #124-review: previously unanchored (`/```.../g`), so it matched a fence
@@ -70,10 +78,8 @@ function _renderDocMarkdown(md) {
     return `${lead || ''}\u0000CB${codeBlocks.length - 1}\u0000`;
   });
 
-  // 3. Extract inline HTML blocks (multiline <div>…</div> etc.) — pass through
-  //    verbatim after escaping, so user-authored HTML in a plan still renders
-  //    structurally without enabling script injection (we'll re-strip <script>
-  //    and on* handlers at the end).
+  // 3. Extract inline HTML blocks (multiline <div>…</div> etc.) — rendered as
+  //    escaped text (see sanitizeHtmlBlock); never passed through as markup.
   const htmlBlocks = [];
   src = src.replace(/(^|\n)(<(\w+)[^>\n]*>[\s\S]*?<\/\3>)(?=\n|$)/g, (_m, lead, html) => {
     htmlBlocks.push(html);
@@ -81,9 +87,7 @@ function _renderDocMarkdown(md) {
   });
 
   // 4. Escape everything that remains.
-  src = esc(src)
-    .replace(/\u0000CB(\d+)\u0000/g, 'CB$1')
-    .replace(/\u0000HB(\d+)\u0000/g, 'HB$1');
+  src = esc(src);
 
   // 5. Block-level transforms: tables, headings, hr, blockquotes, lists.
   //    Operate line-by-line so nesting and paragraph grouping stay coherent.
@@ -143,7 +147,7 @@ function _renderDocMarkdown(md) {
     const line = lines[i];
 
     // Block placeholders for code/html blocks (they sit on their own line).
-    const cbMatch = line.match(/^CB(\d+)$/);
+    const cbMatch = line.match(/^\u0000CB(\d+)\u0000$/);
     if (cbMatch) {
       closeLists();
       flushPara();
@@ -152,7 +156,7 @@ function _renderDocMarkdown(md) {
       i++;
       continue;
     }
-    const hbMatch = line.match(/^HB(\d+)$/);
+    const hbMatch = line.match(/^\u0000HB(\d+)\u0000$/);
     if (hbMatch) {
       closeLists();
       flushPara();
@@ -320,8 +324,8 @@ function _renderDocMarkdown(md) {
   // 6. Restore code/html block placeholders INSIDE paragraphs (when a CB/HB
   //    token got buffered as paragraph text instead of sitting alone).
   html = html
-    .replace(/CB(\d+)/g, (_m, idx) => renderCodeBlock(codeBlocks[+idx]))
-    .replace(/HB(\d+)/g, (_m, idx) => sanitizeHtmlBlock(htmlBlocks[+idx]));
+    .replace(/\u0000CB(\d+)\u0000/g, (_m, idx) => renderCodeBlock(codeBlocks[+idx]))
+    .replace(/\u0000HB(\d+)\u0000/g, (_m, idx) => sanitizeHtmlBlock(htmlBlocks[+idx]));
   return html;
 
   // ── helpers ──
@@ -364,7 +368,7 @@ function _renderDocMarkdown(md) {
     s = s.replace(/__([^_\n]+)__/g, '<strong>$1</strong>');
     // Italic.
     s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
-    s = s.replace(/(^|[^_])_([^_\n]+)_/g, '$1<em>$2</em>');
+    s = s.replace(/(^|[^\w])_([^_\n]+)_(?!\w)/g, '$1<em>$2</em>');
     // Strikethrough.
     s = s.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
     // Restore inline code.
@@ -391,14 +395,10 @@ function _renderDocMarkdown(md) {
   }
 
   function sanitizeHtmlBlock(html) {
-    // Strip <script> entirely, drop event-handler attributes (onclick=, onload=, on*=),
-    // and javascript: URLs. Keep everything else as-is so user HTML renders.
-    return String(html)
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
-      .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
-      .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
-      .replace(/(href|src)\s*=\s*"javascript:[^"]*"/gi, '$1="#"');
+    // No raw HTML passthrough: a regex blacklist cannot make arbitrary markup
+    // safe (`<svg/onload=...>`, `<a href=" javascript:...">` all slip past it),
+    // so raw HTML blocks are shown as escaped text.
+    return '<pre class="md-raw-html">' + esc(html) + '</pre>';
   }
 
   function splitTableRow(line) {

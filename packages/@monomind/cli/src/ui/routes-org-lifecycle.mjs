@@ -1,5 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { lookupOrg, removeOperatorCredential } from '../orgrt/broker.js';
+import { writeFileAtomic } from './org-hil.mjs';
+import { orgIsRunning, orgSignatureState } from './org-runtime.mjs';
+import { readBodyOrReply } from './routes-org-helpers.mjs';
 
 // Org dashboard routes: org delete, stop and copy.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
@@ -14,16 +18,18 @@ export async function handleOrgLifecycleRoutes(req, res, url, corsOrigin, ctx) {
         return true;
       }
       const _delOrgQs = new URL(req.url, 'http://localhost').searchParams;
-      const orgsDir = path.join(
-        path.resolve(_delOrgQs.get('dir') || ctx.projectDir || process.cwd()),
-        '.monomind',
-        'orgs',
-      );
+      const _delRoot = path.resolve(_delOrgQs.get('dir') || ctx.projectDir || process.cwd());
+      const orgsDir = path.join(_delRoot, '.monomind', 'orgs');
       const configFile = path.join(orgsDir, `${orgName}.json`);
       const v1ConfigFile = path.join(orgsDir, `${orgName}.v1.json`);
       if (!fs.existsSync(configFile) && !fs.existsSync(v1ConfigFile)) {
         res.writeHead(404);
         res.end('{"error":"org not found"}');
+        return true;
+      }
+      if (orgIsRunning(_delRoot, orgName)) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `org "${orgName}" is running — stop it before deleting` }));
         return true;
       }
       // Remove all org-associated files (config + state + data)
@@ -93,6 +99,12 @@ export async function handleOrgLifecycleRoutes(req, res, url, corsOrigin, ctx) {
         );
         if (fs.existsSync(lpf)) fs.unlinkSync(lpf);
       } catch (_) {}
+      // A daemon that died without cleaning up leaves its operator credential
+      // behind (~/.monomind/orgrt-operator/<org>.json). It is keyed by name
+      // alone, so it goes only when no daemon is registered for that name.
+      try {
+        if (!lookupOrg(orgName)) removeOperatorCredential(orgName);
+      } catch (_) {}
       // Emit org:delete event
       const deleteEvent = { type: 'org:delete', org: orgName, ts: Date.now() };
       ctx
@@ -161,14 +173,8 @@ export async function handleOrgLifecycleRoutes(req, res, url, corsOrigin, ctx) {
 
   // POST /api/orgs/:name/copy — copy org config to another project directory
   if (req.method === 'POST' && url.match(/^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/copy$/i)) {
-    let body = '';
-    for await (const chunk of req) {
-      body += chunk;
-      if (body.length > 2097152) {
-        req.destroy();
-        break;
-      }
-    }
+    const body = await readBodyOrReply(req, res, 2097152, corsOrigin);
+    if (body === null) return true;
     try {
       const orgName = decodeURIComponent(url.split('/')[3]);
       if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
@@ -208,12 +214,27 @@ export async function handleOrgLifecycleRoutes(req, res, url, corsOrigin, ctx) {
         fs.mkdirSync(destOrgsDir, { recursive: true });
       } catch (_) {}
       const destFile = path.join(destOrgsDir, `${orgName}.json`);
-      fs.copyFileSync(srcFile, destFile);
+      if (orgIsRunning(path.resolve(destination), orgName)) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: `org "${orgName}" is running in ${destination} — stop it before replacing its definition`,
+          }),
+        );
+        return true;
+      }
+      writeFileAtomic(destFile, fs.readFileSync(srcFile, 'utf8'));
       res.writeHead(200, {
         'Content-Type': 'application/json',
         ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
       });
-      res.end(JSON.stringify({ ok: true, destFile }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          destFile,
+          signature: orgSignatureState(path.resolve(destination), orgName),
+        }),
+      );
     } catch (e) {
       res.writeHead(500);
       res.end(JSON.stringify({ error: String(e.message || e) }));

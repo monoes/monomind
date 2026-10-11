@@ -116,11 +116,15 @@ async function callDaemon(root, org, route, body) {
     throw new HilError(502, `org "${org}" daemon unreachable: ${err.message}`);
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.ok)
+  if (!res.ok || !data.ok) {
+    // The daemon's 401/403 is about the dashboard's operator credential, not
+    // the browser's session: passed through they read as a dashboard sign-in
+    // failure, so they become a bad-gateway (502) with the daemon's message.
     throw new HilError(
-      res.status >= 400 ? res.status : 502,
+      res.status === 401 || res.status === 403 ? 502 : res.status >= 400 ? res.status : 502,
       data.error || data.receipt || `daemon returned ${res.status}`,
     );
+  }
   return data;
 }
 

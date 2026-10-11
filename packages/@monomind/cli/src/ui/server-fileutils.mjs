@@ -46,12 +46,20 @@ function _readHeadText(filePath, maxBytes) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Paths whose append already failed once — warn once per path, not on every event.
+const _appendWarned = new Set();
 function appendToFile(filePath, line) {
   const prev = _writeQueue.get(filePath) || Promise.resolve();
   const next = prev.then(() => {
     try {
       fs.appendFileSync(filePath, line);
-    } catch (_) {}
+    } catch (err) {
+      if (!_appendWarned.has(filePath)) {
+        if (_appendWarned.size >= 1000) _appendWarned.clear();
+        _appendWarned.add(filePath);
+        console.warn(`[server] append to ${filePath} failed: ${err?.message || err}`);
+      }
+    }
   });
   _writeQueue.set(filePath, next);
   next.then(() => {
@@ -71,12 +79,14 @@ function _getGitMonomindDir(workDir) {
   if (!workDir) return null;
   if (_gitMonomindCache.has(workDir)) return _gitMonomindCache.get(workDir);
   let result = null;
+  let resolved = false; // only a real git lookup is cached, never the fallback
   try {
     const gitEntry = path.join(workDir, '.git');
     const st = fs.statSync(gitEntry);
     if (st.isDirectory()) {
       // Regular repo: .git is a directory
       result = path.join(gitEntry, 'monomind');
+      resolved = true;
     } else if (st.isFile()) {
       // Worktree: .git is a text file "gitdir: /main/.git/worktrees/name"
       const m = fs
@@ -89,16 +99,46 @@ function _getGitMonomindDir(workDir) {
         // /main/.git/worktrees/name -> /main/.git -> /main/.git/monomind
         const commonGitDir = path.dirname(path.dirname(worktreeDir));
         result = path.join(commonGitDir, 'monomind');
+        resolved = true;
       }
     }
   } catch {}
   if (!result) result = path.join(workDir, '.monomind'); // fallback
+  if (!resolved) return result; // .git may appear later — don't pin the fallback
   if (_gitMonomindCache.size >= _MAX_GIT_CACHE) {
     const oldest = _gitMonomindCache.keys().next().value;
     _gitMonomindCache.delete(oldest);
   }
   _gitMonomindCache.set(workDir, result);
   return result;
+}
+
+/**
+ * Validates a caller-supplied ?dir= for routes that spawn processes or write files.
+ * Returns the resolved dir when it is absent (server project), the server project dir,
+ * or a project listed in data/known-projects.json; otherwise null.
+ */
+function resolveAllowedProjectDir(rawDir, serverProjectDir) {
+  const serverDir = path.resolve(serverProjectDir || process.cwd());
+  if (rawDir === undefined || rawDir === null || rawDir === '') return serverDir;
+  if (typeof rawDir !== 'string' || rawDir.length > 4096 || rawDir.includes('\0')) return null;
+  const d = path.resolve(rawDir);
+  if (d === serverDir) return d;
+  try {
+    const known = JSON.parse(
+      fs.readFileSync(path.join(serverDir, 'data', 'known-projects.json'), 'utf8'),
+    );
+    if (Array.isArray(known) && known.some((k) => typeof k === 'string' && path.resolve(k) === d)) {
+      return d;
+    }
+  } catch (_) {}
+  return null;
+}
+
+/** True when target resolves to root itself or somewhere beneath it. */
+function isPathInside(root, target) {
+  const rel = path.relative(path.resolve(root), path.resolve(target));
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
 export function getMonomindHome(projectDir, projectDirExplicit) {
@@ -113,4 +153,11 @@ export function getMonomindHome(projectDir, projectDirExplicit) {
   return process.cwd();
 }
 
-export { _getGitMonomindDir, _readHeadText, _readTailLines, appendToFile };
+export {
+  _getGitMonomindDir,
+  _readHeadText,
+  _readTailLines,
+  appendToFile,
+  isPathInside,
+  resolveAllowedProjectDir,
+};

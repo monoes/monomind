@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import { recordedPidLiveness } from '../orgrt/run-liveness.js';
 import { SESSION_ID_RE } from './server-constants.mjs';
 import { activeWatchers, watchSafely, watchTree } from './server-net.mjs';
 import { _insertRunEvent, activeOrgRuns, runStreamClients } from './server-rundb.mjs';
@@ -16,23 +17,47 @@ import { broadcast, broadcastMm, writeSse } from './sse-manager.mjs';
 // shares this same Map to dedupe already-seen bytes when seeding initial file sizes.
 const _orgsFileSizes = new Map(); // absPath → last known byte offset
 const _MAX_ORGS_FILE_SIZES = 1000;
+const _MAX_ORGS_READ_BYTES = 4 * 1024 * 1024; // per-call read cap
+// LRU refresh: re-inserting on every access keeps active files at the young end, so
+// eviction drops idle files instead of an active one (whose history would then replay).
+function _setOrgsFileSize(absPath, size) {
+  _orgsFileSizes.delete(absPath);
+  if (_orgsFileSizes.size >= _MAX_ORGS_FILE_SIZES) {
+    _orgsFileSizes.delete(_orgsFileSizes.keys().next().value);
+  }
+  _orgsFileSizes.set(absPath, size);
+}
 function _readNewOrgLines(absPath, orgName, runId) {
   try {
     const stat = fs.statSync(absPath);
-    const prevSize = _orgsFileSizes.get(absPath) || 0;
-    if (stat.size <= prevSize) return; // nothing new
-    if (!_orgsFileSizes.has(absPath) && _orgsFileSizes.size >= _MAX_ORGS_FILE_SIZES) {
-      const oldest = _orgsFileSizes.keys().next().value;
-      _orgsFileSizes.delete(oldest);
+    let prevSize = _orgsFileSizes.get(absPath) || 0;
+    if (stat.size < prevSize) prevSize = 0; // truncated or rotated — start over
+    if (stat.size === prevSize) {
+      if (_orgsFileSizes.has(absPath)) _setOrgsFileSize(absPath, prevSize);
+      return; // nothing new
     }
-    _orgsFileSizes.set(absPath, stat.size);
     // Read only the new bytes to avoid re-processing existing lines
-    const fd = fs.openSync(absPath, 'r');
-    const newLen = stat.size - prevSize;
+    const newLen = Math.min(stat.size - prevSize, _MAX_ORGS_READ_BYTES);
     const buf = Buffer.alloc(newLen);
-    fs.readSync(fd, buf, 0, newLen, prevSize);
-    fs.closeSync(fd);
-    const newText = buf.toString('utf8');
+    let bytesRead = 0;
+    const fd = fs.openSync(absPath, 'r');
+    try {
+      bytesRead = fs.readSync(fd, buf, 0, newLen, prevSize);
+    } finally {
+      fs.closeSync(fd);
+    }
+    // Advance only past the last complete line; a partial trailing line is re-read
+    // next time. A line longer than the cap would never complete, so skip the chunk.
+    const lastNl = buf.subarray(0, bytesRead).lastIndexOf(0x0a);
+    let consumed;
+    if (lastNl !== -1) consumed = lastNl + 1;
+    else if (bytesRead === _MAX_ORGS_READ_BYTES) consumed = bytesRead;
+    else return;
+    _setOrgsFileSize(absPath, prevSize + consumed);
+    if (prevSize + consumed < stat.size) {
+      setImmediate(() => _readNewOrgLines(absPath, orgName, runId));
+    }
+    const newText = buf.subarray(0, consumed).toString('utf8');
     const newLines = newText.split('\n').filter(Boolean);
     const clients = runStreamClients.get(orgName);
     for (const _rawLine of newLines) {
@@ -182,7 +207,7 @@ function startOrgsFsWatchFallback(_orgsDir) {
 // read-batch/heartbeat background pollers. Called once, right after bindServer().
 // Returns stopBackgroundTasks (called by shutdown(), which stays in server.mjs since it
 // mutates that module's own running/currentPort/currentUrl/_activeServer state).
-function setupServerLifecycle({ projectDir, MONOMIND_HOME, boundPort }) {
+function setupServerLifecycle({ projectDir, MONOMIND_HOME, boundPort, dashboardAuthValue }) {
   // ── One-time migration: mastermind-sessions.json → per-session JSONL ─────
   // Runs once on startup. Existing sessions in the old monolithic format are
   // split into individual JSONL files + _index.json for O(1) event writes.
@@ -237,7 +262,7 @@ function setupServerLifecycle({ projectDir, MONOMIND_HOME, boundPort }) {
       const changed =
         pendingSections.size > 0
           ? Array.from(pendingSections)
-          : ['sessions', 'swarm', 'agents', 'tokens', 'hooks', 'memory', 'knowledge', 'metrics'];
+          : ['sessions', 'agents', 'tokens', 'hooks', 'memory', 'knowledge', 'metrics'];
       pendingSections.clear();
       broadcast({ kind: 'changed', sections: changed });
     }, 500);
@@ -265,73 +290,104 @@ function setupServerLifecycle({ projectDir, MONOMIND_HOME, boundPort }) {
     }
   }
 
+  // POST one event to this server's own /api/mastermind/event. The route is gated by
+  // the dashboard token, so the header is required. done(statusCode | null) runs once.
+  function postEvent(body, done) {
+    let finished = false;
+    const finish = (code) => {
+      if (finished) return;
+      finished = true;
+      done(code);
+    };
+    const req = http.request(
+      {
+        hostname: 'localhost',
+        port: boundPort,
+        path: '/api/mastermind/event',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+          'x-monomind-token': dashboardAuthValue || '',
+        },
+      },
+      (res) => {
+        res.resume();
+        finish(res.statusCode);
+      },
+    );
+    req.on('error', () => finish(null));
+    req.setTimeout(2000, () => {
+      req.destroy();
+      finish(null);
+    });
+    req.write(body);
+    req.end();
+  }
+  // A 4xx other than auth/timeout/rate-limit will never succeed on retry.
+  const isPermanentReject = (code) =>
+    code >= 400 && code < 500 && ![401, 403, 408, 429].includes(code);
+
   // ── Phase 2: Spool polling — replay undelivered events from capture-handler (Issue 5) ──
   // capture-handler writes events to spool/ before HTTP POST. If the POST fails (server
   // down, timeout), the file stays. We poll every 5s and replay them.
   const _spoolBaseDir = path.join(MONOMIND_HOME, '.monomind', 'capture', 'spool');
+  const _spoolStaleMs = 8 * 60 * 60 * 1000;
+  let _spoolInFlight = false;
   const _spoolTimer = setInterval(() => {
-    if (!fs.existsSync(_spoolBaseDir)) return;
+    if (_spoolInFlight || !fs.existsSync(_spoolBaseDir)) return;
     try {
-      const _spoolFiles = fs
+      const _spoolAll = fs
         .readdirSync(_spoolBaseDir)
         .filter((f) => f.endsWith('.json') && !f.startsWith('.'))
-        .sort() // chronological (timestamp prefix)
-        .slice(0, 20); // max 20 per cycle to avoid flooding
-      for (const _sf of _spoolFiles) {
+        .sort(); // chronological (timestamp prefix)
+      // Age sweep (stale captures from crashed sessions) runs every tick, not only at startup.
+      const _spoolFiles = [];
+      for (const _sf of _spoolAll) {
         const _sfPath = path.join(_spoolBaseDir, _sf);
         try {
-          const _spoolEvent = JSON.parse(fs.readFileSync(_sfPath, 'utf8'));
-          const _spoolBody = JSON.stringify(_spoolEvent);
-          const _spoolReq = http.request(
-            {
-              hostname: 'localhost',
-              port: boundPort,
-              path: '/api/mastermind/event',
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(_spoolBody),
-              },
-            },
-            (_spoolRes) => {
-              // Delete only after confirmed delivery; leave file on failure for next poll cycle
-              if (_spoolRes.statusCode >= 200 && _spoolRes.statusCode < 300) {
-                try {
-                  fs.unlinkSync(_sfPath);
-                } catch (_) {}
-              }
-              _spoolRes.resume();
-            },
-          );
-          _spoolReq.on('error', () => {});
-          _spoolReq.setTimeout(2000, () => {
-            _spoolReq.destroy();
-          });
-          _spoolReq.write(_spoolBody);
-          _spoolReq.end();
-        } catch (_e) {}
+          if (Date.now() - fs.statSync(_sfPath).mtimeMs > _spoolStaleMs) {
+            fs.unlinkSync(_sfPath);
+            continue;
+          }
+        } catch (_) {
+          continue;
+        }
+        if (_spoolFiles.length < 20) _spoolFiles.push(_sf); // max 20 per cycle to avoid flooding
       }
-    } catch (_) {}
-  }, 5000);
-  // Clean up spool files older than 8 hours on startup (stale captures from crashed sessions)
-  try {
-    if (fs.existsSync(_spoolBaseDir)) {
-      const _staleMs = 8 * 60 * 60 * 1000;
-      fs.readdirSync(_spoolBaseDir)
-        .filter((f) => f.endsWith('.json'))
-        .forEach((_staleF) => {
-          const _staleP = path.join(_spoolBaseDir, _staleF);
-          try {
-            if (Date.now() - fs.statSync(_staleP).mtimeMs > _staleMs) fs.unlinkSync(_staleP);
-          } catch (_) {}
+      let pending = _spoolFiles.length;
+      if (pending === 0) return;
+      _spoolInFlight = true; // no overlapping replay ticks
+      for (const _sf of _spoolFiles) {
+        const _sfPath = path.join(_spoolBaseDir, _sf);
+        let _spoolBody;
+        try {
+          _spoolBody = JSON.stringify(JSON.parse(fs.readFileSync(_sfPath, 'utf8')));
+        } catch (_e) {
+          if (--pending === 0) _spoolInFlight = false;
+          continue;
+        }
+        postEvent(_spoolBody, (code) => {
+          // Delete only after confirmed delivery (or a permanent rejection); otherwise
+          // leave the file for the next poll cycle.
+          if ((code >= 200 && code < 300) || isPermanentReject(code)) {
+            try {
+              fs.unlinkSync(_sfPath);
+            } catch (_) {}
+          }
+          if (--pending === 0) _spoolInFlight = false;
         });
+      }
+    } catch (_) {
+      _spoolInFlight = false;
     }
-  } catch (_) {}
+  }, 5000);
 
   // ── Phase 3: Read-batch polling — aggregate file-read events from capture-handler (Issue 9) ──
   // capture-handler writes Read tool calls to capture/read-batch-{ppid}-{pid}.json (per-subagent, no sharing).
   // Server polls every 3s, aggregates all matching files per session, emits agent:read:batch, removes files.
   const _rbDir = path.join(MONOMIND_HOME, '.monomind', 'capture');
+  const _rbInFlight = new Set();
   const _rbTimer = setInterval(() => {
     if (!fs.existsSync(_rbDir)) return;
     try {
@@ -339,10 +395,13 @@ function setupServerLifecycle({ projectDir, MONOMIND_HOME, boundPort }) {
         .filter((f) => f.startsWith('read-batch-') && f.endsWith('.json'))
         .forEach((_rbf) => {
           const _rbPath = path.join(_rbDir, _rbf);
+          if (_rbInFlight.has(_rbPath)) return;
           try {
             const _rbData = JSON.parse(fs.readFileSync(_rbPath, 'utf8'));
-            fs.unlinkSync(_rbPath);
-            if (!Array.isArray(_rbData) || _rbData.length === 0) return;
+            if (!Array.isArray(_rbData) || _rbData.length === 0) {
+              fs.unlinkSync(_rbPath);
+              return;
+            }
             const _rbOrg = String(_rbData[0].org || '').trim();
             const _rbRunId = String(_rbData[0].runId || '').trim();
             const _rbEvent = {
@@ -353,26 +412,16 @@ function setupServerLifecycle({ projectDir, MONOMIND_HOME, boundPort }) {
               count: _rbData.length,
               ts: Date.now(),
             };
-            const _rbBody = JSON.stringify(_rbEvent);
-            const _rbReq = http.request(
-              {
-                hostname: 'localhost',
-                port: boundPort,
-                path: '/api/mastermind/event',
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Content-Length': Buffer.byteLength(_rbBody),
-                },
-              },
-              (res) => res.resume(),
-            );
-            _rbReq.on('error', () => {});
-            _rbReq.setTimeout(2000, () => {
-              _rbReq.destroy();
+            _rbInFlight.add(_rbPath);
+            postEvent(JSON.stringify(_rbEvent), (code) => {
+              _rbInFlight.delete(_rbPath);
+              // Remove the batch only once the server accepted it.
+              if ((code >= 200 && code < 300) || isPermanentReject(code)) {
+                try {
+                  fs.unlinkSync(_rbPath);
+                } catch (_) {}
+              }
             });
-            _rbReq.write(_rbBody);
-            _rbReq.end();
           } catch (_e) {}
         });
     } catch (_) {}
@@ -382,7 +431,24 @@ function setupServerLifecycle({ projectDir, MONOMIND_HOME, boundPort }) {
   // Periodically checks if the Claude Code session (tracked via ppid-keyed files) is still alive.
   // If the parent process is gone, auto-emits org:stop to close stale LIVE orgs in the dashboard.
   const _ppidCheckDir = path.join(MONOMIND_HOME, '.monomind', 'capture', 'active-runs');
+  const _orgsRuntimeDir = path.join(MONOMIND_HOME, '.monomind', 'orgs');
+  const emitOrgStop = (org, runId, reason) => {
+    postEvent(JSON.stringify({ type: 'org:stop', org, runId, reason, ts: Date.now() }), () => {});
+  };
   const _heartbeatTimer = setInterval(() => {
+    // Org daemons: a run whose recorded pid is gone (or recycled) is no longer active.
+    for (const [_hbOrg, _hbRun] of [...activeOrgRuns]) {
+      if (!/^[a-z0-9][a-z0-9_-]*$/i.test(_hbOrg)) continue;
+      try {
+        const _hbRt = JSON.parse(
+          fs.readFileSync(path.join(_orgsRuntimeDir, _hbOrg, 'runtime.json'), 'utf8'),
+        );
+        if (typeof _hbRt?.pid !== 'number') continue;
+        if (recordedPidLiveness(_hbRt.pid, _hbRt.pidStart) === 'alive') continue;
+        activeOrgRuns.delete(_hbOrg);
+        emitOrgStop(_hbOrg, String(_hbRun || ''), 'pid-dead');
+      } catch (_) {}
+    }
     if (!fs.existsSync(_ppidCheckDir)) return;
     try {
       fs.readdirSync(_ppidCheckDir)
@@ -403,32 +469,7 @@ function setupServerLifecycle({ projectDir, MONOMIND_HOME, boundPort }) {
               const _staleOrg = String(_ppData.org || '').trim();
               const _staleRun = String(_ppData.runId || '').trim();
               if (_staleOrg && activeOrgRuns.has(_staleOrg)) {
-                const _stopBody = JSON.stringify({
-                  type: 'org:stop',
-                  org: _staleOrg,
-                  runId: _staleRun,
-                  reason: 'ppid-dead',
-                  ts: Date.now(),
-                });
-                const _stopReq = http.request(
-                  {
-                    hostname: 'localhost',
-                    port: boundPort,
-                    path: '/api/mastermind/event',
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Content-Length': Buffer.byteLength(_stopBody),
-                    },
-                  },
-                  (res) => res.resume(),
-                );
-                _stopReq.on('error', () => {});
-                _stopReq.setTimeout(2000, () => {
-                  _stopReq.destroy();
-                });
-                _stopReq.write(_stopBody);
-                _stopReq.end();
+                emitOrgStop(_staleOrg, _staleRun, 'ppid-dead');
               }
             }
           } catch (_) {}
