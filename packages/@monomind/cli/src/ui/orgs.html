@@ -2600,7 +2600,7 @@ async function handleImportFile(e) {
     if (r.ok && result.ok) {
       loadOrgs();
       // Advice warnings never block an import; a changed definition stays unsigned until the operator signs it.
-      const note = [result.signature?.notice, ...(result.warnings || [])].filter(Boolean).join('\n');
+      const note = [result.signature?.enforced ? result.signature.notice : '', ...(result.warnings || [])].filter(Boolean).join('\n');
       if (note) alert(`Imported "${importTargetOrg}".\n${note}`);
     } else {
       console.warn('[orgs] Import failed:', result.error || r.statusText);

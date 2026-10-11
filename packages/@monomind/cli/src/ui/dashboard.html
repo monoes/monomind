@@ -6831,7 +6831,7 @@ function _v2RoleEditorHtml(role) {
   const fld = (lbl, html, hint) => `<div style="display:flex;flex-direction:column;gap:4px"><div style="font-size:10px;color:var(--text-lo)">${lbl}</div>${html}${hint ? `<div style="font-size:10px;color:var(--text-xs)">${hint}</div>` : ''}</div>`;
   return `<div class="oad-sec" id="oad-edit"><div class="oad-sec-h">Runtime settings</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      ${fld('Runtime', `<select class="filter-input" id="re-runtime" data-runtime-sel data-cur="${esc(role.runtime || '')}" data-blank="org default" style="width:100%;box-sizing:border-box;cursor:pointer"><option value="">${esc(role.runtime || 'org default')}</option></select>`)}
+      ${fld('Runtime', `<select class="filter-input" id="re-runtime" data-runtime-sel data-cur="${esc(role.runtime || '')}" data-blank="org default" style="width:100%;box-sizing:border-box;cursor:pointer"><option value="${esc(role.runtime || '')}">${esc(role.runtime || 'org default')}</option></select>`)}
       ${fld('Model', `<input class="filter-input" id="re-model" type="text" value="${esc(role.adapter_config?.model || '')}" placeholder="runtime default" style="width:100%;box-sizing:border-box">`)}
       ${fld('Cost tier', sel('re-tier', [['', 'org default'], ...tiers.map(t => [t, t])], curTier), '"exempt" for a deliberative role.')}
       ${fld('Session scope', sel('re-scope', [['', 'org default'], ['role', 'role'], ['task', 'task']], role.session_scope || ''))}
@@ -6881,7 +6881,7 @@ async function _v2SaveRoleConfig(roleId) {
     if (!r.ok || !json.ok) throw new Error((json.error || `HTTP ${r.status}`).split('; ').join('\n'));
     const roles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
     const i = roles.findIndex(x => x.id === roleId);
-    if (i >= 0) roles[i] = { ...roles[i], ...json.role };
+    if (i >= 0) roles[i] = json.role;
     const cfg = _v2OrgData?.config;
     if (cfg) { cfg.roles = (cfg.roles || []).map(x => x.id === roleId ? json.role : x); cfg.cost_tiers = json.cost_tiers ?? undefined; }
     if (_v2OrgData) _v2OrgData.cost_tiers = json.cost_tiers ?? undefined;
@@ -8508,7 +8508,7 @@ function v2RenderOrgConfig() {
     + sec('GENERAL',
       fld('Name', inp('oc-name', d.name || '', 'text', 'readonly style="opacity:0.5"'))
       + fld('Schedule', inp('oc-schedule', d.schedule ?? '', 'text', 'placeholder="15m, 2h, 45s — or empty for none"'), 'An interval ("45s", "15m", "2h") or minutes. Cron is not supported.')
-      + fld('Default runtime', `<select class="filter-input" id="oc-runtime" data-runtime-sel data-cur="${esc(d.runtime || '')}" data-blank="claude (default)" style="width:100%;box-sizing:border-box;cursor:pointer"><option value="">${esc(d.runtime || 'claude (default)')}</option></select>`, 'A role\'s own runtime overrides it.')
+      + fld('Default runtime', `<select class="filter-input" id="oc-runtime" data-runtime-sel data-cur="${esc(d.runtime || '')}" data-blank="claude (default)" style="width:100%;box-sizing:border-box;cursor:pointer"><option value="${esc(d.runtime || '')}">${esc(d.runtime || 'claude (default)')}</option></select>`, 'A role\'s own runtime overrides it.')
       + `<div style="grid-column:1/-1">${fld('Goal', `<textarea id="oc-goal" class="filter-input" rows="4" style="width:100%;box-sizing:border-box;resize:vertical;line-height:1.5">${esc(d.goal || '')}</textarea>`)}</div>`)
     + sec('BUDGET & CONCURRENCY',
       fld('Budget tokens (per run)', inp('oc-budget', rc.budget_tokens ?? '', 'number', 'min="1" placeholder="1000000"'), 'Must be positive.')
@@ -8569,7 +8569,7 @@ async function _v2SaveOrgConfig() {
     patch = {
       goal: g('oc-goal')?.value ?? '',
       // A bare number is minutes (an interval); "15m" stays a string.
-      schedule: (() => { const v = str('oc-schedule'); return v !== null && /^\d+$/.test(v) ? Number(v) : v; })(),
+      schedule: (() => { const v = str('oc-schedule'); return v !== null && /^\d+(\.\d+)?$/.test(v) ? Number(v) : v; })(),
       runtime: str('oc-runtime'),
       run_config: {
         budget_tokens: num('oc-budget', 'Budget tokens'),

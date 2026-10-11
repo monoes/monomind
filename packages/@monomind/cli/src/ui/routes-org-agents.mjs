@@ -28,6 +28,19 @@ const ADAPTER_LABELS = {
   vercel: 'Vercel AI SDK (multi-vendor, incl. Gemini/OpenAI)',
 };
 
+// One entry per runtime id the registry knows; `type` is the value a role's or an org's
+// `runtime` takes. A runtime that cannot be driven (freebuff) is listed disabled, with the reason.
+const _runtimeAdapters = () =>
+  RUNNER_SPECS.map((spec) => ({
+    type: spec.id,
+    label: ADAPTER_LABELS[spec.id] ?? spec.id,
+    source: 'built-in',
+    disabled: !!spec.executionUnsupportedReason,
+    disabledReason: spec.executionUnsupportedReason ?? null,
+    binary: spec.binary,
+    installHint: spec.installHint,
+  }));
+
 // Org dashboard routes: adapters, agent detail and agent avatar.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
 export async function handleOrgAgentRoutes(req, res, url, corsOrigin, ctx) {
@@ -66,15 +79,7 @@ export async function handleOrgAgentRoutes(req, res, url, corsOrigin, ctx) {
         res.end(
           JSON.stringify({
             default_adapter: defaultAdapter,
-            adapters: RUNNER_SPECS.map((spec) => ({
-              type: spec.id,
-              label: ADAPTER_LABELS[spec.id] ?? spec.id,
-              source: 'built-in',
-              disabled: !!spec.executionUnsupportedReason,
-              disabledReason: spec.executionUnsupportedReason ?? null,
-              binary: spec.binary,
-              installHint: spec.installHint,
-            })),
+            adapters: _runtimeAdapters(),
           }),
         );
         return true;
@@ -84,7 +89,9 @@ export async function handleOrgAgentRoutes(req, res, url, corsOrigin, ctx) {
         'Content-Type': 'application/json',
         ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
       });
-      res.end(JSON.stringify(data));
+      // The file's own entries may carry ids that are not runtime values (claude-local ...),
+      // which the runtime selects would save and the runtime would reject: serve the registry's list.
+      res.end(JSON.stringify({ ...data, adapters: _runtimeAdapters() }));
     } catch (_) {
       res.writeHead(500);
       res.end('{}');

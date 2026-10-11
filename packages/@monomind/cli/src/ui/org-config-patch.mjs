@@ -4,6 +4,7 @@
 // org-runtime.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
+import { accessValidationFindings } from '../orgrt/access-validate.js';
 import { validateCostTiers } from '../orgrt/cost-tier.js';
 import { patchCompletion } from '../orgrt/documents/completion-accessor.js';
 import { parseSchedule } from '../orgrt/scheduler.js';
@@ -77,8 +78,11 @@ export function assertValidOrgDef(def) {
   if (tierProblems.length) throw new ConfigRejected(tierProblems);
   // Org sections spec 7.3: the shared checklist; advice never blocks a save.
   const { errors, warnings } = checklistFindings(parsed.data);
-  if (errors.length) throw new ConfigRejected(errors);
-  return warnings;
+  // `org validate`'s access check: e.g. a policy.access 'full' role on a runtime that cannot honour it.
+  const access = accessValidationFindings(parsed.data);
+  if (errors.length || access.errors.length)
+    throw new ConfigRejected([...errors, ...access.errors]);
+  return [...warnings, ...access.warnings];
 }
 
 /** The section 7.3 checklist of a definition that may not parse: `errors`
@@ -92,6 +96,8 @@ export function orgChecklist(def) {
  *  "2h" or a number of minutes. Cron is not supported. */
 function scheduleProblem(v) {
   if (v === null) return null;
+  if (typeof v !== 'string' && typeof v !== 'number')
+    return 'schedule must be a string or a number of minutes';
   const ms = parseSchedule(v);
   return ms !== null && ms > 0
     ? null

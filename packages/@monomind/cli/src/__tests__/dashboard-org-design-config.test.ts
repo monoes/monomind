@@ -6,7 +6,8 @@
  */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { RUNNER_SPECS } from '../orgrt/runner-registry.js';
 import { OrgDefSchema } from '../orgrt/types.js';
@@ -347,5 +348,29 @@ describe('adapters list', () => {
     expect(freebuff.disabled).toBe(true);
     expect(freebuff.disabledReason).toBeTruthy();
     expect(r.json.adapters.find((a: any) => a.type === 'claude').disabled).toBe(false);
+  });
+});
+
+describe('org design review follow-ups', () => {
+  const ui = (f: string) =>
+    readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../ui', f), 'utf-8');
+
+  it('a fractional-minute schedule survives the config form, and odd types give 400 not 500', async () => {
+    expect(ui('dashboard.html')).toContain('/^\\d+(\\.\\d+)?$/.test(v) ? Number(v) : v');
+    expect(ui('org-config-patch.mjs')).toMatch(/typeof v !== 'string' && typeof v !== 'number'/);
+  });
+
+  it('runtime selects never post a blank placeholder before the adapter list loads', () => {
+    const html = ui('dashboard.html');
+    expect(html).toContain('<option value="${esc(role.runtime || \'\')}">');
+    expect(html).toContain('<option value="${esc(d.runtime || \'\')}">');
+  });
+
+  it('a saved role replaces the cached role instead of merging stale keys', () => {
+    expect(ui('dashboard.html')).toContain('roles[i] = json.role;');
+  });
+
+  it('the adapters file branch serves the registry list, not the file entries', () => {
+    expect(ui('routes-org-agents.mjs')).toContain('adapters: _runtimeAdapters()');
   });
 });
