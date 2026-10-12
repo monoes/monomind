@@ -102,12 +102,16 @@ describe('monograph-freshen: no monograph', () => {
     expect(r.status).toBe(0);
   });
 
-  it('logs a build status message (not-found or build-started, depending on global install)', () => {
+  it('logs a build status message (warning, not-found or build-started, depending on the install)', () => {
     // @monoes/monograph may be found via global npm even when CLAUDE_PROJECT_DIR is a temp dir.
-    // Either "not found — skipping build" (stderr) or "background build started" (stdout) is valid.
+    // Valid: "[MONOGRAPH_WARN] The hooks cannot build the monograph graph" (stdout; reaches the
+    // session, what a host with no resolvable monograph prints), "not found — skipping build"
+    // (stderr), or "background build started" (stdout).
     const r = run({ CLAUDE_PROJECT_DIR: tmpDir }, { cwd: tmpDir });
     const combined = r.stdout + r.stderr;
-    expect(combined).toMatch(/monograph not found|background build started/);
+    expect(combined).toMatch(
+      /\[MONOGRAPH_WARN\] The hooks cannot build|monograph not found|background build started/,
+    );
   });
 
   it('creates .monomind/graph/ directory even when monograph missing', () => {
