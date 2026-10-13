@@ -27,6 +27,9 @@ import {
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SCRIPT = join(REPO_ROOT, 'scripts', 'lint-skills.mjs');
+// Loading the built CLI's whole command registry takes ~3s alone and over 30s when the full suite
+// shares the CPUs; the tests that load it get a bound that load cannot reach.
+const CLI_LOAD_TIMEOUT_MS = 180_000;
 
 describe('lint-skills command references', () => {
   it('extracts commands in command position from code, not prose or prose inside code', () => {
@@ -56,40 +59,52 @@ describe('lint-skills command references', () => {
     ]);
   });
 
-  it('resolves commands, aliases and subcommands from the built CLI', async () => {
-    const cli = await loadCliCommands(REPO_ROOT);
-    expect(cli.has('hooks')).toBe(true);
-    expect(cli.has('kg')).toBe(true); // alias of monograph
-    expect(cli.has('hook')).toBe(false);
-    expect(cli.has('pair')).toBe(false);
-    expect(cli.has('workflow')).toBe(false);
-    expect(cli.get('hooks')?.has('pre-edit')).toBe(true);
-    expect(cli.get('memory')?.has('get')).toBe(true); // subcommand alias
-  });
+  it(
+    'resolves commands, aliases and subcommands from the built CLI',
+    async () => {
+      const cli = await loadCliCommands(REPO_ROOT);
+      expect(cli.has('hooks')).toBe(true);
+      expect(cli.has('kg')).toBe(true); // alias of monograph
+      expect(cli.has('hook')).toBe(false);
+      expect(cli.has('pair')).toBe(false);
+      expect(cli.has('workflow')).toBe(false);
+      expect(cli.get('hooks')?.has('pre-edit')).toBe(true);
+      expect(cli.get('memory')?.has('get')).toBe(true); // subcommand alias
+    },
+    CLI_LOAD_TIMEOUT_MS,
+  );
 
-  it('rejects unknown commands and unknown subcommands of commands that have them', async () => {
-    const cli = await loadCliCommands(REPO_ROOT);
-    const reason = (text: string) => {
-      const [ref] = extractCommandRefs(`\`${text}\``);
-      return unresolvedReason(ref, cli);
-    };
-    expect(reason('monomind hooks pre-edit')).toBeNull();
-    expect(reason('monomind memory get')).toBeNull(); // subcommand alias
-    expect(reason('monomind performance')).toBeNull();
-    expect(reason('monomind pick something')).toBeNull(); // no subcommands: positional
-    expect(reason('monomind hook pre-edit')).toMatch(/not a command of the built CLI/);
-    expect(reason('monomind performance optimize')).toMatch(
-      /'optimize' is not a subcommand of 'monomind performance'/,
-    );
-    expect(reason('npx monomind task retry --id x')).toMatch(/'retry' is not a subcommand/);
-  });
+  it(
+    'rejects unknown commands and unknown subcommands of commands that have them',
+    async () => {
+      const cli = await loadCliCommands(REPO_ROOT);
+      const reason = (text: string) => {
+        const [ref] = extractCommandRefs(`\`${text}\``);
+        return unresolvedReason(ref, cli);
+      };
+      expect(reason('monomind hooks pre-edit')).toBeNull();
+      expect(reason('monomind memory get')).toBeNull(); // subcommand alias
+      expect(reason('monomind performance')).toBeNull();
+      expect(reason('monomind pick something')).toBeNull(); // no subcommands: positional
+      expect(reason('monomind hook pre-edit')).toMatch(/not a command of the built CLI/);
+      expect(reason('monomind performance optimize')).toMatch(
+        /'optimize' is not a subcommand of 'monomind performance'/,
+      );
+      expect(reason('npx monomind task retry --id x')).toMatch(/'retry' is not a subcommand/);
+    },
+    CLI_LOAD_TIMEOUT_MS,
+  );
 
-  it('passes on the repo with zero unresolved commands or subcommands', () => {
-    const run = spawnSync('node', [SCRIPT], { cwd: REPO_ROOT, encoding: 'utf8' });
-    expect(run.stderr).not.toMatch(/not a command of the built CLI/);
-    expect(run.stdout + run.stderr).not.toMatch(/not a subcommand of/);
-    expect(run.status).toBe(0);
-  });
+  it(
+    'passes on the repo with zero unresolved commands or subcommands',
+    () => {
+      const run = spawnSync('node', [SCRIPT], { cwd: REPO_ROOT, encoding: 'utf8' });
+      expect(run.stderr).not.toMatch(/not a command of the built CLI/);
+      expect(run.stdout + run.stderr).not.toMatch(/not a subcommand of/);
+      expect(run.status).toBe(0);
+    },
+    CLI_LOAD_TIMEOUT_MS,
+  );
 });
 
 // GH #411: Claude Code drops descriptions once the skill/command listing passes

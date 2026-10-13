@@ -2435,9 +2435,17 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
   const _mmAuthTag = document.querySelector('meta[name="mm-token"]');
   const _mmAuthValue = _mmAuthTag ? _mmAuthTag.content : '';
   const _origFetch = window.fetch.bind(window);
+  // Only this dashboard's own origin gets the credential: the playbook builder
+  // also calls the browse dashboard on another loopback port, which must not
+  // receive it (and a custom header would force a CORS preflight it can't answer).
+  const _mmSameOrigin = (input) => {
+    try {
+      return new URL(input instanceof Request ? input.url : String(input), location.href).origin === location.origin;
+    } catch { return true; }
+  };
   window.fetch = (input, init) => {
     const method = (init?.method ? init.method : 'GET').toUpperCase();
-    if (_mmAuthValue && method !== 'HEAD') {
+    if (_mmAuthValue && method !== 'HEAD' && _mmSameOrigin(input)) {
       init = init ? { ...init } : {};
       init.headers = new Headers(init.headers || {});
       if (!init.headers.has(AUTH_HEADER_NAME)) init.headers.set(AUTH_HEADER_NAME, _mmAuthValue);
@@ -7406,11 +7414,12 @@ function _odtRebuildRunGroups() {
       last.runs.push(s);
       last._newestAt = sAt;
       if (s.status === 'running') last.status = 'running';
-      else if (s.status === 'stale' && last.status !== 'running' && last.status !== 'complete') last.status = 'stale';
+      else if (s.status === 'ended' && last.status !== 'running' && last.status !== 'complete') { last.status = 'ended'; last.closedBy = s._runMeta?.closedBy; }
+      else if (s.status === 'stale' && last.status !== 'running' && last.status !== 'complete' && last.status !== 'ended') last.status = 'stale';
       else if (s.status === 'complete' && last.status !== 'running') last.status = 'complete';
     } else {
       groups.push({ id: s.id, runs: [s], _normKey: key, _newestAt: sAt,
-        status: s.status || 'complete', prompt: s.prompt, ts: sAt, _isRunGroup: false });
+        status: s.status || 'complete', closedBy: s._runMeta?.closedBy, prompt: s.prompt, ts: sAt, _isRunGroup: false });
     }
   });
   groups.forEach(g => {
@@ -7425,6 +7434,11 @@ function _odtRebuildRunGroups() {
     _odtRunGroups[g.id] = g;
     g.runs.forEach(r => { _odtRunGroupMap[r.id] = g.id; });
   });
+}
+
+// 'ended' = stopped without org-complete (idle, manual, ...); the reason rides along as closedBy.
+function _odtRunStatusText(status, closedBy) {
+  return status === 'ended' && closedBy ? `ended: ${closedBy}` : (status || '?');
 }
 
 function _odtGetMergedRunGroupEvents(group) {
@@ -7510,7 +7524,7 @@ function _odtPopulateChatSel() {
     const evPart = totalEvs > 0 ? ` · ${totalCyc}cyc · ${totalEvs}ev` : '';
     const opt = document.createElement('option');
     opt.value = g.id;
-    opt.textContent = `[R] ${date} ${ts}  ${prompt}${_rawPrompt.length>30?'…':''}${runsPart}${evPart}  [${g.status||'?'}]`;
+    opt.textContent = `[R] ${date} ${ts}  ${prompt}${_rawPrompt.length>30?'…':''}${runsPart}${evPart}  [${_odtRunStatusText(g.status, g.closedBy)}]`;
     if (g.id === prev || g.runs.some(r => r.id === prev)) opt.selected = true;
     sel.appendChild(opt);
   });
@@ -7791,6 +7805,7 @@ window.odtChatSelectSession = async (id) => {
     const _shdrTsStr = _shdrTs ? new Date(_shdrTs).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
     const _shdrPrompt = (sess.prompt || '').replace(/^running org:\s*/i, '').slice(0, 100) || id;
     const _shdrSt = sess.status || 'unknown';
+    const _shdrStText = _odtRunStatusText(_shdrSt, sess._runMeta?.closedBy);
     const _shdrStCls = _shdrSt === 'running' ? 'color:oklch(65% 0.20 145)' : _shdrSt === 'complete' ? 'color:var(--text-lo)' : 'color:var(--text-xs)';
     const _shdr = document.createElement('div');
     _shdr.className = 'cv-session-hdr';
@@ -7798,7 +7813,7 @@ window.odtChatSelectSession = async (id) => {
       `<div class="cv-shdr-meta">`+
         `<span class="cv-shdr-id" title="${esc(id)}">${esc(id.slice(0,22))}</span>`+
         `<span class="cv-shdr-sep">·</span>`+
-        `<span style="${_shdrStCls}">${esc(_shdrSt)}</span>`+
+        `<span style="${_shdrStCls}">${esc(_shdrStText)}</span>`+
         `<span class="cv-shdr-sep">·</span>`+
         `<span>${esc(_shdrTsStr)}</span>`+
         `<span class="cv-shdr-sep">·</span>`+
@@ -7834,7 +7849,7 @@ window.odtChatSelectSession = async (id) => {
       _linkEl.innerHTML = `<div class="cv-bub" style="cursor:pointer;border-left:2px solid var(--accent);background:oklch(15% 0.05 220)">`+
         `<span class="cv-etype" style="color:var(--accent)">RUN</span>`+
         `<span class="cv-text">→ ${esc(_lrGoal)}${_lrGoal.length >= 60 ? '…' : ''}</span>`+
-        `<span class="cv-ts" style="color:var(--accent)">[${esc(_linkedRun.status||'?')}]</span></div>`;
+        `<span class="cv-ts" style="color:var(--accent)">[${esc(_odtRunStatusText(_linkedRun.status, _linkedRun._runMeta?.closedBy))}]</span></div>`;
       _linkEl.title = 'Click to view the org run triggered by this session';
       _linkEl.onclick = () => {
         const _lSel = document.getElementById('odt-chat-sel');
@@ -7937,7 +7952,7 @@ window.odtChatSelectAgent = (name) => {
       _linkEl.innerHTML = `<div class="cv-bub" style="cursor:pointer;border-left:2px solid var(--accent);background:oklch(15% 0.05 220)">`+
         `<span class="cv-etype" style="color:var(--accent)">RUN</span>`+
         `<span class="cv-text">→ ${esc(_lrGoal)}${_lrGoal.length >= 60 ? '…' : ''}</span>`+
-        `<span class="cv-ts" style="color:var(--accent)">[${esc(_linkedRun.status||'?')}]</span></div>`;
+        `<span class="cv-ts" style="color:var(--accent)">[${esc(_odtRunStatusText(_linkedRun.status, _linkedRun._runMeta?.closedBy))}]</span></div>`;
       _linkEl.title = 'Click to view the org run triggered by this session';
       _linkEl.onclick = () => {
         const _lSel = document.getElementById('odt-chat-sel');
@@ -11106,14 +11121,18 @@ function pbInit() {
   pbConnectEvents();
 }
 
+// Browse dashboard origin; the port comes from the server-injected mm-browse-port meta.
+const PB_BROWSE_PORT = Number(document.querySelector('meta[name="mm-browse-port"]')?.content) || 4243;
+const PB_BROWSE_HTTP = `http://localhost:${PB_BROWSE_PORT}`;
+
 function pbConnectEvents() {
-  // Connect to the monobrowse dashboard WS/SSE on port 4243 for live step events
-  // NOTE: the monobrowse server address (localhost:4243) is hardcoded here and in
-  // pbLoadDef/pbRun; it is not served by this dashboard. When it is not running,
+  // Connect to the monobrowse dashboard WS/SSE for live step events
+  // NOTE: the monobrowse server is not served by this dashboard (see PB_BROWSE_PORT).
+  // When it is not running,
   // callers degrade gracefully (fallback to /api/workflow-defs, 'Offline' toast).
   if (_pbWs) { try { _pbWs.close(); } catch {} _pbWs = null; }
   try {
-    const ws = new WebSocket('ws://localhost:4243');
+    const ws = new WebSocket(`ws://localhost:${PB_BROWSE_PORT}`);
     ws.onmessage = (e) => { try { const d = JSON.parse(e.data); if (d.type === 'history') return; pbHandleEvent(d); } catch {} };
     ws.onerror = () => pbConnectSse();
     ws.onclose = () => { _pbWs = null; };
@@ -11123,7 +11142,7 @@ function pbConnectEvents() {
 
 function pbConnectSse() {
   try {
-    const es = new EventSource('http://localhost:4243/events');
+    const es = new EventSource(`${PB_BROWSE_HTTP}/events`);
     es.onmessage = (e) => { try { pbHandleEvent(JSON.parse(e.data)); } catch {} };
     es.onerror = () => es.close();
   } catch {}
@@ -11456,7 +11475,7 @@ async function pbLoadDef(playbookId) {
     // Try monobrowse API for full definition (includes node config)
     let pb = null;
     try {
-      pb = await apiFetch(`http://localhost:4243/api/playbooks/${encodeURIComponent(playbookId)}`);
+      pb = await apiFetch(`${PB_BROWSE_HTTP}/api/playbooks/${encodeURIComponent(playbookId)}`);
     } catch {
       // Fall back: read the .json file via the defs list and reconstruct
       const defs = await apiFetch('/api/workflow-defs').catch(() => []);
@@ -11529,7 +11548,7 @@ async function _pbRun() {
   pbState.runStatus = {};
   document.getElementById('pb-run-status').textContent = '● STARTING…';
   try {
-    const resp = await fetch(`http://localhost:4243/api/playbooks/${encodeURIComponent(pb.id)}/run`, {
+    const resp = await fetch(`${PB_BROWSE_HTTP}/api/playbooks/${encodeURIComponent(pb.id)}/run`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
     });
     if (resp.ok) {

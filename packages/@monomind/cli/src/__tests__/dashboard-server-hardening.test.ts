@@ -17,6 +17,35 @@ import {
   resolveAllowedProjectDir,
 } from '../ui/server-fileutils.mjs';
 
+// The seams the real-server tests below use: the route dispatcher (to make a route throw) and
+// the lifecycle setup (to observe what is registered by the time it runs). Both delegate to the
+// real module unless a test sets the hook.
+const mocks = vi.hoisted(() => ({
+  // resolves 'next' to fall through to the real dispatcher
+  dispatch: null as null | ((...a: any[]) => any),
+  onLifecycle: null as null | (() => void),
+}));
+vi.mock('../ui/server-dispatch.mjs', async (orig) => {
+  const actual = await orig<typeof import('../ui/server-dispatch.mjs')>();
+  return {
+    ...actual,
+    dispatchRequest: async (...a: Parameters<typeof actual.dispatchRequest>) =>
+      (await mocks.dispatch?.(...a)) === 'next' || !mocks.dispatch
+        ? actual.dispatchRequest(...a)
+        : true,
+  };
+});
+vi.mock('../ui/server-lifecycle.mjs', async (orig) => {
+  const actual = await orig<typeof import('../ui/server-lifecycle.mjs')>();
+  return {
+    ...actual,
+    setupServerLifecycle: (...a: Parameters<typeof actual.setupServerLifecycle>) => {
+      mocks.onLifecycle?.();
+      return actual.setupServerLifecycle(...a);
+    },
+  };
+});
+
 const tmp = (p: string) => mkdtempSync(join(process.env.TMPDIR || tmpdir(), p));
 
 describe('resolveAllowedProjectDir / isPathInside', () => {
@@ -71,23 +100,115 @@ describe('pricing', () => {
   });
 });
 
-describe('server.mjs source wiring', () => {
-  const src = readFileSync(join(__dirname, '../ui/server.mjs'), 'utf-8');
-  it('contains request handler failures and registers process-level logging handlers once', () => {
-    expect(src).toMatch(/await _handleRequest\(req, res\)/);
-    expect(src).toMatch(/res\.headersSent/);
-    expect(src).toMatch(/process\.on\('unhandledRejection'/);
-    expect(src).not.toMatch(/process\.on\('uncaughtException'/); // a swallowed uncaught exception leaves unknown state
-    expect(src).toMatch(/_processErrorHandlersRegistered/);
+describe('server.mjs request containment and process wiring (real server)', () => {
+  let dir: string;
+  let started: Array<{ server: http.Server }> = [];
+  const token = () => readFileSync(join(dir, '.monomind', 'dashboard-token'), 'utf-8').trim();
+  const get = (port: number, path: string) =>
+    fetch(`http://127.0.0.1:${port}${path}`, { headers: { 'x-monomind-token': token() } });
+
+  async function start() {
+    const { startServer } = await import('../ui/server.mjs');
+    const res = await startServer({
+      port: 0,
+      projectDir: dir,
+      projectDirExplicit: true,
+      openBrowser: false,
+    });
+    started.push(res);
+    return res as { port: number; server: http.Server };
+  }
+
+  beforeEach(() => {
+    dir = tmp('dash-srv-');
+    mkdirSync(join(dir, '.monomind'), { recursive: true });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
-  it('registers signal handlers right after bind, before the lifecycle setup', () => {
-    const sig = src.indexOf("process.once('SIGTERM', shutdown)");
-    expect(sig).toBeGreaterThan(src.indexOf('await bindServer('));
-    expect(sig).toBeLessThan(src.indexOf('setupServerLifecycle({'));
+  afterEach(() => {
+    mocks.dispatch = null;
+    mocks.onLifecycle = null;
+    for (const s of started) {
+      s.server?.closeAllConnections?.();
+      s.server?.close();
+    }
+    started = [];
+    vi.restoreAllMocks();
+    rmSync(dir, { recursive: true, force: true });
   });
-  it('treats a running record with a non-numeric pid as not active', () => {
-    expect(src).toMatch(/else if \(_gfActive\) \{\s*_gfActive = false;/);
-  });
+
+  it('answers 500 when a route throws before writing, and keeps serving', async () => {
+    mocks.dispatch = async (_req: http.IncomingMessage, _res: http.ServerResponse, url: string) => {
+      if (url === '/boom') throw new Error('route exploded');
+      return 'next';
+    };
+    const { port } = await start();
+    const r = await get(port, '/boom');
+    expect(r.status).toBe(500);
+    expect(await r.json()).toEqual({ error: 'Internal server error' });
+    expect((await get(port, '/api/identity')).status).toBe(200);
+  }, 30_000);
+
+  it('tears the connection down when a route throws after headers went out, and keeps serving', async () => {
+    mocks.dispatch = async (_req: http.IncomingMessage, res: http.ServerResponse, url: string) => {
+      if (url !== '/half') return 'next';
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.write('partial');
+      throw new Error('route exploded mid-stream');
+    };
+    const { port } = await start();
+    const outcome = await get(port, '/half').then(
+      (r) =>
+        r.text().then(
+          () => 'complete',
+          () => 'aborted',
+        ),
+      () => 'aborted',
+    );
+    expect(outcome).toBe('aborted'); // not a second writeHead / a clean-looking 200
+    expect((await get(port, '/api/identity')).status).toBe(200);
+  }, 30_000);
+
+  it('logs rejections instead of dying, registers that handler once and no uncaughtException one', async () => {
+    const uncaught = process.listenerCount('uncaughtException');
+    await start();
+    const afterFirst = process.listenerCount('unhandledRejection');
+    await start();
+    expect(process.listenerCount('unhandledRejection')).toBe(afterFirst);
+    expect(process.listenerCount('uncaughtException')).toBe(uncaught); // swallowing it would leave unknown state
+  }, 30_000);
+
+  it('registers its signal handlers right after bind, before the lifecycle setup runs', async () => {
+    const before = process.listenerCount('SIGTERM');
+    let atLifecycle = -1;
+    mocks.onLifecycle = () => {
+      atLifecycle = process.listenerCount('SIGTERM');
+    };
+    await start();
+    expect(atLifecycle).toBe(before + 1);
+  }, 30_000);
+
+  it('treats a running record with a non-numeric pid as not active, and a live pid as active', async () => {
+    const { activeOrgRuns } = await import('../ui/server-rundb.mjs');
+    const orgs = join(dir, '.monomind', 'orgs');
+    for (const [org, rt] of Object.entries({
+      'hb-nopid': { run: 'r1', status: 'running' },
+      'hb-strpid': { run: 'r2', status: 'running', pid: String(process.pid) },
+      'hb-live': { run: 'r3', status: 'running', pid: process.pid },
+      'hb-done': { run: 'r4', status: 'done', pid: process.pid },
+    })) {
+      mkdirSync(join(orgs, org), { recursive: true });
+      writeFileSync(join(orgs, org, 'runtime.json'), JSON.stringify(rt));
+    }
+    await start();
+    try {
+      expect(activeOrgRuns.has('hb-nopid')).toBe(false);
+      expect(activeOrgRuns.has('hb-strpid')).toBe(false);
+      expect(activeOrgRuns.has('hb-done')).toBe(false);
+      expect(activeOrgRuns.get('hb-live')).toBe('r3');
+    } finally {
+      for (const o of ['hb-nopid', 'hb-strpid', 'hb-live', 'hb-done']) activeOrgRuns.delete(o);
+    }
+  }, 30_000);
 });
 
 describe('POST /api/mastermind/event body handling', () => {

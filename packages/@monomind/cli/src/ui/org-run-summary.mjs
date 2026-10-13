@@ -65,7 +65,9 @@ export function v2Summary(busFile) {
 /** A v2 run's status. A bus without a completion event is 'running' only when
  *  the runtime still says so: history.jsonl records how every run ended
  *  (closedBy), and runtime.json names the current run and whether its pid is
- *  alive. A crashed or killed run is 'stale', not 'running' forever. */
+ *  alive. A crashed or killed run is 'stale', not 'running' forever. 'complete'
+ *  is only ever org-complete (#206); a run that ended any other way (idle stop,
+ *  manual stop) is 'ended', with closedBy as the reason. */
 export function v2RunStatus(orgDir, runId, summary) {
   if (summary.done) return { status: 'complete', closedBy: null };
   let ended;
@@ -78,7 +80,7 @@ export function v2RunStatus(orgDir, runId, summary) {
   }
   if (ended) {
     return {
-      status: ended.closedBy === 'org-complete' ? 'complete' : 'stale',
+      status: ended.closedBy === 'org-complete' ? 'complete' : ended.closedBy ? 'ended' : 'stale',
       closedBy: ended.closedBy ?? null,
     };
   }
@@ -94,8 +96,16 @@ export function v2RunStatus(orgDir, runId, summary) {
   }
   if (runtime.run !== runId) return { status: 'stale', closedBy: runtime.closedBy ?? null };
   const rec = recordedStatus(runtime);
+  const status =
+    rec === 'running'
+      ? 'running'
+      : rec === 'complete'
+        ? 'complete'
+        : rec === 'ended' || rec === 'stopped'
+          ? 'ended'
+          : 'stale';
   return {
-    status: rec === 'running' ? 'running' : rec === 'complete' ? 'complete' : 'stale',
+    status,
     closedBy: runtime.closedBy ?? null,
   };
 }

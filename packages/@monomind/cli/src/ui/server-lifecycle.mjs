@@ -4,6 +4,7 @@ import path from 'node:path';
 import { recordedPidLiveness } from '../orgrt/run-liveness.js';
 import { SESSION_ID_RE } from './server-constants.mjs';
 import { activeWatchers, watchSafely, watchTree } from './server-net.mjs';
+import { _resolveOrgProjectDir } from './server-orgutils.mjs';
 import { _insertRunEvent, activeOrgRuns, runStreamClients } from './server-rundb.mjs';
 import { pathToSections } from './server-session-utils.mjs';
 import { broadcast, broadcastMm, writeSse } from './sse-manager.mjs';
@@ -431,7 +432,6 @@ function setupServerLifecycle({ projectDir, MONOMIND_HOME, boundPort, dashboardA
   // Periodically checks if the Claude Code session (tracked via ppid-keyed files) is still alive.
   // If the parent process is gone, auto-emits org:stop to close stale LIVE orgs in the dashboard.
   const _ppidCheckDir = path.join(MONOMIND_HOME, '.monomind', 'capture', 'active-runs');
-  const _orgsRuntimeDir = path.join(MONOMIND_HOME, '.monomind', 'orgs');
   const emitOrgStop = (org, runId, reason) => {
     postEvent(JSON.stringify({ type: 'org:stop', org, runId, reason, ts: Date.now() }), () => {});
   };
@@ -440,8 +440,11 @@ function setupServerLifecycle({ projectDir, MONOMIND_HOME, boundPort, dashboardA
     for (const [_hbOrg, _hbRun] of [...activeOrgRuns]) {
       if (!/^[a-z0-9][a-z0-9_-]*$/i.test(_hbOrg)) continue;
       try {
+        // The org's daemon writes runtime.json in the project that holds the org, not
+        // necessarily MONOMIND_HOME.
+        const _hbProj = _resolveOrgProjectDir(_hbOrg, MONOMIND_HOME) || MONOMIND_HOME;
         const _hbRt = JSON.parse(
-          fs.readFileSync(path.join(_orgsRuntimeDir, _hbOrg, 'runtime.json'), 'utf8'),
+          fs.readFileSync(path.join(_hbProj, '.monomind', 'orgs', _hbOrg, 'runtime.json'), 'utf8'),
         );
         if (typeof _hbRt?.pid !== 'number') continue;
         // A newer run may not have rewritten runtime.json yet: only judge the run it records.

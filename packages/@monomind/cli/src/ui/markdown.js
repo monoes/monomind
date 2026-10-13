@@ -94,21 +94,41 @@ function _renderDocMarkdown(md) {
   const lines = src.split('\n');
   const out = [];
   let i = 0;
-  let inUl = false,
-    inOl = false,
-    inTask = false,
+  // Open ul/ol levels, innermost last. Each level's current <li> is left open
+  // (closeLi) so a deeper list can nest inside it.
+  const listStack = [];
+  let inTask = false,
     bqBuf = [],
     paraBuf = [];
 
-  const closeLists = () => {
-    if (inUl) {
+  const closeLi = () => {
+    out[out.length - 1] += '</li>';
+  };
+  const popList = () => {
+    closeLi();
+    out.push(`</${listStack.pop().tag}>`);
+  };
+  const closeNestedLists = () => {
+    while (listStack.length) popList();
+  };
+  const listItem = (tag, indent, text) => {
+    if (inTask) {
       out.push('</ul>');
-      inUl = false;
+      inTask = false;
     }
-    if (inOl) {
-      out.push('</ol>');
-      inOl = false;
+    while (listStack.length && listStack[listStack.length - 1].indent > indent) popList();
+    const top = listStack[listStack.length - 1];
+    if (top && top.indent === indent && top.tag !== tag) popList();
+    if (listStack.length && listStack[listStack.length - 1].indent === indent) {
+      closeLi();
+      out.push(`<li>${inlineMd(text)}`);
+    } else {
+      out.push(`<${tag}>`, `<li>${inlineMd(text)}`);
+      listStack.push({ tag, indent });
     }
+  };
+  const closeLists = () => {
+    closeNestedLists();
     if (inTask) {
       out.push('</ul>');
       inTask = false;
@@ -240,14 +260,7 @@ function _renderDocMarkdown(md) {
     const task = line.match(/^(\s*)([-*])\s+\[( |x|X)\]\s+(.+)$/);
     if (task) {
       flushPara();
-      if (inUl) {
-        out.push('</ul>');
-        inUl = false;
-      }
-      if (inOl) {
-        out.push('</ol>');
-        inOl = false;
-      }
+      closeNestedLists();
       if (!inTask) {
         out.push('<ul class="md-tasklist">');
         inTask = true;
@@ -268,24 +281,7 @@ function _renderDocMarkdown(md) {
     const ul = line.match(/^(\s*)([-*+])\s+(.+)$/);
     if (ul && !task) {
       flushPara();
-      if (inOl) {
-        out.push('</ol>');
-        inOl = false;
-      }
-      if (inTask) {
-        out.push('</ul>');
-        inTask = false;
-      }
-      if (!inUl) {
-        out.push('<ul>');
-        inUl = true;
-      }
-      const indent = ul[1].length;
-      if (indent === 0) out.push(`<li>${inlineMd(ul[3])}</li>`);
-      else {
-        // Nested list — close current top item and open a nested <ul>.
-        out.push(`<li>${inlineMd(ul[3])}</li>`);
-      }
+      listItem('ul', ul[1].replace(/\t/g, '    ').length, ul[3]);
       i++;
       continue;
     }
@@ -293,19 +289,7 @@ function _renderDocMarkdown(md) {
     const ol = line.match(/^(\s*)(\d+)\.\s+(.+)$/);
     if (ol) {
       flushPara();
-      if (inUl) {
-        out.push('</ul>');
-        inUl = false;
-      }
-      if (inTask) {
-        out.push('</ul>');
-        inTask = false;
-      }
-      if (!inOl) {
-        out.push('<ol>');
-        inOl = true;
-      }
-      out.push(`<li>${inlineMd(ol[3])}</li>`);
+      listItem('ol', ol[1].replace(/\t/g, '    ').length, ol[3]);
       i++;
       continue;
     }

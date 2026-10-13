@@ -157,7 +157,7 @@ those, never values remembered from an earlier run.
   Never combine `\|` alternation with `-E` (`git log --grep="Fixes #\|Closes #" -E`):
   under -E, `\|` is a literal pipe, and that scan missed `Fixes #320` in 2.16.0.
 - Nobody edits, commits or checks out anything in ORG_ROOT (sole exception:
-  publisher's LOCAL MAIN SYNC).
+  publisher's LOCAL MAIN SYNC, and only when its write probe passes).
 - Nobody deletes, moves or overwrites a file in ORG_ROOT, tracked or untracked,
   even one that looks like QA litter: it is the owner's checkout. List stray
   files in the run report for the owner instead. In 2.16.11 release-captain
@@ -336,6 +336,21 @@ with the Environment prefix.
   tracked changes (`git -C ORG_ROOT symbolic-ref --short HEAD` prints main,
   `git -C ORG_ROOT status --porcelain --untracked-files=no` prints nothing);
   otherwise change nothing and report why.
+  - WRITE PROBE FIRST (issue #667). The runtime binds the running CLI's package
+    root read-only for every role (operator-toolchain-paths.ts: the operator's
+    daemon runs that code). When the daemon runs from this checkout that root is
+    `ORG_ROOT/packages/@monomind/cli`, so a fast-forward that rewrites a file
+    there dies with `unable to unlink … Read-only file system` after it has
+    already rewritten other files (2.24.2 to 2.24.6). That is the sandbox
+    working as designed; never weaken it and never retry the merge. Run
+    `test -w ORG_ROOT/packages/@monomind/cli/package.json`. Not writable: do NOT
+    run any `merge` that writes ORG_ROOT's working tree. Report "LOCAL MAIN SYNC
+    PENDING (operator)" with the exact one-line command for the operator to run
+    outside any org role: `git -C ORG_ROOT merge --ff-only <sha>` (main is an
+    ancestor of `<sha>`), or, when local main had commits the release lacks,
+    do the merge below in S, remove only the worktree S, keep the branch, and
+    give `git -C ORG_ROOT merge --ff-only sync/main-VERSION` followed by
+    `git -C ORG_ROOT branch -d sync/main-VERSION`. Writable: continue below.
   - `<sha>` already in main (`git -C ORG_ROOT merge-base --is-ancestor <sha> main`): nothing to do.
   - main is an ancestor of `<sha>`: `git -C ORG_ROOT merge --ff-only <sha>`.
   - Otherwise local main has commits the release lacks: merge the release
@@ -347,14 +362,18 @@ with the Environment prefix.
     `GIT_AUTHOR_NAME=nokhodian GIT_AUTHOR_EMAIL=nokhodian@gmail.com GIT_COMMITTER_NAME=nokhodian GIT_COMMITTER_EMAIL=nokhodian@gmail.com git -C S -c core.attributesFile=$GATE/sync.gitattributes -c merge.monomind-changelog.driver="node SRC/scripts/merge-changelog.mjs %O %A %B" merge --no-ff --no-edit <sha>`.
     Clean (exit 0, `git -C S diff --name-only --diff-filter=U` empty): re-check
     ORG_ROOT is still on main with no tracked changes (other sessions switch
-    it), then `git -C ORG_ROOT merge --ff-only sync/main-VERSION`. Conflict:
+    it), then `git -C ORG_ROOT merge --ff-only sync/main-VERSION` (when the
+    write probe failed, skip this and report the command instead). Conflict:
     record the files `git -C S diff --name-only --diff-filter=U` lists, then
     `git -C S merge --abort`; ORG_ROOT stays untouched. Either way finish with
-    `git -C ORG_ROOT worktree remove --force S` and
-    `git -C ORG_ROOT branch -D sync/main-VERSION`.
+    `git -C ORG_ROOT worktree remove --force S` and, unless the ff command is
+    left pending for the operator, `git -C ORG_ROOT branch -D sync/main-VERSION`.
   - Never rebase, reset, amend or cherry-pick local main's commits, and never
     push local main. Report the outcome (fast-forwarded, merged as <new sha>,
-    or the conflicting files) to release-captain.
+    the conflicting files, or PENDING with the operator command) to
+    release-captain. A PENDING sync is not a blocker and needs no GitHub issue;
+    release-captain puts the command in REPORT.md's `## Published` section and
+    in its final org_complete message.
 
 ## Lessons across runs
 Org memory persists across runs of this org (`org_remember` writes it,

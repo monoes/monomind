@@ -137,6 +137,16 @@ describe('release org config', () => {
       expect(role('publisher')).not.toMatch(/git merge --no-ff origin\/main/);
       expect(role('publisher')).toMatch(/LOCAL MAIN SYNC[^.]*'Parallel sessions'/);
     });
+
+    it('local main sync probes for a writable CLI package root and otherwise hands the operator the command (#667)', () => {
+      expect(rules).toMatch(/WRITE PROBE FIRST/);
+      expect(rules).toMatch(/test -w ORG_ROOT\/packages\/@monomind\/cli\/package\.json/);
+      expect(rules).toMatch(/LOCAL MAIN SYNC\s+PENDING \(operator\)/);
+      expect(role('publisher')).toMatch(
+        /test -w \{\{org_root\}\}\/packages\/@monomind\/cli\/package\.json/,
+      );
+      expect(role('release-captain')).toMatch(/LOCAL MAIN SYNC PENDING/);
+    });
   });
 
   /** Cross-run lessons: findings become org memory that later runs recall. */

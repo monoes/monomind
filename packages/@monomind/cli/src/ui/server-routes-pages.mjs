@@ -10,6 +10,14 @@ import { _HUMAN_PAGES, _isHumanRoute } from './server-auth.mjs';
 
 // Page-bootstrap, static-asset and human-session-gate routes.
 // Registered, in order, by startServer's request dispatcher in server.mjs.
+/** Port of the browse (monobrowse) dashboard the playbook builder talks to.
+ *  Nothing persists the port a running browse server chose (it takes `--port`,
+ *  default 4243), so MONOMIND_BROWSE_DASHBOARD_PORT is the override. */
+export function resolveBrowsePort(env = process.env) {
+  const n = Number(env.MONOMIND_BROWSE_DASHBOARD_PORT);
+  return Number.isInteger(n) && n >= 1 && n <= 65535 ? n : 4243;
+}
+
 export async function handleRoutesPages(req, res, url, corsOrigin, ctx) {
   const { __dirname, dashboardAuthValue, tokenState, projectDir } = ctx;
   // ------------------------------------------------ GET /api/identity
@@ -80,7 +88,7 @@ export async function handleRoutesPages(req, res, url, corsOrigin, ctx) {
       // the actual browser UI.
       html = html.replace(
         '<head>',
-        `<head>\n<meta name="mm-token" content="${dashboardAuthValue}">`,
+        `<head>\n<meta name="mm-token" content="${dashboardAuthValue}">\n<meta name="mm-browse-port" content="${resolveBrowsePort()}">`,
       );
       res.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',

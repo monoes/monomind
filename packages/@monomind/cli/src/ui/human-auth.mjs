@@ -20,7 +20,10 @@ import path from 'node:path';
 
 export const HUMAN_COOKIE = 'mm_human';
 const NONCE_TTL_MS = 10 * 60_000;
-const SESSION_MAX_AGE_S = 30 * 24 * 60 * 60;
+const NONCE_DIR_CAP = 50;
+// The dashboard is local, so the login must not lapse: 400 days is the longest
+// Max-Age browsers honour (Chrome clamps anything longer to it).
+export const SESSION_MAX_AGE_S = 400 * 24 * 60 * 60;
 
 export function humanAuthDir(home = os.homedir()) {
   return path.join(home, '.monomind', 'dashboard-auth');
@@ -53,9 +56,40 @@ export function issueLoginNonce(home = os.homedir()) {
   secret(home); // the dir exists, owner-only
   const pending = path.join(humanAuthDir(home), 'login');
   fs.mkdirSync(pending, { recursive: true, mode: 0o700 });
+  sweepLoginNonces(pending);
   const nonce = crypto.randomBytes(32).toString('hex');
   fs.writeFileSync(path.join(pending, nonce), '', { mode: 0o600, flag: 'wx' });
   return nonce;
+}
+
+/** Delete nonces past their TTL, then the oldest beyond the cap, so unused links don't pile up. */
+function sweepLoginNonces(pending) {
+  const live = [];
+  for (const name of fs.readdirSync(pending)) {
+    const file = path.join(pending, name);
+    try {
+      const { mtimeMs } = fs.statSync(file);
+      if (Date.now() - mtimeMs > NONCE_TTL_MS) fs.unlinkSync(file);
+      else live.push({ file, mtimeMs });
+    } catch {
+      /* spent or swept by another process */
+    }
+  }
+  live.sort((a, b) => a.mtimeMs - b.mtimeMs);
+  // Room for the nonce about to be created.
+  for (const { file } of live.slice(0, Math.max(0, live.length - (NONCE_DIR_CAP - 1)))) {
+    try {
+      fs.unlinkSync(file);
+    } catch {
+      /* already gone */
+    }
+  }
+}
+
+/** Whether a login nonce has been spent (its file is gone). */
+export function loginNonceUsed(nonce, home = os.homedir()) {
+  if (typeof nonce !== 'string' || !/^[0-9a-f]{64}$/.test(nonce)) return false;
+  return !fs.existsSync(path.join(humanAuthDir(home), 'login', nonce));
 }
 
 /** Spend a login nonce: true once, for a nonce issued in the last 10 minutes. */
@@ -98,6 +132,6 @@ export function loginRequiredPage() {
 main{max-width:34rem;padding:2rem}code{background:#222;padding:.15em .4em;border-radius:4px}</style>
 <main><h1 style="font-size:1.2rem">Open the dashboard from your terminal</h1>
 <p>This browser has no dashboard session. Run</p><p><code>monomind dashboard open</code></p>
-<p>It opens a one-time login link. The session then lasts 30 days in this browser.</p>
+<p>It opens a one-time login link. This browser then stays logged in; run it again only if you clear the browser's cookies or remove <code>~/.monomind/dashboard-auth/secret</code>.</p>
 <p style="color:#888;font-size:13px">The dashboard can approve and answer for you, so it only trusts a browser you logged in yourself — not every program that can reach this port.</p></main>`;
 }

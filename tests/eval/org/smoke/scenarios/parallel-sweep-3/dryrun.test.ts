@@ -135,6 +135,8 @@ describe.runIf(authorityMaskAvailability().available)(
           void home;
         }
       },
+      // Ten roles run several sandboxed processes each; ~4s alone, over 30s when the whole suite shares the CPUs.
+      180_000,
     );
 
     it("treatment: the synthesiser's own launched process sees out/<module>/ empty, the lead's and a worker's do not, and nobody sees the plan", async () => {
@@ -163,6 +165,6 @@ describe.runIf(authorityMaskAvailability().available)(
           /"faults"/,
         );
       }
-    });
+    }, 180_000);
   },
 );

@@ -135,7 +135,7 @@ describe('v2 through the real daemon, scripted', () => {
               got('worker-1').length >= 1 &&
               got('lead').length >= 1 &&
               got('synthesiser').length >= 1,
-            8000,
+            30_000,
           ),
         ).toBe(true);
         expect(got('worker-1')).toHaveLength(1);

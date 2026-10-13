@@ -94,10 +94,19 @@ async function collect(
   return { messages, times };
 }
 
-// Simple successful turn: delayed reply, proving liveness fires before it.
+// Simple successful turn (a short delay before the reply).
 const FAKE_HERMES_SIMPLE = `
 (async () => {
   await new Promise((r) => setTimeout(r, 200));
+  console.error('session_id: sess_fake_1');
+  console.log('Hello from hermes');
+})();
+`;
+
+// Silent until the test creates FAKE_HERMES_RELEASE, then the same reply as FAKE_HERMES_SIMPLE.
+const FAKE_HERMES_GATED = `
+(async () => {
+  while (!fs.existsSync(process.env.FAKE_HERMES_RELEASE)) await new Promise((r) => setTimeout(r, 20));
   console.error('session_id: sess_fake_1');
   console.log('Hello from hermes');
 })();
@@ -343,15 +352,25 @@ if (argv.includes('--help')) {
   }, 15000);
 
   it('yields a liveness tool_use message immediately, before the subprocess produces any output', async () => {
-    const { bin, tmpDir } = makeFakeHermes(FAKE_HERMES_SIMPLE);
+    // The fake prints nothing until the test releases it, so "before any output" holds by
+    // construction instead of by a wall-clock margin that a loaded machine can eat.
+    const { bin, tmpDir } = makeFakeHermes(FAKE_HERMES_GATED);
     try {
-      const start = Date.now();
-      const { messages, times } = await collect(new HermesAgentRunner(bin), makeRunArgs(tmpDir));
+      const args = makeRunArgs(tmpDir);
+      const release = path.join(tmpDir, 'release');
+      args.env.FAKE_HERMES_RELEASE = release;
+      const it = new HermesAgentRunner(bin).run(args)[Symbol.asyncIterator]();
 
-      expect(messages[0]).toEqual({ type: 'tool_use', session_id: undefined, text: 'turn started' });
-      // The fake sleeps 200ms before printing anything — the liveness yield
-      // must land well before that, not after.
-      expect(times[0] - start).toBeLessThan(150);
+      const first = await it.next();
+      expect(first.value).toEqual({ type: 'tool_use', session_id: undefined, text: 'turn started' });
+      expect(fs.existsSync(release)).toBe(false); // the subprocess is still waiting: it has said nothing
+
+      fs.writeFileSync(release, '');
+      const rest: AgentMessage[] = [];
+      for (let n = await it.next(); !n.done; n = await it.next()) rest.push(n.value);
+      expect(rest.filter((m) => m.type === 'assistant').map((m) => m.text)).toEqual([
+        'Hello from hermes',
+      ]);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

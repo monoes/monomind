@@ -6,14 +6,14 @@
  */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { RUNNER_SPECS } from '../orgrt/runner-registry.js';
 import { OrgDefSchema } from '../orgrt/types.js';
 import * as rt from '../ui/org-runtime.mjs';
 import { handleOrgRoutes } from '../ui/routes-org.mjs';
 import { _isHumanRoute } from '../ui/server-auth.mjs';
+import { dashboardScript, loadPageFunctions } from './dashboard-script.js';
 
 const ORG = 'acme';
 let root: string;
@@ -352,25 +352,119 @@ describe('adapters list', () => {
 });
 
 describe('org design review follow-ups', () => {
-  const ui = (f: string) =>
-    readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../ui', f), 'utf-8');
+  const dash = (names: string[] | 'all', globals: Record<string, unknown> = {}) =>
+    loadPageFunctions(dashboardScript, names, globals);
+  const el = (value = '') => ({ value, innerHTML: '', textContent: '', style: {}, dataset: {} });
+  const doc = (els: Record<string, ReturnType<typeof el>>) => ({
+    getElementById: (id: string) => els[id] ?? null,
+  });
+  /** fetch stand-in that records what the page POSTs and answers with `reply`. */
+  const poster = (reply: Record<string, unknown>) => {
+    const posts: Array<{ url: string; body: any }> = [];
+    const fetch = async (url: string, init: { body: string }) => {
+      posts.push({ url, body: JSON.parse(init.body) });
+      return { ok: true, status: 200, json: async () => reply };
+    };
+    return { posts, fetch };
+  };
 
-  it('a fractional-minute schedule survives the config form, and odd types give 400 not 500', async () => {
-    expect(ui('dashboard.html')).toContain('/^\\d+(\\.\\d+)?$/.test(v) ? Number(v) : v');
-    expect(ui('org-config-patch.mjs')).toMatch(/typeof v !== 'string' && typeof v !== 'number'/);
+  it('a fractional-minute schedule survives the config form as a number, "15m" stays a string', async () => {
+    const saved = { name: ORG, goal: 'g', schedule: 2.5, run_config: {} };
+    const run = async (schedule: string) => {
+      const { posts, fetch } = poster({ ok: true, def: saved });
+      const ctx = dash(['_v2SaveOrgConfig', 'enc', 'esc'], {
+        document: doc({ 'oc-schedule': el(schedule), 'oc-status-msg': el() }),
+        _v2SelOrg: ORG,
+        _v2OrgData: { goal: 'g', run_config: {} },
+        DIR: '',
+        fetch,
+        showToast() {},
+        v2RenderOrgConfig() {},
+        _v2ConfigNotesHtml: () => '',
+      });
+      await ctx._v2SaveOrgConfig();
+      return posts[0]?.body.schedule;
+    };
+    expect(await run('2.5')).toBe(2.5);
+    expect(await run('30')).toBe(30);
+    expect(await run('15m')).toBe('15m');
+    expect(await run('')).toBeNull();
+  });
+
+  it('odd schedule types give 400, not 500', async () => {
+    for (const schedule of [{}, [], true]) {
+      const r = await call('POST', `/api/org/${ORG}/config`, { schedule });
+      expect(r.status, JSON.stringify(schedule)).toBe(400);
+      expect(r.json.error).toMatch(/schedule/);
+    }
+    expect(onDisk().schedule).toBeNull();
   });
 
   it('runtime selects never post a blank placeholder before the adapter list loads', () => {
-    const html = ui('dashboard.html');
-    expect(html).toContain('<option value="${esc(role.runtime || \'\')}">');
-    expect(html).toContain('<option value="${esc(d.runtime || \'\')}">');
+    // Before /adapters answers, the only option is the role's/org's current value, so a save keeps it.
+    const { _v2RoleEditorHtml } = dash(['_v2RoleEditorHtml', 'esc'], { _v2OrgData: {} });
+    const html = _v2RoleEditorHtml({ id: 'dev', title: 'Dev', runtime: 'codex' });
+    expect(html).toMatch(/id="re-runtime"[^>]*><option value="codex">codex<\/option><\/select>/);
+    const unset = _v2RoleEditorHtml({ id: 'dev', title: 'Dev' });
+    expect(unset).toMatch(/id="re-runtime"[^>]*><option value="">org default<\/option><\/select>/);
+
+    const form = el();
+    const { v2RenderOrgConfig } = dash(['v2RenderOrgConfig', 'esc'], {
+      document: doc({ 'odt-config': form }),
+      _v2SelOrg: ORG,
+      _v2OrgData: { name: ORG, runtime: 'codex', run_config: {} },
+      _v2LoadConfigNotes() {},
+      _v2PopulateRuntimeSelects() {},
+    });
+    try {
+      v2RenderOrgConfig();
+    } catch {
+      /* the tail of the renderer wires listeners this harness does not model */
+    }
+    expect(form.innerHTML).toMatch(
+      /id="oc-runtime"[^>]*><option value="codex">codex<\/option><\/select>/,
+    );
   });
 
-  it('a saved role replaces the cached role instead of merging stale keys', () => {
-    expect(ui('dashboard.html')).toContain('roles[i] = json.role;');
+  it('a saved role replaces the cached role instead of merging stale keys', async () => {
+    const stale = {
+      id: 'dev',
+      title: 'Dev',
+      runtime: 'claude',
+      budget_usd: 9,
+      max_tool_rounds: 99,
+    };
+    const fresh = { id: 'dev', title: 'Dev', runtime: 'codex' };
+    const data: any = {
+      roles: [{ id: 'lead' }, stale],
+      config: { roles: [{ id: 'lead' }, stale] },
+    };
+    const { fetch } = poster({ ok: true, role: fresh, warnings: [], signature: null });
+    const ctx = dash(['_v2SaveRoleConfig', 'enc', 'esc'], {
+      document: doc({ 're-msg': el(), 're-notes': el() }),
+      _v2SelOrg: ORG,
+      _v2OrgData: data,
+      DIR: '',
+      fetch,
+      showToast() {},
+      _v2ConfigNotesHtml: () => '',
+    });
+    await ctx._v2SaveRoleConfig('dev');
+    expect(data.roles[1]).toBe(fresh);
+    expect(data.roles[1]).not.toHaveProperty('budget_usd');
+    expect(data.config.roles[1]).toBe(fresh);
+    expect(data.roles[0]).toEqual({ id: 'lead' });
   });
 
-  it('the adapters file branch serves the registry list, not the file entries', () => {
-    expect(ui('routes-org-agents.mjs')).toContain('adapters: _runtimeAdapters()');
+  it('the adapters route serves the registry list even when an adapters file exists', async () => {
+    writeFileSync(
+      join(orgsDir(), `${ORG}-adapters.json`),
+      JSON.stringify({ default_adapter: 'kept', adapters: [{ type: 'claude-local' }] }),
+    );
+    const r = await call('GET', `/api/org/${ORG}/adapters?dir=${encodeURIComponent(root)}`);
+    expect(r.status).toBe(200);
+    expect(r.json.default_adapter).toBe('kept'); // the file's other fields still pass through
+    expect(r.json.adapters.map((a: any) => a.type)).toEqual(RUNNER_SPECS.map((s) => s.id));
+    expect(r.json.adapters.some((a: any) => a.type === 'claude-local')).toBe(false);
   });
 });

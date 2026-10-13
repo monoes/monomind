@@ -52,5 +52,5 @@ describe('scenario: crash and resume with charged work', () => {
     const budgets = (sdk.options.get('worker') ?? []).map((o) => o.maxBudgetUsd);
     expect(budgets[0]).toBeCloseTo(1);
     expect(budgets.at(-1)).toBeCloseTo(0.4);
-  });
+  }, 120_000);
 });

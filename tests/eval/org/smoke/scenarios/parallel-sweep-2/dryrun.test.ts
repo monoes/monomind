@@ -154,6 +154,8 @@ describe.runIf(authorityMaskAvailability().available)(
           expect((await gate('Bash', { command: 'ls corpus' })).behavior).toBe('allow');
         }
       },
+      // Every role runs several sandboxed processes; ~3s alone, over 30s when the whole suite shares the CPUs.
+      180_000,
     );
   },
 );

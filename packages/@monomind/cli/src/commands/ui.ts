@@ -7,6 +7,17 @@ import * as path from 'node:path';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
+const LOGIN_CONFIRM_MS = 10_000;
+
+async function dashboardReachable(port: number): Promise<boolean> {
+  try {
+    await fetch(`http://localhost:${port}/`, { signal: AbortSignal.timeout(2000) });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** `monomind dashboard open` — a one-time login link to the running dashboard
  *  (ui/human-auth.mjs). The dashboard only acts for a browser opened this
  *  way; a link is valid once, for ten minutes. */
@@ -57,10 +68,35 @@ const openSubcommand: Command = {
     }
     const serverMod = await import('../ui/server.mjs');
     await serverMod.openUrl(url);
-    output.printSuccess(
-      `Opened the dashboard on port ${port} (login link valid once, for 10 minutes).`,
+    const auth = await import('../ui/human-auth.mjs');
+    const deadline = Date.now() + LOGIN_CONFIRM_MS;
+    while (!auth.loginNonceUsed(nonce) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    if (auth.loginNonceUsed(nonce)) {
+      output.printSuccess(
+        `Opened the dashboard on port ${port} (login link valid once, for 10 minutes). This browser stays logged in.`,
+      );
+      return { success: true, data: { port } };
+    }
+    // The link is issued and still valid, so this is not a failure of the command
+    // (exit 0) unless nothing answers on the port at all (exit 1).
+    const reachable = await dashboardReachable(port);
+    output.printWarning(
+      `The browser did not load the login link within ${LOGIN_CONFIRM_MS / 1000}s. It is still unused and valid for 10 minutes.`,
     );
-    return { success: true, data: { port } };
+    output.writeln('  - Close stale dashboard tabs and run `monomind ui open` again.');
+    output.writeln(
+      '  - Or run `monomind ui open --print` and paste the link into the browser address bar.',
+    );
+    output.writeln(
+      reachable
+        ? '  - The dashboard is answering on this port; the browser launch is what failed.'
+        : `  - Nothing answers on port ${port}: start the dashboard with \`monomind ui\`.`,
+    );
+    return reachable
+      ? { success: true, data: { port, confirmed: false } }
+      : { success: false, exitCode: 1 };
   },
 };
 

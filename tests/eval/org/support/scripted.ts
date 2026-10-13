@@ -125,7 +125,9 @@ export function projectWithOrg(def: Record<string, unknown>): { root: string; na
   return { root, name: String(def.name) };
 }
 
-export async function waitUntil(pred: () => boolean, timeoutMs = 5000): Promise<boolean> {
+// The wait returns as soon as `pred` holds, so a generous bound costs nothing on a healthy run; under a
+// full parallel suite a daemon turn can take several seconds to start, which a 5s bound reported as a failure.
+export async function waitUntil(pred: () => boolean, timeoutMs = 30_000): Promise<boolean> {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
     if (pred()) return true;

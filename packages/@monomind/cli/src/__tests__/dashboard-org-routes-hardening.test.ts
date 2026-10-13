@@ -281,7 +281,7 @@ describe('run list status', () => {
     return Object.fromEntries(r.json.map((x: any) => [x.runId, x]));
   };
 
-  it('a run history says was closed, or that is not the current run, is stale not running', async () => {
+  it('a run history says was closed, or that is not the current run, is ended or stale, not running', async () => {
     writeDef(goodDef());
     const crashed = 'run-20260921090000-aaaa';
     const killed = 'run-20260921080000-bbbb';
@@ -293,7 +293,7 @@ describe('run list status', () => {
     );
     writeRuntime({ status: 'running', run: live, pid: process.pid });
     const s = await statuses();
-    expect(s[killed]).toMatchObject({ status: 'stale', closedBy: 'stop-file' });
+    expect(s[killed]).toMatchObject({ status: 'ended', closedBy: 'stop-file' });
     expect(s[crashed].status).toBe('stale');
     expect(s[live].status).toBe('running');
   });
