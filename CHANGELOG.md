@@ -2,6 +2,19 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [2.24.7] — 2026-10-13
+
+### Fixed
+
+- **Dashboard login, session and heartbeat follow-ups.** `monomind ui open` now confirms when the browser actually used the login link (and says so when it did not); stale login links are swept, but never one still inside its TTL; the browser session now lasts 400 days (the longest browsers honor); the heartbeat now evicts dead org daemons for every known project, not only `MONOMIND_HOME`.
+- **Dashboard frontend fixes.** Nested markdown lists now render correctly; the playbook builder now takes the browse dashboard's port from the server instead of a hardcoded default, and no longer sends the dashboard token to another origin; runs that stopped without `org-complete` now show as "ended" instead of looking stuck.
+- **`monograph-freshen` status check accepts the unbuildable-graph warning (#669).** On a runner where `@monoes/monograph` cannot be resolved or its native module fails to load, the hook prints a `[MONOGRAPH_WARN]` line; the test only recognized the older "not found"/"build started" lines, so the Root suite failed on every GitHub Actions run since the hook began reporting an unbuildable graph.
+- **Test determinism.** Behavior tests replace source-text checks for the server-hardening and dashboard-script paths; flaky timing in `lint-skills`, `hermes-runner` and the eval scenarios is now deterministic (eval scenarios get a 180s budget).
+
+### Changed
+
+- **Release process: LOCAL MAIN SYNC now probes write access up front (#667).** Before merging into local main, the release process checks every path the sandbox keeps read-only that a release rewrites (the CLI package root, `.claude/`, `.monomind/org-skills/`) and reports a one-line operator command instead of attempting (and failing partway through) a fast-forward merge.
+
 ## [2.24.6] — 2026-10-11
 
 ### Fixed
