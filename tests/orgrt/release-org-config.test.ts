@@ -140,10 +140,12 @@ describe('release org config', () => {
 
     it('local main sync probes for a writable CLI package root and otherwise hands the operator the command (#667)', () => {
       expect(rules).toMatch(/WRITE PROBE FIRST/);
-      expect(rules).toMatch(/test -w ORG_ROOT\/packages\/@monomind\/cli\/package\.json/);
+      expect(rules).toMatch(
+        /test -w ORG_ROOT\/packages\/@monomind\/cli\/package\.json && test -w ORG_ROOT\/\.claude && test -w ORG_ROOT\/\.monomind\/org-skills/,
+      );
       expect(rules).toMatch(/LOCAL MAIN SYNC\s+PENDING \(operator\)/);
       expect(role('publisher')).toMatch(
-        /test -w \{\{org_root\}\}\/packages\/@monomind\/cli\/package\.json/,
+        /test -w \{\{org_root\}\}\/packages\/@monomind\/cli\/package\.json && test -w \{\{org_root\}\}\/\.claude && test -w \{\{org_root\}\}\/\.monomind\/org-skills/,
       );
       expect(role('release-captain')).toMatch(/LOCAL MAIN SYNC PENDING/);
     });

@@ -1,5 +1,5 @@
 /** Login-nonce sweep, the long-lived session cookie and loginNonceUsed (ui/human-auth.mjs). */
-import { mkdtempSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -26,22 +26,22 @@ describe('dashboard login', () => {
     expect(readdirSync(pendingDir(h))).toEqual([fresh]);
   });
 
-  it('caps the pending nonces at 50, dropping the oldest', () => {
+  it('never deletes a link that is still inside its TTL, however many are pending', () => {
     const h = home();
-    const first = issueLoginNonce(h);
-    for (let i = 0; i < 59; i++) {
+    const fresh: string[] = [];
+    mkdirSync(pendingDir(h), { recursive: true });
+    for (let i = 0; i < 60; i++) {
       const name = i.toString(16).padStart(64, '0');
       writeFileSync(join(pendingDir(h), name), '');
       const t = new Date(Date.now() - 5 * 60_000 + i * 1000);
       utimesSync(join(pendingDir(h), name), t, t);
+      fresh.push(name);
     }
-    const old = new Date(Date.now() - 9 * 60_000);
-    utimesSync(join(pendingDir(h), first), old, old);
     const last = issueLoginNonce(h);
     const left = readdirSync(pendingDir(h));
-    expect(left).toHaveLength(50);
+    expect(left).toHaveLength(61);
     expect(left).toContain(last);
-    expect(left).not.toContain(first);
+    for (const name of fresh) expect(left).toContain(name);
   });
 
   it('reports a nonce as used once it is consumed', () => {

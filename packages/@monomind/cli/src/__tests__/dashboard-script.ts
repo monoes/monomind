@@ -73,7 +73,8 @@ export function definedGlobals(src: string): Set<string> {
   };
   add(/^\s*(?:async )?function\s+([\w$]+)\s*\(/gm);
   add(/window\.([\w$]+)\s*=(?!=)/g);
-  add(/^\s*(?:const|let|var)\s+([\w$]+)\s*=/gm);
+  // Column 0 only: an indented const/let/var is a local, not a global a handler can call.
+  add(/^(?:const|let|var)\s+([\w$]+)\s*=/gm);
   const exported = src.indexOf('Object.assign(window');
   if (exported >= 0) add(/^\s+([\w$]+):/gm, src.slice(exported));
   return defined;

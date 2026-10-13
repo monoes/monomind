@@ -19,7 +19,11 @@ export default defineConfig({
     // Moves every worker off the developer's real HOME (#347).
     globalSetup: ['tests/setup/isolated-home.global.ts'],
     // Clears Jev provider env so no test reaches a real decision model.
-    setupFiles: ['tests/setup/no-jev-env.setup.ts', 'tests/setup/isolated-home.setup.ts'],
+    setupFiles: [
+      'tests/setup/no-jev-env.setup.ts',
+      'tests/setup/isolated-home.setup.ts',
+      'tests/setup/eval-timeouts.setup.ts',
+    ],
     globals: false,
     testTimeout: 30000,
     hookTimeout: 30000,

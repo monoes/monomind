@@ -20,7 +20,6 @@ import path from 'node:path';
 
 export const HUMAN_COOKIE = 'mm_human';
 const NONCE_TTL_MS = 10 * 60_000;
-const NONCE_DIR_CAP = 50;
 // The dashboard is local, so the login must not lapse: 400 days is the longest
 // Max-Age browsers honour (Chrome clamps anything longer to it).
 export const SESSION_MAX_AGE_S = 400 * 24 * 60 * 60;
@@ -62,26 +61,15 @@ export function issueLoginNonce(home = os.homedir()) {
   return nonce;
 }
 
-/** Delete nonces past their TTL, then the oldest beyond the cap, so unused links don't pile up. */
+/** Delete nonces past their TTL so unused links don't pile up. A link still inside its TTL is never
+ *  touched, so another `ui open` cannot spend a fresh one (the TTL already bounds how many exist). */
 function sweepLoginNonces(pending) {
-  const live = [];
   for (const name of fs.readdirSync(pending)) {
     const file = path.join(pending, name);
     try {
-      const { mtimeMs } = fs.statSync(file);
-      if (Date.now() - mtimeMs > NONCE_TTL_MS) fs.unlinkSync(file);
-      else live.push({ file, mtimeMs });
+      if (Date.now() - fs.statSync(file).mtimeMs > NONCE_TTL_MS) fs.unlinkSync(file);
     } catch {
       /* spent or swept by another process */
-    }
-  }
-  live.sort((a, b) => a.mtimeMs - b.mtimeMs);
-  // Room for the nonce about to be created.
-  for (const { file } of live.slice(0, Math.max(0, live.length - (NONCE_DIR_CAP - 1)))) {
-    try {
-      fs.unlinkSync(file);
-    } catch {
-      /* already gone */
     }
   }
 }

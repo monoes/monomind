@@ -343,7 +343,7 @@ with the Environment prefix.
     there dies with `unable to unlink … Read-only file system` after it has
     already rewritten other files (2.24.2 to 2.24.6). That is the sandbox
     working as designed; never weaken it and never retry the merge. Run
-    `test -w ORG_ROOT/packages/@monomind/cli/package.json`. Not writable: do NOT
+    `test -w ORG_ROOT/packages/@monomind/cli/package.json && test -w ORG_ROOT/.claude && test -w ORG_ROOT/.monomind/org-skills`. Any of the three not writable (the operator's protected paths also cover `.claude/` and `.monomind/org-skills/`, which a release rewrites): do NOT
     run any `merge` that writes ORG_ROOT's working tree. Report "LOCAL MAIN SYNC
     PENDING (operator)" with the exact one-line command for the operator to run
     outside any org role: `git -C ORG_ROOT merge --ff-only <sha>` (main is an
