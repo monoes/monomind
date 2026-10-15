@@ -7,7 +7,8 @@
  * 2); the engine builds the turn's one user message (execPrompt), per runtime:
  *  - claude: content blocks — an `image` block (base64) per PNG/JPEG/GIF/WebP
  *    and a `document` block per PDF, then the prompt text. Any other file, or
- *    one past the API's size caps below, is listed by path in that text.
+ *    one past the API's limits (bytes below, 8000 px a side, a size that
+ *    cannot be read), is listed by path in that text.
  *  - codex: images go to `codex exec --image` (AgentRunArgs.images, the
  *    turn's first exec only); other files are listed by path.
  *  - every other runtime: an "Attached files:" block of absolute paths after
@@ -83,6 +84,61 @@ function isImageFile(path: string): boolean {
   }
 }
 
+/** An image's pixel size from its header bytes (PNG IHDR, JPEG SOFn, GIF
+ *  logical screen, WebP VP8/VP8L/VP8X); undefined when it cannot be read. */
+export function imageSize(d: Buffer): { width: number; height: number } | undefined {
+  const ascii = (from: number, to: number) => d.toString('latin1', from, to);
+  switch (sniffMediaType(d)) {
+    case 'image/png':
+      if (d.length < 24 || ascii(12, 16) !== 'IHDR') return undefined;
+      return { width: d.readUInt32BE(16), height: d.readUInt32BE(20) };
+    case 'image/gif':
+      if (d.length < 10) return undefined;
+      return { width: d.readUInt16LE(6), height: d.readUInt16LE(8) };
+    case 'image/webp': {
+      const chunk = ascii(12, 16);
+      if (chunk === 'VP8X' && d.length >= 30)
+        return { width: d.readUIntLE(24, 3) + 1, height: d.readUIntLE(27, 3) + 1 };
+      if (chunk === 'VP8 ' && d.length >= 30 && d.readUIntBE(23, 3) === 0x9d012a)
+        return { width: d.readUInt16LE(26) & 0x3fff, height: d.readUInt16LE(28) & 0x3fff };
+      if (chunk === 'VP8L' && d.length >= 25 && d[20] === 0x2f) {
+        const bits = d.readUInt32LE(21);
+        return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
+      }
+      return undefined;
+    }
+    case 'image/jpeg':
+      return jpegSize(d);
+    default:
+      return undefined;
+  }
+}
+
+/** Walk the JPEG markers to the first SOFn (C0–CF but DHT C4, JPG C8, DAC CC). */
+function jpegSize(d: Buffer): { width: number; height: number } | undefined {
+  let i = 2;
+  while (i + 9 <= d.length) {
+    if (d[i] !== 0xff) return undefined;
+    const marker = d[i + 1];
+    if (marker === 0xff)
+      i += 1; // fill byte
+    else if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8))
+      i += 2; // no length
+    else if (marker === 0xd9 || marker === 0xda)
+      return undefined; // EOI/SOS before a frame
+    else if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker))
+      return { height: d.readUInt16BE(i + 5), width: d.readUInt16BE(i + 7) };
+    else i += 2 + d.readUInt16BE(i + 2);
+  }
+  return undefined;
+}
+
+/** The Claude API rejects an image wider or taller than 8000 px (the whole
+ *  request fails), so one that is, or whose size is unknown, is listed. */
+function fitsClaudeImage(size: { width: number; height: number } | undefined): boolean {
+  return !!size && size.width > 0 && size.height > 0 && Math.max(size.width, size.height) <= 8000;
+}
+
 /** The prompt followed by an "Attached files:" block (no paths: the prompt). */
 export function withFileList(prompt: string, paths: string[]): string {
   if (paths.length === 0) return prompt;
@@ -106,7 +162,7 @@ export function claudeContent(prompt: string, paths: string[]): Record<string, u
     const image = type !== undefined && IMAGE_TYPES.has(type);
     if (
       !type ||
-      (image && data.length > CLAUDE_IMAGE_MAX_BYTES) ||
+      (image && (data.length > CLAUDE_IMAGE_MAX_BYTES || !fitsClaudeImage(imageSize(data)))) ||
       inline + data.length > CLAUDE_INLINE_MAX_BYTES
     ) {
       listed.push(path);

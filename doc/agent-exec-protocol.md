@@ -11,8 +11,9 @@
     10 may be given, else a usage error (exit 2, no events). The type comes from the file's first
     bytes, not its extension. claude: the turn's first user message becomes content blocks — an
     `image` block (base64) per PNG/JPEG/GIF/WebP, a `document` block per PDF, then the prompt
-    text; a file of another type, an image over the API's 5 MB per-image limit, or files past
-    20 MB of blocks in all are listed by absolute path in that text. codex: images go to
+    text; a file of another type, an image over the API's 5 MB per-image limit, an image wider
+    or taller than 8000 px or whose size its header does not give, or files past 20 MB of blocks
+    in all are listed by absolute path in that text. codex: images go to
     `codex exec --image` (after `resume <id>` on a resumed turn; the turn's first exec only), other
     files are listed. Every other runtime: an `Attached files:` block of absolute paths is
     appended to the prompt and the agent opens them with its own file tools. A rate-limit retry
@@ -588,7 +589,7 @@ progress go to stderr. A caller must be able to `JSON.parse` every stdout line.
 | `--prompt <text>` | ✓* | Prompt text (or `--prompt-file`) |
 | `--prompt-file <path>` | ✓* | Prompt from file (large prompts; avoids argv limits) |
 | `--system-file <path>` | | System prompt file (prepended first turn only, runner-dependent — same semantics as orgrt) |
-| `--attach <file>` | | rev 31, capability `agent-exec-attachments`. A file sent with the prompt; repeatable, at most 10 files of at most 20 MB each (missing, not a regular file, too large or too many → usage error, exit 2). The type comes from the first bytes. claude: PNG/JPEG/GIF/WebP as `image` and PDF as `document` content blocks (base64) before the prompt text; any other file, an image over 5 MB, or files past 20 MB of blocks in all are listed by path in the text. codex: images via `--image` on the turn's first exec; other files listed. Every other runtime: an `Attached files:` block of absolute paths after the prompt |
+| `--attach <file>` | | rev 31, capability `agent-exec-attachments`. A file sent with the prompt; repeatable, at most 10 files of at most 20 MB each (missing, not a regular file, too large or too many → usage error, exit 2). The type comes from the first bytes. claude: PNG/JPEG/GIF/WebP as `image` and PDF as `document` content blocks (base64) before the prompt text; any other file, an image over 5 MB or over 8000 px a side (or whose size its header does not give), or files past 20 MB of blocks in all are listed by path in the text. codex: images via `--image` on the turn's first exec; other files listed. Every other runtime: an `Attached files:` block of absolute paths after the prompt |
 | `--tools <mode>` | | `none` (default) or `stdio` — enable caller-side tool execution (§4) |
 | `--tools-file <path>` | | Tool definitions as JSON (§4.1); enables native tool wiring where the runner supports it |
 | `--tool-timeout <dur>` | | Max wait for a caller `tool_result` frame (default `120s`), per call, in every access mode (rev 22: `--access full` included). monomind sets no upper limit; the effective maximum is the turn's `--timeout` (none by default). On claude, Claude Code's own MCP call timeout also applies (`MCP_TOOL_TIMEOUT`, settable with `--env`); a 130s call under `--tool-timeout 180s --access full` was verified end to end on Claude Code 2.1.226. Fence runtimes run the call between model rounds, so the vendor CLI does not time it out. On expiry the call gets `ERROR: tool timeout` and the turn continues (§4.3) |

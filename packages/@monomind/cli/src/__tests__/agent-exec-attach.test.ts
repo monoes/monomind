@@ -15,12 +15,7 @@ import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runExec } from '../commands/agent-exec.js';
 import { type AgentExecOptions, runAgentExec } from '../orgrt/agent-exec.js';
-import {
-  ATTACH_MAX_BYTES,
-  parseAttachFlags,
-  sniffMediaType,
-  withFileList,
-} from '../orgrt/agent-exec-attach.js';
+import { ATTACH_MAX_BYTES, parseAttachFlags, withFileList } from '../orgrt/agent-exec-attach.js';
 import { RESUME_PROMPT } from '../orgrt/agent-exec-retry.js';
 import type { AgentMessage, AgentRunArgs, AgentRunner } from '../orgrt/agent-runner.js';
 import { ClaudeAgentRunner } from '../orgrt/agent-runner.js';
@@ -34,14 +29,11 @@ vi.mock('node:child_process', async (importOriginal) => ({
   spawn: vi.fn(),
 }));
 
-const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
-const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
-const GIF = Buffer.from('GIF89a\x01\x00', 'latin1');
-const WEBP = Buffer.concat([
-  Buffer.from('RIFF'),
-  Buffer.from([8, 0, 0, 0]),
-  Buffer.from('WEBPVP8 '),
-]);
+// A valid 1×1 PNG (header and pixel tests: agent-exec-attach-image.test.ts).
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+  'base64',
+);
 const PDF = Buffer.from('%PDF-1.7\n%fake\n');
 
 const dir = mkdtempSync(join(tmpdir(), 'mm-attach-'));
@@ -153,18 +145,6 @@ describe('--attach validation (command layer)', () => {
     });
     expect(code).toBe(0);
     expect(content[0]).toBe(`hi\n\nAttached files:\n- ${png}\n- ${txt}`);
-  });
-});
-
-describe('media type sniffing', () => {
-  it('reads the first bytes, never the extension', () => {
-    expect(sniffMediaType(PNG)).toBe('image/png');
-    expect(sniffMediaType(JPEG)).toBe('image/jpeg');
-    expect(sniffMediaType(GIF)).toBe('image/gif');
-    expect(sniffMediaType(WEBP)).toBe('image/webp');
-    expect(sniffMediaType(PDF)).toBe('application/pdf');
-    expect(sniffMediaType(Buffer.from('just text'))).toBeUndefined();
-    expect(sniffMediaType(Buffer.alloc(0))).toBeUndefined();
   });
 });
 
