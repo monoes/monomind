@@ -168,3 +168,24 @@ describe('hook-handler.cjs does not load router.cjs', () => {
     }
   });
 });
+
+// AUDIT-BACKLOG P1-1: when @monoes/hooks resolves by neither path, the bridge
+// must say so on stderr, once per session.
+describe('hook-handler.cjs @monoes/hooks bridge warning', () => {
+  const stdin = (sessionId) =>
+    JSON.stringify({ session_id: sessionId, prompt: 'do a thing', description: 'do a thing' });
+
+  it('warns on stderr when @monoes/hooks cannot be loaded, then only once per session', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hh-bridge-'));
+    try {
+      const first = run('pre-task', { cwd: dir, stdin: stdin('sess-a') });
+      expect(first.stderr).toContain('@monoes/hooks could not be loaded');
+      const again = run('pre-task', { cwd: dir, stdin: stdin('sess-a') });
+      expect(again.stderr).not.toContain('@monoes/hooks could not be loaded');
+      const other = run('pre-task', { cwd: dir, stdin: stdin('sess-b') });
+      expect(other.stderr).toContain('@monoes/hooks could not be loaded');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

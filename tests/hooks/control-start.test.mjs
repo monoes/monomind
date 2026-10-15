@@ -37,6 +37,9 @@ function run({ cwd, env } = {}) {
       // #423: auto-start is opt-in. Most tests below exercise the start flow,
       // so they opt in; the opt-in tests override this.
       MONOMIND_DASHBOARD_AUTOSTART: '1',
+      // The host's real free memory must not decide these tests: a loaded dev
+      // box or CI runner would otherwise trip the memory-pressure guard.
+      MONOMIND_MEMORY_PRESSURE_THRESHOLD: '0',
       ...env,
     },
   });
@@ -496,5 +499,20 @@ describe('control-start: confirmation runs detached from the hook-invoked proces
     // returns. There should be no `await runConfirm` or `await confirmPort`
     // left anywhere in the file.
     expect(src).not.toMatch(/await\s+(runConfirm|confirmPort)\(/);
+  });
+});
+
+describe('control-start: memory-pressure guard', () => {
+  it('skips with a visible line and no status write when free memory is below the threshold', () => {
+    // A threshold above 1 makes any free ratio count as critical.
+    const r = run({ cwd: tmpDir, env: { MONOMIND_MEMORY_PRESSURE_THRESHOLD: '1.1' } });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('[control] skipping — memory pressure');
+    expect(fs.existsSync(path.join(tmpDir, '.monomind', 'control.json'))).toBe(false);
+  });
+
+  it('proceeds when the threshold is 0, whatever the host memory', () => {
+    const r = run({ cwd: tmpDir });
+    expect(r.stdout).not.toContain('memory pressure');
   });
 });
