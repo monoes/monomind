@@ -80,6 +80,7 @@ describe('version handshake (§2)', () => {
         'org-sign-check',
         'org-sign-expect-hash',
         'org-sign-review-json',
+        'agent-exec-attachments',
       ],
     });
     expect(p.capabilities).toContain('agent-exec');
