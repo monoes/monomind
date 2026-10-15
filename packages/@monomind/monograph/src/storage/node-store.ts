@@ -3,13 +3,34 @@ import type { MonographNode } from '../types.js';
 import { MonographError, toNormLabel } from '../types.js';
 import { safeJsonParse } from './utils.js';
 
-export function insertNode(db: Database.Database, node: MonographNode): void {
-  db.prepare(`
-    INSERT OR REPLACE INTO nodes
+// An upsert, not INSERT OR REPLACE: replacing the row would reset community_id and
+// properties, wiping community assignments and enrichment (e.g. summaries) from every
+// node a rebuild re-inserts unchanged. Structural columns take the fresh values;
+// community_id and properties written by later phases or tools survive.
+const INSERT_SQL = `
+    INSERT INTO nodes
       (id, label, name, norm_label, file_path, start_line, end_line,
        community_id, is_exported, language, properties)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+    ON CONFLICT(id) DO UPDATE SET
+      label = excluded.label,
+      name = excluded.name,
+      norm_label = excluded.norm_label,
+      file_path = excluded.file_path,
+      start_line = excluded.start_line,
+      end_line = excluded.end_line,
+      community_id = COALESCE(excluded.community_id, nodes.community_id),
+      is_exported = excluded.is_exported,
+      language = excluded.language,
+      properties = CASE
+        WHEN excluded.properties IS NULL THEN nodes.properties
+        WHEN nodes.properties IS NULL THEN excluded.properties
+        ELSE json_patch(nodes.properties, excluded.properties)
+      END
+  `;
+
+export function insertNode(db: Database.Database, node: MonographNode): void {
+  db.prepare(INSERT_SQL).run(
     node.id,
     node.label,
     node.name,
@@ -23,13 +44,6 @@ export function insertNode(db: Database.Database, node: MonographNode): void {
     node.properties ? JSON.stringify(node.properties) : null,
   );
 }
-
-const INSERT_SQL = `
-    INSERT OR REPLACE INTO nodes
-      (id, label, name, norm_label, file_path, start_line, end_line,
-       community_id, is_exported, language, properties)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
 
 export function insertNodes(db: Database.Database, nodes: MonographNode[]): void {
   if (nodes.length === 0) return;

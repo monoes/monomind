@@ -159,6 +159,16 @@ export const processesPhase: PipelinePhase<ProcessesOutput> = {
 
     const db = ctx.db;
 
+    // Process rows are derived from the current call graph; clear the previous run's
+    // so processes whose entry or steps no longer exist stop being served.
+    db.transaction(() => {
+      db.prepare(
+        `DELETE FROM edges WHERE source_id IN (SELECT id FROM nodes WHERE label = 'Process')
+            OR target_id IN (SELECT id FROM nodes WHERE label = 'Process')`,
+      ).run();
+      db.prepare(`DELETE FROM nodes WHERE label = 'Process'`).run();
+    })();
+
     // Determine how many processes to create based on symbol count
     const symbolCountRow = db
       .prepare(

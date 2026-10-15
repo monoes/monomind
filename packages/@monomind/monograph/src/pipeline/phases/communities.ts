@@ -239,6 +239,7 @@ export const communitiesPhase: PipelinePhase<CommunitiesOutput> = {
   name: 'communities',
   deps: [
     'parse',
+    'stale-sweep',
     'cross-file',
     'mro',
     'routes',
@@ -287,30 +288,31 @@ export const communitiesPhase: PipelinePhase<CommunitiesOutput> = {
     // Compute all cohesion scores in one O(N+E) pass instead of O(K*(N+E))
     const cohesionScores = computeAllCohesionScores(memberships, allUsedEdges);
 
-    // Persist community assignments to the DB
-    if (memberships.size > 0) {
-      const commSizes = new Map<number, number>();
-      for (const commId of memberships.values()) {
-        commSizes.set(commId, (commSizes.get(commId) ?? 0) + 1);
-      }
-      const updateNode = ctx.db.prepare('UPDATE nodes SET community_id = ? WHERE id = ?');
-      const upsertComm = ctx.db.prepare(
-        'INSERT OR REPLACE INTO communities (id, label, size, cohesion_score) VALUES (?, ?, ?, ?)',
-      );
-      ctx.db.transaction(() => {
-        for (const [nodeId, commId] of memberships) {
-          updateNode.run(commId, nodeId);
-        }
-        for (const [commId, label] of communityLabels) {
-          upsertComm.run(
-            commId,
-            label,
-            commSizes.get(commId) ?? 0,
-            cohesionScores.get(commId) ?? 0,
-          );
-        }
-      })();
+    // Persist community assignments to the DB. The previous run's assignments are
+    // cleared first so a node that is no longer clustered, or a community that no
+    // longer exists, does not keep serving a stale id.
+    const commSizes = new Map<number, number>();
+    for (const commId of memberships.values()) {
+      commSizes.set(commId, (commSizes.get(commId) ?? 0) + 1);
     }
+    const clearNodes = ctx.db.prepare(
+      'UPDATE nodes SET community_id = NULL WHERE community_id IS NOT NULL',
+    );
+    const clearComms = ctx.db.prepare('DELETE FROM communities');
+    const updateNode = ctx.db.prepare('UPDATE nodes SET community_id = ? WHERE id = ?');
+    const upsertComm = ctx.db.prepare(
+      'INSERT OR REPLACE INTO communities (id, label, size, cohesion_score) VALUES (?, ?, ?, ?)',
+    );
+    ctx.db.transaction(() => {
+      clearNodes.run();
+      clearComms.run();
+      for (const [nodeId, commId] of memberships) {
+        updateNode.run(commId, nodeId);
+      }
+      for (const [commId, label] of communityLabels) {
+        upsertComm.run(commId, label, commSizes.get(commId) ?? 0, cohesionScores.get(commId) ?? 0);
+      }
+    })();
 
     return { memberships, communityLabels, cohesionScores };
   },
