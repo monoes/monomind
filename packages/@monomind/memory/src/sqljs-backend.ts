@@ -21,7 +21,7 @@
  * @module v1/memory/sqljs-backend
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname } from 'node:path';
 import initSqlJs from 'sql.js';
@@ -82,6 +82,55 @@ function resolveLocalWasmPath(): string | null {
   }
 }
 
+/** Identity of the file's current contents (inode changes on every atomic rename). */
+function fileSignature(path: string): string | null {
+  try {
+    const st = statSync(path);
+    return `${st.ino}:${st.size}:${st.mtimeMs}`;
+  } catch {
+    return null;
+  }
+}
+
+function unsafeDatabase(path: string, reason: string): Error {
+  return Object.assign(
+    new Error(
+      `SqlJsBackend cannot safely open ${path}: ${reason}. Opening it with sql.js would lose ` +
+        'data written by the native backend; install better-sqlite3 (or rebuild it) instead.',
+    ),
+    { code: 'SQLJS_UNSAFE_DATABASE' },
+  );
+}
+
+/** sql.js ignores the write-ahead log, so frames still in it would be lost or overwritten. */
+function assertNoWalSidecar(path: string): void {
+  try {
+    if (statSync(`${path}-wal`).size > 0)
+      throw unsafeDatabase(path, 'a non-empty -wal file exists');
+  } catch (error) {
+    if ((error as { code?: string }).code === 'SQLJS_UNSAFE_DATABASE') throw error;
+  }
+}
+
+/** Header bytes 18-19 (file format write/read version) are 2 for a WAL-mode database. */
+function assertHeaderNotWal(path: string, bytes: Uint8Array): void {
+  if (bytes.length > 19 && (bytes[18] === 2 || bytes[19] === 2)) {
+    throw unsafeDatabase(path, 'it is in WAL journal mode');
+  }
+}
+
+/** The sql.js build has no FTS5, so writes to a database with an FTS5 index fail midway. */
+function assertNoFts5Index(
+  path: string,
+  db: { exec(sql: string): unknown[]; close(): void },
+): void {
+  const found = db.exec("SELECT 1 FROM sqlite_master WHERE name = 'memory_entries_fts'");
+  if (found.length > 0) {
+    db.close();
+    throw unsafeDatabase(path, 'it has an FTS5 index that sql.js cannot maintain');
+  }
+}
+
 const DEFAULT_CONFIG: SqlJsBackendConfig = {
   databasePath: ':memory:',
   optimize: true,
@@ -130,15 +179,21 @@ export class SqlJsBackend extends SqlBackend {
 
     const path = this.sqlJsConfig.databasePath;
     const isMemory = path === ':memory:';
+    const existed = !isMemory && existsSync(path);
 
-    const db =
-      !isMemory && existsSync(path)
-        ? new SQL.Database(new Uint8Array(readFileSync(path)))
-        : new SQL.Database();
+    // Signature of the file as loaded; the flush below refuses to overwrite a file
+    // that no longer matches it. Taken before the read so a change in between shows.
+    let loadedSignature = existed ? fileSignature(path) : null;
+    if (existed) assertNoWalSidecar(path);
+    const bytes = existed ? new Uint8Array(readFileSync(path)) : null;
+    if (bytes) assertHeaderNotWal(path, bytes);
+
+    const db = bytes ? new SQL.Database(bytes) : new SQL.Database();
+    if (bytes) assertNoFts5Index(path, db);
 
     if (this.sqlJsConfig.verbose) {
       console.log(
-        !isMemory && existsSync(path)
+        existed
           ? `[SqlJsBackend] Loaded database from ${path}`
           : '[SqlJsBackend] Created new in-memory database',
       );
@@ -147,16 +202,26 @@ export class SqlJsBackend extends SqlBackend {
     // Only give the driver a flush function when there is somewhere to flush to.
     const flush = isMemory
       ? undefined
-      : async (bytes: Uint8Array) => {
-          const buffer = Buffer.from(bytes);
+      : async (out: Uint8Array) => {
+          if (fileSignature(path) !== loadedSignature) {
+            throw Object.assign(
+              new Error(
+                `${path} changed on disk since this process loaded it; refusing to overwrite ` +
+                  "another process's writes with a stale snapshot",
+              ),
+              { code: 'SQLJS_STALE_SNAPSHOT' },
+            );
+          }
+          const buffer = Buffer.from(out);
           writeFileAtomicSync(path, buffer);
+          loadedSignature = fileSignature(path);
           if (this.sqlJsConfig.verbose) {
             console.log(`[SqlJsBackend] Persisted ${buffer.length} bytes to ${path}`);
           }
           this.emit('persisted', { size: buffer.length, path });
         };
 
-    return new SqlJsDriver(db as never, flush);
+    return new SqlJsDriver(db as never, flush, existed);
   }
 
   protected getAnnCacheDir(): string | null {

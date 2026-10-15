@@ -268,6 +268,27 @@ export async function downloadEmbeddingModel(): Promise<void> {
   });
 }
 
+/**
+ * Open the native SQLite backend, falling back to sql.js only when better-sqlite3
+ * itself cannot be loaded. Any other failure (locked, corrupt, unwritable database)
+ * is about the database, not the engine: sql.js would open a stale in-memory copy of
+ * the same file and later overwrite it, so the error is surfaced instead.
+ */
+export async function openBackendWithFallback(mod: any, cfg: object): Promise<any> {
+  try {
+    const backend = new mod.SQLiteBackend(cfg);
+    await backend.initialize();
+    return backend;
+  } catch (e) {
+    if ((e as { code?: string })?.code !== 'MEMORY_NATIVE_UNAVAILABLE') throw e;
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[memory-bridge] better-sqlite3 unavailable — using sql.js backend:', e);
+    const backend = new mod.SqlJsBackend(cfg);
+    await backend.initialize();
+    return backend;
+  }
+}
+
 export async function getBackend(dbPath?: string): Promise<any | null> {
   const dir = getDbPath(dbPath);
   let slot = backendSlots.get(dir);
@@ -352,18 +373,7 @@ export async function getBackend(dbPath?: string): Promise<any | null> {
         };
         let backend: any;
         try {
-          try {
-            backend = new mod.SQLiteBackend(cfg);
-            await backend.initialize();
-          } catch (e) {
-            if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
-              console.error(
-                '[memory-bridge] better-sqlite3 unavailable — using sql.js backend:',
-                e,
-              );
-            backend = new mod.SqlJsBackend(cfg);
-            await backend.initialize();
-          }
+          backend = await openBackendWithFallback(mod, cfg);
         } finally {
           console.log = origLog;
         }

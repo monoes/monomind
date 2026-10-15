@@ -68,6 +68,32 @@ const DEFAULT_CONFIG: SQLiteBackendConfig = {
   busyTimeoutMs: 0,
 };
 
+/** Code on the error SQLiteBackend throws when better-sqlite3 itself cannot be loaded. */
+const NATIVE_SQLITE_UNAVAILABLE = 'MEMORY_NATIVE_UNAVAILABLE';
+
+function nativeUnavailable(cause: unknown): Error {
+  return Object.assign(
+    new Error(
+      'SQLiteBackend requires the optional dependency better-sqlite3, which is not installed ' +
+        `(${(cause as Error).message}). Use SqlJsBackend, or select the 'sql.js' provider, ` +
+        'for environments where the native module cannot be built.',
+    ),
+    { code: NATIVE_SQLITE_UNAVAILABLE },
+  );
+}
+
+function isBindingLoadError(error: unknown): boolean {
+  const { code, message } = error as { code?: string; message?: string };
+  if (typeof code === 'string' && code.startsWith('SQLITE_')) return false;
+  return (
+    code === 'ERR_DLOPEN_FAILED' ||
+    code === 'MODULE_NOT_FOUND' ||
+    /could not locate the bindings file|NODE_MODULE_VERSION|better_sqlite3\.node/i.test(
+      message ?? '',
+    )
+  );
+}
+
 /**
  * SQLite backend for structured memory storage.
  *
@@ -102,16 +128,22 @@ export class SQLiteBackend extends SqlBackend {
       // Reaching here means this backend was chosen explicitly while the native
       // module is unavailable. Say so, instead of surfacing a bare
       // ERR_MODULE_NOT_FOUND from deep inside the driver.
-      throw new Error(
-        'SQLiteBackend requires the optional dependency better-sqlite3, which is not installed ' +
-          `(${(error as Error).message}). Use SqlJsBackend, or select the 'sql.js' provider, ` +
-          'for environments where the native module cannot be built.',
-      );
+      throw nativeUnavailable(error);
     }
 
-    const db = new Database(this.sqliteConfig.databasePath, {
-      verbose: this.sqliteConfig.verbose ? console.log : undefined,
-    });
+    let db: NativeDb;
+    try {
+      db = new Database(this.sqliteConfig.databasePath, {
+        verbose: this.sqliteConfig.verbose ? console.log : undefined,
+      });
+    } catch (error) {
+      // The native binding is loaded lazily by the first constructor call, so a
+      // missing or ABI-mismatched build surfaces here rather than at import. Any
+      // other failure (locked, corrupt, unwritable) is about the database, and
+      // falling back to another engine would not fix it.
+      if (isBindingLoadError(error)) throw nativeUnavailable(error);
+      throw error;
+    }
 
     if (this.sqliteConfig.busyTimeoutMs > 0)
       db.pragma(`busy_timeout = ${this.sqliteConfig.busyTimeoutMs}`);

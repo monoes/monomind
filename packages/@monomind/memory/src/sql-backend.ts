@@ -181,15 +181,27 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
 
     this.driver = await this.openDriver();
 
-    // Enable FK enforcement — required for ON DELETE CASCADE to fire.
     try {
-      this.driver.exec('PRAGMA foreign_keys = ON');
-    } catch {
-      /* unsupported on this driver */
-    }
+      // Enable FK enforcement — required for ON DELETE CASCADE to fire.
+      try {
+        this.driver.exec('PRAGMA foreign_keys = ON');
+      } catch {
+        /* unsupported on this driver */
+      }
 
-    this.migrationReport = initializeSchema(this.driver);
-    this._fts5Available = hasFTS5Table(this.driver);
+      this.migrationReport = initializeSchema(this.driver);
+      this._fts5Available = hasFTS5Table(this.driver);
+    } catch (error) {
+      // A failed initialize must not leave the connection open, and must not
+      // persist a half-initialised database.
+      try {
+        this.driver.close();
+      } catch {
+        /* already closed */
+      }
+      this.driver = null;
+      throw error;
+    }
     if (this.config.verbose && this.migrationReport.legacyColumnFound) {
       console.log(
         `[SqlBackend] migrated ${this.migrationReport.migrated} inline embedding(s); ` +
@@ -203,7 +215,14 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
 
   async shutdown(): Promise<void> {
     if (!this.initialized || !this.driver) return;
-    await this.driver.persist();
+    // A refused persist (e.g. the file changed underneath a sql.js snapshot) must
+    // still release the connection; the error is rethrown afterwards.
+    let persistError: unknown;
+    try {
+      await this.driver.persist();
+    } catch (error) {
+      persistError = error;
+    }
     try {
       this.driver.pragma('optimize');
     } catch {
@@ -213,6 +232,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
     this.driver = null;
     this.initialized = false;
     this.emit('shutdown');
+    if (persistError) throw persistError;
   }
 
   // ===== Writes =============================================================
