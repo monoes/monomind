@@ -1,4 +1,4 @@
-# Agent Exec Protocol — v1 (rev 30)
+# Agent Exec Protocol — v1 (rev 31)
 
 - **Status**: Implemented (Phase 0 of the mono-agent delegation plan — see
   `mono-agent:docs/plans/local-agent-monomind-delegation.md`)
@@ -6,6 +6,18 @@
   the Coder mode threat model, the `--access full` guardrails (root refusal, no transitive
   escalation, env hygiene, audit log), what callers own, and residual risks (issue #360).
 - **Revision history**:
+  - rev 31 (2026-10-15): **`agent exec --attach FILE`** — new capability `agent-exec-attachments`
+    (§3.1). Repeatable; each file must exist, be a regular file and be at most 20 MB, and at most
+    10 may be given, else a usage error (exit 2, no events). The type comes from the file's first
+    bytes, not its extension. claude: the turn's first user message becomes content blocks — an
+    `image` block (base64) per PNG/JPEG/GIF/WebP, a `document` block per PDF, then the prompt
+    text; a file of another type, an image over the API's 5 MB per-image limit, or files past
+    20 MB of blocks in all are listed by absolute path in that text. codex: images go to
+    `codex exec --image` (after `resume <id>` on a resumed turn; the turn's first exec only), other
+    files are listed. Every other runtime: an `Attached files:` block of absolute paths is
+    appended to the prompt and the agent opens them with its own file tools. A rate-limit retry
+    that resumes the session (rev 20) sends `RESUME_PROMPT` without the files; a retry from
+    scratch sends them again. Without `--attach` nothing changes: the message is the prompt string.
   - rev 30 (2026-10-07): **Claude runtime reports served models, effort, context size and
     coder-mode delegation counts** (#655) — no new capability. §3.2's `result`, Claude runtime
     only, optionally gains `model_usage` (tokens per model actually served, child agents
@@ -539,7 +551,7 @@ by swarm management and is NOT reused by this protocol — the installed-only vi
 
 ```
 $ monomind --version --json
-{"v":1,"version":"<x.y.z>","min_caller":"1.0.0","capabilities":["agent-exec","agent-exec-full-access","agent-exec-settings","agent-exec-tool-activity","agent-exec-background-pids","agent-exec-full-access-any","agent-exec-effort","agent-scan","agent-scan-read-only","agent-models","agent-test-json","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","org-role-full-access","doctor-json","doctor-read-only","doctor-offline","init-json","knowledge-profile-captures","agent-exec-subagent-events","agent-exec-rate-limit-retry","agent-exec-access-read","agent-exec-full-access-tools","agent-exec-sandbox","agent-test-sandbox","agent-exec-sandbox-restricted","agent-exec-sandbox-fallback","agent-exec-cost-null","agent-models-alias-of","org-sign-check","org-sign-expect-hash","org-sign-review-json"]}
+{"v":1,"version":"<x.y.z>","min_caller":"1.0.0","capabilities":["agent-exec","agent-exec-full-access","agent-exec-settings","agent-exec-tool-activity","agent-exec-background-pids","agent-exec-full-access-any","agent-exec-effort","agent-scan","agent-scan-read-only","agent-models","agent-test-json","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","org-role-full-access","doctor-json","doctor-read-only","doctor-offline","init-json","knowledge-profile-captures","agent-exec-subagent-events","agent-exec-rate-limit-retry","agent-exec-access-read","agent-exec-full-access-tools","agent-exec-sandbox","agent-test-sandbox","agent-exec-sandbox-restricted","agent-exec-sandbox-fallback","agent-exec-cost-null","agent-models-alias-of","org-sign-check","org-sign-expect-hash","org-sign-review-json","agent-exec-attachments"]}
 ```
 
 Callers MUST handshake before use and fail with an actionable message (install/upgrade hint)
@@ -576,6 +588,7 @@ progress go to stderr. A caller must be able to `JSON.parse` every stdout line.
 | `--prompt <text>` | ✓* | Prompt text (or `--prompt-file`) |
 | `--prompt-file <path>` | ✓* | Prompt from file (large prompts; avoids argv limits) |
 | `--system-file <path>` | | System prompt file (prepended first turn only, runner-dependent — same semantics as orgrt) |
+| `--attach <file>` | | rev 31, capability `agent-exec-attachments`. A file sent with the prompt; repeatable, at most 10 files of at most 20 MB each (missing, not a regular file, too large or too many → usage error, exit 2). The type comes from the first bytes. claude: PNG/JPEG/GIF/WebP as `image` and PDF as `document` content blocks (base64) before the prompt text; any other file, an image over 5 MB, or files past 20 MB of blocks in all are listed by path in the text. codex: images via `--image` on the turn's first exec; other files listed. Every other runtime: an `Attached files:` block of absolute paths after the prompt |
 | `--tools <mode>` | | `none` (default) or `stdio` — enable caller-side tool execution (§4) |
 | `--tools-file <path>` | | Tool definitions as JSON (§4.1); enables native tool wiring where the runner supports it |
 | `--tool-timeout <dur>` | | Max wait for a caller `tool_result` frame (default `120s`), per call, in every access mode (rev 22: `--access full` included). monomind sets no upper limit; the effective maximum is the turn's `--timeout` (none by default). On claude, Claude Code's own MCP call timeout also applies (`MCP_TOOL_TIMEOUT`, settable with `--env`); a 130s call under `--tool-timeout 180s --access full` was verified end to end on Claude Code 2.1.226. Fence runtimes run the call between model rounds, so the vendor CLI does not time it out. On expiry the call gets `ERROR: tool timeout` and the turn continues (§4.3) |
