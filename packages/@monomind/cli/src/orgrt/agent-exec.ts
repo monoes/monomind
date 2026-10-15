@@ -26,6 +26,7 @@
  */
 
 import { fullAccessCanUseTool, resolveAccess, resolveExecSandbox } from './agent-exec-access.js';
+import { execPrompt } from './agent-exec-attach.js';
 import { StdioToolBridge, UsageTracker } from './agent-exec-bridge.js';
 import { type ExecErrorCode, execErrorCode, FATAL_CODES } from './agent-exec-errors.js';
 import { execAllowedToolNames, execCanUseTool } from './agent-exec-gate.js';
@@ -97,15 +98,8 @@ export async function runAgentExecOnce(
       bridge ? bridge.call(t.name, args) : Promise.resolve({ text: 'ERROR: tools not bridged' }),
   }));
 
-  // Single-message prompt stream — the AgentRunArgs.prompt contract.
-  const promptStream = (async function* () {
-    yield {
-      type: 'user',
-      message: { role: 'user', content: opts.prompt },
-      parent_tool_use_id: null,
-      session_id: undefined,
-    };
-  })();
+  // Single-message prompt stream; rev 31: `--attach` files shaped per runtime.
+  const turn = execPrompt(opts);
 
   const usage = new UsageTracker();
   const rawTexts: string[] = [];
@@ -266,7 +260,8 @@ export async function runAgentExecOnce(
     try {
       stream = runner.run({
         tools,
-        prompt: promptStream,
+        prompt: turn.stream,
+        ...(turn.images ? { images: turn.images } : {}), // rev 31: codex --image
         systemPrompt,
         model: opts.model,
         effort: opts.effort, // rev 16 (+ rev 19/20 runners): each runner maps or ignores it

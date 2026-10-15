@@ -18,6 +18,9 @@ export interface ToolSpec {
 export interface AgentExecOptions {
   runtime: string;
   prompt: string;
+  /** rev 31 (`--attach`): absolute paths of files sent with the prompt,
+   *  already validated (agent-exec-attach.ts). Unset/[] = the prompt alone. */
+  attachments?: string[];
   /** #355. `scoped` (default) = today's allow-list behavior, byte-identical
    *  SDK options. `full` = unrestricted native tool access (any runtime
    *  whose RunnerSpec.supportsFullAccess is true; guarded — see

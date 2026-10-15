@@ -14,6 +14,7 @@ import { applyClaudePathFlag, claudePathOption } from '../orgrt/claude-selection
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { runAgentExec, type ToolSpec } from '../orgrt/agent-exec.js';
+import { parseAttachFlags } from '../orgrt/agent-exec-attach.js';
 import { parseSettingsFlag } from '../orgrt/agent-exec-settings.js';
 import { reportClaudeSkip } from '../orgrt/claude-sdk.js';
 import { ORG_EFFORT_LEVELS, type OrgEffortLevel } from '../orgrt/cost-tier.js';
@@ -215,6 +216,9 @@ export async function runExec(
   const parsedSettings = parseSettingsFlag(ctx.flags.settings);
   if ('error' in parsedSettings) return usageError(parsedSettings.error);
 
+  const attach = parseAttachFlags(ctx.flags.attach); // rev 31
+  if ('error' in attach) return usageError(attach.error);
+
   let systemPrompt: string | undefined;
   const systemFile = ctx.flags['system-file'] as string | undefined;
   if (systemFile) {
@@ -255,6 +259,7 @@ export async function runExec(
     ...(sandboxFlag !== undefined ? { sandbox: sandboxFlag as SandboxMode } : {}),
     sandboxFallback: sandboxFallback as (typeof SANDBOX_FALLBACKS)[number] | undefined, // #482
     prompt,
+    ...(attach.paths.length ? { attachments: attach.paths } : {}),
     systemPrompt,
     model: ctx.flags.model ? String(ctx.flags.model) : undefined,
     effort: effortFlag as OrgEffortLevel | undefined,
@@ -302,6 +307,12 @@ export const execCommand: Command = {
     { name: 'prompt', short: 'p', description: 'Prompt text', type: 'string' },
     { name: 'prompt-file', description: 'Read the prompt from a file', type: 'string' },
     { name: 'system-file', description: 'System prompt file', type: 'string' },
+    {
+      name: 'attach',
+      description:
+        'File sent with the prompt (repeatable; at most 10, 20 MB each): claude gets images and PDFs as content blocks, codex images as --image, anything else is listed by path in the prompt',
+      type: 'array',
+    },
     {
       name: 'tools',
       description: 'Tool mode: stdio (caller executes) or none',
