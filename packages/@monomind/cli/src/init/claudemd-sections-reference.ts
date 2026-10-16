@@ -261,6 +261,7 @@ npx monomind doctor --fix
 - Claude Code's Task tool handles ALL execution: agents, file ops, code generation, git
 - CLI tools handle coordination via Bash: memory, hooks, routing
 - NEVER use CLI tools as a substitute for Task tool agents
+- When the user names an installed coding agent ("run an agy agent", "ask codex to…", "use grok"), run it right away with \`monomind agent exec --runtime <id or binary> --prompt "…"\` (add \`--access full --cwd <dir>\` for file output) — don't ask first. The \`[AGENT_RUNTIMES]\` session line lists what is installed; on an \`auth\` error, give the user the login command
 
 ## Support
 
