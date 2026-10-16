@@ -382,7 +382,7 @@ function _renderDocMarkdown(md) {
     // No raw HTML passthrough: a regex blacklist cannot make arbitrary markup
     // safe (`<svg/onload=...>`, `<a href=" javascript:...">` all slip past it),
     // so raw HTML blocks are shown as escaped text.
-    return '<pre class="md-raw-html">' + esc(html) + '</pre>';
+    return `<pre class="md-raw-html">${esc(html)}</pre>`;
   }
 
   function splitTableRow(line) {

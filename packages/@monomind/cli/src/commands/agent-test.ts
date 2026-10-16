@@ -11,8 +11,8 @@ import { applyClaudePathFlag, claudePathOption } from '../orgrt/claude-selection
  */
 
 import { type AgentTestOptions, agentTestExitCode, runAgentTest } from '../orgrt/agent-test.js';
-import type { SandboxFallback, SandboxMode } from '../orgrt/runner-sandbox.js';
 import { resolveRuntimeAlias } from '../orgrt/runner-registry.js';
+import type { SandboxFallback, SandboxMode } from '../orgrt/runner-sandbox.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import {
   parseDuration,

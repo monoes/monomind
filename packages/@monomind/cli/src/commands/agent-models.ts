@@ -7,9 +7,9 @@ import { applyClaudePathFlag, claudePathOption } from '../orgrt/claude-selection
 
 import { listRuntimeModels } from '../orgrt/agent-models.js';
 import { reportClaudeSkip } from '../orgrt/claude-sdk.js';
+import { resolveRuntimeAlias } from '../orgrt/runner-registry.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
-import { resolveRuntimeAlias } from '../orgrt/runner-registry.js';
 
 export const modelsCommand: Command = {
   name: 'models',

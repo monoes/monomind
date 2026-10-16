@@ -444,7 +444,8 @@ describe('resolveRuntimeAlias', () => {
     expect(resolveRuntimeAlias('kimi')).toBe('kimicode');
   });
   it('keeps real ids, including ones whose binary is shared', () => {
-    for (const id of ['codex', 'qwen', 'pi', 'pi-rpc', 'antigravity']) expect(resolveRuntimeAlias(id)).toBe(id);
+    for (const id of ['codex', 'qwen', 'pi', 'pi-rpc', 'antigravity'])
+      expect(resolveRuntimeAlias(id)).toBe(id);
   });
   it('leaves unknown names alone', () => {
     expect(resolveRuntimeAlias('nope')).toBe('nope');
