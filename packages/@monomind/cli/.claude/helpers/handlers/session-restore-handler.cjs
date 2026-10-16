@@ -655,7 +655,10 @@ module.exports = {
       }
       var rtIds = ((rtScan && rtScan.agents) || [])
         .filter(function(a) { return a.installed && a.execution_supported; })
-        .map(function(a) { return a.id; });
+        .map(function(a) {
+          var bn = a.binary ? path.basename(a.binary) : '';
+          return bn && bn !== a.id ? a.id + ' (' + bn + ')' : a.id;
+        });
       if (rtIds.length > 0) {
         log('[AGENT_RUNTIMES] ' + rtIds.join(', ') + ' — delegate a turn: monomind agent exec --runtime <id> --prompt "..."; org roles use these as their runtime');
       }

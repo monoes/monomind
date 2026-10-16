@@ -9,6 +9,7 @@ import { listRuntimeModels } from '../orgrt/agent-models.js';
 import { reportClaudeSkip } from '../orgrt/claude-sdk.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
+import { resolveRuntimeAlias } from '../orgrt/runner-registry.js';
 
 export const modelsCommand: Command = {
   name: 'models',
@@ -27,7 +28,7 @@ export const modelsCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     applyClaudePathFlag(ctx.flags);
-    const runtime = String(ctx.flags.runtime ?? ctx.args[0] ?? '');
+    const runtime = resolveRuntimeAlias(String(ctx.flags.runtime ?? ctx.args[0] ?? ''));
     if (!runtime) {
       output.printError('--runtime <id> is required (see agent scan)');
       return { success: false, exitCode: 2 };

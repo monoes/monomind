@@ -43,6 +43,17 @@ export function runnerSpec(id: string): RunnerSpec | undefined {
   return SPEC_BY_ID.get(id as RuntimeKind);
 }
 
+/**
+ * A runtime id for a name a user types: the id itself, else the one runtime
+ * whose CLI binary has that name (`agy` → antigravity). Ambiguous binaries
+ * (`qwen`, `pi`) keep their own id, so they never reach the lookup.
+ */
+export function resolveRuntimeAlias(name: string): string {
+  if (SPEC_BY_ID.has(name as RuntimeKind)) return name;
+  const byBinary = RUNNER_SPECS.filter((s) => s.binary === name);
+  return byBinary.length === 1 ? byBinary[0].id : name;
+}
+
 export function isKnownRuntime(id: string): boolean {
   return SPEC_BY_ID.has(id as RuntimeKind);
 }

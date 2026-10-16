@@ -17,7 +17,7 @@ import { runAgentExec, type ToolSpec } from '../orgrt/agent-exec.js';
 import { parseSettingsFlag } from '../orgrt/agent-exec-settings.js';
 import { reportClaudeSkip } from '../orgrt/claude-sdk.js';
 import { ORG_EFFORT_LEVELS, type OrgEffortLevel } from '../orgrt/cost-tier.js';
-import { scanInstalled } from '../orgrt/runner-registry.js';
+import { resolveRuntimeAlias, scanInstalled } from '../orgrt/runner-registry.js';
 import { SANDBOX_FALLBACKS, SANDBOX_MODES, type SandboxMode } from '../orgrt/runner-sandbox.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -143,7 +143,7 @@ export async function runExec(
   overrides: Partial<Parameters<typeof runAgentExec>[0]>,
 ): Promise<number> {
   applyClaudePathFlag(ctx.flags);
-  const runtime = String(ctx.flags.runtime ?? '');
+  const runtime = resolveRuntimeAlias(String(ctx.flags.runtime ?? ''));
   const promptFlag = ctx.flags.prompt as string | undefined;
   const promptFile = ctx.flags['prompt-file'] as string | undefined;
 

@@ -185,7 +185,7 @@ describe('session-restore-handler', () => {
         v: 1,
         agents: [
           { id: 'codex', installed: true, execution_supported: true },
-          { id: 'antigravity', installed: true, execution_supported: true },
+          { id: 'antigravity', installed: true, execution_supported: true, binary: '/x/bin/agy' },
           { id: 'freebuff', installed: false, execution_supported: false },
           { id: 'grok', installed: true, execution_supported: false },
         ],
@@ -193,7 +193,7 @@ describe('session-restore-handler', () => {
     );
     const lines = await runCapture(makeHCtx({ CWD: tmpDir }));
     const rtLine = lines.find((l) => l.includes('[AGENT_RUNTIMES]'));
-    expect(rtLine).toContain('codex, antigravity');
+    expect(rtLine).toContain('codex, antigravity (agy)');
     expect(rtLine).not.toContain('freebuff');
     expect(rtLine).not.toContain('grok');
   });
