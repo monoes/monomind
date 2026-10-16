@@ -2,6 +2,20 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [2.24.8] — 2026-10-16
+
+### Fixed
+
+- **`org serve` now shuts down gracefully on `SIGTERM`/`SIGINT` and survives a failed broker heartbeat** instead of hanging or crashing (0d2cffe5).
+- **`init --if-missing` no longer overwrites edited `.opencode` agent/command/skill files** (870c6d67).
+- **The `control-start` memory guard is now overridable, and a dead `hooks-bridge` warning was fixed** (e81562cf).
+- **`monograph` keeps communities and properties across rebuilds and re-derives them after deletes**, instead of losing them (870b3e37).
+- **`memory`'s sql.js persist no longer overwrites other processes' writes** (ed048160).
+
+### Changed
+
+- **`@monoes/monograph` and `@monoes/memory` bumped to 2.24.1** (internal) — ship the persist/rebuild fixes above.
+
 ## [2.24.7] — 2026-10-13
 
 ### Fixed
