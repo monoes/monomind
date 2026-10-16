@@ -631,6 +631,36 @@ module.exports = {
       }
     } catch (e) { /* non-fatal */ }
 
+    // Agent runtimes — one line naming the coding-agent CLIs installed here
+    // (from `monomind agent scan --json`, cached a day in
+    // .monomind/agent-runtimes.json) so the model knows what it can hand work to.
+    try {
+      var rtFile = path.join(CWD, '.monomind', 'agent-runtimes.json');
+      var rtScan = null;
+      try {
+        if (Date.now() - fs.statSync(rtFile).mtimeMs < 86400000) rtScan = JSON.parse(fs.readFileSync(rtFile, 'utf-8'));
+      } catch (_) { /* no fresh cache */ }
+      if (!rtScan) {
+        var rtBin = require('../utils/monograph-resolve.cjs').findMonomindBin(CWD);
+        if (rtBin) {
+          var rtOut = require('child_process').execFileSync(rtBin, ['agent', 'scan', '--json'], {
+            cwd: CWD, timeout: 8000, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'],
+            env: Object.assign({}, process.env, { MONOMIND_EXEC_TREE: '' }),
+            shell: process.platform === 'win32',
+          });
+          rtScan = JSON.parse(rtOut);
+          fs.mkdirSync(path.dirname(rtFile), { recursive: true });
+          fs.writeFileSync(rtFile, JSON.stringify(rtScan), 'utf-8');
+        }
+      }
+      var rtIds = ((rtScan && rtScan.agents) || [])
+        .filter(function(a) { return a.installed && a.execution_supported; })
+        .map(function(a) { return a.id; });
+      if (rtIds.length > 0) {
+        log('[AGENT_RUNTIMES] ' + rtIds.join(', ') + ' — delegate a turn: monomind agent exec --runtime <id> --prompt "..."; org roles use these as their runtime');
+      }
+    } catch (e) { /* non-fatal — scan unavailable or timed out */ }
+
     // Monomind Control UI Status — only probe when a daemon.pid file exists,
     // meaning the daemon was intentionally started in this project. This avoids
     // printing "[CONTROL_UI] offline" noise on every session in projects that

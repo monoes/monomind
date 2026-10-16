@@ -178,6 +178,26 @@ describe('session-restore-handler', () => {
     expect(lines.find((l) => l.includes('[REGISTRY]'))).toBeUndefined();
   });
 
+  it('surfaces [AGENT_RUNTIMES] with installed, exec-supported runtimes from the scan cache', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.monomind', 'agent-runtimes.json'),
+      JSON.stringify({
+        v: 1,
+        agents: [
+          { id: 'codex', installed: true, execution_supported: true },
+          { id: 'antigravity', installed: true, execution_supported: true },
+          { id: 'freebuff', installed: false, execution_supported: false },
+          { id: 'grok', installed: true, execution_supported: false },
+        ],
+      }),
+    );
+    const lines = await runCapture(makeHCtx({ CWD: tmpDir }));
+    const rtLine = lines.find((l) => l.includes('[AGENT_RUNTIMES]'));
+    expect(rtLine).toContain('codex, antigravity');
+    expect(rtLine).not.toContain('freebuff');
+    expect(rtLine).not.toContain('grok');
+  });
+
   it('surfaces [UPDATE_AVAILABLE] when pending-update.json has from≠to', async () => {
     const updatePath = path.join(tmpDir, '.monomind', 'pending-update.json');
     fs.writeFileSync(updatePath, JSON.stringify({ from: '1.10.28', to: '1.10.29' }));
