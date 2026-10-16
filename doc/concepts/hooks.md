@@ -309,6 +309,7 @@ Confirmed read by hooks/helpers source:
 | `MONOMIND_JEV_HOOK_TIMEOUT_MS` | How long the `route` hook waits for the Jev decision model, in ms (default 1500; values above 3000 are capped at 3000, values below 100 fall back to the default) |
 | `MONOMIND_GRAPH_GATE` | Set to `off` to disable the monograph gate's one-time reminder (`.claude/helpers/utils/monograph.cjs`) |
 | `MONOMIND_MONOFENCE_GATE` | Set to `off` to disable the monofence threat-scan gate (`.claude/helpers/handlers/gates-handler.cjs`) |
+| `MONOMIND_MEMORY_PRESSURE_THRESHOLD` | Overrides the free-memory ratio below which `control-start.cjs`'s `SessionStart` hook skips spawning the control plane (default `0.10`, i.e. 10% free; set to `0` to disable the guard entirely). Invalid or negative values fall back to the default |
 
 `MONOMIND_LOG_LEVEL` (referenced elsewhere, e.g. `CLAUDE.local.md`) is **not** consumed by this hooks/helpers subsystem's source — it's read by the CLI logger, not the hook dispatch path.
 
