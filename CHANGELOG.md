@@ -2,6 +2,22 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [2.24.9] — 2026-10-16
+
+### Added
+
+- **Agent runtimes installed on this machine are now named in the session-start hook output** via a new `[AGENT_RUNTIMES]` line (97a890397).
+- **A runtime's CLI binary name (e.g. `agy`, `kimi`) is now accepted as its agent id**, so runtime aliases resolve correctly for `agent exec` and related commands (1656ea58c).
+
+### Fixed
+
+- **`doctor`'s agent registry warning now names the specific error it hit** instead of a generic message (#674, bc9914c5e).
+
+### Changed
+
+- **`CLAUDE.md` now documents a delegation rule**: run a named, installed coding agent right away via `agent exec` rather than asking first (9a4d7c039).
+- Docs and site updated for 2.24.9 (c2c21bb1b).
+
 ## [2.24.8] — 2026-10-16
 
 ### Fixed
