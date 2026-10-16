@@ -205,11 +205,11 @@ export async function checkAgentRegistry(opts: { readOnly?: boolean } = {}): Pro
           ? 'monomind init upgrade  (refreshes unedited bundled agents; add `when_to_use:` to your own agents in .claude/agents/*.md)'
           : 'Add the missing field(s) to frontmatter in .claude/agents/*.md',
     };
-  } catch {
+  } catch (err) {
     return {
       name: 'Agent Registry',
       status: 'warn',
-      message: 'Could not build/parse agent registry',
+      message: `Could not build/parse agent registry: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
