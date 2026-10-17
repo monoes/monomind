@@ -10,6 +10,7 @@ import {
 } from './agent-runner.js';
 import { maskedCommand } from './authority-mask.js';
 import { kiloVersionRefusal } from './kilo-version.js';
+import { realBinary } from './launcher-binary.js';
 import { spawnRunnerProcess } from './process-group-spawn.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import { RunnerTransportError } from './runner-transport-error.js';
@@ -56,7 +57,9 @@ export class KiloAgentRunner implements AgentRunner {
       throw new RunnerTransportError('cancelled', 'Kilo cancelled before spawning.');
     // Ambient ANTHROPIC_* keys are dropped; an explicit value in args.env still reaches the child.
     const env = { ...omitAnthropicManagedKeys(process.env), ...args.env, KILO_NO_DAEMON: '1' };
-    const bin = args.env.KILO_CLI_BIN?.trim() || process.env.KILO_CLI_BIN?.trim() || 'kilo';
+    const bin = realBinary(
+      args.env.KILO_CLI_BIN?.trim() || process.env.KILO_CLI_BIN?.trim() || 'kilo',
+    );
     const [versionBin, versionArgv] = maskedCommand(args.authorityMask, bin, ['--version']);
     let versionText: string;
     try {

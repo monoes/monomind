@@ -76,6 +76,7 @@ import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js'
 import type { TurnOutcome } from './kimicode-runner-stream.js';
 import { readUsageDelta, streamTurn, turnError } from './kimicode-runner-stream.js';
 import { NativeToolCalls } from './kimicode-runner-tools.js';
+import { realBinary } from './launcher-binary.js';
 import { createRunnerInputDir, writeRunnerInput } from './runner-inputs.js';
 import {
   buildToolProtocol,
@@ -97,7 +98,7 @@ export class KimiCodeAgentRunner implements AgentRunner {
   constructor(private kimiBin?: string) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
-    const bin = this.kimiBin || process.env.KIMI_CLI_BIN || 'kimi';
+    const bin = realBinary(this.kimiBin || process.env.KIMI_CLI_BIN || 'kimi');
     // Coder mode. Full access drops the role agent file — its `tools:`
     // allowlist is an org-role gate — so the user's default kimi agent
     // runs with its whole tool surface; the system prompt then rides on the

@@ -14,7 +14,8 @@ import {
 } from '../../src/orgrt/reporting.js';
 import { ORG_TEMPLATES, buildFromTemplate } from '../../src/orgrt/templates.js';
 import { OrgDefSchema, ORG_DIR, type BusEvent } from '../../src/orgrt/types.js';
-import { DEFAULT_CLAUDE_MODEL } from '../../src/orgrt/vercel-providers.js';
+import { roleRunSpec } from '../../src/orgrt/role-run-spec.js';
+import { defaultClaudeModel } from '../../src/orgrt/vercel-providers.js';
 import { orgCommand } from '../../src/commands/org.js';
 
 const ev = (partial: Partial<BusEvent>): BusEvent =>
@@ -240,13 +241,14 @@ describe('org command — observe surface', () => {
       const def = JSON.parse(readFileSync(join(cwd, ORG_DIR, 'blog.json'), 'utf8'));
       expect(def.goal).toBe('3 posts/week');
       expect(() => OrgDefSchema.parse(def)).not.toThrow();
-      // every role is written with an explicit model — none left to a runtime default
-      for (const role of def.roles) {
-        expect(role.adapter_config?.model, role.id).toBeTruthy();
+      // a role is pinned only when its template hints a model; the rest resolve the newest default
+      const parsed = OrgDefSchema.parse(def);
+      for (const role of parsed.roles) {
+        expect(roleRunSpec(parsed, role).model, role.id).toBeTruthy();
       }
-      expect(def.roles.find((r: { id: string }) => r.id === 'writer').adapter_config.model).toBe(
-        DEFAULT_CLAUDE_MODEL,
-      );
+      const writer = parsed.roles.find((r) => r.id === 'writer')!;
+      expect(writer.adapter_config?.model).toBeUndefined();
+      expect(roleRunSpec(parsed, writer).model).toBe(defaultClaudeModel());
       // refuses to clobber without --force
       const again = await run('create', cwd, ['blog'], { template: 'content-team' });
       expect(again?.success).toBe(false);

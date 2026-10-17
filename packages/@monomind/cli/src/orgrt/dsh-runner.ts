@@ -77,6 +77,7 @@ import {
 } from './dsh-runner-parse.js';
 import { type DshTurnOutcome, type StepBudget, streamTurn } from './dsh-runner-stream.js';
 import { classifyStderr } from './kimicode-runner.js';
+import { realBinary } from './launcher-binary.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
@@ -176,7 +177,7 @@ export class DshAgentRunner implements AgentRunner {
   }
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
-    const bin = this.dshBin || process.env.DSH_CLI_BIN || 'dsh';
+    const bin = realBinary(this.dshBin || process.env.DSH_CLI_BIN || 'dsh');
     const env = { ...omitAnthropicManagedKeys(process.env), ...args.env };
     let sessionId: string | undefined = args.resume;
     await this.checkVersion(bin, env);

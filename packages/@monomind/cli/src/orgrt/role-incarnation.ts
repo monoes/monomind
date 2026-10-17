@@ -22,6 +22,7 @@ import { effectiveToolProviders } from './skill-library.js';
 import { TaskProcesses } from './task-cancel.js';
 import { roleProviderPrefixes } from './tool-providers.js';
 import { ORG_DIR, type OrgRole } from './types.js';
+import { workerCrashNotice } from './worker-crash-notice.js';
 import { WriterPolicyEngine } from './writer-engine.js';
 
 /** Build one role incarnation: mailbox, policy, AgentRuntime, sessionOpts,
@@ -342,9 +343,7 @@ export function spawnRoleIncarnation(
                 const guidance = isContextLimit
                   ? ' This was a context-window overflow — re-dispatching the same task verbatim will fail identically. Break the work into smaller pieces (one file or section at a time) and do not paste large file contents in a single message.'
                   : '';
-                bossRt.mailbox.push(
-                  `[system] Worker "${role.id}" crashed and will not recover this run (${message}). It can no longer receive messages — stop messaging it. Reassign its outstanding work to another agent or take it on yourself.${guidance}`,
-                );
+                bossRt.mailbox.push(workerCrashNotice(role, message, guidance));
                 bus.emit({
                   type: 'audit',
                   from: running.bossRoleId,

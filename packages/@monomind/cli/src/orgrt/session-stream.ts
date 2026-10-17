@@ -2,7 +2,6 @@
 // Extracted from session-run.ts — opening one role session's runner stream:
 // the AgentRunner.run() arguments and the silent-first-pull guard.
 import { homedir } from 'node:os';
-import { join } from 'node:path';
 import type { ResolvedAccess } from './access-grant.js';
 import { fullAccessCanUseTool } from './agent-exec-access.js';
 import type { AgentMessage, AgentRunner, OrgToolDef } from './agent-runner.js';
@@ -33,6 +32,7 @@ import { gatedCanUseTool } from './session-gate.js';
 import { rolePromptFor } from './session-prompt.js';
 import type { SessionOpts } from './session-types.js';
 import { sessionTokenBudget, sessionUsdBudget } from './session-usage.js';
+import { toolSpillDirFor } from './tool-spill.js';
 
 /** How long an SDK stream may stay open with zero messages before we say so.
  *  Comfortably longer than a slow first turn, shorter than the idle watchdog's
@@ -188,11 +188,7 @@ export function sessionRunArgs(
     // makes readable to the role's file tools and role-sandbox.ts already
     // makes readable to Bash — so the path in the digest actually resolves
     // when the role decides it needs the full text.
-    toolSpillDir: join(
-      opts.orgDir ?? opts.cwd,
-      'tool-results',
-      role.id.replace(/[^a-zA-Z0-9_.-]/g, '_'),
-    ),
+    toolSpillDir: toolSpillDirFor(opts.orgDir ?? opts.cwd, role.id),
     // #365: a role whose access resolved to 'full' this session gets the
     // SAME canUseTool agent-exec.ts's `--access full` uses — every call is
     // allowed (still observed: coverEveryToolCall/ToolActivityTracker below

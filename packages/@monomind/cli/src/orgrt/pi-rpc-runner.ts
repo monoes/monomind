@@ -61,6 +61,7 @@ import {
 import { maskedCommand } from './authority-mask.js';
 import { classifyStderr } from './kimicode-runner.js';
 import { NativeToolCalls } from './kimicode-runner-tools.js';
+import { realBinary } from './launcher-binary.js';
 import { piAuthErrorFromText, piAuthPrecheck } from './pi-rpc-runner-auth.js';
 import {
   defaultSpawnPiRpc,
@@ -109,7 +110,7 @@ export class PiRpcAgentRunner implements AgentRunner {
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
     const streamPartials = args.extras?.includePartialMessages === true;
-    const bin = this.piBin || process.env.PI_CLI_BIN || 'pi';
+    const bin = realBinary(this.piBin || process.env.PI_CLI_BIN || 'pi');
     const sessionId = args.resume || randomUUID();
     const tools = new NativeToolCalls();
     // Cumulative per session, like every runner's cost_usd.

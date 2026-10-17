@@ -3,11 +3,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { roleRunSpec } from '../../packages/@monomind/cli/src/orgrt/role-run-spec.js';
 import {
   buildFromTemplate,
   ORG_TEMPLATES,
 } from '../../packages/@monomind/cli/src/orgrt/templates.js';
-import { DEFAULT_CLAUDE_MODEL } from '../../packages/@monomind/cli/src/orgrt/vercel-providers.js';
+import { checklistFindings } from '../../packages/@monomind/cli/src/orgrt/validate-checklist.js';
+import { defaultClaudeModel } from '../../packages/@monomind/cli/src/orgrt/vercel-providers.js';
 
 describe('kg-extraction template — multi-agent KG pipeline', () => {
   it('is registered in ORG_TEMPLATES', () => {
@@ -54,13 +56,14 @@ describe('advisor-orchestrator template — cost-efficient planner + workers', (
     expect(advisor?.reports_to).toBeNull();
   });
 
-  it('the advisor runs on the default model; workers run on the fast model', () => {
+  it('the advisor runs on the newest default model (unpinned); workers are pinned to the fast model', () => {
     const def = buildFromTemplate('advisor-orchestrator', 'my-advisor')!;
     const advisor = def?.roles.find((r) => r.id === 'advisor')!;
     const worker = def?.roles.find((r) => r.id === 'worker-1')!;
-    expect(advisor.adapter_config?.model).toBe(DEFAULT_CLAUDE_MODEL);
+    expect(advisor.adapter_config?.model).toBeUndefined();
+    expect(roleRunSpec(def, advisor).model).toBe(defaultClaudeModel());
     expect(worker.adapter_config?.model).toBeTruthy();
-    expect(worker.adapter_config?.model).not.toBe(advisor.adapter_config?.model);
+    expect(worker.adapter_config?.model).not.toBe(roleRunSpec(def, advisor).model);
   });
 });
 
@@ -73,13 +76,30 @@ describe('All templates — schema validity', () => {
     }
   });
 
-  it('every role of every template pins its model explicitly (latest default unless hinted)', () => {
+  it('a role pins a model only when its template hints one; every other role resolves the newest default', () => {
     for (const [name, template] of Object.entries(ORG_TEMPLATES)) {
       const def = buildFromTemplate(name, `test-${name}`)!;
       for (const role of def.roles) {
         const hint = template.roles.find((r) => r.id === role.id)?.model;
-        expect(role.adapter_config?.model, `${name}/${role.id}`).toBe(hint ?? DEFAULT_CLAUDE_MODEL);
+        expect(role.adapter_config?.model, `${name}/${role.id}`).toBe(hint);
+        expect(roleRunSpec(def, role).model, `${name}/${role.id}`).toBe(
+          hint ?? defaultClaudeModel(),
+        );
       }
+    }
+  });
+
+  it('run_config fits the roster: every role can run at once, with a real token share each', () => {
+    for (const name of Object.keys(ORG_TEMPLATES)) {
+      const def = buildFromTemplate(name, `test-${name}`)!;
+      expect(def.run_config.max_concurrent_agents, name).toBe(def.roles.length);
+      expect(def.run_config.budget_tokens, name).toBe(def.roles.length * 1_000_000);
+      const { errors, warnings } = checklistFindings(def);
+      expect(errors, name).toEqual([]);
+      expect(
+        warnings.filter((w) => /#3 |#23/.test(w)),
+        name,
+      ).toEqual([]);
     }
   });
 });

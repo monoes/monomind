@@ -40,6 +40,7 @@ import {
 } from './session-usage.js';
 import { StateDetector } from './state-detector.js';
 import { linkAbort } from './task-cancel.js';
+import { toolSpillDirFor } from './tool-spill.js';
 import type { ToolResultEventData } from './types.js';
 import { assertWriterBoundary } from './writer-boundary.js';
 
@@ -130,6 +131,8 @@ export async function runOneSession(
   policy.noteSessionId(resume);
   if (opts.orgDir && opts.def && sectionsSurface(opts.def).enabled)
     policy.noteOwnMailDir(mailDirFor(opts.orgDir, role.id));
+  // The digest of a large tool result points at its saved copy: the role's own folder is readable.
+  policy.noteOwnToolSpillDir(toolSpillDirFor(opts.orgDir ?? opts.cwd, role.id));
   let hitTurnLimit = false;
   let contextLimitFired = false;
   // #budget-realtime: real tokens already accounted for the message CURRENTLY

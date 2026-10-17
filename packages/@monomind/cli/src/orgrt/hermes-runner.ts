@@ -129,6 +129,7 @@ import {
 } from './agent-runner.js';
 import { maskedCommand } from './authority-mask.js';
 import { classifyStderr } from './kimicode-runner.js';
+import { realBinary } from './launcher-binary.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import { createRunnerInputDir, writeRunnerInput } from './runner-inputs.js';
 import {
@@ -252,7 +253,7 @@ export class HermesAgentRunner implements AgentRunner {
   }
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
-    const bin = this.hermesBin || process.env.HERMES_CLI_BIN || 'hermes';
+    const bin = realBinary(this.hermesBin || process.env.HERMES_CLI_BIN || 'hermes');
     const tmpDir = createRunnerInputDir('hermes', args);
     const promptFile = path.join(tmpDir, 'prompt.txt');
 

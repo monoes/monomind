@@ -420,6 +420,21 @@ export class PolicyEngine {
     return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
   }
 
+  /** The directory the runner spills this role's large tool results into
+   *  (`<orgDir>/tool-results/<role>/`, tool-spill.ts). The digest in the transcript points there, so
+   *  the role's own folder is readable whatever its fileRead scope is; no other role's is. */
+  private ownToolSpillDir: string | undefined;
+
+  noteOwnToolSpillDir(dir: string | undefined): void {
+    this.ownToolSpillDir = dir ? realPath(dir) : undefined;
+  }
+
+  private isOwnToolSpill(real: string): boolean {
+    if (!this.ownToolSpillDir) return false;
+    const rel = relative(this.ownToolSpillDir, real);
+    return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+  }
+
   /** Why a file-tool call on `p` is refused, or null when it may proceed. */
   private filePathDenial(tool: string, p: string, globs: string[]): string | null {
     // SEC: compare REAL paths — a symlink inside the scope pointing outside
@@ -432,6 +447,8 @@ export class PolicyEngine {
     if (READ_TOOLS.has(tool) && this.isOwnToolOutput(real)) return null;
     // The full text of a long message digested for this role: readable, never writable.
     if (READ_TOOLS.has(tool) && this.isOwnMailDigest(real)) return null;
+    // The full text of a large tool result the runner spilled for this role: readable, never writable.
+    if (READ_TOOLS.has(tool) && this.isOwnToolSpill(real)) return null;
     // #496: on a case-insensitive filesystem `.SSH`, `.GIT` and `Site` are
     // `.ssh`, `.git` and `site`. Deny checks compare with `fold.deny`
     // (always fully folded — policy-paths.ts's SegmentFold). Grants compare

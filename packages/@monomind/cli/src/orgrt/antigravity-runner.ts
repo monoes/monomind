@@ -67,6 +67,7 @@
 import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
 import { streamTurn, turnError } from './antigravity-runner-stream.js';
 import type { TurnOutcome } from './antigravity-runner-types.js';
+import { realBinary } from './launcher-binary.js';
 import {
   addUsage,
   BUDGET_STOP_SUBTYPE,
@@ -92,7 +93,7 @@ export class AntigravityAgentRunner implements AgentRunner {
   constructor(private agyBin?: string) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
-    const bin = this.agyBin || process.env.ANTIGRAVITY_CLI_BIN || 'agy';
+    const bin = realBinary(this.agyBin || process.env.ANTIGRAVITY_CLI_BIN || 'agy');
     let conversationId: string | undefined = args.resume;
 
     try {

@@ -94,6 +94,7 @@ import { computeSafeChunk } from './antigravity-runner.js';
 // text in isolation, so reuse it exactly as antigravity-runner.ts does
 // rather than re-deriving the same fence-boundary logic here.
 import { maskedCommand } from './authority-mask.js';
+import { realBinary } from './launcher-binary.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   defaultSpawnQwenRpc,
@@ -133,7 +134,7 @@ export class QwenRpcAgentRunner implements AgentRunner {
     // chat-bus/state-detector, regardless of which runner backs the role;
     // agent-exec.ts sets this for every runtime, session.ts never does.
     const streamPartials = args.extras?.includePartialMessages === true;
-    const bin = this.qwenBin || process.env.QWEN_CLI_BIN || 'qwen';
+    const bin = realBinary(this.qwenBin || process.env.QWEN_CLI_BIN || 'qwen');
 
     const cliArgs = ['--input-format', 'stream-json', '--output-format', 'stream-json', '--yolo'];
     if (args.model) cliArgs.push('-m', args.model);

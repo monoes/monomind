@@ -61,6 +61,13 @@ export const TOOL_RESULT_MAX = 2048;
  *  carry a stack trace where a mail body only has to carry a subject. */
 export const TOOL_DIGEST_CHARS = 1536;
 
+/** Where a role's spilled tool results live: `<base>/tool-results/<role>/`. The
+ *  session builds the runner's spill hook from it and tells the role's policy it
+ *  is the role's own, so the full text a digest points to is always readable. */
+export function toolSpillDirFor(base: string, roleId: string): string {
+  return join(base, 'tool-results', roleId.replace(/[^a-zA-Z0-9_.-]/g, '_'));
+}
+
 /** Tools whose output is read top-down — the head is the useful end. Everything
  *  else is treated as command-shaped (tail-weighted), because Bash is 76% of
  *  the calls and an unknown tool is far more likely to be command-shaped. */

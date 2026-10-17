@@ -92,20 +92,20 @@ Write the Org Runtime role shape (`RoleSchema` in `packages/@monomind/cli/src/or
 ADAPTER / MODEL
 ───────────────
 Available Claude models:
-  1. claude-sonnet-5-5          → balanced capability + speed (Recommended)
+  1. newest Sonnet (default)    → balanced capability + speed (Recommended; not pinned, resolved when the org runs: claude-sonnet-5-5 today)
   2. claude-opus-5-5            → high capability, slower
   3. claude-haiku-5-5           → fastest, lowest cost
 
 Enter choice [1]:
 ```
 
-Set `adapter_config.model` from selection. Default: the newest Sonnet, `claude-sonnet-5-5` today (the org runtime default, `defaultClaudeModel()`, resolved when the org runs; `monomind agent models claude` lists the current ids).
+Set `adapter_config.model` only when the user picks 2 or 3 (a pin goes stale, and `org validate` warns when it is older than the newest in its family); choice 1 writes no model, so the role runs the newest Sonnet whenever the org runs. `monomind agent models claude` lists the current ids.
 
 Append to `.monomind/orgs/<org_name>.json` roles array using jq:
 
 ```bash
-# model from adapter picker (default: the newest Sonnet, claude-sonnet-5-5)
-adapter_model="${selected_model:-claude-sonnet-5-5}"
+# model from adapter picker (choice 1 / empty = unpinned: the newest Sonnet, resolved when the org runs)
+adapter_model="${selected_model:-}"
 
 tmp="${orgFile}.tmp"
 jq --arg id "$agent_id" \
@@ -117,9 +117,9 @@ jq --arg id "$agent_id" \
    '.roles += [{"id":$id,"title":$title,"type":$type,
      "responsibilities":$resp,
      "reports_to":$reports_to,
-     "adapter_config":{"model":$model,"max_tokens":8192}}]' \
+     "adapter_config":({"max_tokens":8192} + (if $model != "" then {"model":$model} else {} end))}]' \
    "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
-echo "Hired: $title (${role_type:-specialist}) → adapter: $adapter_model"
+echo "Hired: $title (${role_type:-specialist}) → adapter: ${adapter_model:-newest Sonnet (resolved when the org runs)}"
 npx -y monomind@latest org validate "$org_name"
 ```
 

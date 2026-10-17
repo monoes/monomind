@@ -85,6 +85,7 @@ import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js'
 import type { TurnOutcome } from './grok-runner-stream.js';
 import { streamTurn, turnError } from './grok-runner-stream.js';
 import { NativeToolCalls } from './kimicode-runner-tools.js';
+import { realBinary } from './launcher-binary.js';
 import {
   buildToolProtocol,
   formatToolResults,
@@ -99,7 +100,7 @@ export class GrokAgentRunner implements AgentRunner {
   constructor(private grokBin?: string) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
-    const bin = this.grokBin || process.env.GROK_CLI_BIN || 'grok';
+    const bin = realBinary(this.grokBin || process.env.GROK_CLI_BIN || 'grok');
     let sessionId: string | undefined = args.resume;
     const tools = new NativeToolCalls();
     // grok's total_cost_usd is per invocation (one `grok -p` process); the

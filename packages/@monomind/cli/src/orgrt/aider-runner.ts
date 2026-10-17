@@ -49,6 +49,7 @@ import {
 } from './aider-runner-stream.js';
 import { computeSafeChunk } from './antigravity-runner-stream.js';
 import type { OrgEffortLevel } from './cost-tier.js';
+import { realBinary } from './launcher-binary.js';
 import { withVendorRetries } from './provider-limit.js';
 import {
   buildToolProtocol,
@@ -91,7 +92,7 @@ export class AiderAgentRunner implements AgentRunner {
   constructor(private opts: AiderRunnerOptions = {}) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
-    const bin = this.opts.aiderBin || process.env.AIDER_CLI_BIN || 'aider';
+    const bin = realBinary(this.opts.aiderBin || process.env.AIDER_CLI_BIN || 'aider');
     // #502 review: an org role keeps its conversations under its private
     // TMPDIR, not in the shared ~/.monomind/aider-sessions.
     const stateDir =

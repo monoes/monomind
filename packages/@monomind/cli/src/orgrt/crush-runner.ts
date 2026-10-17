@@ -84,6 +84,7 @@ import {
 import { maskedCommand } from './authority-mask.js';
 import { RUNNER_DATA_DIR_ENV } from './documents/runtime-isolation.js';
 import { classifyStderr } from './kimicode-runner.js';
+import { realBinary } from './launcher-binary.js';
 import { spawnRunnerProcess } from './process-group-spawn.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
@@ -160,7 +161,7 @@ export class CrushAgentRunner implements AgentRunner {
   }
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
-    const bin = this.crushBin || process.env.CRUSH_CLI_BIN || 'crush';
+    const bin = realBinary(this.crushBin || process.env.CRUSH_CLI_BIN || 'crush');
 
     let proxy: UsageProxyServer | undefined;
     if (this.usageProxyOpts) {

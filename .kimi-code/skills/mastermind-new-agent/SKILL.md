@@ -23,7 +23,7 @@ It writes one role in the Org Runtime shape (`RoleSchema` in `packages/@monomind
 - `title`: display title for the agent (required for create)
 - `responsibilities`: what the role does, `;`-separated (3–6 specific duties — this is the role's briefing and what `assignee: "auto"` matches tasks against)
 - `runtime`: claude | codex | antigravity | kimicode | opencode | vercel (default: claude — leave unset for the default Claude runtime)
-- `model`: model identifier (default: the latest model for the runtime, see below)
+- `model`: model identifier (default: none — the role runs the newest model for its runtime, resolved when the org runs; see below)
 - `max_tokens`: optional max output tokens per model call (omit to inherit)
 - `reports_to`: parent role id in the hierarchy (required — an org has exactly one root role, and that is the boss)
 - `skills`: comma-separated org-library skill names pinned into the prompt (1–3; found in Step 1.5)
@@ -35,7 +35,7 @@ It writes one role in the Org Runtime shape (`RoleSchema` in `packages/@monomind
 
 ## Runtimes and their latest models
 
-Every role gets an explicit `adapter_config.model` — never leave it to a runtime default, which moves when a release changes it. Unless the user asked for a specific model, use the latest one for the role's runtime (`resolveModel()` in `orgrt/session.ts` is the source of truth; if it disagrees with this table, it wins):
+Leave `adapter_config.model` out unless the user asked for an exact model: an unpinned role runs the newest model of its runtime's default family, resolved when the org runs (`latest-models.ts`), so it is never older than the newest, while a pin goes stale (`org validate` warns about an older pin). The table is what an unpinned role resolves to today (`resolveModel()` in `orgrt/session-prompt.ts` is the source of truth; if it disagrees with this table, it wins). Claude Fable and GPT Astra models are never assigned or routed; the role is rejected if one is named:
 
 | `runtime` | Latest model |
 |-----------|--------------|
@@ -115,18 +115,11 @@ done
 [ -z "$reports_to" ] && { echo "ERROR: --reports-to required (the org already has its root role)."; exit 1; }
 
 runtimeVal="${runtime:-claude}"
-modelId="${model}"
-if [ -z "$modelId" ]; then
-  case "$runtimeVal" in
-    claude)       modelId="claude-sonnet-5-5" ;;
-    codex)        modelId="gpt-5.6-terra" ;;
-    antigravity)  modelId="gemini-3.8-flash-high" ;;
-    kimicode)     modelId="kimi-code/k3" ;;
-    opencode)     modelId="glm-5.2" ;;
-    vercel)       modelId="gpt-5.5" ;;
-    *) echo "ERROR: unknown runtime '$runtimeVal' (see --action list-runtimes)."; exit 1 ;;
-  esac
-fi
+modelId="${model}"   # empty = unpinned: the runtime resolves the newest default when the org runs
+case "$runtimeVal" in
+  claude|codex|antigravity|kimicode|opencode|vercel) ;;
+  *) echo "ERROR: unknown runtime '$runtimeVal' (see --action list-runtimes)."; exit 1 ;;
+esac
 
 [ -z "$agent_id" ] && agent_id=$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//')
 
@@ -142,7 +135,7 @@ echo "PREVIEW — new role to be added to org '$org_name'"
 echo "────────────────────────────────────────────────────────"
 echo "  ID:               $agent_id"
 echo "  Title:            $title"
-echo "  Runtime / model:  $runtimeVal / $modelId"
+echo "  Runtime / model:  $runtimeVal / ${modelId:-(newest default, resolved when the org runs)}"
 echo "  Reports to:       $reports_to"
 echo "  Responsibilities: ${responsibilities:-(none — add some: they are the role's briefing)}"
 echo "  Skills:           ${skills:-(none)}"
@@ -176,7 +169,7 @@ jq --arg id "$agent_id" \
    --argjson pool "$(list "$skill_pool" ',')" \
   '.roles += [
     {id: $id, title: $title, type: "specialist", reports_to: $rt, responsibilities: $resp,
-     adapter_config: ({model: $model} + (if $maxTok != "" then {max_tokens: ($maxTok | tonumber)} else {} end))}
+     adapter_config: ((if $model != "" then {model: $model} else {} end) + (if $maxTok != "" then {max_tokens: ($maxTok | tonumber)} else {} end))}
     + (if $runtime != "claude" then {runtime: $runtime} else {} end)
     + (if ($skills | length) > 0 then {skills: $skills} else {} end)
     + (if ($pool | length) > 0 then {skill_pool: $pool} else {} end)
@@ -195,7 +188,7 @@ rm -f "${orgFile}.bak"
 
 echo "Role created: $agent_id"
 echo "  Title:    $title"
-echo "  Runtime:  $runtimeVal / $modelId"
+echo "  Runtime:  $runtimeVal / ${modelId:-(newest default)}"
 echo "  Reports:  $reports_to"
 echo "  Skills:   ${skills:-(none)}  pool: ${skill_pool:-(none)}"
 echo ""

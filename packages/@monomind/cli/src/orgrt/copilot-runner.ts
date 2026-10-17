@@ -93,6 +93,7 @@ import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js'
 import { STARTUP_GRACE_MS, streamTurn, turnError } from './copilot-runner-stream.js';
 import type { TurnOutcome } from './copilot-runner-types.js';
 import { NativeToolCalls } from './kimicode-runner-tools.js';
+import { realBinary } from './launcher-binary.js';
 import {
   buildToolProtocol,
   formatToolResults,
@@ -107,7 +108,7 @@ export class CopilotAgentRunner implements AgentRunner {
   constructor(private copilotBin?: string) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
-    const bin = this.copilotBin || process.env.COPILOT_CLI_BIN || 'copilot';
+    const bin = realBinary(this.copilotBin || process.env.COPILOT_CLI_BIN || 'copilot');
     // copilot's closing `result` line names the session; later invocations
     // `--resume=<id>` it, so only a fresh session needs the system prompt
     // and tool protocol re-sent.

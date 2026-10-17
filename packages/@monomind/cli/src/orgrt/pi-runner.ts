@@ -45,6 +45,7 @@
 import { randomUUID } from 'node:crypto';
 import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
 import { NativeToolCalls } from './kimicode-runner-tools.js';
+import { realBinary } from './launcher-binary.js';
 import { PiRunTracker, PiTextStream, PiTurnBudget } from './pi-runner-state.js';
 import type { TurnOutcome } from './pi-runner-stream.js';
 import { STARTUP_GRACE_MS, streamTurn, turnError } from './pi-runner-stream.js';
@@ -68,7 +69,7 @@ export class PiAgentRunner implements AgentRunner {
   constructor(private piBin?: string) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
-    const bin = this.piBin || process.env.PI_CLI_BIN || 'pi';
+    const bin = realBinary(this.piBin || process.env.PI_CLI_BIN || 'pi');
     // pi 0.87 `--session-id <id>` opens that exact session or creates it, in
     // pi's own store — no directory in the user's project. The runner picks
     // the id up front (AgentRunArgs.resume seeds it), so every tool round

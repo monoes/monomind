@@ -59,6 +59,7 @@
  */
 import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
 import { NativeToolCalls } from './kimicode-runner-tools.js';
+import { realBinary } from './launcher-binary.js';
 import type { TurnOutcome } from './qwen-runner-parse.js';
 import { STARTUP_GRACE_MS, streamTurn, turnError } from './qwen-runner-stream.js';
 import {
@@ -75,7 +76,7 @@ export class QwenAgentRunner implements AgentRunner {
   constructor(private qwenBin?: string) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
-    const bin = this.qwenBin || process.env.QWEN_CLI_BIN || 'qwen';
+    const bin = realBinary(this.qwenBin || process.env.QWEN_CLI_BIN || 'qwen');
     let sessionId: string | undefined = args.resume;
     const tools = new NativeToolCalls();
 

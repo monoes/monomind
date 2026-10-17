@@ -8,8 +8,7 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
-import { resolveRoleCostTier } from '../orgrt/cost-tier.js';
-import { resolveModel } from '../orgrt/session.js';
+import { roleRunSpec } from '../orgrt/role-run-spec.js';
 import { OrgDefSchema } from '../orgrt/types.js';
 import { output } from '../output.js';
 import { MODEL_PRICING } from '../pricing/model-pricing.js';
@@ -67,9 +66,10 @@ export async function printDryRun(
       ),
     );
     for (const role of sessionRoles) {
+      const spec = roleRunSpec(def, role);
       log(
         output.info(
-          `\n─── ${role.id} (${role.title || role.type})${role.adapter_config?.model ? ` [${role.adapter_config.model}]` : ''} ───`,
+          `\n─── ${role.id} (${role.title || role.type}) [${spec.model}${spec.effort ? ` · ${spec.effort}` : ''}] ───`,
         ),
       );
       log(
@@ -223,19 +223,10 @@ export async function printCostEstimate(
     const defaultMaxTurns = def.run_config.max_turns_per_message ?? 30;
     let _totalTokens = 0;
     const perRoleRows = def.roles.map((r) => {
-      // Mirror the actual runtime's model resolution (session.ts resolveModel)
-      // instead of a hardcoded 'claude-sonnet-5' fallback — otherwise every
-      // role without an explicit adapter_config.model (kimicode, antigravity,
-      // vercel roles relying on their runtime default) is mislabeled here.
-      // ADR-O001 D8: fold the role's cost tier in, at the same precedence the
-      // runtime uses (explicit model > tier > runtime/vendor default) — an
-      // estimate that ignored the tier would quote the untiered price of a run
-      // that is about to cost ~3x less.
-      const model = String(
-        r.adapter_config?.model ??
-          resolveRoleCostTier({ role: r, def })?.model ??
-          resolveModel(r, r.runtime ?? def.runtime, r.provider?.vendor),
-      );
+      // The model the runtime will really use (roleRunSpec mirrors session-run.ts):
+      // explicit pin > cost tier > runtime/vendor default — an estimate that ignored
+      // the tier would quote the untiered price of a run that is about to cost ~3x less.
+      const { model } = roleRunSpec(def, r);
       const rate = userRates[model] ?? MODEL_RATE_PER_1M[model] ?? DEFAULT_RATE_PER_1M;
       const roleTurns = Math.min(r.max_turns_per_message ?? defaultMaxTurns, ESTIMATE_TURNS_CAP);
       const tokens = roleTurns * AVG_TOKENS_PER_TURN;

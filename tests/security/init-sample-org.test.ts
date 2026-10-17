@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { roleRunSpec } from '../../packages/@monomind/cli/src/orgrt/role-run-spec.js';
 
 describe('C5 — init emits a runnable sample org', () => {
   let tmpDir: string;
@@ -51,9 +52,9 @@ describe('C5 — init emits a runnable sample org', () => {
     expect(parsed.goal).toBeTruthy();
     expect(parsed.run_config).toBeDefined();
     expect(parsed.status).toBe('stopped');
-    // Every role pins its model explicitly rather than inheriting a runtime default
+    // Every role resolves a model: a pin only where the template hints one, else the newest default
     for (const role of parsed.roles) {
-      expect(role.adapter_config?.model, role.id).toBeTruthy();
+      expect(roleRunSpec(parsed, role).model, role.id).toBeTruthy();
     }
   });
 

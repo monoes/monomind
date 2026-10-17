@@ -5,14 +5,14 @@
 
 import { latestModel } from '../latest-models.js';
 import { DEFAULT_MAX_TURNS_PER_MESSAGE, type OrgDef, OrgDefSchema } from './types.js';
-import { defaultClaudeModel } from './vercel-providers.js';
 
 // Per-role model hints keep scheduled-org economics sane: coordinators and
-// executors run on the org runtime default (defaultClaudeModel()) since they
-// synthesize and decide; verification and mechanical roles run on Haiku — the
-// dogfooded release-desk run showed review/QA roles spend a third of the
-// tokens for checklist-shaped work. Every built role pins its model explicitly
-// (see buildFromTemplate) so a created org never drifts with a later default.
+// executors run on the org runtime default (the newest Sonnet, resolved when the
+// org runs) since they synthesize and decide; verification and mechanical roles
+// are pinned to the newest Haiku known at creation — the dogfooded release-desk
+// run showed review/QA roles spend a third of the tokens for checklist-shaped
+// work. Only that hint is pinned (see buildFromTemplate): an unpinned role is
+// never older than the newest Sonnet, and `org validate` warns when a pin is.
 const fastModel = (): string => latestModel('claude', 'haiku');
 
 interface TemplateRole {
@@ -261,14 +261,18 @@ export function buildFromTemplate(
     status: 'stopped',
     schedule: null,
     run_config: {
-      max_concurrent_agents: 4,
-      budget_tokens: 1_000_000,
+      // Every role can run at once, and the budget is split evenly across roles, so a
+      // role that browses or re-reads files needs a share of its own (`org validate` #3, #23).
+      max_concurrent_agents: t.roles.length,
+      budget_tokens: t.roles.length * 1_000_000,
       memory_namespace: `org:${orgName}`,
       max_turns_per_message: DEFAULT_MAX_TURNS_PER_MESSAGE,
     },
+    // Only a template's own model hint is pinned; every other role resolves the newest
+    // default when it runs, so a created org never runs an older model than it could.
     roles: t.roles.map(({ model, ...r }) => ({
       ...r,
-      adapter_config: { model: model ?? defaultClaudeModel() },
+      ...(model ? { adapter_config: { model } } : {}),
     })),
   });
 }

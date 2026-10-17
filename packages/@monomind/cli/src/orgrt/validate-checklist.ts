@@ -18,6 +18,7 @@ import { sectionsSurface } from './documents/surface.js';
 import { outdatedModelWarnings, validateOrgModels } from './org-model-guard.js';
 import { effectiveRoleRuntime } from './runner-specs.js';
 import { type OrgDef, OrgDefSchema } from './types.js';
+import { runDefectWarnings } from './validate-run-defects.js';
 import { selectionWarnings } from './validate-selection.js';
 
 type OrgRole = OrgDef['roles'][number];
@@ -243,6 +244,8 @@ export function checklistFindings(def: OrgDef): ChecklistFindings {
 
   // #19 to #21 structure that the measured results say fits the work badly.
   warnings.push(...selectionWarnings(def, sectionsOn));
+  // #22 to #24 defects that cost a real run before anything said so.
+  warnings.push(...runDefectWarnings(def, agents));
 
   return { errors, warnings };
 }

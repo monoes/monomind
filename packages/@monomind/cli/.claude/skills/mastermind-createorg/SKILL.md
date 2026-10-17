@@ -21,7 +21,7 @@ The Org Runtime (`packages/@monomind/cli/src/orgrt/`) is a Node daemon, not a Ta
 - `roles_desc`: optional explicit role list from user (e.g. "boss, content writer, reviewer, marketer, designer")
 - `schedule`: optional schedule string in daemon format — `"<N>s"`, `"<N>m"`, or `"<N>h"` (e.g. `"30m"`, `"2h"`). When provided, the org is picked up by `monomind org serve` on its own interval; omit for a one-shot `monomind org run`.
 - `max_run`: optional, same format as `schedule`. See the run_config note below — always set it for a scheduled org.
-- `budget_tokens`: optional total token budget for the org run (default 1,000,000 — split evenly across roles by the daemon)
+- `budget_tokens`: optional total token budget for the org run (default 1,000,000 × the number of roles — the daemon splits it evenly across roles, and a role that browses or re-reads large files needs about 1M of its own; `org validate` #23 flags less)
 - `max_run`: optional wall-clock bound on ONE scheduled cycle, same format as `schedule` (`"90m"`, `"3h"`). Defaults to the schedule interval. Set it whenever the org is scheduled: a cycle that hits this bound is force-stopped with only a 60s drain, so it should exceed how long the work actually takes, not how often you want it to run. Overrunning the interval is safe — the missed tick fires the moment the run ends rather than waiting for the next boundary.
 - `mode`: auto | confirm
 - `session_id`: session ID passed by command wrapper (snake_case input)
@@ -133,10 +133,10 @@ At run time each task dispatch names the `skill_pool` skills that fit that task,
 
 ## Step 2.4 — Per-Role Model and Optional Settings
 
-**`adapter_config.model` — REQUIRED on every role.** Always write an explicit model; never leave a role to inherit a runtime default. A role without one silently moves to whatever model a later release makes the default, and the Step 4 MODELS table can't show what the role will really run on.
+**Models are the newest of their family, resolved when the org runs — do not pin them.** Leave `adapter_config.model` out: a role then runs the newest default for its runtime (Sonnet on claude, Terra on codex, Flash on antigravity; `latest-models.ts`) at medium effort, and it never runs an older model than exists. A pin goes stale, and `org validate` warns when a pinned model is older than the newest in its family. Pin a model only when the user names an exact one. (`org validate` may still print `#10 no explicit model — pin one`; that advice predates this rule, ignore it.) The Step 4 plan shows what each role will resolve to, the same as the role headers of `monomind org run <org> --dry-run`.
 
-- If the user named or clearly implied a model for a role ("the researcher should use Opus" → the newest Opus, `"claude-opus-5-5"` today), use it.
-- Otherwise set the **latest model for that role's runtime/vendor**:
+- If the user named an exact model for a role ("pin the researcher to claude-opus-5-5"), pin it. If the user only named a family ("the researcher should use Opus"), do not pin: assign the built-in `standard` tier so the role follows the newest Opus: `"cost_tiers": {"roles": {"<role id>": {"tier": "standard", "effort": "medium"}}}` (built-in tiers: `standard` = newest Opus, `economy` = newest Sonnet, `budget` = newest Haiku).
+- Otherwise write no model. For reference, this is what an unpinned role resolves to (the runtime computes it; you do not write it):
   - Claude runtime (the default — no `provider`/`runtime`, or `provider.kind` `subscription` / `api-key`): **`"claude-sonnet-5-5"`** — the newest Sonnet, the org runtime default (`defaultClaudeModel()` in `orgrt/vercel-providers.ts`, resolved by `latest-models.ts`).
   - Any other runtime or vendor: use the value the runtime itself falls back to, read from the installed CLI package rather than from memory — `VENDOR_DEFAULTS[vendor]` (when the role has `provider.vendor`) or the `runtime` switch in `resolveModel()` (`orgrt/session.ts`), and `VERCEL_PROVIDERS[vendor].defaultModel` (`orgrt/vercel-providers.ts`). Source files live under `packages/@monomind/cli/src/orgrt/` in the source repository; in an installed package read `dist/src/orgrt/session.js` and `dist/src/orgrt/vercel-providers.js`. At this release those resolve to:
 
@@ -151,7 +151,7 @@ At run time each task dispatch names the `skill_pool` skills that fit that task,
     | vendor `glm` / `google` / `xai` / `deepseek` | `glm-5.2` / `gemini-3.1-pro` / `grok-4.5` / `deepseek-chat` |
 
     This table is the floor, not the answer: the runtime resolves the newest model of each family when it runs (`monomind agent models <runtime>` lists what a runtime offers right now), and a model is never older than the newest known one. `org validate` warns about a pin older than the newest in its family. If the source you read disagrees with this table, the source wins. For vendor `openai-compatible` there is no default (it is `''`) — ask the user for the model id.
-- A role may deliberately run a different current model than its runtime's latest when that fits the role (e.g. `claude-opus-5-5` for a planner, `claude-haiku-5-5` for a checklist-style reviewer, as the `org create` templates do) — still an explicit value, and still a model from the current family, never a superseded id. Claude Fable and GPT Astra models are never assigned or routed: `org validate` and `org run` reject any role or cost tier that names one, so never choose one, even as "the most capable".
+- A role may run a different model than its runtime's default when that fits the role (an Opus planner, a Haiku checklist reviewer): use the built-in tiers above so it stays the newest of its family. Claude Fable and GPT Astra models are never assigned or routed: `org validate` and `org run` reject any role or cost tier that names one, so never choose one, even as "the most capable".
 
 For any role that needs non-default behavior, also set (all optional — omit to inherit defaults):
 
@@ -166,9 +166,12 @@ For any role that needs non-default behavior, also set (all optional — omit to
 - `policy`: `{ allowTools?, denyTools?, fileWrite?, fileRead?, webAllow?, autoApproveTools?, maxTokens? }` — leave the whole object unset for a role that doesn't need it (most roles). But `webAllow` unset/empty means **no web access at all**, and Bash/WebFetch/WebSearch/`org_complete` pause for human approval by default on every call — that's a restriction, not a neutral default, so don't leave it unset for a role whose responsibilities clearly require it (e.g. a role tasked with "gather headlines from news sources" needs `webAllow` populated, not omitted). Set proactively, at creation time, for any role whose stated responsibilities need it:
   - `fileWrite`/`fileRead` entries: a plain path with no glob characters (`*`, `?`, `[`, `{`), e.g. `"{{org_root}}/site"` (placeholders expand first) or `"reports"`, grants that directory **and everything beneath it**; an entry with glob characters matches only what the glob says. Relative entries resolve against the org workdir.
   - `webAllow: ["*"]` (or specific domains) for a role that does WebSearch/WebFetch as part of its job — an empty/unset `webAllow` silently blocks the exact task you just assigned it.
+  - `fileRead`/`fileWrite` must list every file the role reads or writes, including files other roles write for it (a scorer that reads `red-team.md` needs that file listed, and a role that must re-read its own output folder needs the folder). The runtime already lets a role read its own saved tool results and its own mail digests; nothing else outside the list.
+  - `denyTools: ["Agent", "Task"]` on any role that must not launch subagents or choose models for them (an org whose seats are pinned to vendors needs this on the lead). A denied tool is not listed in the role's briefing, so say in its responsibilities which common tools it lacks ("Bash is not available; use Read and Write"), or it tries them first and is refused.
+  - `antigravity` has no OS sandbox: `fileRead`/`fileWrite` on an antigravity role are a request to the model, not enforced (`org validate` #24).
   - `autoApproveTools: [...]` — tool/action names this role may use without pausing for a human approval, even though they're normally on the sensitive-actions list (`Bash`, `WebFetch`, `WebSearch`, `org_complete`). **Mandatory, not optional, for any org with a `schedule` set** (an unattended/scheduled org): a role that pauses on `WebSearch` or `org_complete` waiting for a human who isn't there to click approve will deadlock forever on every scheduled run, repeatedly re-asking through both `ask_human` and `org_gate` with nothing to show for it. Grant every tool a scheduled org's roles routinely need — including `org_complete` for the boss role — rather than leaving the default human-approval gate in place for automation that's supposed to run with nobody watching.
 
-Apart from `adapter_config.model` (always set, per above), do not invent values for these — only populate `provider`, `runtime`, or `policy` when the user actually specified or clearly implied it, or when a role's responsibilities require it (the `webAllow`/`autoApproveTools` cases above).
+Do not invent values for these — only populate `provider`, `runtime`, or `policy` when the user actually specified or clearly implied it, or when a role's responsibilities require it (the `webAllow`/`autoApproveTools` cases above).
 
 ---
 
@@ -183,10 +186,10 @@ Produce an org config object matching `OrgDefSchema` exactly:
   "status": "stopped",
   "schedule": "<'<N>m' | '<N>h' | '<N>s' from Step 0 input, or null for a one-shot org>",
   "run_config": {
-    "max_concurrent_agents": 4,
-    "budget_tokens": "<budget_tokens input, or 1000000 default>",
+    "max_concurrent_agents": "<number of roles — an idle worker keeps its slot>",
+    "budget_tokens": "<budget_tokens input, or 1000000 × the number of roles>",
     "memory_namespace": "org:<org_name>",
-    "max_turns_per_message": 30,
+    "max_turns_per_message": 80,
     "max_run": "<how long ONE scheduled cycle may run, e.g. '90m'. Omit only for a one-shot org (no schedule).>"
   },
   "roles": [
@@ -197,8 +200,7 @@ Produce an org config object matching `OrgDefSchema` exactly:
       "reports_to": "<role id, or null for the single boss>",
       "responsibilities": ["<3-6 specific duties — this text becomes part of the agent's role briefing>"],
       "skills": ["<optional: 1-3 library skills pinned into the briefing — Step 2.3>"],
-      "skill_pool": ["<optional: skills or tag:<tag> the role may load mid-run — Step 2.3>"],
-      "adapter_config": { "model": "<explicit model from Step 2.4, e.g. claude-sonnet-5-5>" }
+      "skill_pool": ["<optional: skills or tag:<tag> the role may load mid-run — Step 2.3>"]
     }
   ]
 }
@@ -206,7 +208,9 @@ Produce an org config object matching `OrgDefSchema` exactly:
 
 `status` starts `"stopped"` regardless of whether `schedule` is set — the org does not run until `monomind org run <name>` (one-shot) or `monomind org serve` (picks up any org whose `schedule` is set) is invoked.
 
-Every role carries `adapter_config.model` (Step 2.4). Only include `provider`, `policy`, or `ui` on a role when Step 2.3/2.4 populated them for it — leave them out entirely rather than writing empty objects.
+Only include `adapter_config` (a pinned model the user named), `provider`, `policy`, or `ui` on a role when Step 2.3/2.4 populated them for it — leave them out entirely rather than writing empty objects.
+
+Leave `run_config.completion_evidence` out unless the org's roles commit code: it makes `org_task_done` demand a commit sha, which a role with no Bash cannot produce, so every task of a research org is refused and the lead has to cancel them by hand (`org validate` #22). Do not copy it from a code org such as `release`.
 
 ---
 
@@ -224,14 +228,14 @@ MODELS  ← review this first
 ────────────────────────────────────────────────────
   ROLE                MODEL
   ──────────────────  ────────────────────────────
-  boss                claude-sonnet-5
-  content-writer      claude-sonnet-5
-  content-reviewer    claude-sonnet-5
+  boss                claude-sonnet-5-5 · medium
+  content-writer      claude-sonnet-5-5 · medium
+  content-reviewer    claude-sonnet-5-5 · medium
 
-  Every role shows the explicit adapter_config.model that will be saved —
-  the latest model for its runtime unless you asked for another. To put a
-  role on a different model, say so now (e.g. "put content-writer on
-  claude-opus-5-5").
+  Every role shows the model and effort it will resolve to when it runs —
+  the newest of its family at medium effort unless you asked for another.
+  To put a role on a different model, say so now (e.g. "put content-writer
+  on the newest Opus"; that becomes the built-in `standard` tier).
 
 STRUCTURE  (Step 1b)
 ────────────────────────────────────────────────────
@@ -282,13 +286,13 @@ jq -n \
   --arg name "$org_name" \
   --arg goal "$goal" \
   --arg schedule "${schedule_val:-}" \
-  --argjson budget_tokens "${budget_tokens_val:-1000000}" \
+  --argjson budget_tokens "${budget_tokens_val:-$(( $(jq length <<<"$roles_json") * 1000000 ))}" \
   --arg max_run "${max_run_val:-}" \
   --argjson roles "$roles_json" \
   '{name:$name,goal:$goal,status:"stopped",
     schedule:(if $schedule=="" then null else $schedule end),
-    run_config:({max_concurrent_agents:4,budget_tokens:$budget_tokens,
-                 memory_namespace:("org:"+$name),max_turns_per_message:30}
+    run_config:({max_concurrent_agents:($roles|length),budget_tokens:$budget_tokens,
+                 memory_namespace:("org:"+$name),max_turns_per_message:80}
                 + (if $max_run=="" then {} else {max_run:$max_run} end)),
     roles:$roles}' \
   > "${orgJson}.tmp" && mv "${orgJson}.tmp" "$orgJson"
@@ -312,13 +316,6 @@ else
     exit 1
   fi
   echo "✓ Structural checks passed (upgrade monomind for full schema validation)"
-fi
-
-# Every agent role must pin its model explicitly (Step 2.4).
-missing_model=$(jq -r '[.roles[] | select(.kind != "endpoint" and ((.adapter_config.model // "") == "")) | .id] | join(", ")' "$orgJson")
-if [ -n "$missing_model" ]; then
-  echo "ERROR: roles without an explicit adapter_config.model: ${missing_model} — set the latest model for their runtime (Step 2.4) and re-save."
-  exit 1
 fi
 
 # Review for signing (#502): the runtime refuses to start or reload an org

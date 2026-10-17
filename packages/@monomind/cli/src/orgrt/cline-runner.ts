@@ -43,6 +43,7 @@ import { streamJsonTurn } from './cline-runner-stream.js';
 import { ClineToolCalls } from './cline-runner-tools.js';
 import type { ClineHost, ClineTurnOutcome } from './cline-runner-types.js';
 import { classifyStderr } from './kimicode-runner.js';
+import { realBinary } from './launcher-binary.js';
 import {
   buildToolProtocol,
   formatToolResults,
@@ -111,7 +112,7 @@ export class ClineAgentRunner implements AgentRunner {
   ) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
-    const bin = this.clineBin || process.env.CLINE_CLI_BIN || 'cline';
+    const bin = realBinary(this.clineBin || process.env.CLINE_CLI_BIN || 'cline');
     const setup = prepareClineSetup(args, bin, this.host);
     let sessionId: string | undefined = args.resume;
     const known: { provider?: string; model?: string } = {};
