@@ -21,6 +21,7 @@
 
 import type Database from 'better-sqlite3';
 import { ftsSearch, hybridSearch, relevanceFromFtsRank } from '../storage/fts-store.js';
+import { SYMBOL_NODE_LABELS } from '../types.js';
 import type { RankedResult } from './rrf.js';
 
 /**
@@ -34,9 +35,41 @@ import type { RankedResult } from './rrf.js';
  */
 export type RetrievalMode = 'bm25' | 'hybrid';
 
+/**
+ * Which part of the graph a search covers.
+ *
+ * - `code` — symbols, files, routes and tools.
+ * - `docs` — markdown sections, documents and concepts.
+ * - `all` — everything, ranked purely by relevance.
+ * - `auto` (default) — code first, with documentation filling any slots the
+ *   code left empty; a query that is plainly about documentation flips that
+ *   order. Doc sections outnumber code symbols roughly 1:2 in this repo, so
+ *   without this an abstract task query is answered entirely by headings.
+ */
+export type SearchScope = 'code' | 'docs' | 'all' | 'auto';
+
+export const CODE_SCOPE_LABELS: readonly string[] = [
+  ...SYMBOL_NODE_LABELS,
+  'File',
+  'Module',
+  'Route',
+  'Tool',
+];
+export const DOC_SCOPE_LABELS: readonly string[] = ['Section', 'Document', 'Concept'];
+
+const DOC_INTENT = /\b(docs?|documentation|readme|guide|adr|changelog|tutorial|concept|explain(?:s|ed)?)\b/i;
+
+/** True when the query is plainly asking about documentation rather than code. */
+export function hasDocIntent(query: string): boolean {
+  return DOC_INTENT.test(query);
+}
+
 export interface GraphSearchOptions {
   limit?: number;
-  label?: string;
+  /** Exact node label (or labels). Overrides `scope`. */
+  label?: string | readonly string[];
+  /** Part of the graph to search (default: `auto`). */
+  scope?: SearchScope;
   /** Retrieval strategy (default: `hybrid`). */
   mode?: RetrievalMode;
 }
@@ -78,12 +111,35 @@ export function searchGraph(
   query: string,
   options: GraphSearchOptions = {},
 ): GraphSearchResult[] {
-  const { limit = 20, label, mode = 'hybrid' } = options;
+  const { limit = 20, label, mode = 'hybrid', scope = 'auto' } = options;
   if (limit <= 0) return [];
 
   const normalizedQuery = (query ?? '').trim();
   if (!normalizedQuery) return [];
 
+  if (label || scope === 'all') return searchLabels(db, normalizedQuery, limit, mode, label);
+  if (scope === 'code') return searchLabels(db, normalizedQuery, limit, mode, CODE_SCOPE_LABELS);
+  if (scope === 'docs') return searchLabels(db, normalizedQuery, limit, mode, DOC_SCOPE_LABELS);
+
+  const [first, second] = hasDocIntent(normalizedQuery)
+    ? [DOC_SCOPE_LABELS, CODE_SCOPE_LABELS]
+    : [CODE_SCOPE_LABELS, DOC_SCOPE_LABELS];
+  const primary = searchLabels(db, normalizedQuery, limit, mode, first);
+  if (primary.length >= limit) return primary;
+  const seen = new Set(primary.map((r) => r.id));
+  const filler = searchLabels(db, normalizedQuery, limit - primary.length, mode, second).filter(
+    (r) => !seen.has(r.id),
+  );
+  return [...primary, ...filler].slice(0, limit);
+}
+
+function searchLabels(
+  db: Database.Database,
+  normalizedQuery: string,
+  limit: number,
+  mode: RetrievalMode,
+  label?: string | readonly string[],
+): GraphSearchResult[] {
   if (mode === 'bm25') {
     // Over-fetch a little: FTS5's own ordering is what we keep, but a wider
     // window gives the caller's label filter something to bite on.
@@ -156,7 +212,7 @@ export async function bm25Query(
   options: BM25QueryOptions = {},
 ): Promise<BM25Result[]> {
   const { limit = 20, label } = options;
-  return searchGraph(db, query, { limit, label, mode: 'bm25' }).map((r) => ({
+  return searchGraph(db, query, { limit, label, mode: 'bm25', scope: 'all' }).map((r) => ({
     id: r.id,
     name: r.name,
     normLabel: r.normLabel,

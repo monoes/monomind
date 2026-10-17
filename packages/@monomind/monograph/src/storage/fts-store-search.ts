@@ -35,6 +35,16 @@ export function relevanceFromFtsRank(rank: number): number {
   return magnitude / (1 + magnitude);
 }
 
+/** A single node label, or any of several (e.g. every code-symbol label). */
+export type LabelFilter = string | readonly string[];
+
+/** SQL fragment + params restricting `n.label`; expects the `n` alias. */
+export function labelClause(label: LabelFilter): { sql: string; params: string[] } {
+  const labels = typeof label === 'string' ? [label] : [...label];
+  if (labels.length === 1) return { sql: ' AND n.label = ?', params: labels };
+  return { sql: ` AND n.label IN (${labels.map(() => '?').join(',')})`, params: labels };
+}
+
 /**
  * Quote a single FTS5 search term as a string literal when it contains characters
  * that would otherwise be parsed as FTS5 syntax (quotes, parens, boolean keywords
@@ -53,7 +63,7 @@ export function ftsSearch(
   db: Database.Database,
   query: string,
   limit: number,
-  label?: string,
+  label?: LabelFilter,
 ): FtsResult[] {
   // Sanitize: strip only characters that break FTS5 MATCH syntax (* still stripped,
   // trigram handles substring natively; " is now preserved since trigram doesn't need it removed)
@@ -74,8 +84,9 @@ export function ftsSearch(
   `;
   const matchParams: unknown[] = [ftsQuery];
   if (label) {
-    matchSql += ' AND n.label = ?';
-    matchParams.push(label);
+    const lc = labelClause(label);
+    matchSql += lc.sql;
+    matchParams.push(...lc.params);
   }
   matchSql += ' ORDER BY nodes_fts.rank LIMIT ?';
   matchParams.push(limit);
@@ -106,8 +117,9 @@ export function ftsSearch(
       `;
       const termParams: unknown[] = [termFtsQuery];
       if (label) {
-        termSql += ' AND n.label = ?';
-        termParams.push(label);
+        const lc = labelClause(label);
+        termSql += lc.sql;
+        termParams.push(...lc.params);
       }
       termSql += ' ORDER BY nodes_fts.rank LIMIT ?';
       termParams.push(limit * 2);
@@ -136,8 +148,9 @@ export function ftsSearch(
           `;
           const termLikeParams: unknown[] = [pat, pat];
           if (label) {
-            termLikeSql += ' AND n.label = ?';
-            termLikeParams.push(label);
+            const lc = labelClause(label);
+            termLikeSql += lc.sql;
+            termLikeParams.push(...lc.params);
           }
           termLikeSql += ' LIMIT ?';
           termLikeParams.push(limit);
@@ -183,8 +196,9 @@ export function ftsSearch(
     }
     likeSql += `) AND ${NOT_ANONYMOUS_CLOSURE_SQL}`;
     if (label) {
-      likeSql += ' AND n.label = ?';
-      likeParams.push(label);
+      const lc = labelClause(label);
+      likeSql += lc.sql;
+      likeParams.push(...lc.params);
     }
     likeSql += ' LIMIT ?';
     likeParams.push(limit);

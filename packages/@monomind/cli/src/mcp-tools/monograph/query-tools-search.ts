@@ -11,7 +11,6 @@ import {
   computeCommitsBehind,
   expandWithNeighbors,
   getDbPath,
-  preferSymbolHits,
   STALENESS_THRESHOLD,
   text,
   triggerBackgroundBuildIfNeeded,
@@ -35,6 +34,12 @@ export const monographQueryTool: MCPTool = {
         type: 'string',
         enum: ['bm25', 'hybrid'],
         description: 'Retrieval mode (default: hybrid)',
+      },
+      scope: {
+        type: 'string',
+        enum: ['auto', 'code', 'docs', 'all'],
+        description:
+          'Part of the graph to search. auto (default) lists code symbols first and fills remaining slots with documentation; a documentation-flavoured query reverses that. code / docs restrict; all ranks everything by relevance alone.',
       },
       expandNeighbors: {
         type: 'boolean',
@@ -79,6 +84,7 @@ export const monographQueryTool: MCPTool = {
           : rawQuery;
       const label = input.label as string | undefined;
       const mode = input.mode === 'bm25' ? 'bm25' : 'hybrid';
+      const scope = (['code', 'docs', 'all'] as const).find((v) => v === input.scope) ?? 'auto';
       const expandNeighbors = (input.expandNeighbors as boolean | undefined) ?? true;
       const damping = input.damping as number | undefined;
       const tokenBudget = input.tokenBudget as number | undefined;
@@ -165,6 +171,7 @@ export const monographQueryTool: MCPTool = {
         limit: expandNeighbors ? limit * 2 : limit,
         label,
         mode,
+        scope,
       });
       if (results.length === 0) return text(`No results found.${zeroResultHint}${stalenessNote}`);
 
@@ -285,9 +292,10 @@ export const monographSuggestTool: MCPTool = {
       let hitIds: string[] = [];
       let nodeLines: string[] = [];
       if (task) {
-        const hits = searchGraph(db, task, { limit: Math.max(limit, 20) });
-        const { SYMBOL_NODE_LABELS } = await import('@monoes/monograph');
-        const relevantHits = preferSymbolHits(hits, SYMBOL_NODE_LABELS);
+        // scope "auto" ranks code ahead of documentation, so a task phrased in
+        // generic words ("improve", "discovery") no longer fills the result
+        // with headings from unrelated docs.
+        const relevantHits = searchGraph(db, task, { limit: Math.max(limit, 20) });
         hitIds = [...new Set(relevantHits.map((h) => h.id))];
         if (hitIds.length === 0) {
           return text(

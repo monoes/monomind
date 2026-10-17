@@ -3,7 +3,13 @@
 
 import type Database from 'better-sqlite3';
 import { NOT_ANONYMOUS_CLOSURE_SQL } from './anonymous-closure.js';
-import { type FtsResult, ftsSearch, relevanceFromFtsRank } from './fts-store-search.js';
+import {
+  type FtsResult,
+  type LabelFilter,
+  ftsSearch,
+  labelClause,
+  relevanceFromFtsRank,
+} from './fts-store-search.js';
 
 export interface HybridSearchResult extends FtsResult {
   combinedScore: number;
@@ -62,7 +68,7 @@ export function hybridSearch(
   db: Database.Database,
   query: string,
   limit: number,
-  label?: string,
+  label?: LabelFilter,
 ): HybridSearchResult[] {
   const safeQuery = query.replace(/[*]/g, ' ').trim();
   if (!safeQuery) return [];
@@ -103,8 +109,9 @@ export function hybridSearch(
     `;
     const likeParams: unknown[] = [likePattern, likePattern];
     if (label) {
-      likeSql += ' AND n.label = ?';
-      likeParams.push(label);
+      const lc = labelClause(label);
+      likeSql += lc.sql;
+      likeParams.push(...lc.params);
     }
     likeSql += ' LIMIT ?';
     likeParams.push(limit * 2);
