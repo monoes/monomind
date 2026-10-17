@@ -34,7 +34,6 @@ If `caller` is not "command", load brain context following mastermind-protocol/S
 | Type | Label | Source | Notes |
 |------|-------|--------|-------|
 | `claude-local` | Claude (local CLI) | built-in | Uses `claude` CLI |
-| `claude-fable-5-1` | Claude Fable 5.1 | built-in | Most capable, highest cost |
 | `claude-opus-5` | Claude Opus 5 | built-in | High capability |
 | `claude-sonnet-5` | Claude Sonnet 5 | built-in | Balanced (default — the org runtime default, `DEFAULT_CLAUDE_MODEL`) |
 | `claude-haiku-4-5-20251001` | Claude Haiku 4.5 | built-in | Fast, low cost |

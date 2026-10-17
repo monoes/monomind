@@ -426,9 +426,11 @@ const handlers = {
     await h.handle(hCtx);
   },
 
-  // PreToolUse Task|Agent: log whether the spawn followed this session's
-  // [PICK]. Observation only — writes nothing to stdout and never blocks.
+  // PreToolUse Task|Agent: refuse a launch naming a blocked model (Claude Fable,
+  // GPT Astra — never assigned or routed); otherwise log whether the spawn
+  // followed this session's [PICK]. The pick log writes nothing to stdout.
   'pre-agent': () => {
+    try { if (require('./handlers/model-guard.cjs').handlePreAgent(hCtx)) return; } catch (e) { /* non-fatal */ }
     try { require('./handlers/pick-core.cjs').recordAdherence(CWD, hCtx.hookInput); } catch (e) { /* non-fatal */ }
   },
 

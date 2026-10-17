@@ -1,5 +1,6 @@
 // packages/@monomind/cli/src/orgrt/session-prompt.ts
 // Extracted from session.ts — a role session's system prompt and model.
+import { assertModelAllowed } from '../model-guard.js';
 import { documentGuidance } from './documents/guidance.js';
 import { endpointBriefingLines } from './endpoint-roles.js';
 import { readVerifiedInstructions } from './instructions-file.js';
@@ -45,6 +46,12 @@ export function resolveRoleExtraGuidance(role: OrgRole, projectRoot?: string): s
  *  registry default (openai-compatible, which serves arbitrary endpoints) is
  *  falsy and so falls through to the runtime switch, as it always did. */
 export function resolveModel(role: OrgRole, runtime?: string, vendor?: string): string {
+  const model = pickModel(role, runtime, vendor);
+  assertModelAllowed(model, `role "${role.id}"`);
+  return model;
+}
+
+function pickModel(role: OrgRole, runtime?: string, vendor?: string): string {
   const explicit = role.adapter_config?.model;
   if (explicit) return explicit;
   const vendorDefault = vendor ? VERCEL_PROVIDERS[vendor]?.defaultModel : undefined;

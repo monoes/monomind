@@ -95,7 +95,7 @@ describe('deliberative-design kit: inputs and definition', () => {
       if (r.reports_to != null)
         expect([r.runtime, r.adapter_config.model, r.budget_tokens]).toEqual([
           'codex',
-          'gpt-6-astra',
+          'gpt-5.6-terra',
           4_000_000,
         ]);
     expect(

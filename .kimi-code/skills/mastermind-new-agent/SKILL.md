@@ -85,7 +85,7 @@ Pin 1–3 that define the role in `skills`; put the ones it needs only for some 
 echo "ORG RUNTIME RUNTIMES (latest model)"
 echo "────────────────────────────────────────────────────────"
 cat <<'RUNTIMES'
-  claude        claude-sonnet-5          (default; also claude-opus-5, claude-fable-5-1, claude-haiku-4-5-20251001)
+  claude        claude-sonnet-5          (default; also claude-opus-5, claude-haiku-4-5-20251001)
   codex         gpt-5.6-terra
   antigravity   gemini-3.6-flash-high
   kimicode      kimi-code/k3

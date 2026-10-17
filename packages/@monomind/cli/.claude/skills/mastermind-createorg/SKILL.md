@@ -151,7 +151,7 @@ At run time each task dispatch names the `skill_pool` skills that fit that task,
     | vendor `glm` / `google` / `xai` / `deepseek` | `glm-5.2` / `gemini-3.1-pro` / `grok-4.5` / `deepseek-chat` |
 
     If the source you read disagrees with this table, the source wins. For vendor `openai-compatible` there is no default (it is `''`) — ask the user for the model id.
-- A role may deliberately run a different current model than its runtime's latest when that fits the role (e.g. `claude-opus-5` or `claude-fable-5-1` for a planner, `claude-haiku-4-5-20251001` for a checklist-style reviewer, as the `org create` templates do) — still an explicit value, and still a model from the current family, never a superseded id.
+- A role may deliberately run a different current model than its runtime's latest when that fits the role (e.g. `claude-opus-5` for a planner, `claude-haiku-4-5-20251001` for a checklist-style reviewer, as the `org create` templates do) — still an explicit value, and still a model from the current family, never a superseded id. Claude Fable and GPT Astra models are never assigned or routed: `org validate` and `org run` reject any role or cost tier that names one, so never choose one, even as "the most capable".
 
 For any role that needs non-default behavior, also set (all optional — omit to inherit defaults):
 

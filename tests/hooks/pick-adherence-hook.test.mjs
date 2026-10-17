@@ -1,6 +1,6 @@
 /**
  * PreToolUse Task|Agent → `hook-handler.cjs pre-agent`: records whether the
- * spawned subagent followed the session's pick, and never blocks the tool.
+ * spawned subagent followed the session's pick; it blocks only a blocked model (see model-guard-hook.test.mjs).
  */
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';

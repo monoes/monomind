@@ -10,6 +10,7 @@ import { killOnAbort } from './agent-runner-types.js';
 import { maskedCommand } from './authority-mask.js';
 import { type ClaudeSdk, loadClaudeSdk } from './claude-sdk.js';
 import { coderPin } from './coder-pin.js';
+import { modelGuardPreToolUse } from './model-guard-hook.js';
 import { coverEveryToolCall, POLICY_HOOK_TIMEOUT_S } from './policy-hook.js';
 import { type DescendantTracker, trackDescendants } from './process-tree.js';
 import { omitAnthropicManagedKeys } from './provider.js';
@@ -317,25 +318,18 @@ export class ClaudeAgentRunner implements AgentRunner {
         // registered over the SDK's control protocol at initialize() time and
         // so are unaffected by `settingSources: []` above (which only stops
         // the CLI discovering the invoking user's own hooks).
-        ...(gate || args.toolSpillDir || pin
-          ? {
-              hooks: {
-                ...(gate || pin
-                  ? {
-                      PreToolUse: [
-                        ...(pin ? [{ hooks: [pin.preToolUse] }] : []),
-                        ...(gate
-                          ? [{ hooks: [gate.preToolUse], timeout: POLICY_HOOK_TIMEOUT_S }]
-                          : []),
-                      ],
-                    }
-                  : {}),
-                ...(args.toolSpillDir
-                  ? { PostToolUse: [{ hooks: [toolResultSpillHook(args.toolSpillDir)] }] }
-                  : {}),
-              },
-            }
-          : {}),
+        // The model guard always runs: no role may launch a subagent on a
+        // blocked model (Claude Fable, GPT Astra), whatever else is configured.
+        hooks: {
+          PreToolUse: [
+            { hooks: [modelGuardPreToolUse] },
+            ...(pin ? [{ hooks: [pin.preToolUse] }] : []),
+            ...(gate ? [{ hooks: [gate.preToolUse], timeout: POLICY_HOOK_TIMEOUT_S }] : []),
+          ],
+          ...(args.toolSpillDir
+            ? { PostToolUse: [{ hooks: [toolResultSpillHook(args.toolSpillDir)] }] }
+            : {}),
+        },
         ...(args.extras || {}),
       } as any,
     });

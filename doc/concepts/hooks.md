@@ -60,7 +60,7 @@ When a Jev decision model is configured (`MONOMIND_JEV_URL`, or `TYPESAFE_API_KE
 
 ### `PreToolUse(Task|Agent)` → `pre-agent`
 
-Records whether a subagent spawn followed the session's latest `[PICK]`: one line in `.monomind/pick-adherence.jsonl` (recommended agent, the `subagent_type` actually spawned, `followed`), and `agentActuallyUsed` joined onto the route record. Observation only — it never blocks. SubagentStop logs the agent that ran (`actualAgent`, from the event's `agent_type`) and the pick (`suggestedAgent`) to `routing-feedback.jsonl`; SubagentStop and SessionEnd fold all three logs into `.monomind/pick-stats.json`, the bounded ranking prior described in [Routing](./routing.md#7-outcome-tracking-and-the-learning-loop).
+**Refuses a launch whose `model` is a Claude Fable or GPT Astra model** (stderr block decision, exit code 2): those models are never assigned or routed anywhere in monomind — org roles and cost tiers, `agent exec|test --model`, `agent models`, the MCP agent tools and every Claude org session's own Agent/Task launches are guarded the same way (`src/model-guard.ts`). Otherwise records whether a subagent spawn followed the session's latest `[PICK]`: one line in `.monomind/pick-adherence.jsonl` (recommended agent, the `subagent_type` actually spawned, `followed`), and `agentActuallyUsed` joined onto the route record. The pick log is observation only. SubagentStop logs the agent that ran (`actualAgent`, from the event's `agent_type`) and the pick (`suggestedAgent`) to `routing-feedback.jsonl`; SubagentStop and SessionEnd fold all three logs into `.monomind/pick-stats.json`, the bounded ranking prior described in [Routing](./routing.md#7-outcome-tracking-and-the-learning-loop).
 
 ### `SessionStart` skill index
 

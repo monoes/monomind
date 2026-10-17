@@ -62,7 +62,7 @@ export function applyContender(def, contender, { sessionCap } = {}) {
  *  - dev-feature-qa: read-only QA is enforced through Claude's file and sandbox restrictions, which
  *    the other runners are not verified to honour (Claude, priced). */
 export const CLAUDE = { runtime: 'claude', model: MODEL };
-export const CODEX = { runtime: 'codex', model: 'gpt-6-astra' };
+export const CODEX = { runtime: 'codex', model: 'gpt-5.6-terra' };
 export const AGY = { runtime: 'antigravity', model: 'gemini-3.8-flash-high' };
 export const SONNET = 'claude-sonnet-5-5';
 

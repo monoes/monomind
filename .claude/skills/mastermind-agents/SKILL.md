@@ -94,8 +94,7 @@ ADAPTER / MODEL
 Available Claude models:
   1. claude-sonnet-5            → balanced capability + speed (Recommended)
   2. claude-opus-5              → high capability, slower
-  3. claude-fable-5-1           → most capable, highest cost
-  4. claude-haiku-4-5-20251001  → fastest, lowest cost
+  3. claude-haiku-4-5-20251001  → fastest, lowest cost
 
 Enter choice [1]:
 ```

@@ -126,7 +126,7 @@ describe('trialRow', () => {
 
   it('records the runner and model each role used, and flags a trial on an unpriced runner', () => {
     const claude = { lead: { runtime: 'claude', model: 'haiku' } };
-    const mixed = { ...claude, researcher: { runtime: 'codex', model: 'gpt-6-astra' } };
+    const mixed = { ...claude, researcher: { runtime: 'codex', model: 'gpt-5.6-terra' } };
     const a = trialRow(
       root({ scenario: 'research-report', contender: 'phase2', units: both, runners: claude }),
     );

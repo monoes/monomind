@@ -75,19 +75,19 @@ describe('model, caps and isolation', () => {
     const mixed = applyModel(def(), { workers: CODEX });
     expect(runnersOf(mixed)).toEqual({
       a: { runtime: 'claude', model: MODEL },
-      b: { runtime: 'codex', model: 'gpt-6-astra' },
+      b: { runtime: 'codex', model: 'gpt-5.6-terra' },
     });
   });
 
   it('plans each scenario on one runner for both contenders, with the owner-approved higher models', () => {
     expect(RUNNER_PLANS['research-report'].workers).toEqual({
       runtime: 'codex',
-      model: 'gpt-6-astra',
+      model: 'gpt-5.6-terra',
     });
     // not antigravity: its tool-call fences broke on a long org_send in the dry run (see lib.mjs)
     expect(RUNNER_PLANS['deliberative-design'].workers).toEqual({
       runtime: 'codex',
-      model: 'gpt-6-astra',
+      model: 'gpt-5.6-terra',
     });
     expect(RUNNER_PLANS['sparse-dispatch'].workers.runtime).toBe('claude');
     expect(RUNNER_PLANS['dev-feature-qa'].workers.runtime).toBe('claude');
@@ -97,11 +97,11 @@ describe('model, caps and isolation', () => {
   it("keeps a role's own provider under a native plan and pins only the Claude roles", () => {
     const d = def();
     d.roles[1].provider = { kind: 'codex' };
-    d.roles[1].adapter_config = { model: 'gpt-6-astra' };
+    d.roles[1].adapter_config = { model: 'gpt-5.6-terra' };
     const out = applyModel(d, { native: true });
     expect(runnersOf(out)).toEqual({
       a: { runtime: 'claude', model: MODEL },
-      b: { runtime: 'codex', model: 'gpt-6-astra' },
+      b: { runtime: 'codex', model: 'gpt-5.6-terra' },
     });
     expect(applyCaps(out, { a: 1, b: 0 }, 8).roles[1].budget_tokens).toBe(UNPRICED_ROLE_TOKENS);
   });
@@ -210,7 +210,7 @@ describe('round 2: the single-agent arm, the production profile, and an org-wide
         type: 's',
         reports_to: 'lead',
         provider: { kind: 'codex' },
-        adapter_config: { model: 'gpt-6-astra' },
+        adapter_config: { model: 'gpt-5.6-terra' },
       },
     ],
   });
@@ -245,7 +245,7 @@ describe('round 2: the single-agent arm, the production profile, and an org-wide
     expect(runnersOf(out)).toEqual({
       lead: { runtime: 'claude', model: SONNET },
       w1: { runtime: 'claude', model: SONNET },
-      w2: { runtime: 'codex', model: 'gpt-6-astra' },
+      w2: { runtime: 'codex', model: 'gpt-5.6-terra' },
     });
     expect(runnersOf(applyModel(org(), resolvePlan('growth-like'))).lead.model).toBe(MODEL); // the default is unchanged
   });

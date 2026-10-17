@@ -16,6 +16,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { withoutBlockedModels } from '../model-guard.js';
 import {
   type ClaudeCodeInfo,
   claudeCodeInfo,
@@ -215,15 +216,24 @@ const listClaudeViaSdk = async (
   }
 };
 
+type ListOpts = {
+  env?: NodeJS.ProcessEnv;
+  timeoutMs?: number;
+  runCli?: CliRunner;
+  listClaude?: ClaudeLister;
+};
+
+/** A runtime's model list, minus the models that are never assigned or routed
+ *  (Claude Fable, GPT Astra), so no caller is ever offered one as a choice. */
 export async function listRuntimeModels(
   runtime: string,
-  opts: {
-    env?: NodeJS.ProcessEnv;
-    timeoutMs?: number;
-    runCli?: CliRunner;
-    listClaude?: ClaudeLister;
-  } = {},
+  opts: ListOpts = {},
 ): Promise<ModelsResult> {
+  const result = await listAllRuntimeModels(runtime, opts);
+  return { ...result, models: withoutBlockedModels(result.models) };
+}
+
+async function listAllRuntimeModels(runtime: string, opts: ListOpts): Promise<ModelsResult> {
   const env = opts.env ?? process.env;
   const timeoutMs = opts.timeoutMs ?? 30_000;
   const base = { v: 1 as const, runtime };

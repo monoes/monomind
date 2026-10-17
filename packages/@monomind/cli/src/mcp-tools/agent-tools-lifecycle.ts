@@ -4,6 +4,7 @@
  */
 
 import { randomBytes } from 'node:crypto';
+import { isBlockedModel } from '../model-guard.js';
 import {
   type AgentRecord,
   determineAgentModel,
@@ -77,6 +78,17 @@ export const agentLifecycleTools: MCPTool[] = [
         };
       }
       const config = (input.config as Record<string, unknown>) || {};
+
+      // Claude Fable and GPT Astra are never assigned or routed (model-guard.ts).
+      for (const asked of [input.model, config.model]) {
+        if (isBlockedModel(asked)) {
+          return {
+            success: false,
+            agentId,
+            error: `Model "${String(asked)}" is blocked: Claude Fable and GPT Astra models are never assigned or routed.`,
+          };
+        }
+      }
 
       // Add explicit model to config if provided
       if (input.model) {

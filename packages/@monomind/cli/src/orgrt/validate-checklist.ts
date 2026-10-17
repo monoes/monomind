@@ -15,6 +15,7 @@ import { completionIsObject } from './documents/completion-accessor.js';
 import { sectionsDefinitionFindings } from './documents/definition.js';
 import { BUDGET_REFUSED_RUN_CONFIG_KEYS } from './documents/section-budget-wire.js';
 import { sectionsSurface } from './documents/surface.js';
+import { validateOrgModels } from './org-model-guard.js';
 import { effectiveRoleRuntime } from './runner-specs.js';
 import { type OrgDef, OrgDefSchema } from './types.js';
 import { selectionWarnings } from './validate-selection.js';
@@ -95,6 +96,9 @@ export function checklistFindings(def: OrgDef): ChecklistFindings {
   const raw = def as unknown as Record<string, unknown>;
   const rc = (def.run_config ?? {}) as Record<string, unknown>;
   const agents = def.roles.filter(isAgent);
+
+  // Blocked models (Claude Fable, GPT Astra) are never assigned or routed.
+  errors.push(...validateOrgModels(def));
 
   // Deferred features: never silently ignored.
   const sectionsOn = sectionsSurface(raw).enabled;

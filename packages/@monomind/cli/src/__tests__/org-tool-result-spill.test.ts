@@ -188,7 +188,7 @@ describe('wiring — the hook reaches the SDK and session.ts supplies the direct
         yield { type: 'user', message: { role: 'user', content: 'hi' } };
       })(),
     } as any));
-    expect(captured[1].hooks).toBeUndefined();
+    expect(captured[1].hooks?.PostToolUse).toBeUndefined();
   });
 
   it('runAgentSession passes a toolSpillDir under the org state dir', async () => {

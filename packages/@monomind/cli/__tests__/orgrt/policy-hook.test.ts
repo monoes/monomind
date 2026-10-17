@@ -103,7 +103,9 @@ describe('ClaudeAgentRunner', () => {
     const gate = vi.fn(async () => ({ behavior: 'deny', message: 'no' }));
     const options = await optionsFor({ canUseTool: gate, toolSpillDir: '/tmp/spill' });
     expect(options.hooks.PostToolUse).toHaveLength(1);
-    const [matcher] = options.hooks.PreToolUse;
+    // The model guard always runs first; the permission gate is the last matcher.
+    expect(options.hooks.PreToolUse).toHaveLength(2);
+    const matcher = options.hooks.PreToolUse[1];
     const out = await matcher.hooks[0](pre('Bash', { command: 'ls' }, 'toolu_1'), 'toolu_1', {});
     expect(out.hookSpecificOutput.permissionDecision).toBe('deny');
     expect(gate).toHaveBeenCalledTimes(1);
@@ -114,9 +116,10 @@ describe('ClaudeAgentRunner', () => {
     expect(gate).toHaveBeenCalledTimes(1);
   });
 
-  it('installs no PreToolUse hook without a gate', async () => {
+  it('installs only the model guard as a PreToolUse hook without a gate', async () => {
     const options = await optionsFor({});
-    expect(options.hooks).toBeUndefined();
+    expect(options.hooks.PreToolUse).toHaveLength(1);
+    expect(options.hooks.PostToolUse).toBeUndefined();
     expect(options.canUseTool).toBeUndefined();
   });
 });

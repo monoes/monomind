@@ -25,6 +25,7 @@
  * the runner's own 2h/45s ladders remain the backstop for orphaned children.
  */
 
+import { isBlockedModel } from '../model-guard.js';
 import { fullAccessCanUseTool, resolveAccess, resolveExecSandbox } from './agent-exec-access.js';
 import { StdioToolBridge, UsageTracker } from './agent-exec-bridge.js';
 import { type ExecErrorCode, execErrorCode, FATAL_CODES } from './agent-exec-errors.js';
@@ -66,6 +67,19 @@ export async function runAgentExecOnce(
 ): Promise<number> {
   const emit = opts.emit;
   const grace = opts.returnGraceMs ?? 5000;
+
+  // Claude Fable and GPT Astra are never assigned or routed (model-guard.ts).
+  if (isBlockedModel(opts.model)) {
+    emit({
+      v: 1,
+      type: 'error',
+      code: 'unsafe',
+      fatal: true,
+      message: `Model "${opts.model}" is blocked: Claude Fable and GPT Astra models are never assigned or routed.`,
+    });
+    emit({ v: 1, type: 'done', exit_code: 2 });
+    return 2;
+  }
 
   // Resolve runner (no-runner vs missing-binary is classified here).
   const runner = opts.runnerOverride ?? (await resolveExecRunner(opts.runtime));

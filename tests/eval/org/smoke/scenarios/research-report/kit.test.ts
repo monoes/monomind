@@ -92,7 +92,7 @@ describe('prepare, for both contenders', () => {
           expect([r.adapter_config.model, r.runtime]).toEqual([MODEL, undefined]);
         else
           expect([r.adapter_config.model, r.runtime, r.budget_tokens]).toEqual([
-            'gpt-6-astra',
+            'gpt-5.6-terra',
             'codex',
             4_000_000,
           ]);

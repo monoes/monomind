@@ -105,6 +105,10 @@ export async function baseDef({ inputs, workspace, root, contender }) {
   def = rewrite(def, manifest.repo, join(inputs, 'repo'));
   def.run_config.memory_namespace = `org:${root.split('/').pop()}`;
   for (const role of def.roles) {
+    // The snapshot predates the model guard (Claude Fable and GPT Astra are never assigned or
+    // routed): a role it pins to one runs on the codex default instead.
+    if (/(^|[^a-z])(fable|astra)([^a-z]|$)/i.test(role.adapter_config?.model ?? ''))
+      role.adapter_config.model = 'gpt-5.6-terra';
     for (const tp of role.tool_providers ?? []) {
       if (tp.name !== 'monoagent')
         throw new Error(`role ${role.id}: unexpected tool provider ${tp.name}`);
