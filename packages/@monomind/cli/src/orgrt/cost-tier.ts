@@ -158,6 +158,22 @@ function catalogFor(config: CostTiersConfig, tier: string): CostTierDef | undefi
   return { ...builtin, ...user };
 }
 
+/** Reasoning effort a session runs at when no cost tier sets one, per runtime.
+ *  Only the runtimes that take an effort natively (Claude's SDK option, Codex's
+ *  `model_reasoning_effort`); the rest encode effort in the model id or have none. */
+const DEFAULT_EFFORT: Record<string, OrgEffortLevel> = { claude: 'medium', codex: 'medium' };
+
+export function defaultRoleEffort(runtime: string | undefined): OrgEffortLevel | undefined {
+  return runtime ? DEFAULT_EFFORT[runtime] : undefined;
+}
+
+/** True when the org assigned this role the reserved `exempt` tier: it asked for
+ *  no tiering at all, so it also gets no default effort. */
+export function isRoleExempt(def: Pick<OrgDef, 'cost_tiers'> | undefined, roleId: string): boolean {
+  const config = def?.cost_tiers as CostTiersConfig | undefined;
+  return !!config && assignmentFor(config, roleId)?.tier === EXEMPT_TIER;
+}
+
 /** The tier name assigned to a role, or undefined when it is untiered. */
 function assignmentFor(
   config: CostTiersConfig,

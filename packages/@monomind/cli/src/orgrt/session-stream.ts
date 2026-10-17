@@ -13,7 +13,7 @@ import {
   claudeSandboxCwdNote,
 } from './bash-timeout.js';
 import { contextSurface } from './context-surface.js';
-import type { resolveRoleCostTier } from './cost-tier.js';
+import type { OrgEffortLevel, resolveRoleCostTier } from './cost-tier.js';
 import type { StreamOptions } from './mailbox.js';
 import { NOTES_BUDGET, readNotes, selectNotes } from './notes.js';
 import { toolchainRoleEnv } from './operator-toolchain-paths.js';
@@ -50,6 +50,8 @@ export function sessionRunArgs(
     gitEnforcement: ReturnType<typeof resolveRoleGitEnforcement>;
     model: string;
     tier: ReturnType<typeof resolveRoleCostTier>;
+    /** The tier's effort, else the runtime's default (defaultRoleEffort). */
+    effort: OrgEffortLevel | undefined;
     prov: ReturnType<typeof resolveRoleProvider>;
     resume: string | undefined;
     authorityMask: ReturnType<typeof roleAuthorityMask>;
@@ -70,6 +72,7 @@ export function sessionRunArgs(
     gitEnforcement,
     model,
     tier,
+    effort,
     prov,
     resume,
     authorityMask,
@@ -126,7 +129,7 @@ export function sessionRunArgs(
       : rolePromptFor(opts),
     model,
     cwd,
-    effort: tier?.effort,
+    effort,
     env: {
       ...resolveProviderEnv(prov.cfg),
       // #480: the session's private TMPDIR. Right after the inherited env so

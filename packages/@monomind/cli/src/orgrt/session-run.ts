@@ -6,7 +6,7 @@ import type { AgentRunner } from './agent-runner.js';
 import { ClaudeAgentRunner, defaultClaudeRunner } from './agent-runner.js';
 import { ensureAuthorityDirs } from './authority-mask.js';
 import { appendContextCall } from './context-log.js';
-import { resolveRoleCostTier } from './cost-tier.js';
+import { defaultRoleEffort, isRoleExempt, resolveRoleCostTier } from './cost-tier.js';
 import type { CumulativeMeter } from './cumulative-meter.js';
 import { mailDirFor } from './documents/mail-isolation.js';
 import { sectionsRoleProtection } from './documents/role-protection.js';
@@ -118,6 +118,10 @@ export async function runOneSession(
   // #567: the runtime whose runner hosts this role (provider.kind included),
   // so full access, the sandbox choice and the audit name the one that runs.
   const runtimeKey = effectiveRoleRuntime(role.runtime, opts.def?.runtime, role.provider?.kind);
+  // The tier's effort wins; with none, the runtime's default (medium on claude
+  // and codex). A role the org exempted from tiering opted out of both.
+  const effort =
+    tier?.effort ?? (isRoleExempt(opts.def, role.id) ? undefined : defaultRoleEffort(runtimeKey));
   const fullAccessSession = beginFullAccessSession(bus, role, opts.def, runtimeKey);
   const { resolvedAccess } = fullAccessSession;
   let fullAccessToolCalls = 0;
@@ -279,6 +283,7 @@ export async function runOneSession(
         gitEnforcement,
         model,
         tier,
+        effort,
         prov,
         resume,
         authorityMask,

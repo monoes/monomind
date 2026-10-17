@@ -80,11 +80,11 @@ describe('D8 cost tiers — upgrade safety (defaulted off)', () => {
     ).toBeUndefined();
   });
 
-  it('leaves an untiered session byte-identical: default model, no effort, no extra env', async () => {
+  it('leaves an untiered session as it was, apart from the default effort: default model, medium effort, no extra env', async () => {
     const baseEnvKeys = Object.keys((await captureQueryOptions({ role: role() })).env).sort();
     const seen = await captureQueryOptions({ role: role(), def: def() });
     expect(seen.model).toBe(DEFAULT_CLAUDE_MODEL);
-    expect(seen.effort).toBeUndefined();
+    expect(seen.effort).toBe('medium');
     expect(seen.thinking).toBeUndefined();
     expect(Object.keys(seen.env).sort()).toEqual(baseEnvKeys);
   });
