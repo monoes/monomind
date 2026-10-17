@@ -78,3 +78,20 @@ describe('#24 an antigravity role has no sandbox to enforce its file scopes', ()
     expect(tagged(org([worker('c', { policy: { fileWrite: ['out'] } })]), '#24')).toEqual([]);
   });
 });
+
+describe('#24 a codex role has a sandbox that confines writes, not reads', () => {
+  it('says its fileRead scope is not enforced, and its fileWrite only as wide as the working directory', () => {
+    const w = tagged(
+      org([worker('scorer', { runtime: 'codex', policy: { fileRead: ['in'], fileWrite: ['out'] } })]),
+      '#24',
+    );
+    expect(w).toHaveLength(1);
+    expect(w[0]).toContain('scorer');
+    expect(w[0]).toMatch(/codex/i);
+    expect(w[0]).toMatch(/fileRead/);
+  });
+
+  it('is quiet for a codex role with no file scopes', () => {
+    expect(tagged(org([worker('s', { runtime: 'codex' })]), '#24')).toEqual([]);
+  });
+});

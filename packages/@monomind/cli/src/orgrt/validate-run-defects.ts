@@ -40,15 +40,20 @@ export function runDefectWarnings(def: OrgDef, agents: Role[]): string[] {
       `#23 run_config.budget_tokens is ${budget.toLocaleString('en-US')} across ${def.roles.length} roles, so each gets about ${share.toLocaleString('en-US')} tokens; roles that browse or re-read large files hit that cap and stop mid-task — raise it to about ${(def.roles.length * 1_000_000).toLocaleString('en-US')}`,
     );
 
-  // #24 the antigravity runtime has no OS sandbox: its file scopes are a request to the model.
-  for (const r of agents)
-    if (
-      effectiveRoleRuntime(r.runtime, def.runtime, r.provider?.kind) === 'antigravity' &&
-      (r.policy?.fileRead?.length || r.policy?.fileWrite?.length)
-    )
+  // #24 two runtimes cannot enforce a role's file scopes: antigravity has no OS sandbox at all, and
+  // codex's own sandbox confines writes to the working directory but does not restrict reads, so a
+  // codex scorer read the other scorers' files that its fileRead did not list.
+  for (const r of agents) {
+    const runtime = effectiveRoleRuntime(r.runtime, def.runtime, r.provider?.kind);
+    if (runtime === 'antigravity' && (r.policy?.fileRead?.length || r.policy?.fileWrite?.length))
       out.push(
         `#24 role "${r.id}" runs on antigravity, which has no OS sandbox: its fileRead/fileWrite scopes are a request to the model, not enforced — it can read or write outside them`,
       );
+    if (runtime === 'codex' && (r.policy?.fileRead?.length || r.policy?.fileWrite?.length))
+      out.push(
+        `#24 role "${r.id}" runs on codex, whose own sandbox confines writes to the working directory but does not restrict reads: its fileRead scope is not enforced (it can read files it does not list), and its fileWrite only as far as the working directory — do not rely on either to keep it blind or out of a folder`,
+      );
+  }
 
   return out;
 }
