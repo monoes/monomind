@@ -135,23 +135,23 @@ At run time each task dispatch names the `skill_pool` skills that fit that task,
 
 **`adapter_config.model` — REQUIRED on every role.** Always write an explicit model; never leave a role to inherit a runtime default. A role without one silently moves to whatever model a later release makes the default, and the Step 4 MODELS table can't show what the role will really run on.
 
-- If the user named or clearly implied a model for a role ("the researcher should use Opus" → `"claude-opus-5"`), use it.
+- If the user named or clearly implied a model for a role ("the researcher should use Opus" → the newest Opus, `"claude-opus-5-5"` today), use it.
 - Otherwise set the **latest model for that role's runtime/vendor**:
-  - Claude runtime (the default — no `provider`/`runtime`, or `provider.kind` `subscription` / `api-key`): **`"claude-sonnet-5"`** — the org runtime default, `DEFAULT_CLAUDE_MODEL` in `orgrt/vercel-providers.ts`.
+  - Claude runtime (the default — no `provider`/`runtime`, or `provider.kind` `subscription` / `api-key`): **`"claude-sonnet-5-5"`** — the newest Sonnet, the org runtime default (`defaultClaudeModel()` in `orgrt/vercel-providers.ts`, resolved by `latest-models.ts`).
   - Any other runtime or vendor: use the value the runtime itself falls back to, read from the installed CLI package rather than from memory — `VENDOR_DEFAULTS[vendor]` (when the role has `provider.vendor`) or the `runtime` switch in `resolveModel()` (`orgrt/session.ts`), and `VERCEL_PROVIDERS[vendor].defaultModel` (`orgrt/vercel-providers.ts`). Source files live under `packages/@monomind/cli/src/orgrt/` in the source repository; in an installed package read `dist/src/orgrt/session.js` and `dist/src/orgrt/vercel-providers.js`. At this release those resolve to:
 
     | Runtime / vendor | Latest model |
     |------------------|--------------|
-    | `claude` (default), vendor `anthropic` | `claude-sonnet-5` |
+    | `claude` (default), vendor `anthropic` | `claude-sonnet-5-5` |
     | `codex` | `gpt-5.6-terra` |
-    | `antigravity` | `gemini-3.6-flash-high` |
+    | `antigravity` | `gemini-3.8-flash-high` |
     | `kimicode` | `kimi-code/k3` |
     | `opencode` (no vendor) | `glm-5.2` |
     | `vercel` (no vendor), vendor `openai` | `gpt-5.5` |
     | vendor `glm` / `google` / `xai` / `deepseek` | `glm-5.2` / `gemini-3.1-pro` / `grok-4.5` / `deepseek-chat` |
 
-    If the source you read disagrees with this table, the source wins. For vendor `openai-compatible` there is no default (it is `''`) — ask the user for the model id.
-- A role may deliberately run a different current model than its runtime's latest when that fits the role (e.g. `claude-opus-5` for a planner, `claude-haiku-4-5-20251001` for a checklist-style reviewer, as the `org create` templates do) — still an explicit value, and still a model from the current family, never a superseded id. Claude Fable and GPT Astra models are never assigned or routed: `org validate` and `org run` reject any role or cost tier that names one, so never choose one, even as "the most capable".
+    This table is the floor, not the answer: the runtime resolves the newest model of each family when it runs (`monomind agent models <runtime>` lists what a runtime offers right now), and a model is never older than the newest known one. `org validate` warns about a pin older than the newest in its family. If the source you read disagrees with this table, the source wins. For vendor `openai-compatible` there is no default (it is `''`) — ask the user for the model id.
+- A role may deliberately run a different current model than its runtime's latest when that fits the role (e.g. `claude-opus-5-5` for a planner, `claude-haiku-5-5` for a checklist-style reviewer, as the `org create` templates do) — still an explicit value, and still a model from the current family, never a superseded id. Claude Fable and GPT Astra models are never assigned or routed: `org validate` and `org run` reject any role or cost tier that names one, so never choose one, even as "the most capable".
 
 For any role that needs non-default behavior, also set (all optional — omit to inherit defaults):
 
@@ -198,7 +198,7 @@ Produce an org config object matching `OrgDefSchema` exactly:
       "responsibilities": ["<3-6 specific duties — this text becomes part of the agent's role briefing>"],
       "skills": ["<optional: 1-3 library skills pinned into the briefing — Step 2.3>"],
       "skill_pool": ["<optional: skills or tag:<tag> the role may load mid-run — Step 2.3>"],
-      "adapter_config": { "model": "<explicit model from Step 2.4, e.g. claude-sonnet-5>" }
+      "adapter_config": { "model": "<explicit model from Step 2.4, e.g. claude-sonnet-5-5>" }
     }
   ]
 }
@@ -231,7 +231,7 @@ MODELS  ← review this first
   Every role shows the explicit adapter_config.model that will be saved —
   the latest model for its runtime unless you asked for another. To put a
   role on a different model, say so now (e.g. "put content-writer on
-  claude-opus-5").
+  claude-opus-5-5").
 
 STRUCTURE  (Step 1b)
 ────────────────────────────────────────────────────

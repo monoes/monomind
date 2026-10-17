@@ -56,6 +56,7 @@
  *   - A provider with no mechanism at all simply ignores the level.
  */
 
+import { latestModel } from '../latest-models.js';
 import type { OrgDef, OrgRole } from './types.js';
 
 /** Abstract reasoning-effort level. Mirrors the Claude Agent SDK's
@@ -105,19 +106,22 @@ export interface CostTiersConfig {
  *  is the honest alternative to inventing model ids and downgrading a role
  *  onto a string nobody checked. */
 export const BUILTIN_COST_TIERS: Record<string, CostTierDef> = {
-  standard: {
-    claude: { model: 'claude-opus-5', effort: 'high' },
-    anthropic: { model: 'claude-opus-5', effort: 'high' },
-  },
-  economy: {
-    claude: { model: 'claude-sonnet-5', effort: 'medium' },
-    anthropic: { model: 'claude-sonnet-5', effort: 'medium' },
-  },
-  budget: {
-    claude: { model: 'claude-haiku-4-5', effort: 'low' },
-    anthropic: { model: 'claude-haiku-4-5', effort: 'low' },
-  },
+  standard: claudeTier('opus', 'high'),
+  economy: claudeTier('sonnet', 'medium'),
+  budget: claudeTier('haiku', 'low'),
 };
+
+/** A built-in tier on the newest model of a Claude family, resolved when the
+ *  tier is read (latest-models.ts), so a tier is never an older model. */
+function claudeTier(family: string, effort: OrgEffortLevel): CostTierDef {
+  const entry: CostTierEntry = {
+    get model() {
+      return latestModel('claude', family);
+    },
+    effort,
+  };
+  return { claude: entry, anthropic: entry };
+}
 
 /** Thrown when a tier cannot resolve a model for a role's provider, or names
  *  a tier that does not exist. Never swallowed into a default — see header. */

@@ -321,7 +321,7 @@ describe('resolveModel (vendor/runtime defaults)', () => {
     expect(resolveModel({ adapter_config: {} } as any, 'opencode')).toBe('glm-5.2');
     expect(resolveModel({ adapter_config: {} } as any, 'codex')).toBe('gpt-5.6-terra');
     expect(resolveModel({ adapter_config: {} } as any, 'antigravity')).toBe(
-      'gemini-3.6-flash-high',
+      'gemini-3.8-flash-high',
     );
     expect(resolveModel({ adapter_config: {} } as any, 'vercel')).toBe('gpt-5.5');
   });
@@ -331,7 +331,7 @@ describe('resolveModel (vendor/runtime defaults)', () => {
   });
 
   it('the anthropic vendor default is the same single Claude default (#252)', () => {
-    expect(DEFAULT_CLAUDE_MODEL).toBe('claude-sonnet-5');
+    expect(DEFAULT_CLAUDE_MODEL).toBe('claude-sonnet-5-5');
     expect(resolveModel({ adapter_config: {} } as any, 'vercel', 'anthropic')).toBe(
       DEFAULT_CLAUDE_MODEL,
     );

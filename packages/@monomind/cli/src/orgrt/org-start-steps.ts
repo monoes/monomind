@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
+import { refreshLatestModels } from '../latest-models.js';
 import { configureResourceLimits, getResourceLimits } from '../utils/resource-governor.js';
 // ── Extracted module imports ────────────────────────────────────────────
 import * as approvalOps from './approvals.js';
@@ -86,6 +87,9 @@ export async function prepareOrgStart(
   } catch {
     /* best-effort: not a git repo, git missing, or a wedged hook */
   }
+  // The live model catalog behind the newest-model defaults (latest-models.ts):
+  // re-read at most once a day, and never a reason for a start to fail.
+  await refreshLatestModels({ maxAgeMs: 24 * 60 * 60 * 1000 }).catch(() => {});
   const defPath = join(daemon.root, ORG_DIR, `${name}.json`);
   const rawDef: unknown = JSON.parse(readFileSync(defPath, 'utf8'));
   // #502: every start path (org run, serve's runfile poll and schedule,

@@ -5,6 +5,7 @@
  * `cost_tiers` entry for any provider key, and what a role with no model of
  * its own resolves to. Errors, not warnings: a blocked model is never routed.
  */
+import { outdatedModelHint } from '../latest-models.js';
 import { isBlockedModel } from '../model-guard.js';
 import { resolveModel } from './session-prompt.js';
 import type { OrgDef } from './types.js';
@@ -36,4 +37,25 @@ export function validateOrgModels(def: OrgDef): string[] {
     }
   }
   return errors;
+}
+
+/** One warning per pinned model that is older than the newest of its family
+ *  (latest-models.ts), naming the model to use instead. */
+export function outdatedModelWarnings(def: OrgDef): string[] {
+  const warnings: string[] = [];
+  const check = (model: unknown, where: string): void => {
+    const newest = typeof model === 'string' ? outdatedModelHint(model) : undefined;
+    if (newest) {
+      warnings.push(
+        `${where} pins ${String(model)}, an older model; the newest in its family is ${newest} — update the pin, or remove it to use the default`,
+      );
+    }
+  };
+  for (const role of def.roles) check(role.adapter_config?.model, `role "${role.id}"`);
+  for (const [tier, providers] of Object.entries(def.cost_tiers?.tiers ?? {})) {
+    for (const [provider, entry] of Object.entries(providers)) {
+      check(entry.model, `cost_tiers.tiers.${tier}.${provider}`);
+    }
+  }
+  return warnings;
 }

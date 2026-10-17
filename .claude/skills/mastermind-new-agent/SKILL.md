@@ -39,9 +39,9 @@ Every role gets an explicit `adapter_config.model` — never leave it to a runti
 
 | `runtime` | Latest model |
 |-----------|--------------|
-| `claude` (default — omit the field) | `claude-sonnet-5` |
+| `claude` (default — omit the field) | `claude-sonnet-5-5` |
 | `codex` | `gpt-5.6-terra` |
-| `antigravity` | `gemini-3.6-flash-high` |
+| `antigravity` | `gemini-3.8-flash-high` |
 | `kimicode` | `kimi-code/k3` |
 | `opencode` | `glm-5.2` |
 | `vercel` | `gpt-5.5` |
@@ -85,9 +85,9 @@ Pin 1–3 that define the role in `skills`; put the ones it needs only for some 
 echo "ORG RUNTIME RUNTIMES (latest model)"
 echo "────────────────────────────────────────────────────────"
 cat <<'RUNTIMES'
-  claude        claude-sonnet-5          (default; also claude-opus-5, claude-haiku-4-5-20251001)
+  claude        claude-sonnet-5-5        (default; also claude-opus-5-5, claude-haiku-5-5)
   codex         gpt-5.6-terra
-  antigravity   gemini-3.6-flash-high
+  antigravity   gemini-3.8-flash-high
   kimicode      kimi-code/k3
   opencode      glm-5.2
   vercel        gpt-5.5                  (pair with provider.vendor)
@@ -118,9 +118,9 @@ runtimeVal="${runtime:-claude}"
 modelId="${model}"
 if [ -z "$modelId" ]; then
   case "$runtimeVal" in
-    claude)       modelId="claude-sonnet-5" ;;
+    claude)       modelId="claude-sonnet-5-5" ;;
     codex)        modelId="gpt-5.6-terra" ;;
-    antigravity)  modelId="gemini-3.6-flash-high" ;;
+    antigravity)  modelId="gemini-3.8-flash-high" ;;
     kimicode)     modelId="kimi-code/k3" ;;
     opencode)     modelId="glm-5.2" ;;
     vercel)       modelId="gpt-5.5" ;;

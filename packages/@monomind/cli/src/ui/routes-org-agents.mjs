@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { RUNNER_SPECS } from '../orgrt/runner-registry.js';
+import { defaultClaudeModel } from '../orgrt/vercel-providers.js';
 import { writeFileAtomic } from './org-hil.mjs';
 import { ConfigRejected, orgChecklist, orgSignatureState, patchOrgRole } from './org-runtime.mjs';
 import { readBodyOrReply } from './routes-org-helpers.mjs';
@@ -61,8 +62,8 @@ export async function handleOrgAgentRoutes(req, res, url, corsOrigin, ctx) {
       if (!fs.existsSync(adaptersFile)) {
         // Return defaults derived from org config if available
         const orgFile = path.join(d, '.monomind', 'orgs', `${orgName}.json`);
-        // claude-sonnet-5 = DEFAULT_CLAUDE_MODEL (src/orgrt/vercel-providers.ts); .mjs can't import TS.
-        let defaultAdapter = 'claude-sonnet-5';
+        // The newest Sonnet (src/orgrt/vercel-providers.ts), the org runtime's default.
+        let defaultAdapter = defaultClaudeModel();
         try {
           defaultAdapter =
             JSON.parse(fs.readFileSync(orgFile, 'utf8'))?.run_config?.ceo_adapter || defaultAdapter;

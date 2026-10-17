@@ -13,8 +13,8 @@ const org = (over: Record<string, unknown> = {}, role: Record<string, unknown> =
   OrgDefSchema.parse({
     name: 'x',
     roles: [
-      { id: 'boss', title: 'Boss', type: 'boss', responsibilities: ['Write self-contained task briefs.'], adapter_config: { model: 'claude-opus-5' } },
-      { id: 'worker', title: 'Worker', reports_to: 'boss', responsibilities: ['Do the work.'], adapter_config: { model: 'claude-sonnet-5' }, ...role },
+      { id: 'boss', title: 'Boss', type: 'boss', responsibilities: ['Write self-contained task briefs.'], adapter_config: { model: 'claude-opus-5-5' } },
+      { id: 'worker', title: 'Worker', reports_to: 'boss', responsibilities: ['Do the work.'], adapter_config: { model: 'claude-sonnet-5-5' }, ...role },
     ],
     run_config: { max_concurrent_agents: 4, ...((over.run_config as object) ?? {}) },
     autonomy: { level: 'full' },
@@ -89,7 +89,7 @@ describe('section 7.3 checklist findings', () => {
       OrgDefSchema.parse({
         name: 'x',
         autonomy: { level: 'full' },
-        roles: Array.from({ length: n }, (_, i) => ({ id: `r${i}`, title: 'R', reports_to: i ? 'r0' : null, adapter_config: { model: 'claude-sonnet-5' } })),
+        roles: Array.from({ length: n }, (_, i) => ({ id: `r${i}`, title: 'R', reports_to: i ? 'r0' : null, adapter_config: { model: 'claude-sonnet-5-5' } })),
         run_config: { max_concurrent_agents: cap },
       });
     it('warns when max_concurrent_agents is below the role count (idle workers keep their slot)', () => {
@@ -138,8 +138,8 @@ describe('section 7.3 checklist findings', () => {
         name: 'x',
         schedule,
         roles: [
-          { id: 'boss', title: 'B', adapter_config: { model: 'claude-opus-5' } },
-          { id: 'w', title: 'W', reports_to: 'boss', adapter_config: { model: 'claude-sonnet-5' }, ...role },
+          { id: 'boss', title: 'B', adapter_config: { model: 'claude-opus-5-5' } },
+          { id: 'w', title: 'W', reports_to: 'boss', adapter_config: { model: 'claude-sonnet-5-5' }, ...role },
         ],
       });
     it('warns that Bash/WebFetch/WebSearch wait for a human when nothing resolves approvals', () => {

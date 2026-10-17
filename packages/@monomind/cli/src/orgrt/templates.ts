@@ -2,16 +2,18 @@
 // Starter org configs for `monomind org create <name> --template <t>`.
 // Each validates against OrgDefSchema; goal is a placeholder the user edits
 // (or supplies via --goal).
+
+import { latestModel } from '../latest-models.js';
 import { DEFAULT_MAX_TURNS_PER_MESSAGE, type OrgDef, OrgDefSchema } from './types.js';
-import { DEFAULT_CLAUDE_MODEL } from './vercel-providers.js';
+import { defaultClaudeModel } from './vercel-providers.js';
 
 // Per-role model hints keep scheduled-org economics sane: coordinators and
-// executors run on the org runtime default (DEFAULT_CLAUDE_MODEL) since they
+// executors run on the org runtime default (defaultClaudeModel()) since they
 // synthesize and decide; verification and mechanical roles run on Haiku — the
 // dogfooded release-desk run showed review/QA roles spend a third of the
 // tokens for checklist-shaped work. Every built role pins its model explicitly
 // (see buildFromTemplate) so a created org never drifts with a later default.
-const FAST_MODEL = 'claude-haiku-4-5-20251001';
+const fastModel = (): string => latestModel('claude', 'haiku');
 
 interface TemplateRole {
   id: string;
@@ -57,7 +59,7 @@ export const ORG_TEMPLATES: Record<string, Template> = {
         title: 'Content Reviewer',
         type: 'reviewer',
         reports_to: 'editor-in-chief',
-        model: FAST_MODEL,
+        model: fastModel(),
         responsibilities: [
           'Review drafts for accuracy, clarity, and tone',
           'Return actionable feedback to the writer',
@@ -107,7 +109,7 @@ export const ORG_TEMPLATES: Record<string, Template> = {
         title: 'QA Engineer',
         type: 'specialist',
         reports_to: 'tech-lead',
-        model: FAST_MODEL,
+        model: fastModel(),
         responsibilities: [
           'Exercise delivered features end-to-end',
           'File precise reproduction steps for defects',
@@ -145,7 +147,7 @@ export const ORG_TEMPLATES: Record<string, Template> = {
         title: 'Fact Checker',
         type: 'reviewer',
         reports_to: 'lead-analyst',
-        model: FAST_MODEL,
+        model: fastModel(),
         responsibilities: [
           'Verify claims in draft briefs against sources',
           'Flag unverifiable claims for removal or hedging',
@@ -194,7 +196,7 @@ export const ORG_TEMPLATES: Record<string, Template> = {
         title: 'Ontology Validator',
         type: 'reviewer',
         reports_to: 'kg-lead',
-        model: FAST_MODEL,
+        model: fastModel(),
         responsibilities: [
           'Check extracted edges against the existing org glossary',
           'Reject contradictory or malformed triples',
@@ -222,7 +224,7 @@ export const ORG_TEMPLATES: Record<string, Template> = {
         title: 'Worker 1',
         type: 'specialist',
         reports_to: 'advisor',
-        model: FAST_MODEL,
+        model: fastModel(),
         responsibilities: [
           'Execute assigned tasks',
           'Report results via org_send with a structured handoff',
@@ -234,7 +236,7 @@ export const ORG_TEMPLATES: Record<string, Template> = {
         title: 'Worker 2',
         type: 'specialist',
         reports_to: 'advisor',
-        model: FAST_MODEL,
+        model: fastModel(),
         responsibilities: [
           'Execute assigned tasks',
           'Report results via org_send with a structured handoff',
@@ -266,7 +268,7 @@ export function buildFromTemplate(
     },
     roles: t.roles.map(({ model, ...r }) => ({
       ...r,
-      adapter_config: { model: model ?? DEFAULT_CLAUDE_MODEL },
+      adapter_config: { model: model ?? defaultClaudeModel() },
     })),
   });
 }

@@ -127,6 +127,8 @@ export function useTestHome(home: string): void {
   }
   for (const key of UNSET_KEYS) delete process.env[key];
   for (const key of ORG_ROLE_ENV_KEYS) delete process.env[key];
+  // No test spawns a vendor CLI to refresh the model catalog (latest-models.ts).
+  process.env.MONOMIND_MODEL_REFRESH = '0';
 }
 
 /** Points the temp dir at `tmp` (a sibling of the home, not inside it: suites

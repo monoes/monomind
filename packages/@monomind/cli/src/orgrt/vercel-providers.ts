@@ -8,11 +8,18 @@
  * packages produce a clear actionable error instead of a crash.
  */
 
+import { LATEST_FLOOR, latestModel } from '../latest-models.js';
+
+/** The newest Sonnet known at this release: the floor under the default below,
+ *  for consumers that need a fixed value (price aliases, tests). Never used to
+ *  route; routing calls defaultClaudeModel(). */
+export const DEFAULT_CLAUDE_MODEL = LATEST_FLOOR.claude.sonnet;
+
 /** Default model for Claude org roles — the claude runtime's fallback in
- *  session.ts resolveModel() and the anthropic vendor default below. Defined
- *  once so it can't drift between those sites. Lives in this import-free leaf
- *  module so session.ts can depend on it without an import cycle. */
-export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-5';
+ *  session.ts resolveModel() and the anthropic vendor default below: the
+ *  newest Sonnet, resolved when asked for (latest-models.ts), so a default is
+ *  never an older model. */
+export const defaultClaudeModel = (): string => latestModel('claude', 'sonnet');
 
 export interface VercelProviderDef {
   vendor: string;
@@ -42,7 +49,9 @@ export const VERCEL_PROVIDERS: Record<string, VercelProviderDef> = {
     vendor: 'anthropic',
     package: '@ai-sdk/anthropic',
     factory: 'createAnthropic',
-    defaultModel: DEFAULT_CLAUDE_MODEL,
+    get defaultModel() {
+      return defaultClaudeModel();
+    },
     envVar: 'ANTHROPIC_API_KEY',
   },
   glm: {

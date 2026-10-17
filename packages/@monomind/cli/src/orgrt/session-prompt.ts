@@ -1,5 +1,6 @@
 // packages/@monomind/cli/src/orgrt/session-prompt.ts
 // Extracted from session.ts — a role session's system prompt and model.
+import { latestModel } from '../latest-models.js';
 import { assertModelAllowed } from '../model-guard.js';
 import { documentGuidance } from './documents/guidance.js';
 import { endpointBriefingLines } from './endpoint-roles.js';
@@ -8,7 +9,7 @@ import { expandRolePromptVars, promptVarsFor } from './prompt-vars.js';
 import type { SessionOpts } from './session-types.js';
 import { roleSkillGuidance } from './skill-library.js';
 import type { OrgDef, OrgRole } from './types.js';
-import { DEFAULT_CLAUDE_MODEL, VERCEL_PROVIDERS } from './vercel-providers.js';
+import { defaultClaudeModel, VERCEL_PROVIDERS } from './vercel-providers.js';
 
 /**
  * Resolves the extra system-prompt block for a role: its pinned library
@@ -58,7 +59,7 @@ function pickModel(role: OrgRole, runtime?: string, vendor?: string): string {
   if (vendorDefault) return vendorDefault;
   switch (runtime) {
     case 'claude':
-      return DEFAULT_CLAUDE_MODEL;
+      return defaultClaudeModel();
     // Kimi Code CLI namespaces model ids as <provider>/<model> (its own
     // default_model is "kimi-code/kimi-for-coding-highspeed") — a bare "k3"
     // 404s with "Model \"k3\" is not configured in config.toml".
@@ -67,13 +68,13 @@ function pickModel(role: OrgRole, runtime?: string, vendor?: string): string {
     case 'opencode':
       return 'glm-5.2'; // opencode is typically paired with a vendor; this is the bare-runtime fallback
     case 'codex':
-      return 'gpt-5.6-terra';
+      return latestModel('codex', 'terra');
     case 'antigravity':
-      return 'gemini-3.6-flash-high';
+      return latestModel('antigravity', 'flash-high');
     case 'vercel':
       return 'gpt-5.5';
     default:
-      return DEFAULT_CLAUDE_MODEL;
+      return defaultClaudeModel();
   }
 }
 

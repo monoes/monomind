@@ -199,7 +199,7 @@ describe('runtimeView — org not running', () => {
       tier: null,
     });
     expect(byId.dev).toMatchObject({
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       modelSource: 'tier',
       tier: 'economy',
       effort: 'medium',
@@ -473,7 +473,7 @@ describe('routes', () => {
     const { body } = await call('GET', `/api/org/${ORG}/agents`);
     expect(body.agents.find((a: any) => a.id === 'dev')).toMatchObject({
       adapterType: 'claude',
-      adapterModel: 'claude-sonnet-5',
+      adapterModel: 'claude-sonnet-5-5',
       tier: 'economy',
     });
   });

@@ -92,20 +92,20 @@ Write the Org Runtime role shape (`RoleSchema` in `packages/@monomind/cli/src/or
 ADAPTER / MODEL
 ───────────────
 Available Claude models:
-  1. claude-sonnet-5            → balanced capability + speed (Recommended)
-  2. claude-opus-5              → high capability, slower
-  3. claude-haiku-4-5-20251001  → fastest, lowest cost
+  1. claude-sonnet-5-5          → balanced capability + speed (Recommended)
+  2. claude-opus-5-5            → high capability, slower
+  3. claude-haiku-5-5           → fastest, lowest cost
 
 Enter choice [1]:
 ```
 
-Set `adapter_config.model` from selection. Default: `claude-sonnet-5` (the org runtime default, `DEFAULT_CLAUDE_MODEL`).
+Set `adapter_config.model` from selection. Default: the newest Sonnet, `claude-sonnet-5-5` today (the org runtime default, `defaultClaudeModel()`, resolved when the org runs; `monomind agent models claude` lists the current ids).
 
 Append to `.monomind/orgs/<org_name>.json` roles array using jq:
 
 ```bash
-# model from adapter picker (default: claude-sonnet-5)
-adapter_model="${selected_model:-claude-sonnet-5}"
+# model from adapter picker (default: the newest Sonnet, claude-sonnet-5-5)
+adapter_model="${selected_model:-claude-sonnet-5-5}"
 
 tmp="${orgFile}.tmp"
 jq --arg id "$agent_id" \

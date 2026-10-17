@@ -5,6 +5,7 @@ import { applyClaudePathFlag, claudePathOption } from '../orgrt/claude-selection
  * `agent-models`) — the runtime's own model list. See orgrt/agent-models.ts.
  */
 
+import { catalogIds, recordCatalog } from '../latest-models.js';
 import { listRuntimeModels } from '../orgrt/agent-models.js';
 import { reportClaudeSkip } from '../orgrt/claude-sdk.js';
 import { resolveRuntimeAlias } from '../orgrt/runner-registry.js';
@@ -34,6 +35,16 @@ export const modelsCommand: Command = {
       return { success: false, exitCode: 2 };
     }
     const result = await listRuntimeModels(runtime);
+    if (
+      !result.error &&
+      (runtime === 'claude' || runtime === 'codex' || runtime === 'antigravity')
+    ) {
+      try {
+        recordCatalog(runtime, catalogIds(result.models)); // feeds the newest-model defaults
+      } catch {
+        /* the cache only speeds up newer defaults; a listing never fails on it */
+      }
+    }
     const exitCode = result.error?.code === 'unknown-runtime' ? 2 : result.error ? 1 : 0;
 
     if (ctx.flags.json || ctx.flags.format === 'json') {
