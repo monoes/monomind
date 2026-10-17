@@ -90,6 +90,8 @@ export type EdgeRelation =
   | 'REFERENCES'
   | 'PARENT_SECTION'
   | 'TAGGED_AS'
+  // Test File → the source file or symbol it exercises
+  | 'TESTS'
   | 'HAS_FIELD'
   // Doc KG — contextual proximity
   | 'CO_OCCURS'

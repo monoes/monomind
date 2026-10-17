@@ -83,6 +83,16 @@ export const monographImpactTool: MCPTool = {
         `Risk: ${result.riskLevel} (${result.riskScore.toFixed(2)})`,
         '',
       ];
+      if (result.affectedTests.length > 0) {
+        const MAX_LISTED_TESTS = 15;
+        lines.push(`Tests to run (${result.affectedTests.length}):`);
+        for (const t of result.affectedTests.slice(0, MAX_LISTED_TESTS)) lines.push(`  ${t}`);
+        if (result.affectedTests.length > MAX_LISTED_TESTS)
+          lines.push(`  … ${result.affectedTests.length - MAX_LISTED_TESTS} more`);
+        lines.push('');
+      } else {
+        lines.push('Tests to run: none found linked to this symbol or its callers.', '');
+      }
 
       if (callers.length > 0) {
         lines.push(`Callers (${callers.length}, showing ${shown.length}):`);
@@ -109,6 +119,7 @@ export const monographImpactTool: MCPTool = {
         riskLevel: result.riskLevel,
         affectedFileCount: result.affectedFiles.length,
         affectedFiles: result.affectedFiles,
+        affectedTests: result.affectedTests,
         affectedSymbolCount: callers.length,
         callers: callers.map(({ node, depth: callerDepth }) => ({
           id: node.id,

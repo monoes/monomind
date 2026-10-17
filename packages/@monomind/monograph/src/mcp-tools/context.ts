@@ -11,6 +11,10 @@ export interface MonographContextResult {
   callees: MonographNode[];
   imports: MonographNode[];
   importedBy: MonographNode[];
+  /** Test files that call this symbol directly (TESTS edges to the node). */
+  testedBy: MonographNode[];
+  /** Test files that import this symbol's file — coarser than `testedBy`. */
+  fileTests: MonographNode[];
   community: { id: number; label?: string } | null;
   inProcesses: Array<{ id: string; name: string }>;
   /** True when `name` matched several nodes and nothing narrowed it to one. */
@@ -68,6 +72,8 @@ export function getMonographContext(
       callees: [],
       imports: [],
       importedBy: [],
+      testedBy: [],
+      fileTests: [],
       community: null,
       inProcesses: [],
       ambiguous: candidates.length > 1,
@@ -83,6 +89,18 @@ export function getMonographContext(
   const callees = queryRelated(db, nodeId, 'CALLS', false, LIMIT);
   const imports = queryRelated(db, nodeId, 'IMPORTS', false, LIMIT);
   const importedBy = queryRelated(db, nodeId, 'IMPORTS', true, LIMIT);
+
+  // Tests: files with a TESTS edge to this symbol, and to the file defining it.
+  const testedBy = queryRelated(db, nodeId, 'TESTS', true, LIMIT);
+  const fileRow = node.filePath
+    ? (db
+        .prepare("SELECT id FROM nodes WHERE label = 'File' AND file_path = ? AND id != ?")
+        .get(node.filePath, nodeId) as { id: string } | undefined)
+    : undefined;
+  const seen = new Set(testedBy.map((t) => t.id));
+  const fileTests = fileRow
+    ? queryRelated(db, fileRow.id, 'TESTS', true, LIMIT).filter((t) => !seen.has(t.id))
+    : [];
 
   // 6. Community: from node's community_id field
   let community: { id: number; label?: string } | null = null;
@@ -108,6 +126,8 @@ export function getMonographContext(
     callees,
     imports,
     importedBy,
+    testedBy,
+    fileTests,
     community,
     inProcesses: processRows,
     ambiguous: false,

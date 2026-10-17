@@ -81,10 +81,16 @@ export const monographContextTool: MCPTool = {
       formatNodes(result.callees as any, 'Callees');
       formatNodes(result.imports as any, 'Imports');
       formatNodes(result.importedBy as any, 'ImportedBy');
+      formatNodes(result.testedBy, 'Tested by (calls this symbol)');
+      formatNodes(result.fileTests, 'Tests of its file (imports it)');
 
-      if (result.community != null) lines.push(`Community: ${result.community}`);
-      if ((result as any).communityName)
-        lines.push(`Community name: ${(result as any).communityName}`);
+      if (result.community != null) {
+        const c = result.community;
+        lines.push(`Community: #${c.id}${c.label ? ` ${c.label}` : ''}`);
+      }
+      if (result.inProcesses.length > 0) {
+        lines.push(`In processes: ${result.inProcesses.map((p) => p.name).join(', ')}`);
+      }
 
       return text(lines.join('\n').trim());
     } finally {

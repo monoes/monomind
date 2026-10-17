@@ -29,6 +29,8 @@ export interface MonographImpactResult {
   directCallers: MonographNode[];
   transitiveCallers: Array<{ depth: number; nodes: MonographNode[] }>;
   affectedFiles: string[];
+  /** Test files covering the node, its callers, or any affected file — what to run after a change. */
+  affectedTests: string[];
   riskScore: number;
   riskLevel: RiskLevel;
   /** True when `name` matched several nodes and nothing narrowed it to one. */
@@ -113,6 +115,7 @@ export function getMonographImpact(
       directCallers: [],
       transitiveCallers: [],
       affectedFiles: [],
+      affectedTests: [],
       riskScore: 0,
       riskLevel: 'LOW',
       ambiguous: candidates.length > 1,
@@ -162,6 +165,15 @@ function extractCallerResult(
     ...new Set(allAffectedNodes.map((n) => n.filePath).filter((p): p is string => p != null)),
   ];
 
+  const own = db.prepare('SELECT file_path FROM nodes WHERE id = ?').get(startNodeId) as
+    | { file_path: string | null }
+    | undefined;
+  const affectedTests = findAffectedTests(
+    db,
+    [...visited.keys()],
+    own?.file_path ? [own.file_path, ...affectedFiles] : affectedFiles,
+  );
+
   const totalCallerCount = visited.size - 1; // exclude start node
   const rawScore = Math.min(Math.log2(totalCallerCount + 1), 10);
   const riskScore = rawScore / 10;
@@ -170,9 +182,41 @@ function extractCallerResult(
     directCallers,
     transitiveCallers,
     affectedFiles,
+    affectedTests,
     riskScore,
     riskLevel: computeRiskLevel(riskScore),
   };
+}
+
+/** Test files with a TESTS edge to any impacted node or any impacted file. */
+function findAffectedTests(
+  db: Database.Database,
+  nodeIds: string[],
+  files: string[],
+): string[] {
+  const targets = new Set(nodeIds);
+  if (files.length > 0) {
+    const rows = db
+      .prepare(
+        `SELECT id FROM nodes WHERE label = 'File' AND file_path IN (${files.map(() => '?').join(',')})`,
+      )
+      .all(...files) as { id: string }[];
+    for (const r of rows) targets.add(r.id);
+  }
+  const ids = [...targets];
+  const found = new Set<string>();
+  const CHUNK = 500;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    const rows = db
+      .prepare(
+        `SELECT DISTINCT s.file_path AS p FROM edges e JOIN nodes s ON s.id = e.source_id
+         WHERE e.relation = 'TESTS' AND e.target_id IN (${chunk.map(() => '?').join(',')})`,
+      )
+      .all(...chunk) as { p: string | null }[];
+    for (const r of rows) if (r.p) found.add(r.p);
+  }
+  return [...found].sort();
 }
 
 // ── id-based impact with filtering options ────────────────────────────────────
@@ -194,6 +238,7 @@ export async function monographImpact(
       directCallers: [],
       transitiveCallers: [],
       affectedFiles: [],
+      affectedTests: [],
       riskScore: 0,
       riskLevel: 'LOW',
     };
