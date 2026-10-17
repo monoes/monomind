@@ -178,11 +178,9 @@ export function checklistFindings(def: OrgDef): ChecklistFindings {
       warnings.push(
         `#9 role "${r.id}": its prompt carries a dated detail; changing the prompt starts a new cache prefix — put per-task detail in the task brief`,
       );
-    // #10 explicit model.
-    if (runtimeOf(def, r) === 'claude' && !r.adapter_config?.model)
-      warnings.push(
-        `#10 role "${r.id}": no explicit model — it runs on whatever the default is; pin one`,
-      );
+    // #10 (a role with no explicit model) is no finding: an unpinned role runs the newest model of its
+    // runtime's default family when it runs (latest-models.ts), and a pin that goes stale is what
+    // outdatedModelWarnings reports.
   }
 
   // #3 capacity: an idle worker keeps its slot, so the cap must cover the roster.

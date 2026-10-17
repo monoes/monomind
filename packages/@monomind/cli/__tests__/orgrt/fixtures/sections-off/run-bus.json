@@ -87,33 +87,6 @@
         "run": "<RUN>",
         "type": "audit",
         "reason": "checklist-warning",
-        "msg": "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one"
-      },
-      {
-        "id": "<ID>",
-        "ts": "<TS>",
-        "org": "alpha",
-        "run": "<RUN>",
-        "type": "audit",
-        "reason": "checklist-warning",
-        "msg": "#10 role \"coder\": no explicit model — it runs on whatever the default is; pin one"
-      },
-      {
-        "id": "<ID>",
-        "ts": "<TS>",
-        "org": "alpha",
-        "run": "<RUN>",
-        "type": "audit",
-        "reason": "checklist-warning",
-        "msg": "#10 role \"idle\": no explicit model — it runs on whatever the default is; pin one"
-      },
-      {
-        "id": "<ID>",
-        "ts": "<TS>",
-        "org": "alpha",
-        "run": "<RUN>",
-        "type": "audit",
-        "reason": "checklist-warning",
         "msg": "#3 run_config.max_concurrent_agents is 2 but the org has 3 roles; roles past the cap wait for a slot (a finished worker keeps its slot) — raise it to 3"
       },
       {

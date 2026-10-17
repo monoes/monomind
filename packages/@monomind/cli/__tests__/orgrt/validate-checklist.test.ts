@@ -183,9 +183,10 @@ describe('section 7.3 checklist findings', () => {
     expect(hit(checklistFindings(org()).warnings, '#9')).toBe(false);
   });
 
-  it('#10 warns on a role without an explicit model', () => {
+  it('a role without an explicit model is not a finding: it runs the newest default when it runs', () => {
     const f = checklistFindings(org({}, { adapter_config: undefined }));
-    expect(f.warnings.some((w) => w.includes('#10') && w.includes('worker'))).toBe(true);
-    expect(hit(checklistFindings(org()).warnings, '#10')).toBe(false);
+    expect(hit(f.warnings, '#10')).toBe(false);
+    expect(f.warnings.some((w) => /no explicit model/.test(w))).toBe(false);
+    expect(f.errors).toEqual([]);
   });
 });
