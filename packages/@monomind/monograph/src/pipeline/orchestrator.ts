@@ -8,6 +8,7 @@ import { closeDb, openDb } from '../storage/db.js';
 import type { PipelineProgress, SuggestedQuestion } from '../types.js';
 import { acquireBuildLock, type BuildLockHolder, describeBuildLockHolder } from './build-lock.js';
 import { readIndexScope, scopeForOptions, writeIndexScope } from './index-scope.js';
+import { writeManifest } from './manifest.js';
 import { bridgeResolverPhase } from './phases/bridge-resolver.js';
 import { communitiesPhase } from './phases/communities.js';
 import { contextualProximityPhase } from './phases/contextual-proximity.js';
@@ -190,6 +191,7 @@ async function buildAsyncLocked(
   // phases below are async. This is still safe: every phase writes through
   // this same single connection, so SQLite serializes them regardless of how
   // the JS event loop interleaves the awaits between phases.
+  const buildStartedAt = Date.now();
   db.exec('BEGIN');
   try {
     const graph = new Graph({ multi: true, type: 'directed' });
@@ -299,6 +301,13 @@ async function buildAsyncLocked(
       new Date().toISOString(),
     );
     writeIndexScope(db, activeScope);
+    writeManifest(db, {
+      startedAt: buildStartedAt,
+      scope: activeScope,
+      commit: hash ?? null,
+      summarized: (outputs.get('summaries') as { summarized?: number } | undefined)?.summarized ?? 0,
+      parseErrors,
+    });
     const after = countGraph(db);
     db.exec('COMMIT');
 

@@ -71,6 +71,7 @@ export * from './mcp-tools/tool-map.js';
 export * from './parsers/language-parsers.js';
 export * from './parsers/named-bindings.js';
 export * from './pipeline/cluster-only.js';
+export * from './pipeline/manifest.js';
 export * from './pipeline/orchestrator.js';
 export * from './pipeline/phases/evidence.js';
 export * from './pipeline/phases/field-access.js';

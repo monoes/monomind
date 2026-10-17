@@ -19,7 +19,9 @@ export const monographStatsTool: MCPTool = {
     const dbPath = getDbPath();
     if (!_isValidDb(dbPath))
       return text('Monograph index not built yet. Run monograph_build first.');
-    const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
+    const { openDb, closeDb, countNodes, countEdges, readManifest } = await import(
+      '@monoes/monograph'
+    );
     const db = openDb(dbPath);
     try {
       const nodes = countNodes(db);
@@ -28,8 +30,30 @@ export const monographStatsTool: MCPTool = {
         key: string;
         value: string;
       }[];
-      const metaStr = meta.map((m) => `  ${m.key}: ${m.value}`).join('\n');
-      return text(`Monograph index stats:\n  nodes: ${nodes}\n  edges: ${edges}\n${metaStr}`);
+      const metaStr = meta
+        .filter((m) => m.key !== 'manifest')
+        .map((m) => `  ${m.key}: ${m.value}`)
+        .join('\n');
+      const manifest = readManifest(db);
+      const top = (counts: Record<string, number>, n: number) =>
+        Object.entries(counts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, n)
+          .map(([k, v]) => `${k} ${v}`)
+          .join(', ');
+      const manifestStr = manifest
+        ? [
+            '',
+            `Last build: generation ${manifest.generation}, ${manifest.builtAt}, ${(manifest.durationMs / 1000).toFixed(1)}s, scope ${manifest.scope}, identity v${manifest.identityVersion}`,
+            `  nodes by label: ${top(manifest.nodes, 8)}`,
+            `  edges by relation: ${top(manifest.edges, 8)}`,
+            `  summarized symbols/files: ${manifest.summarized}`,
+            `  parse warnings: ${manifest.parseWarnings.count}${manifest.parseWarnings.sample.length ? ` (e.g. ${manifest.parseWarnings.sample.slice(0, 3).join('; ')})` : ''}`,
+          ].join('\n')
+        : '\nLast build: no manifest recorded (index predates it — rebuild to get one).';
+      return text(
+        `Monograph index stats:\n  nodes: ${nodes}\n  edges: ${edges}\n${metaStr}${manifestStr}`,
+      );
     } finally {
       closeDb(db);
     }
