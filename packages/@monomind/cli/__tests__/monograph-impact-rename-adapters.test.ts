@@ -85,6 +85,7 @@ describe('monograph_impact adapter renders the library result', () => {
       { depth: 2, nodes: [node({ id: 'c3', name: 'callerThree', filePath: 'src/c.ts', startLine: 7 })] },
     ],
     affectedFiles: ['src/b.ts', 'src/c.ts'],
+    affectedTests: ['src/__tests__/b.test.ts'],
     riskScore: 0.3,
     riskLevel: 'MEDIUM',
   };
@@ -110,6 +111,15 @@ describe('monograph_impact adapter renders the library result', () => {
     expect(data(res).affectedSymbolCount).toBe(3);
     expect(data(res).affectedFileCount).toBe(2);
     expect(data(res).affectedFiles).toEqual(['src/b.ts', 'src/c.ts']);
+  });
+
+  it('lists the tests to run, in prose and in the data block', async () => {
+    mocks.getMonographImpact.mockReturnValue(impactResult);
+    const res = await callTool('monograph_impact', { name: 'doWork' });
+
+    expect(prose(res)).toContain('Tests to run (1):');
+    expect(prose(res)).toContain('src/__tests__/b.test.ts');
+    expect(data(res).affectedTests).toEqual(['src/__tests__/b.test.ts']);
   });
 
   it('preserves per-caller source locations and the depth from the grouping', async () => {
@@ -151,6 +161,7 @@ describe('monograph_impact adapter renders the library result', () => {
       directCallers: [],
       transitiveCallers: [],
       affectedFiles: [],
+      affectedTests: [],
       riskScore: 0,
       riskLevel: 'LOW',
     });
@@ -166,7 +177,7 @@ describe('impact/context list candidates when a name matches several definitions
     { id: 'real', name: 'bridgeStoreEntry', label: 'Function', filePath: 'src/memory/bridge.ts', startLine: 12 },
     { id: 'mock', name: 'bridgeStoreEntry', label: 'Function', filePath: 'src/__tests__/bridge.test.ts', startLine: 3 },
   ];
-  const empty = { node: null, directCallers: [], transitiveCallers: [], affectedFiles: [] };
+  const empty = { node: null, directCallers: [], transitiveCallers: [], affectedFiles: [], affectedTests: [] };
 
   it('monograph_impact returns the candidates, not a risk verdict', async () => {
     mocks.getMonographImpact.mockReturnValue({
