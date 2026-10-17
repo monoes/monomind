@@ -55,6 +55,19 @@ CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(
   tokenize='trigram'
 )`;
 
+/**
+ * Natural-language handle on code symbols: the words of a symbol's name, file
+ * and leading comment, indexed with stemming so "which agent should handle a
+ * task" can reach `pickAgents`. Rebuilt wholesale by the summaries phase;
+ * separate from nodes_fts, whose trigram tokenizer cannot stem.
+ */
+export const CREATE_NODE_SUMMARIES_FTS = `
+CREATE VIRTUAL TABLE IF NOT EXISTS node_summaries_fts USING fts5(
+  node_id UNINDEXED,
+  text,
+  tokenize='porter unicode61'
+)`;
+
 export const CREATE_EMBEDDINGS = `
 CREATE TABLE IF NOT EXISTS embeddings (
   node_id TEXT PRIMARY KEY,

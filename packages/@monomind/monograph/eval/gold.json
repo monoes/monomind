@@ -1,0 +1,237 @@
+[
+ {
+  "kind": "exact",
+  "query": "pickAgents",
+  "expect": [
+   "agent-pick"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "searchGraph",
+  "expect": [
+   "hybrid-query"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "hybridSearch",
+  "expect": [
+   "fts-store-hybrid"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "buildAsync",
+  "expect": [
+   "orchestrator"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "relevanceFromFtsRank",
+  "expect": [
+   "fts-store-search"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "computeCommitsBehind",
+  "expect": [
+   "shared"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "expandWithNeighbors",
+  "expect": [
+   "shared"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "pickRoleForTask",
+  "expect": [
+   "picks"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "extractSearchTerms",
+  "expect": [
+   "fts-store-terms"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "triggerBackgroundBuildIfNeeded",
+  "expect": [
+   "shared"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "godNodesPhase",
+  "expect": [
+   "god-nodes"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "ftsSearch",
+  "expect": [
+   "fts-store-search"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "which agent should handle a task",
+  "expect": [
+   "agent-pick"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "rebuild the index when it is stale",
+  "expect": [
+   "staleness"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "detect communities in the graph",
+  "expect": [
+   "communities"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "turn a natural language question into identifiers",
+  "expect": [
+   "extractSearchTerms"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "find the most connected symbols",
+  "expect": [
+   "god-nodes"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "route a task to an org role",
+  "expect": [
+   "pickRoleForTask"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "detect import cycles",
+  "expect": [
+   "cycle-detection"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "export findings as sarif",
+  "expect": [
+   "sarif"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "parse markdown into sections",
+  "expect": [
+   "markdown"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "rank search results with bm25",
+  "expect": [
+   "fts-store"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "check whether the graph is out of date with git",
+  "expect": [
+   "git-staleness"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "find unused exports and dead code",
+  "expect": [
+   "dead"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "what breaks if I change this function",
+  "expect": [
+   "impact"
+  ]
+ },
+ {
+  "kind": "ambiguous",
+  "query": "agent-pick",
+  "expect": [
+   "agent-pick"
+  ]
+ },
+ {
+  "kind": "ambiguous",
+  "query": "orchestrator",
+  "expect": [
+   "orchestrator"
+  ]
+ },
+ {
+  "kind": "ambiguous",
+  "query": "fts-store",
+  "expect": [
+   "fts-store"
+  ]
+ },
+ {
+  "kind": "ambiguous",
+  "query": "schema",
+  "expect": [
+   "schema"
+  ]
+ },
+ {
+  "kind": "doc",
+  "query": "org runtime role schema",
+  "expect": [
+   "org-runtime"
+  ],
+  "scope": "docs"
+ },
+ {
+  "kind": "doc",
+  "query": "how agent routing works",
+  "expect": [
+   "routing"
+  ],
+  "scope": "docs"
+ },
+ {
+  "kind": "doc",
+  "query": "monograph concept guide",
+  "expect": [
+   "monograph"
+  ],
+  "scope": "docs"
+ },
+ {
+  "kind": "doc",
+  "query": "agents and skills frontmatter",
+  "expect": [
+   "agents-and-skills"
+  ],
+  "scope": "docs"
+ }
+]

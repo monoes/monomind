@@ -1,7 +1,7 @@
 // ── Intent-to-identifier extraction ──────────────────────────────────────────
 // File-size sweep: split out of fts-store.ts.
 
-const STOPWORDS = new Set([
+export const STOPWORDS = new Set([
   'a',
   'an',
   'the',

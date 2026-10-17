@@ -21,6 +21,7 @@
 
 import type Database from 'better-sqlite3';
 import { ftsSearch, hybridSearch, relevanceFromFtsRank } from '../storage/fts-store.js';
+import { contentWords, summarySearch } from '../storage/summary-search.js';
 import { SYMBOL_NODE_LABELS } from '../types.js';
 import type { RankedResult } from './rrf.js';
 
@@ -133,7 +134,63 @@ export function searchGraph(
   return [...primary, ...filler].slice(0, limit);
 }
 
+/**
+ * Summary hits sit below an exact lexical hit (whose relevance can exceed 1)
+ * but above weak fuzzy ones; a node found by both signals gets the summary
+ * score added, since two independent signals agreeing is the strongest evidence.
+ */
+const SUMMARY_WEIGHT = 0.8;
+const LEXICAL_ONLY_FACTOR = 0.25;
+/** Tests restate the code they exercise; they rank below it unless asked for. */
+const TEST_PATH = /(\.test\.|\.spec\.|__tests__|__mocks__|\/tests?\/)/;
+const TEST_INTENT = /\b(tests?|specs?|mocks?|fixtures?)\b/i;
+const TEST_FACTOR = 0.6;
+
 function searchLabels(
+  db: Database.Database,
+  normalizedQuery: string,
+  limit: number,
+  mode: RetrievalMode,
+  label?: string | readonly string[],
+): GraphSearchResult[] {
+  const lexical = searchLexical(db, normalizedQuery, limit, mode, label);
+  const described = summarySearch(db, normalizedQuery, limit * 2, label);
+  if (described.length === 0) return lexical;
+  // A multi-word question is not an identifier: a lexical-only hit is then
+  // usually a substring accident ("handle" inside handleTasksStatus), so it
+  // counts for less than a hit the descriptions also support.
+  if (contentWords(normalizedQuery).length >= 2) {
+    const supported = new Set(described.map((r) => r.id));
+    for (const r of lexical) if (!supported.has(r.id)) r.relevance *= LEXICAL_ONLY_FACTOR;
+  }
+  const byId = new Map(lexical.map((r) => [r.id, r]));
+  for (const row of described) {
+    const score = SUMMARY_WEIGHT * relevanceFromFtsRank(row.rank);
+    const hit = byId.get(row.id);
+    if (hit) {
+      hit.relevance += score;
+    } else {
+      byId.set(row.id, {
+        id: row.id,
+        name: row.name,
+        normLabel: row.normLabel,
+        filePath: row.filePath,
+        label: row.label,
+        relevance: score,
+        startLine: row.startLine,
+        endLine: row.endLine,
+        matchStrategy: 'fts',
+      });
+    }
+  }
+  const wantsTests = TEST_INTENT.test(normalizedQuery);
+  for (const r of byId.values()) {
+    if (!wantsTests && r.filePath && TEST_PATH.test(r.filePath)) r.relevance *= TEST_FACTOR;
+  }
+  return [...byId.values()].sort((a, b) => b.relevance - a.relevance).slice(0, limit);
+}
+
+function searchLexical(
   db: Database.Database,
   normalizedQuery: string,
   limit: number,

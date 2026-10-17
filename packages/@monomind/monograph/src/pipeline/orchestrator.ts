@@ -29,6 +29,7 @@ import { clearWorkspacePackageMapCache, scopeResolutionPhase } from './phases/sc
 import { staleSweepPhase } from './phases/stale-sweep.js';
 import { structurePhase } from './phases/structure.js';
 import { suggestPhase } from './phases/suggest.js';
+import { summariesPhase } from './phases/summaries.js';
 import { surprisesPhase } from './phases/surprises.js';
 import { toolsPhase } from './phases/tools.js';
 import { variablesPhase } from './phases/variables-phase.js';
@@ -225,6 +226,7 @@ async function buildAsyncLocked(
       godNodesPhase,
       surprisesPhase,
       suggestPhase,
+      summariesPhase,
     ]);
 
     const outputs = await runner.run(ctx);
