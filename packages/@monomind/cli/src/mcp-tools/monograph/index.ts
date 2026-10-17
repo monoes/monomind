@@ -5,6 +5,7 @@ export { preferSymbolHits } from './shared.js';
 
 // ── Tool imports ────────────────────────────────────────────────────────────
 
+import { monographBriefTool } from './brief-tool.js';
 import {
   monographAgentHistoryTool,
   monographAgentPatternsTool,
@@ -44,6 +45,7 @@ import {
   monographShapeCheckTool,
   monographToolMapTool,
 } from './impact-tools.js';
+import { monographBriefTool } from './brief-tool.js';
 import {
   monographAugmentTool,
   monographContextTool,
@@ -71,11 +73,12 @@ import {
 // Advanced tools are only exposed over MCP when MONOGRAPH_MCP_ADVANCED=1.
 const ADVANCED = process.env.MONOGRAPH_MCP_ADVANCED === '1';
 
-/** Default-exposed core tools (19). */
+/** Default-exposed core tools (20). */
 const coreMonographTools: MCPTool[] = [
   monographBuildTool,
   monographQueryTool,
   monographSuggestTool,
+  monographBriefTool,
   monographImpactTool,
   monographContextTool,
   monographNeighborsTool,
