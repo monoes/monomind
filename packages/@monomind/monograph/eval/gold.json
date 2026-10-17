@@ -233,5 +233,48 @@
    "agents-and-skills"
   ],
   "scope": "docs"
+ },
+ {
+  "kind": "agent",
+  "query": "which agent writes production code",
+  "expect": [
+   "coder"
+  ]
+ },
+ {
+  "kind": "agent",
+  "query": "agent for reviewing pull requests",
+  "expect": [
+   "reviewer",
+   "pr-manager"
+  ]
+ },
+ {
+  "kind": "agent",
+  "query": "skill for lean minimal solutions",
+  "expect": [
+   "monolean"
+  ]
+ },
+ {
+  "kind": "agent",
+  "query": "agent that handles release versioning",
+  "expect": [
+   "release-manager"
+  ]
+ },
+ {
+  "kind": "agent",
+  "query": "security vulnerability review agent",
+  "expect": [
+   "security"
+  ]
+ },
+ {
+  "kind": "agent",
+  "query": "agent that designs system architecture",
+  "expect": [
+   "architect"
+  ]
  }
 ]

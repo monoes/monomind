@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { CODE_SCOPE_LABELS } from '../../search/hybrid-query.js';
+import { definitionText } from './agent-registry.js';
 import type { PipelinePhase } from '../types.js';
 
 const MAX_COMMENT_CHARS = 300;
@@ -87,7 +88,7 @@ export function buildSummaryText(name: string, filePath: string | null, comment:
 /** Rebuilds `node_summaries_fts` for every code symbol and file in the graph. */
 export const summariesPhase: PipelinePhase<{ summarized: number }> = {
   name: 'summaries',
-  deps: ['stale-sweep'],
+  deps: ['stale-sweep', 'agent-registry'],
   async execute(ctx) {
     const db = ctx.db;
     const placeholders = CODE_SCOPE_LABELS.map(() => '?').join(',');
@@ -107,6 +108,22 @@ export const summariesPhase: PipelinePhase<{ summarized: number }> = {
     db.exec('DELETE FROM node_summaries_fts');
     const insert = db.prepare('INSERT INTO node_summaries_fts (node_id, text) VALUES (?, ?)');
     let summarized = 0;
+
+    // Agent and skill definitions describe themselves in frontmatter.
+    const defs = db
+      .prepare("SELECT id, name, properties FROM nodes WHERE label IN ('Agent', 'Skill')")
+      .all() as { id: string; name: string; properties: string | null }[];
+    for (const d of defs) {
+      let props: Record<string, unknown> = {};
+      try {
+        props = d.properties ? (JSON.parse(d.properties) as Record<string, unknown>) : {};
+      } catch {
+        /* malformed properties: index the name alone */
+      }
+      insert.run(d.id, definitionText(props, splitWords(d.name)));
+      summarized++;
+    }
+
     let currentFile = '';
     let lines: string[] = [];
     for (const r of rows) {

@@ -41,13 +41,14 @@ export type RetrievalMode = 'bm25' | 'hybrid';
  *
  * - `code` — symbols, files, routes and tools.
  * - `docs` — markdown sections, documents and concepts.
+ * - `agents` — agent and skill definitions.
  * - `all` — everything, ranked purely by relevance.
  * - `auto` (default) — code first, with documentation filling any slots the
  *   code left empty; a query that is plainly about documentation flips that
  *   order. Doc sections outnumber code symbols roughly 1:2 in this repo, so
  *   without this an abstract task query is answered entirely by headings.
  */
-export type SearchScope = 'code' | 'docs' | 'all' | 'auto';
+export type SearchScope = 'code' | 'docs' | 'agents' | 'all' | 'auto';
 
 export const CODE_SCOPE_LABELS: readonly string[] = [
   ...SYMBOL_NODE_LABELS,
@@ -57,8 +58,16 @@ export const CODE_SCOPE_LABELS: readonly string[] = [
   'Tool',
 ];
 export const DOC_SCOPE_LABELS: readonly string[] = ['Section', 'Document', 'Concept'];
+export const AGENT_SCOPE_LABELS: readonly string[] = ['Agent', 'Skill'];
 
+// Whole words in a multi-word question — not `agent` inside `agent-pick` or `AgentSpawn`.
+const AGENT_INTENT = /(?:^|\s)(?:agents?|subagents?|skills?)(?:\s|$)/i;
 const DOC_INTENT = /\b(docs?|documentation|readme|guide|adr|changelog|tutorial|concept|explain(?:s|ed)?)\b/i;
+
+/** True when the query is asking which agent or skill to use. */
+export function hasAgentIntent(query: string): boolean {
+  return /\s/.test(query.trim()) && AGENT_INTENT.test(query);
+}
 
 /** True when the query is plainly asking about documentation rather than code. */
 export function hasDocIntent(query: string): boolean {
@@ -122,16 +131,30 @@ export function searchGraph(
   if (scope === 'code') return searchLabels(db, normalizedQuery, limit, mode, CODE_SCOPE_LABELS);
   if (scope === 'docs') return searchLabels(db, normalizedQuery, limit, mode, DOC_SCOPE_LABELS);
 
-  const [first, second] = hasDocIntent(normalizedQuery)
-    ? [DOC_SCOPE_LABELS, CODE_SCOPE_LABELS]
-    : [CODE_SCOPE_LABELS, DOC_SCOPE_LABELS];
-  const primary = searchLabels(db, normalizedQuery, limit, mode, first);
-  if (primary.length >= limit) return primary;
-  const seen = new Set(primary.map((r) => r.id));
-  const filler = searchLabels(db, normalizedQuery, limit - primary.length, mode, second).filter(
-    (r) => !seen.has(r.id),
-  );
-  return [...primary, ...filler].slice(0, limit);
+  if (scope === 'agents') return searchLabels(db, normalizedQuery, limit, mode, AGENT_SCOPE_LABELS);
+
+  const order = hasDocIntent(normalizedQuery)
+    ? [DOC_SCOPE_LABELS, CODE_SCOPE_LABELS, AGENT_SCOPE_LABELS]
+    : [CODE_SCOPE_LABELS, DOC_SCOPE_LABELS, AGENT_SCOPE_LABELS];
+  const results: GraphSearchResult[] = [];
+  const seen = new Set<string>();
+  // A question about agents or skills gets up to half the slots first; the
+  // code that matches it (an agent *picker*, say) keeps the rest.
+  if (hasAgentIntent(normalizedQuery)) {
+    for (const r of searchLabels(db, normalizedQuery, Math.ceil(limit / 2), mode, AGENT_SCOPE_LABELS)) {
+      results.push(r);
+      seen.add(r.id);
+    }
+  }
+  for (const labels of order) {
+    if (results.length >= limit) break;
+    for (const r of searchLabels(db, normalizedQuery, limit - results.length, mode, labels)) {
+      if (seen.has(r.id)) continue;
+      results.push(r);
+      seen.add(r.id);
+    }
+  }
+  return results.slice(0, limit);
 }
 
 /**

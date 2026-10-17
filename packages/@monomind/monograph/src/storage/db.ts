@@ -10,7 +10,6 @@ import {
   CREATE_AGENT_INTERACTIONS_TYPE_IDX,
   CREATE_COMMUNITIES,
   CREATE_EDGES,
-  CREATE_EMBEDDINGS,
   CREATE_INDEX_META,
   CREATE_INDEXES,
   CREATE_NODES,
@@ -74,7 +73,6 @@ function applyMigrations(db: MonographDb): void {
   db.exec(CREATE_NODE_SUMMARIES_FTS);
   for (const idx of CREATE_INDEXES) db.exec(idx);
   db.exec(FTS_SYNC_TRIGGERS);
-  db.exec(CREATE_EMBEDDINGS);
   db.exec(CREATE_WIKI_PAGES);
   db.exec(CREATE_AGENT_INTERACTIONS);
   db.exec(CREATE_AGENT_INTERACTIONS_IDX);

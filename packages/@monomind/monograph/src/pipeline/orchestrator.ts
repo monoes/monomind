@@ -30,6 +30,7 @@ import { clearWorkspacePackageMapCache, scopeResolutionPhase } from './phases/sc
 import { staleSweepPhase } from './phases/stale-sweep.js';
 import { structurePhase } from './phases/structure.js';
 import { suggestPhase } from './phases/suggest.js';
+import { agentRegistryPhase } from './phases/agent-registry.js';
 import { summariesPhase } from './phases/summaries.js';
 import { testsEdgesPhase } from './phases/tests-edges.js';
 import { surprisesPhase } from './phases/surprises.js';
@@ -229,6 +230,7 @@ async function buildAsyncLocked(
       godNodesPhase,
       surprisesPhase,
       suggestPhase,
+      agentRegistryPhase,
       summariesPhase,
       testsEdgesPhase,
     ]);

@@ -10,8 +10,7 @@ CREATE TABLE IF NOT EXISTS nodes (
   community_id INTEGER,
   is_exported INTEGER NOT NULL DEFAULT 0,
   language TEXT,
-  properties TEXT,
-  embedding TEXT
+  properties TEXT
 )`;
 
 export const CREATE_EDGES = `
@@ -66,12 +65,6 @@ CREATE VIRTUAL TABLE IF NOT EXISTS node_summaries_fts USING fts5(
   node_id UNINDEXED,
   text,
   tokenize='porter unicode61'
-)`;
-
-export const CREATE_EMBEDDINGS = `
-CREATE TABLE IF NOT EXISTS embeddings (
-  node_id TEXT PRIMARY KEY,
-  vector BLOB NOT NULL
 )`;
 
 export const CREATE_WIKI_PAGES = `

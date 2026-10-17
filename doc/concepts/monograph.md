@@ -37,12 +37,13 @@ Defined in `packages/@monomind/monograph/src/storage/schema.ts`:
 
 | Table | Primary Columns & Types | Purpose |
 |---|---|---|
-| `nodes` | `id (PK)`, `label`, `name`, `norm_label`, `file_path`, `start_line`, `end_line`, `community_id`, `is_exported`, `language`, `properties`, `embedding` | Code symbols, files, folders, and conceptual nodes. |
+| `nodes` | `id (PK)`, `label`, `name`, `norm_label`, `file_path`, `start_line`, `end_line`, `community_id`, `is_exported`, `language`, `properties` | Code symbols, files, folders, and conceptual nodes. |
 | `edges` | `id (PK)`, `source_id (FK)`, `target_id (FK)`, `relation`, `confidence`, `confidence_score`, `weight`, `reason`, `evidence` | Directed relationships between nodes. |
 | `communities` | `id (PK)`, `label`, `size`, `cohesion_score` | Louvain community clusters. |
 | `index_meta` | `key (PK)`, `value` | Commit metadata (e.g. `last_commit_hash`). |
 | `file_cache` | `file_path (PK)`, `content_hash` (SHA-256), `last_parsed`, `node_count`, `edge_count` | Incremental parse cache tracking. |
 | `nodes_fts` | FTS5 Virtual Table (`name`, `norm_label`, `file_path`) | Trigram-tokenized full-text search with SQLite auto-sync triggers (`FTS_SYNC_TRIGGERS`). |
+| `node_summaries_fts` | FTS5 Virtual Table (`node_id`, `text`), `porter unicode61` | Stemmed natural-language handle on every code symbol and file: the words of its name, leading comment (JSDoc, `//`, `#`, docstring) and location — and, for agents and skills, their frontmatter. Rebuilt by the `summaries` phase each build; lets "which agent should handle a task" reach `pickAgents`. |
 
 ---
 
@@ -51,9 +52,10 @@ Defined in `packages/@monomind/monograph/src/storage/schema.ts`:
 ### Code & Graph Node Labels
 - **AST / Code**: `File`, `Folder`, `Function`, `Class`, `Method`, `Interface`, `Variable`, `Struct`, `Enum`, `Macro`, `Typedef`, `Union`, `Namespace`, `Trait`, `Impl`, `TypeAlias`, `Const`, `Static`, `Property`, `Record`, `Delegate`, `Annotation`, `Constructor`, `Template`, `Module`, `Process`, `Route`, `Community`.
 - **Knowledge & Concept**: `Concept`, `Section`, `Document`, `Tool`, `Entity`, `Field`.
+- **Agents**: `Agent` and `Skill`, read by the `agent-registry` phase from the root `.claude/agents/**` and `.claude/skills/*/SKILL.md` frontmatter (`.claude/` is not file-scanned because it is mirrored into several platform trees). Their `REFERENCES` edges point at the repository files their text names.
 
 ### Edge Relationship Kinds (`EdgeRelation`)
-- **Code & Structural**: `CONTAINS`, `DEFINES`, `CALLS`, `IMPORTS`, `RE_EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `HAS_METHOD`, `HAS_PROPERTY`, `ACCESSES`, `METHOD_OVERRIDES`, `METHOD_IMPLEMENTS`, `MEMBER_OF`, `STEP_IN_PROCESS`, `HANDLES_ROUTE`, `FETCHES`, `HANDLES_TOOL`, `ENTRY_POINT_OF`, `WRAPS`, `QUERIES`, `REFERENCES`, `PARENT_SECTION`, `TAGGED_AS`, `HAS_FIELD`.
+- **Code & Structural**: `CONTAINS`, `DEFINES`, `CALLS`, `IMPORTS`, `RE_EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `HAS_METHOD`, `HAS_PROPERTY`, `ACCESSES`, `METHOD_OVERRIDES`, `METHOD_IMPLEMENTS`, `MEMBER_OF`, `STEP_IN_PROCESS`, `HANDLES_ROUTE`, `FETCHES`, `HANDLES_TOOL`, `ENTRY_POINT_OF`, `WRAPS`, `QUERIES`, `REFERENCES`, `PARENT_SECTION`, `TAGGED_AS`, `HAS_FIELD`, `TESTS` (test `File` → the file it imports, or the symbol its code calls; `INFERRED`, rebuilt from the committed `IMPORTS`/`CALLS` edges by the `tests-edges` phase).
 - **Semantic & Document**: `CO_OCCURS`, `DESCRIBES`, `CAUSES`, `CONTRASTS_WITH`, `PART_OF`, `RELATED_TO`, `USES`, `STRUCTURALLY_SIMILAR`.
 
 ### Confidence Levels
@@ -119,25 +121,26 @@ rather than relying on the graph alone.
 
 `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts` is now an 8-line backward-compat
 re-export shim — the real implementations live in individual files under
-`packages/@monomind/cli/src/mcp-tools/monograph/`. The 15 tools below are selected examples,
+`packages/@monomind/cli/src/mcp-tools/monograph/`. The 16 tools below are selected examples,
 not a curated "top 15" or a meaningful tier — see the note after the list for the real
 category boundary (default vs. advanced-gated):
 
 1. `monograph_build` ([`build-tools.ts → monographBuildTool`](packages/@monomind/cli/src/mcp-tools/monograph/build-tools.ts#monographBuildTool)): Rebuilds or incrementally updates the knowledge graph.
 2. `monograph_watch` ([`build-tools.ts → monographWatchTool`](packages/@monomind/cli/src/mcp-tools/monograph/build-tools.ts#monographWatchTool)): Starts the live file-watcher described in §5.3 above.
-3. `monograph_query` ([`query-tools-search.ts → monographQueryTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-search.ts#monographQueryTool)): BM25/FTS search with optional one-hop neighbor-expansion reranking (a single outgoing hop taking the maximum propagated score — not iterative Personalized PageRank).
-4. `monograph_stats` ([`health-tools.ts → monographStatsTool`](packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#monographStatsTool)): Reports node/edge totals and graph density metrics.
+3. `monograph_query` ([`query-tools-search.ts → monographQueryTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-search.ts#monographQueryTool)): BM25/FTS search over names plus stemmed symbol summaries, with optional one-hop neighbor-expansion reranking (a single outgoing hop taking the maximum propagated score — not iterative Personalized PageRank). `scope` picks the part of the graph: `auto` (default) lists code first and fills with docs — a docs-flavoured query reverses that, a multi-word question that names an agent or skill puts agents first; `code`, `docs`, `agents` restrict; `all` ranks by relevance alone. Test files rank below the code they exercise unless the query mentions tests.
+4. `monograph_stats` ([`health-tools.ts → monographStatsTool`](packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#monographStatsTool)): Reports node/edge totals and the last build's manifest — generation, duration, scope, identity version, nodes per label, edges per relation, summarized symbols and parse warnings (`index_meta.manifest`).
 5. `monograph_health` ([`health-tools.ts → monographHealthTool`](packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#monographHealthTool)): Computes graph connectivity and complexity health scores.
 6. `monograph_god_nodes` ([`query-tools-graph.ts → monographGodNodesTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-graph.ts#monographGodNodesTool)): Identifies central high-degree nodes (architectural hubs).
 7. `monograph_get_node` ([`query-tools-nav.ts → monographGetNodeTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-nav.ts#monographGetNodeTool)): Retrieves attributes and edge connections for a specific node.
 8. `monograph_shortest_path` ([`query-tools-graph.ts → monographShortestPathTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-graph.ts#monographShortestPathTool)): Executes BFS pathfinding between two code nodes.
 9. `monograph_community` ([`group-tools.ts → monographCommunityTool`](packages/@monomind/cli/src/mcp-tools/monograph/group-tools.ts#monographCommunityTool)): Inspects Louvain community clusters.
 10. `monograph_surprises` ([`group-tools.ts → monographSurprisesTool`](packages/@monomind/cli/src/mcp-tools/monograph/group-tools.ts#monographSurprisesTool)): Detects unusual cross-boundary coupling and non-obvious dependencies.
-11. `monograph_suggest` ([`query-tools-search.ts → monographSuggestTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-search.ts#monographSuggestTool)): Recommends relevant code files for task prompts.
-12. `monograph_staleness` ([`health-tools.ts → monographStalenessTool`](packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#monographStalenessTool)): Checks graph freshness against the Git HEAD commit.
-13. `monograph_context` ([`query-tools-nav.ts → monographContextTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-nav.ts#monographContextTool)): Assembles deep multi-hop graph context for LLM prompts.
-14. `monograph_impact` ([`impact-tools.ts → monographImpactTool`](packages/@monomind/cli/src/mcp-tools/monograph/impact-tools.ts#monographImpactTool)): Computes change blast radius and affected downstream files.
-15. `monograph_cypher` ([`query-tools-graph.ts → monographCypherTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-graph.ts#monographCypherTool)): Executes custom subset Cypher pattern queries against the SQLite graph.
+11. `monograph_brief` ([`brief-tool.ts → monographBriefTool`](packages/@monomind/cli/src/mcp-tools/monograph/brief-tool.ts#monographBriefTool)): One call from a task in plain words to the best code entry points (with callers, callees and covering tests), the docs that describe it, and the blast radius — risk, files and tests to run — of the top hit. Start here instead of chaining suggest, context and impact.
+12. `monograph_suggest` ([`query-tools-search.ts → monographSuggestTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-search.ts#monographSuggestTool)): Recommends relevant code files for task prompts.
+13. `monograph_staleness` ([`health-tools.ts → monographStalenessTool`](packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#monographStalenessTool)): Checks graph freshness against the Git HEAD commit.
+14. `monograph_context` ([`query-tools-nav.ts → monographContextTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-nav.ts#monographContextTool)): Assembles deep multi-hop graph context for LLM prompts: callers, callees, imports, the tests that cover the symbol, its community and processes.
+15. `monograph_impact` ([`impact-tools.ts → monographImpactTool`](packages/@monomind/cli/src/mcp-tools/monograph/impact-tools.ts#monographImpactTool)): Computes change blast radius, affected downstream files and the tests to run (`affectedTests`, from `TESTS` edges).
+16. `monograph_cypher` ([`query-tools-graph.ts → monographCypherTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-graph.ts#monographCypherTool)): Executes custom subset Cypher pattern queries against the SQLite graph.
 
 > **The 15 tools listed above are not a meaningful subset — they're carried over from an
 > earlier, smaller version of this section (14 tools) plus the one addition below, not a

@@ -35,6 +35,8 @@ export type NodeLabel =
   | 'Section'
   | 'Document'
   | 'Tool'
+  | 'Agent'
+  | 'Skill'
   | 'Entity'
   | 'Field';
 

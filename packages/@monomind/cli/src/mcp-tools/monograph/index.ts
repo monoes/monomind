@@ -45,7 +45,6 @@ import {
   monographShapeCheckTool,
   monographToolMapTool,
 } from './impact-tools.js';
-import { monographBriefTool } from './brief-tool.js';
 import {
   monographAugmentTool,
   monographContextTool,

@@ -37,9 +37,9 @@ export const monographQueryTool: MCPTool = {
       },
       scope: {
         type: 'string',
-        enum: ['auto', 'code', 'docs', 'all'],
+        enum: ['auto', 'code', 'docs', 'agents', 'all'],
         description:
-          'Part of the graph to search. auto (default) lists code symbols first and fills remaining slots with documentation; a documentation-flavoured query reverses that. code / docs restrict; all ranks everything by relevance alone.',
+          'Part of the graph to search. auto (default) lists code symbols first and fills remaining slots with documentation; a documentation-flavoured query reverses that. code / docs / agents (agent and skill definitions) restrict; all ranks everything by relevance alone.',
       },
       expandNeighbors: {
         type: 'boolean',
@@ -84,7 +84,7 @@ export const monographQueryTool: MCPTool = {
           : rawQuery;
       const label = input.label as string | undefined;
       const mode = input.mode === 'bm25' ? 'bm25' : 'hybrid';
-      const scope = (['code', 'docs', 'all'] as const).find((v) => v === input.scope) ?? 'auto';
+      const scope = (['code', 'docs', 'agents', 'all'] as const).find((v) => v === input.scope) ?? 'auto';
       const expandNeighbors = (input.expandNeighbors as boolean | undefined) ?? true;
       const damping = input.damping as number | undefined;
       const tokenBudget = input.tokenBudget as number | undefined;
@@ -327,6 +327,7 @@ export const monographSuggestTool: MCPTool = {
         JOIN nodes n1 ON n1.id = e.source_id
         JOIN nodes n2 ON n2.id = e.target_id
         WHERE e.confidence IN ('AMBIGUOUS', 'INFERRED')
+          AND e.relation != 'CO_OCCURS'
         ${taskFilter}
         LIMIT 100
       `)

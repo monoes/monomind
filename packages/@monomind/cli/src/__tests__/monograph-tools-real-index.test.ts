@@ -201,6 +201,28 @@ describe('monograph tools against a real index', () => {
     expect(out.status).toBe('fresh');
   });
 
+  it('brief turns a task into entry points, callers and a blast radius in one call', async () => {
+    const out = await textOf('monograph_brief', { task: 'greet a user with a helper' });
+    expect(out).toContain('Entry points');
+    expect(out).toMatch(/src\/(service|util)\.ts:\d+/);
+    expect(out).toContain('Blast radius of');
+  });
+
+  it('brief rejects an empty task instead of searching for nothing', async () => {
+    expect(await textOf('monograph_brief', { task: '   ' })).toContain('needs a task');
+  });
+
+  it('query accepts scope and keeps code ahead of docs', async () => {
+    const out = await textOf('monograph_query', { query: 'UserService', scope: 'code' });
+    expect(out).toContain('UserService');
+  });
+
+  it('stats reports the last build manifest', async () => {
+    const out = await textOf('monograph_stats');
+    expect(out).toMatch(/Last build: generation \d+/);
+    expect(out).toContain('nodes by label:');
+  });
+
   it('dead_code returns all three categories', async () => {
     const out = JSON.parse(await textOf('monograph_dead_code')) as Record<
       string,
