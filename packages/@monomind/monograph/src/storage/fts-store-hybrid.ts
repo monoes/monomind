@@ -5,8 +5,8 @@ import type Database from 'better-sqlite3';
 import { NOT_ANONYMOUS_CLOSURE_SQL } from './anonymous-closure.js';
 import {
   type FtsResult,
-  type LabelFilter,
   ftsSearch,
+  type LabelFilter,
   labelClause,
   relevanceFromFtsRank,
 } from './fts-store-search.js';

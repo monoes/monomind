@@ -23,7 +23,11 @@ describe('index manifest', () => {
     let db = open();
     const first = readManifest(db);
     db.close();
-    expect(first).toMatchObject({ generation: 1, scope: 'code', identityVersion: SYMBOL_ID_VERSION });
+    expect(first).toMatchObject({
+      generation: 1,
+      scope: 'code',
+      identityVersion: SYMBOL_ID_VERSION,
+    });
     expect(first?.nodes.Function).toBeGreaterThan(0);
     expect(first?.summarized).toBeGreaterThan(0);
     expect(first?.edges.CONTAINS).toBeGreaterThan(0);

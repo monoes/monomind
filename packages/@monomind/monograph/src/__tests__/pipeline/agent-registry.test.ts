@@ -14,7 +14,12 @@ describe('parseDefinition', () => {
       '.claude/agents/core/coder.md',
       '---\nname: coder\ndescription: "Writes code, \\"fast\\""\ntags: [code, tdd]\ncategory: core\ncapability:\n  role: coder\n---\nBody text',
     );
-    expect(def).toMatchObject({ name: 'coder', tags: ['code', 'tdd'], category: 'core', body: 'Body text' });
+    expect(def).toMatchObject({
+      name: 'coder',
+      tags: ['code', 'tdd'],
+      category: 'core',
+      body: 'Body text',
+    });
     expect(def?.description).toBe('Writes code, "fast"');
   });
 
@@ -52,7 +57,9 @@ describe('agent registry in the graph', () => {
   });
 
   it('indexes agents and skills as their own node labels', () => {
-    const rows = db.prepare("SELECT label, name FROM nodes WHERE label IN ('Agent','Skill') ORDER BY name").all();
+    const rows = db
+      .prepare("SELECT label, name FROM nodes WHERE label IN ('Agent','Skill') ORDER BY name")
+      .all();
     expect(rows).toEqual([
       { label: 'Agent', name: 'biller' },
       { label: 'Skill', name: 'invoicing' },
@@ -61,7 +68,9 @@ describe('agent registry in the graph', () => {
 
   it('links a definition to the repository files its text names, and only real ones', () => {
     const targets = db
-      .prepare("SELECT t.file_path AS p FROM edges e JOIN nodes s ON s.id = e.source_id JOIN nodes t ON t.id = e.target_id WHERE s.name = 'biller' AND e.relation = 'REFERENCES'")
+      .prepare(
+        "SELECT t.file_path AS p FROM edges e JOIN nodes s ON s.id = e.source_id JOIN nodes t ON t.id = e.target_id WHERE s.name = 'biller' AND e.relation = 'REFERENCES'",
+      )
       .all();
     expect(targets).toEqual([{ p: 'src/billing.ts' }]);
   });
@@ -79,7 +88,11 @@ describe('agent registry in the graph', () => {
   it('survives a rebuild without duplicating definitions', async () => {
     await buildAsync(tmpDir, { force: true });
     const check = new Database(join(tmpDir, '.monomind', 'monograph.db'), { readonly: true });
-    const n = (check.prepare("SELECT COUNT(*) AS n FROM nodes WHERE label IN ('Agent','Skill')").get() as { n: number }).n;
+    const n = (
+      check.prepare("SELECT COUNT(*) AS n FROM nodes WHERE label IN ('Agent','Skill')").get() as {
+        n: number;
+      }
+    ).n;
     check.close();
     expect(n).toBe(2);
   }, 60_000);

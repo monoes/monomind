@@ -16,13 +16,13 @@ const loc = (n: { filePath?: string; startLine?: number }): string =>
 export const monographBriefTool: MCPTool = {
   name: 'monograph_brief',
   description:
-    'Start a task with one call: pass the task in plain words and get the best code entry points (file:line) with their callers, callees and covering tests, the docs that describe it, and the blast radius (risk, files, tests to run) of the top entry point. Use instead of chaining suggest, context and impact by hand.',
+    'Task in plain words → best code entry points with callers, callees and tests, covering docs, and the top hit\'s blast radius (risk, files, tests to run). Use instead of chaining suggest, context and impact.',
   inputSchema: {
     type: 'object',
     properties: {
-      task: { type: 'string', description: 'The task or question, in plain words' },
-      entryPoints: { type: 'number', description: 'Code entry points to return (default 5, max 10)' },
-      docs: { type: 'number', description: 'Documentation sections to return (default 3, max 10)' },
+      task: { type: 'string', description: 'Task in plain words' },
+      entryPoints: { type: 'number', description: 'Default 5, max 10' },
+      docs: { type: 'number', description: 'Default 3, max 10' },
     },
     required: ['task'],
   },
@@ -52,10 +52,17 @@ export const monographBriefTool: MCPTool = {
       } else {
         lines.push(`Entry points (${brief.entryPoints.length}):`);
         for (const e of brief.entryPoints) {
-          lines.push(`  [${e.node.label}] ${e.node.name}  ${loc(e.node)}  (score ${e.relevance.toFixed(2)})`);
-          if (e.callers.length) lines.push(`      called by: ${e.callers.map((n) => n.name).join(', ')}`);
-          if (e.callees.length) lines.push(`      calls: ${e.callees.map((n) => n.name).join(', ')}`);
-          if (e.tests.length) lines.push(`      tests: ${e.tests.slice(0, 3).join(', ')}${e.tests.length > 3 ? ` (+${e.tests.length - 3})` : ''}`);
+          lines.push(
+            `  [${e.node.label}] ${e.node.name}  ${loc(e.node)}  (score ${e.relevance.toFixed(2)})`,
+          );
+          if (e.callers.length)
+            lines.push(`      called by: ${e.callers.map((n) => n.name).join(', ')}`);
+          if (e.callees.length)
+            lines.push(`      calls: ${e.callees.map((n) => n.name).join(', ')}`);
+          if (e.tests.length)
+            lines.push(
+              `      tests: ${e.tests.slice(0, 3).join(', ')}${e.tests.length > 3 ? ` (+${e.tests.length - 3})` : ''}`,
+            );
         }
       }
 
@@ -66,9 +73,14 @@ export const monographBriefTool: MCPTool = {
 
       if (brief.impact) {
         const i = brief.impact;
-        lines.push('', `Blast radius of ${i.name}: risk ${i.riskLevel} (${i.riskScore.toFixed(2)}), ${i.affectedFiles.length} files`);
+        lines.push(
+          '',
+          `Blast radius of ${i.name}: risk ${i.riskLevel} (${i.riskScore.toFixed(2)}), ${i.affectedFiles.length} files`,
+        );
         if (i.affectedTests.length > 0) {
-          lines.push(`  tests to run (${i.affectedTests.length}): ${i.affectedTests.slice(0, 8).join(', ')}${i.affectedTests.length > 8 ? ' …' : ''}`);
+          lines.push(
+            `  tests to run (${i.affectedTests.length}): ${i.affectedTests.slice(0, 8).join(', ')}${i.affectedTests.length > 8 ? ' …' : ''}`,
+          );
         } else {
           lines.push('  tests to run: none found linked to it or its callers');
         }
@@ -76,7 +88,10 @@ export const monographBriefTool: MCPTool = {
 
       const staleness = await computeCommitsBehind(getProjectCwd());
       if (staleness && staleness.commitsBehind > 0) {
-        lines.push('', `⚠ Index is ${staleness.commitsBehind} commit(s) behind HEAD — verify against the working tree.`);
+        lines.push(
+          '',
+          `⚠ Index is ${staleness.commitsBehind} commit(s) behind HEAD — verify against the working tree.`,
+        );
       }
       return text(lines.join('\n'));
     } finally {

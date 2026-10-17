@@ -189,11 +189,7 @@ function extractCallerResult(
 }
 
 /** Test files with a TESTS edge to any impacted node or any impacted file. */
-function findAffectedTests(
-  db: Database.Database,
-  nodeIds: string[],
-  files: string[],
-): string[] {
+function findAffectedTests(db: Database.Database, nodeIds: string[], files: string[]): string[] {
   const targets = new Set(nodeIds);
   if (files.length > 0) {
     const rows = db

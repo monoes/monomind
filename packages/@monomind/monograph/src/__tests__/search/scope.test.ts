@@ -4,7 +4,12 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildAsync } from '../../pipeline/orchestrator.js';
-import { CODE_SCOPE_LABELS, DOC_SCOPE_LABELS, hasDocIntent, searchGraph } from '../../search/hybrid-query.js';
+import {
+  CODE_SCOPE_LABELS,
+  DOC_SCOPE_LABELS,
+  hasDocIntent,
+  searchGraph,
+} from '../../search/hybrid-query.js';
 
 describe('searchGraph scope', () => {
   let tmpDir: string;

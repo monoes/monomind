@@ -62,7 +62,8 @@ export const AGENT_SCOPE_LABELS: readonly string[] = ['Agent', 'Skill'];
 
 // Whole words in a multi-word question — not `agent` inside `agent-pick` or `AgentSpawn`.
 const AGENT_INTENT = /(?:^|\s)(?:agents?|subagents?|skills?)(?:\s|$)/i;
-const DOC_INTENT = /\b(docs?|documentation|readme|guide|adr|changelog|tutorial|concept|explain(?:s|ed)?)\b/i;
+const DOC_INTENT =
+  /\b(docs?|documentation|readme|guide|adr|changelog|tutorial|concept|explain(?:s|ed)?)\b/i;
 
 /** True when the query is asking which agent or skill to use. */
 export function hasAgentIntent(query: string): boolean {
@@ -141,7 +142,13 @@ export function searchGraph(
   // A question about agents or skills gets up to half the slots first; the
   // code that matches it (an agent *picker*, say) keeps the rest.
   if (hasAgentIntent(normalizedQuery)) {
-    for (const r of searchLabels(db, normalizedQuery, Math.ceil(limit / 2), mode, AGENT_SCOPE_LABELS)) {
+    for (const r of searchLabels(
+      db,
+      normalizedQuery,
+      Math.ceil(limit / 2),
+      mode,
+      AGENT_SCOPE_LABELS,
+    )) {
       results.push(r);
       seen.add(r.id);
     }

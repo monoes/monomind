@@ -21,9 +21,7 @@ import {
 export const monographQueryTool: MCPTool = {
   name: 'monograph_query',
   description:
-    'Lexical keyword search across the code knowledge graph. mode=hybrid (default) ranks by ' +
-    'BM25 + LIKE fallback + subsequence fuzzy + node-type bonus; mode=bm25 is BM25 only. ' +
-    'Higher score = better match. Returns nodes with file path and line number.',
+    'Search the code knowledge graph: BM25 over names and symbol summaries, with LIKE/fuzzy fallback (mode=bm25: BM25 only). Higher score = better. Returns nodes with file:line.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -39,22 +37,19 @@ export const monographQueryTool: MCPTool = {
         type: 'string',
         enum: ['auto', 'code', 'docs', 'agents', 'all'],
         description:
-          'Part of the graph to search. auto (default) lists code symbols first and fills remaining slots with documentation; a documentation-flavoured query reverses that. code / docs / agents (agent and skill definitions) restrict; all ranks everything by relevance alone.',
+          'auto (default): code first, then docs; agent questions list agents first. Others restrict.',
       },
       expandNeighbors: {
         type: 'boolean',
-        description:
-          'Add one hop of outgoing graph neighbors as supporting context, listed separately from direct matches (default: true)',
+        description: 'Add one hop of graph neighbors as separate supporting context (default true)',
       },
       damping: {
         type: 'number',
-        description:
-          'Neighbor-boost factor when expandNeighbors=true — a neighbor inherits this fraction of the hit score (0-1, default 0.5)',
+        description: 'Fraction of a hit score a neighbor inherits, 0-1 (default 0.5)',
       },
       tokenBudget: {
         type: 'number',
-        description:
-          'P2-9: Prune results to fit within this approximate token budget (drops lowest-scored results first)',
+        description: 'Drop lowest-scored results beyond about this many tokens',
       },
     },
     required: ['query'],
@@ -84,7 +79,8 @@ export const monographQueryTool: MCPTool = {
           : rawQuery;
       const label = input.label as string | undefined;
       const mode = input.mode === 'bm25' ? 'bm25' : 'hybrid';
-      const scope = (['code', 'docs', 'agents', 'all'] as const).find((v) => v === input.scope) ?? 'auto';
+      const scope =
+        (['code', 'docs', 'agents', 'all'] as const).find((v) => v === input.scope) ?? 'auto';
       const expandNeighbors = (input.expandNeighbors as boolean | undefined) ?? true;
       const damping = input.damping as number | undefined;
       const tokenBudget = input.tokenBudget as number | undefined;
@@ -202,9 +198,7 @@ export const monographQueryTool: MCPTool = {
 export const monographSuggestTool: MCPTool = {
   name: 'monograph_suggest',
   description:
-    'Suggest where to start. With task=, returns the nodes most relevant to the task (BM25/FTS5-ranked, ' +
-    'with file:line), followed by graph-topology questions about them when any exist. Without task=, ' +
-    'returns graph-topology-derived questions to explore the codebase.',
+    'Suggest where to start. With task=, the most relevant nodes (file:line) plus graph questions about them; without, graph-derived questions to explore.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -212,8 +206,7 @@ export const monographSuggestTool: MCPTool = {
       limit: { type: 'number', description: 'Max nodes and max questions (default 10)' },
       checkStaleness: {
         type: 'boolean',
-        description:
-          'Check index staleness first and trigger a background rebuild when the index is behind HEAD. Appends a _staleness annotation to the result. (default true — pass false to skip the git check)',
+        description: 'Check staleness and rebuild in the background when behind HEAD (default true)',
       },
     },
   },

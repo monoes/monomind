@@ -15,9 +15,18 @@ describe('TESTS edges', () => {
     tmpDir = mkdtempSync(join(tmpdir(), 'tests-edges-'));
     mkdirSync(join(tmpDir, 'src'));
     mkdirSync(join(tmpDir, 'src', '__tests__'));
-    writeFileSync(join(tmpDir, 'src', 'math.ts'), 'export function add(a: number, b: number) { return a + b; }\nexport function unused() { return 0; }\n');
-    writeFileSync(join(tmpDir, 'src', 'calc.ts'), "import { add } from './math';\nexport function total(xs: number[]) { return xs.reduce((s, x) => add(s, x), 0); }\n");
-    writeFileSync(join(tmpDir, 'src', '__tests__', 'math.test.ts'), "import { add } from '../math';\nexport function testAdd() { return add(1, 2); }\n");
+    writeFileSync(
+      join(tmpDir, 'src', 'math.ts'),
+      'export function add(a: number, b: number) { return a + b; }\nexport function unused() { return 0; }\n',
+    );
+    writeFileSync(
+      join(tmpDir, 'src', 'calc.ts'),
+      "import { add } from './math';\nexport function total(xs: number[]) { return xs.reduce((s, x) => add(s, x), 0); }\n",
+    );
+    writeFileSync(
+      join(tmpDir, 'src', '__tests__', 'math.test.ts'),
+      "import { add } from '../math';\nexport function testAdd() { return add(1, 2); }\n",
+    );
     await buildAsync(tmpDir, { codeOnly: true });
     db = new Database(join(tmpDir, '.monomind', 'monograph.db'), { readonly: true });
   }, 60_000);
@@ -29,14 +38,18 @@ describe('TESTS edges', () => {
 
   it('links a test file to the source file it imports', () => {
     const rows = db
-      .prepare("SELECT s.file_path AS test, t.file_path AS src FROM edges e JOIN nodes s ON s.id = e.source_id JOIN nodes t ON t.id = e.target_id WHERE e.relation = 'TESTS' AND t.label = 'File'")
+      .prepare(
+        "SELECT s.file_path AS test, t.file_path AS src FROM edges e JOIN nodes s ON s.id = e.source_id JOIN nodes t ON t.id = e.target_id WHERE e.relation = 'TESTS' AND t.label = 'File'",
+      )
       .all() as { test: string; src: string }[];
     expect(rows).toContainEqual({ test: 'src/__tests__/math.test.ts', src: 'src/math.ts' });
   });
 
   it('never marks a test as testing another test or a source as testing anything', () => {
     const bad = db
-      .prepare("SELECT 1 FROM edges e JOIN nodes s ON s.id = e.source_id WHERE e.relation = 'TESTS' AND s.file_path NOT LIKE '%test%'")
+      .prepare(
+        "SELECT 1 FROM edges e JOIN nodes s ON s.id = e.source_id WHERE e.relation = 'TESTS' AND s.file_path NOT LIKE '%test%'",
+      )
       .all();
     expect(bad).toEqual([]);
   });

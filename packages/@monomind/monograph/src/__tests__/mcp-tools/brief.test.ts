@@ -17,9 +17,18 @@ describe('getMonographBrief', () => {
       join(tmpDir, 'src', 'billing.ts'),
       "/** Charge a customer's card for an invoice. */\nexport function chargeInvoice(id: string) { return audit(id); }\nfunction audit(id: string) { return id; }\n",
     );
-    writeFileSync(join(tmpDir, 'src', 'checkout.ts'), "import { chargeInvoice } from './billing';\nexport function checkout() { return chargeInvoice('1'); }\n");
-    writeFileSync(join(tmpDir, 'src', '__tests__', 'billing.test.ts'), "import { chargeInvoice } from '../billing';\nexport function testCharge() { return chargeInvoice('2'); }\n");
-    writeFileSync(join(tmpDir, 'billing.md'), '# Billing\n\n## Charging invoices\n\nHow a customer card is charged.\n');
+    writeFileSync(
+      join(tmpDir, 'src', 'checkout.ts'),
+      "import { chargeInvoice } from './billing';\nexport function checkout() { return chargeInvoice('1'); }\n",
+    );
+    writeFileSync(
+      join(tmpDir, 'src', '__tests__', 'billing.test.ts'),
+      "import { chargeInvoice } from '../billing';\nexport function testCharge() { return chargeInvoice('2'); }\n",
+    );
+    writeFileSync(
+      join(tmpDir, 'billing.md'),
+      '# Billing\n\n## Charging invoices\n\nHow a customer card is charged.\n',
+    );
     await buildAsync(tmpDir);
     db = new Database(join(tmpDir, '.monomind', 'monograph.db'), { readonly: true });
   }, 60_000);

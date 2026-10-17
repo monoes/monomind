@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { CODE_SCOPE_LABELS } from '../../search/hybrid-query.js';
-import { definitionText } from './agent-registry.js';
 import type { PipelinePhase } from '../types.js';
+import { definitionText } from './agent-registry.js';
 
 const MAX_COMMENT_CHARS = 300;
 const HEADER_SCAN_LINES = 40;

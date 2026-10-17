@@ -24,6 +24,7 @@ export const CORE_ADVERTISED_TOOLS = new Set([
   'monograph_build',
   'monograph_query',
   'monograph_suggest',
+  'monograph_brief',
   'monograph_impact',
   'monograph_context',
   'monograph_neighbors',

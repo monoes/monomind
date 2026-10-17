@@ -5,12 +5,12 @@ export { preferSymbolHits } from './shared.js';
 
 // ── Tool imports ────────────────────────────────────────────────────────────
 
-import { monographBriefTool } from './brief-tool.js';
 import {
   monographAgentHistoryTool,
   monographAgentPatternsTool,
   monographAgentRecordTool,
 } from './agent-history-tools.js';
+import { monographBriefTool } from './brief-tool.js';
 import {
   monographBuildTool,
   monographDetectChangesTool,

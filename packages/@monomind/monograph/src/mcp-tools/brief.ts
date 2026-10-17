@@ -30,7 +30,12 @@ export interface MonographBrief {
   } | null;
 }
 
-function related(db: Database.Database, nodeId: string, inbound: boolean, limit: number): MonographNode[] {
+function related(
+  db: Database.Database,
+  nodeId: string,
+  inbound: boolean,
+  limit: number,
+): MonographNode[] {
   const [filterCol, joinCol] = inbound ? ['target_id', 'source_id'] : ['source_id', 'target_id'];
   const rows = db
     .prepare(

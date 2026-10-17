@@ -21,13 +21,24 @@ describe('summary text', () => {
   });
 
   it('reads a JSDoc block above a symbol and skips decorators', () => {
-    const lines = ['/**', ' * Rank agents for a task.', ' * @param task the task', ' */', '@Cached()', 'export function pickAgents() {}'];
+    const lines = [
+      '/**',
+      ' * Rank agents for a task.',
+      ' * @param task the task',
+      ' */',
+      '@Cached()',
+      'export function pickAgents() {}',
+    ];
     expect(extractLeadingComment(lines, 6)).toBe('Rank agents for a task. task the task');
   });
 
   it('reads line comments and python docstrings', () => {
-    expect(extractLeadingComment(['// Find stale nodes', 'function stale() {}'], 2)).toBe('Find stale nodes');
-    expect(extractLeadingComment(['def stale():', '    """Find stale nodes."""', '    pass'], 1)).toBe('Find stale nodes.');
+    expect(extractLeadingComment(['// Find stale nodes', 'function stale() {}'], 2)).toBe(
+      'Find stale nodes',
+    );
+    expect(
+      extractLeadingComment(['def stale():', '    """Find stale nodes."""', '    pass'], 1),
+    ).toBe('Find stale nodes.');
   });
 
   it('returns nothing for an undocumented symbol', () => {
@@ -35,7 +46,10 @@ describe('summary text', () => {
   });
 
   it('reads the file header past a shebang', () => {
-    expect(extractFileHeader(['#!/usr/bin/env node', '// Builds the release notes', '', 'import x']).length).toBeGreaterThan(0);
+    expect(
+      extractFileHeader(['#!/usr/bin/env node', '// Builds the release notes', '', 'import x'])
+        .length,
+    ).toBeGreaterThan(0);
   });
 
   it('combines name, comment and location', () => {

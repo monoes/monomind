@@ -43,10 +43,16 @@ export function evaluateRetrieval(
 ): EvalReport {
   const k = options.k ?? 10;
   const results: EvalCaseResult[] = cases.map((c) => {
-    const hits = searchGraph(db, c.query, { ...options.search, scope: c.scope ?? options.search?.scope, limit: k });
+    const hits = searchGraph(db, c.query, {
+      ...options.search,
+      scope: c.scope ?? options.search?.scope,
+      limit: k,
+    });
     const wanted = c.expect.map((e) => e.toLowerCase());
     const idx = hits.findIndex((h) =>
-      wanted.some((w) => h.name.toLowerCase().includes(w) || (h.filePath ?? '').toLowerCase().includes(w)),
+      wanted.some(
+        (w) => h.name.toLowerCase().includes(w) || (h.filePath ?? '').toLowerCase().includes(w),
+      ),
     );
     return { query: c.query, kind: c.kind ?? 'general', rank: idx === -1 ? null : idx + 1 };
   });

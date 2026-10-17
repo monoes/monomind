@@ -9,6 +9,7 @@ import type { PipelineProgress, SuggestedQuestion } from '../types.js';
 import { acquireBuildLock, type BuildLockHolder, describeBuildLockHolder } from './build-lock.js';
 import { readIndexScope, scopeForOptions, writeIndexScope } from './index-scope.js';
 import { writeManifest } from './manifest.js';
+import { agentRegistryPhase } from './phases/agent-registry.js';
 import { bridgeResolverPhase } from './phases/bridge-resolver.js';
 import { communitiesPhase } from './phases/communities.js';
 import { contextualProximityPhase } from './phases/contextual-proximity.js';
@@ -30,10 +31,9 @@ import { clearWorkspacePackageMapCache, scopeResolutionPhase } from './phases/sc
 import { staleSweepPhase } from './phases/stale-sweep.js';
 import { structurePhase } from './phases/structure.js';
 import { suggestPhase } from './phases/suggest.js';
-import { agentRegistryPhase } from './phases/agent-registry.js';
 import { summariesPhase } from './phases/summaries.js';
-import { testsEdgesPhase } from './phases/tests-edges.js';
 import { surprisesPhase } from './phases/surprises.js';
+import { testsEdgesPhase } from './phases/tests-edges.js';
 import { toolsPhase } from './phases/tools.js';
 import { variablesPhase } from './phases/variables-phase.js';
 import { wildcardSynthesisPhase } from './phases/wildcard-phase.js';
@@ -307,7 +307,8 @@ async function buildAsyncLocked(
       startedAt: buildStartedAt,
       scope: activeScope,
       commit: hash ?? null,
-      summarized: (outputs.get('summaries') as { summarized?: number } | undefined)?.summarized ?? 0,
+      summarized:
+        (outputs.get('summaries') as { summarized?: number } | undefined)?.summarized ?? 0,
       parseErrors,
     });
     const after = countGraph(db);

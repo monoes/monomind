@@ -1,5 +1,5 @@
-import { SYMBOL_ID_VERSION } from '../types.js';
 import type { MonographDb } from '../storage/db.js';
+import { SYMBOL_ID_VERSION } from '../types.js';
 import type { IndexScope } from './index-scope.js';
 
 const MANIFEST_KEY = 'manifest';
@@ -37,7 +37,11 @@ export function readManifest(db: MonographDb): IndexManifest | null {
   }
 }
 
-function countBy(db: MonographDb, table: 'nodes' | 'edges', column: string): Record<string, number> {
+function countBy(
+  db: MonographDb,
+  table: 'nodes' | 'edges',
+  column: string,
+): Record<string, number> {
   const rows = db
     .prepare(`SELECT ${column} AS k, COUNT(*) AS n FROM ${table} GROUP BY ${column}`)
     .all() as { k: string; n: number }[];

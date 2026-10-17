@@ -19,11 +19,11 @@ export const monographContextTool: MCPTool = {
       name: { type: 'string', description: 'Symbol name to look up' },
       nodeId: {
         type: 'string',
-        description: 'Canonical node id — unambiguous, preferred when known',
+        description: 'Canonical node id (preferred when known)',
       },
       filePath: {
         type: 'string',
-        description: 'Disambiguate a name by file path (exact, or a trailing fragment)',
+        description: 'Disambiguate by file path (or trailing fragment)',
       },
     },
     required: ['name'],
@@ -104,7 +104,7 @@ export const monographContextTool: MCPTool = {
 export const monographNeighborsTool: MCPTool = {
   name: 'monograph_neighbors',
   description:
-    'Show all directly connected nodes for a given symbol — outbound and optionally inbound edges, with relation types. When a name matches several definitions the candidates are listed instead of one being picked; re-query with nodeId or filePath. Reports the true neighbor total whenever the result is truncated.',
+    'Directly connected nodes of a symbol (outbound, optionally inbound) with relation types. Several definitions of a name are listed as candidates; re-query with nodeId or filePath. Reports the true total when truncated.',
   inputSchema: {
     type: 'object',
     properties: {
