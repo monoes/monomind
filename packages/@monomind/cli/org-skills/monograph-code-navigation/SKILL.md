@@ -2,7 +2,7 @@
 name: monograph-code-navigation
 description: "Use when coding, refactoring, debugging or reviewing in a monomind project and you need symbols, callers or blast radius from the Monograph code graph. Explains which monograph tool answers which question and when to fall back to grep."
 tags: ["engineering","testing","monomind","refactor","code-review"]
-tools: ["monograph_query","monograph_context","monograph_impact","monograph_neighbors","monograph_suggest"]
+tools: ["monograph_query","monograph_context","monograph_impact","monograph_neighbors","monograph_suggest","monograph_brief"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind
 ---
@@ -21,20 +21,22 @@ with file paths and line numbers in one call.
 | What calls X, what does X call, who imports it? | `monograph_context` (name, optional filePath) |
 | If I change X, what breaks? | `monograph_impact` (name, depth 3 default) |
 | What is directly wired to X? | `monograph_neighbors` (name or nodeId) |
-| Where do I start on this task? | `monograph_suggest` (task = the task text) |
+| Where do I start on this task? | `monograph_brief` (task = the task in plain words: entry points, callers, tests, docs, blast radius) |
+| Which agent or skill fits this? | `monograph_query` with `scope: "agents"` |
 
 ## Workflow
 
-1. **Orient.** Starting a task that touches several files: `monograph_suggest`
-   with the task text, then `monograph_query` for the named symbols.
+1. **Orient.** Starting a task that touches several files: `monograph_brief`
+   with the task text (it already lists callers, covering tests and the blast
+   radius of the best entry point), then `monograph_query` for named symbols.
 2. **Before editing a function:** `monograph_context` to see every caller.
    A bug fix belongs where all callers route through, not in the one path the
    ticket mentions.
 3. **Before changing a signature or behaviour:** `monograph_impact`. A high
    risk score or callers in other packages means update or test those too.
 4. **Before handing off or reviewing:** for each function the diff changes,
-   `monograph_impact` it and check its callers are still correct and covered
-   by tests.
+   `monograph_impact` it, check its callers are still correct, and run the
+   `affectedTests` it lists.
 5. **Fallback.** If a tool returns zero results or says the index is missing,
    use grep/Read — the graph can lag very recent edits. Mention it in your
    report rather than silently trusting an empty answer.

@@ -55,7 +55,8 @@ The monograph MCP tools (available in Claude Code via monomind MCP server) provi
 |---|---|
 | `mcp__monomind__monograph_build` | Build/rebuild the graph |
 | `mcp__monomind__monograph_query` | BM25 keyword search; returns file + line number |
-| `mcp__monomind__monograph_suggest` | Start every task — returns relevant files ranked by task description |
+| `mcp__monomind__monograph_brief` | Start every task — task in plain words → entry points (callers, callees, tests), docs, blast radius |
+| `mcp__monomind__monograph_suggest` | Relevant nodes ranked by task description |
 | `mcp__monomind__monograph_god_nodes` | Find high-centrality internal files |
 | `mcp__monomind__monograph_stats` | Node/edge counts |
 | `mcp__monomind__monograph_watch` | Start watch mode via MCP |

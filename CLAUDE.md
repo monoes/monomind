@@ -12,7 +12,7 @@
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
 - ALWAYS call `mcp__monomind__monograph_query` BEFORE running grep/rg/find via Bash for code exploration — only fall back to Bash grep if monograph returns 0 results or the DB does not exist
-- When starting any task that touches 3+ files: call `mcp__monomind__monograph_suggest` first to get relevant nodes ranked by task relevance
+- When starting any task that touches 3+ files: call `mcp__monomind__monograph_brief` first (task in plain words → entry points with callers/callees/tests, covering docs, and the blast radius incl. tests to run); use `monograph_suggest` for a plain ranked list
 
 ## Coding Principles
 
@@ -190,13 +190,13 @@ Built into monomind — no separate install. Pure TypeScript, parses TS/JS/Pytho
 2. Only fall back to Bash grep if monograph returns 0 results or reports DB missing
 
 **When starting any task touching 3+ files:**
-1. `mcp__monomind__monograph_suggest` — relevant nodes ranked by task description
-2. `mcp__monomind__monograph_context` — 360° view of a symbol (callers, callees, imports)
-3. `mcp__monomind__monograph_impact` — blast radius before changing anything
+1. `mcp__monomind__monograph_brief` — one call from the task text to entry points (callers, callees, tests), docs and blast radius; or `mcp__monomind__monograph_suggest` for just the ranked nodes
+2. `mcp__monomind__monograph_context` — 360° view of a symbol (callers, callees, imports, covering tests)
+3. `mcp__monomind__monograph_impact` — blast radius and the tests to run before changing anything
 
 **If graph is empty:** call `mcp__monomind__monograph_build` (runs in background; proceed with grep while it builds).
 
-Core tools (prefix: `mcp__monomind__`): `monograph_build`, `monograph_query`, `monograph_suggest`, `monograph_impact` — the full tool list self-describes via MCP.
+Core tools (prefix: `mcp__monomind__`): `monograph_build`, `monograph_query`, `monograph_suggest`, `monograph_brief`, `monograph_impact` — the full tool list self-describes via MCP.
 
 ### Skip monograph for
 Single-file edits, doc/config changes, quick fixes where you already know the exact file.

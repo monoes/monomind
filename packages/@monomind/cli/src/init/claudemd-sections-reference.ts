@@ -239,7 +239,7 @@ export function monographSection(): string {
   return `## Knowledge Graph — Monograph (Use Before Codebase Exploration)
 
 - ALWAYS call \`mcp__monomind__monograph_query\` BEFORE grep/rg/find for code exploration — it returns file path + line from a SQLite code graph. Fall back to grep only if it returns 0 results or the graph is not built (then run \`monograph_build\`).
-- Touching 3+ files: \`monograph_suggest\` (pass \`task\`) returns exploration questions ranked by task relevance; \`monograph_context\` shows a symbol's callers/callees/imports; \`monograph_impact\` shows the blast radius of a change.
+- Touching 3+ files: \`monograph_brief\` (pass \`task\`) returns entry points with callers, tests, docs and blast radius; \`monograph_context\` shows a symbol's callers/callees/imports; \`monograph_impact\` shows the blast radius of a change.
 - Skip it for single-file edits in a file you already know.`;
 }
 
