@@ -11,6 +11,7 @@ import { OrgDaemon } from '../orgrt/daemon.js';
 import { orgSignatureEnforced, verifyOrgDef } from '../orgrt/org-signature.js';
 import { sweepPlantWatches } from '../orgrt/planted-paths.js';
 import { readHistory } from '../orgrt/reporting.js';
+import { installServeShutdown } from '../orgrt/serve-shutdown.js';
 import { startOrgServer } from '../orgrt/server.js';
 import { ORG_DIR } from '../orgrt/types.js';
 import { output } from '../output.js';
@@ -261,20 +262,19 @@ export const serveAction = async (ctx: CommandContext): Promise<CommandResult> =
       /* stderr gone */
     }
   };
-  for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
-    process.on(sig, () => {
-      announceExit(`received ${sig}`);
-      try {
-        daemon.persistCrashStateAll();
-        daemon.clearHeartbeat();
-      } catch {
-        /* best effort */
-      }
-      // A daemon holds ref'd timers, so it will not drain on its own; an
-      // explicit exit is required here and is the intended signal semantics.
-      process.exit(sig === 'SIGTERM' || sig === 'SIGINT' ? 0 : 1);
-    });
-  }
+  let requestGraceful: () => void = () => {};
+  const gracefulRequested = new Promise<void>((r) => {
+    requestGraceful = r;
+  });
+  // stopAll() waits up to the 15s stop window per org before reaping, so 30s
+  // leaves room for the state and bus flush behind it.
+  const shutdown = installServeShutdown({
+    proc: process,
+    daemon,
+    announce: announceExit,
+    onGraceful: requestGraceful,
+    hardExitMs: 30_000,
+  });
   process.on('exit', (code) => {
     // Last word on the way out. Reached for the "event loop drained" case,
     // which previously produced a completely silent disappearance.
@@ -435,10 +435,7 @@ export const serveAction = async (ctx: CommandContext): Promise<CommandResult> =
   }, 2000);
   plantPoll.unref?.();
 
-  await new Promise<void>((r) => {
-    process.once('SIGINT', () => r());
-    process.once('SIGTERM', () => r());
-  });
+  await gracefulRequested;
   clearInterval(stopPoll);
   clearInterval(runPoll);
   clearInterval(reloadPoll);
@@ -448,5 +445,6 @@ export const serveAction = async (ctx: CommandContext): Promise<CommandResult> =
   await daemon.stopAll();
   daemon.clearHeartbeat();
   srv?.close();
+  shutdown.finish();
   return { success: true };
 };

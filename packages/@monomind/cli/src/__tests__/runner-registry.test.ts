@@ -15,6 +15,7 @@ import {
   isKnownRuntime,
   RUNNER_SPECS,
   resolveExecRunner,
+  resolveRuntimeAlias,
   scanInstalled,
 } from '../orgrt/runner-registry.js';
 import {
@@ -435,5 +436,19 @@ it('an installed Kilo with an unprobed version advertises no executable access',
     sandbox_modes: [],
     resume: false,
     reports_cost: false,
+  });
+});
+
+describe('resolveRuntimeAlias', () => {
+  it('maps a unique CLI binary name to its runtime id', () => {
+    expect(resolveRuntimeAlias('agy')).toBe('antigravity');
+    expect(resolveRuntimeAlias('kimi')).toBe('kimicode');
+  });
+  it('keeps real ids, including ones whose binary is shared', () => {
+    for (const id of ['codex', 'qwen', 'pi', 'pi-rpc', 'antigravity'])
+      expect(resolveRuntimeAlias(id)).toBe(id);
+  });
+  it('leaves unknown names alone', () => {
+    expect(resolveRuntimeAlias('nope')).toBe('nope');
   });
 });

@@ -11,6 +11,7 @@ import { applyClaudePathFlag, claudePathOption } from '../orgrt/claude-selection
  */
 
 import { type AgentTestOptions, agentTestExitCode, runAgentTest } from '../orgrt/agent-test.js';
+import { resolveRuntimeAlias } from '../orgrt/runner-registry.js';
 import type { SandboxFallback, SandboxMode } from '../orgrt/runner-sandbox.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import {
@@ -37,7 +38,7 @@ export async function runAgentTestCommand(
   seams: Partial<AgentTestOptions> = {},
 ): Promise<number> {
   applyClaudePathFlag(ctx.flags);
-  const runtime = ctx.args[0];
+  const runtime = ctx.args[0] && resolveRuntimeAlias(ctx.args[0]);
   if (!runtime) {
     process.stderr.write(
       'agent test: runtime id required: monomind agent test <id> (see agent scan)\n',

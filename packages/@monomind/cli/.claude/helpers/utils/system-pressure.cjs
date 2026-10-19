@@ -1,7 +1,16 @@
 'use strict';
 const os = require('os');
 
-const PRESSURE_THRESHOLD = 0.10; // 10% free = critical
+const DEFAULT_PRESSURE_THRESHOLD = 0.10; // 10% free = critical
+
+// MONOMIND_MEMORY_PRESSURE_THRESHOLD overrides the free-ratio floor (0 disables
+// the guard); tests use it so the host's real free memory cannot decide them.
+function pressureThreshold() {
+  const raw = process.env.MONOMIND_MEMORY_PRESSURE_THRESHOLD;
+  if (raw === undefined || raw === '') return DEFAULT_PRESSURE_THRESHOLD;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_PRESSURE_THRESHOLD;
+}
 
 /**
  * Returns { free, total, freeRatio, level } for logging.
@@ -40,7 +49,7 @@ function getMemoryInfo() {
  * exit code, since memory_pressure's bare invocation always exits 0.
  */
 function isMemoryPressureCritical() {
-  return getMemoryInfo().freeRatio < PRESSURE_THRESHOLD;
+  return getMemoryInfo().freeRatio < pressureThreshold();
 }
 
 module.exports = { isMemoryPressureCritical, getMemoryInfo };

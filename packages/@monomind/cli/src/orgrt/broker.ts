@@ -67,8 +67,17 @@ function entryPath(name: string, dir: string): string {
 /** Atomic owner-only write (tmp + same-directory rename) shared by both registries. */
 function writeEntry(dest: string, data: unknown): void {
   const tmp = `${dest}.${process.pid}.tmp`;
-  writeFileSync(tmp, JSON.stringify(data), { mode: 0o600 });
-  renameSync(tmp, dest);
+  try {
+    writeFileSync(tmp, JSON.stringify(data), { mode: 0o600 });
+    renameSync(tmp, dest);
+  } catch (err) {
+    try {
+      unlinkSync(tmp);
+    } catch {
+      /* never created, or already gone */
+    }
+    throw err;
+  }
 }
 
 /** Publish the operator credential for org `name` so `org approve/deny/answer/gate-*`
@@ -176,7 +185,18 @@ export class BrokerLease {
 
   start(): void {
     this.publish();
-    this.timer = setInterval(() => this.publish(), this.intervalMs);
+    // A failed heartbeat (ENOSPC, EDQUOT, EACCES) must not escape the timer:
+    // `org serve` turns an uncaughtException into a process exit that takes
+    // every hosted org down. The entry just goes stale until a write succeeds.
+    this.timer = setInterval(() => {
+      try {
+        this.publish();
+      } catch (err) {
+        console.error(
+          `[broker] heartbeat for org "${this.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }, this.intervalMs);
     this.timer.unref?.();
   }
 

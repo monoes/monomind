@@ -200,7 +200,7 @@ export function writeOpencodeTree(
   ) {
     fs.mkdirSync(destAgents, { recursive: true });
     for (const [file, content] of tree.agents) {
-      atomicWriteFile(path.join(destAgents, file), content);
+      if (!writeConverted(guard, options, path.join(destAgents, file), content)) continue;
       guard.record(path.join(destAgents, file));
       agentCount++;
     }
@@ -214,7 +214,7 @@ export function writeOpencodeTree(
   ) {
     fs.mkdirSync(destCommands, { recursive: true });
     for (const [file, content] of tree.commands) {
-      atomicWriteFile(path.join(destCommands, file), content);
+      if (!writeConverted(guard, options, path.join(destCommands, file), content)) continue;
       guard.record(path.join(destCommands, file));
       commandCount++;
     }
@@ -223,6 +223,7 @@ export function writeOpencodeTree(
   // Skills → .opencode/skills/<name>/SKILL.md (same shape)
   const destSkillsRoot = path.join(targetDir, '.opencode', 'skills');
   const writtenOpencodeSkills = new Set<string>();
+  const keptOpencodeSkills = new Set<string>(); // left alone under --if-missing
   if (
     fs.existsSync(path.join(claudeDir, 'skills')) &&
     isSafeConversionTarget(destSkillsRoot, claudeDir, result, '.opencode/skills', 'skills')
@@ -230,7 +231,10 @@ export function writeOpencodeTree(
     for (const [skillName, content] of tree.skills) {
       const destDir = path.join(destSkillsRoot, skillName);
       fs.mkdirSync(destDir, { recursive: true });
-      atomicWriteFile(path.join(destDir, 'SKILL.md'), content);
+      if (!writeConverted(guard, options, path.join(destDir, 'SKILL.md'), content)) {
+        keptOpencodeSkills.add(skillName);
+        continue;
+      }
       writtenOpencodeSkills.add(skillName);
       skillCount++;
     }
@@ -252,7 +256,7 @@ export function writeOpencodeTree(
   const priorOpencodeSkills = previouslyGenerated(targetDir, 'opencodeSkills');
   if (fs.existsSync(destSkillsRoot)) {
     for (const existing of fs.readdirSync(destSkillsRoot)) {
-      if (writtenOpencodeSkills.has(existing)) continue;
+      if (writtenOpencodeSkills.has(existing) || keptOpencodeSkills.has(existing)) continue;
       if (!priorOpencodeSkills.has(existing)) continue;
       const stalePath = path.join(destSkillsRoot, existing);
       const extraFiles = [...listFilesRecursive(stalePath)].filter((f) => f !== 'SKILL.md');
@@ -280,6 +284,19 @@ export function writeOpencodeTree(
   if (agentCount) result.created.files.push(`.opencode/agent/ (${agentCount} agents)`);
   if (commandCount) result.created.files.push(`.opencode/command/ (${commandCount} commands)`);
   if (skillCount) result.created.files.push(`.opencode/skills/ (${skillCount} skills)`);
+}
+
+/** Write one converted mirror file. Under `--if-missing` a file that already
+ *  exists is left alone (and reported skipped); returns whether it was written. */
+function writeConverted(
+  guard: ReturnType<typeof guardFor>,
+  options: InitOptions,
+  dest: string,
+  content: string,
+): boolean {
+  if (options.ifMissing) return guard.write(dest, content) !== 'kept';
+  atomicWriteFile(dest, content);
+  return true;
 }
 
 /** `existing` with every key it lacks filled in from `defaults`: objects are

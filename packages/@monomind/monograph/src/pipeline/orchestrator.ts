@@ -7,7 +7,7 @@ import { generateGraphReport } from '../reporting/graph-report.js';
 import { closeDb, openDb } from '../storage/db.js';
 import type { PipelineProgress, SuggestedQuestion } from '../types.js';
 import { acquireBuildLock, type BuildLockHolder, describeBuildLockHolder } from './build-lock.js';
-import { isWithinScope, readIndexScope, scopeForOptions, writeIndexScope } from './index-scope.js';
+import { readIndexScope, scopeForOptions, writeIndexScope } from './index-scope.js';
 import { bridgeResolverPhase } from './phases/bridge-resolver.js';
 import { communitiesPhase } from './phases/communities.js';
 import { contextualProximityPhase } from './phases/contextual-proximity.js';
@@ -26,6 +26,7 @@ import { processesPhase } from './phases/processes.js';
 import { routesPhase } from './phases/routes.js';
 import { scanPhase } from './phases/scan.js';
 import { clearWorkspacePackageMapCache, scopeResolutionPhase } from './phases/scope-resolution.js';
+import { staleSweepPhase } from './phases/stale-sweep.js';
 import { structurePhase } from './phases/structure.js';
 import { suggestPhase } from './phases/suggest.js';
 import { surprisesPhase } from './phases/surprises.js';
@@ -218,6 +219,7 @@ async function buildAsyncLocked(
       scopeResolutionPhase,
       bridgeResolverPhase,
       mroPhase,
+      staleSweepPhase,
       communitiesPhase,
       processesPhase,
       godNodesPhase,
@@ -241,43 +243,6 @@ async function buildAsyncLocked(
         }
       } else {
         process.stderr.write(`[monograph] ${summary}\n`);
-      }
-    }
-
-    // Sweep orphaned rows for files that were renamed/deleted since the last build.
-    // This MUST run unconditionally — even when every remaining file cache-hit
-    // (ctx.allFilesCached === true), a file may have been deleted from disk between
-    // builds, which produces zero cache misses but still leaves ghost rows in the DB
-    // unless we compare the DB's known file set against the current on-disk set.
-    //
-    // The sweep is confined to the current build's source domain (`activeScope`).
-    // A narrowed build never looked at files outside its domain, so their absence
-    // from `filePaths` says nothing about whether they still exist on disk —
-    // deleting those rows is how a code-only refresh used to erase every Document
-    // node in the graph.
-    const scanOut = outputs.get('scan') as { filePaths: string[] } | undefined;
-    if (scanOut) {
-      const liveFiles = new Set(scanOut.filePaths.map((f) => resolve(f)));
-      const staleFiles = (
-        db.prepare('SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL').all() as {
-          file_path: string;
-        }[]
-      )
-        .map((r) => r.file_path)
-        .filter((f) => isWithinScope(f, activeScope) && !liveFiles.has(resolve(ctx.repoPath, f)));
-      if (staleFiles.length > 0) {
-        const deleteStale = db.transaction((files: string[]) => {
-          const deleteEdges = db.prepare(`
-            DELETE FROM edges WHERE source_id IN (SELECT id FROM nodes WHERE file_path = ?)
-               OR target_id IN (SELECT id FROM nodes WHERE file_path = ?)
-          `);
-          const deleteNodesStmt = db.prepare('DELETE FROM nodes WHERE file_path = ?');
-          for (const f of files) {
-            deleteEdges.run(f, f);
-            deleteNodesStmt.run(f);
-          }
-        });
-        deleteStale(staleFiles);
       }
     }
 

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { existsSync } from 'node:fs';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -132,5 +132,38 @@ describe('operator credential', () => {
     lease.stop();
     expect(lookupOrg('alpha', brokerDir)).toBeNull();
     expect(readOperatorCredential('alpha', operatorDir)).toBeUndefined();
+  });
+
+  it('a failing heartbeat write is logged, leaves no tmp file, and does not throw out of the timer', () => {
+    vi.useFakeTimers();
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const dir = mkdtempSync(join(tmpdir(), 'broker-lease-fail-'));
+      const lease = new BrokerLease('alpha', 'http://127.0.0.1:9001', dir, 50);
+      lease.start();
+      // rename(file -> directory) fails, the way a full disk or a revoked
+      // permission fails the heartbeat write in production.
+      rmSync(join(dir, 'alpha.json'));
+      mkdirSync(join(dir, 'alpha.json'));
+
+      expect(() => vi.advanceTimersByTime(200)).not.toThrow();
+      expect(err).toHaveBeenCalled();
+      expect(readdirSync(dir).filter((f) => f.endsWith('.tmp'))).toEqual([]);
+
+      rmSync(join(dir, 'alpha.json'), { recursive: true });
+      vi.advanceTimersByTime(60);
+      expect(lookupOrg('alpha', dir)).not.toBeNull(); // the lease recovers once the fault clears
+      lease.stop();
+    } finally {
+      err.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('registerOrg removes its tmp file when the rename fails', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'broker-tmp-'));
+    mkdirSync(join(dir, 'alpha.json'));
+    expect(() => registerOrg('alpha', 'http://127.0.0.1:9001', dir)).toThrow();
+    expect(readdirSync(dir).filter((f) => f.endsWith('.tmp'))).toEqual([]);
   });
 });

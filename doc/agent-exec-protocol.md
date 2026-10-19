@@ -1,4 +1,4 @@
-# Agent Exec Protocol — v1 (rev 31)
+# Agent Exec Protocol — v1 (rev 32)
 
 - **Status**: Implemented (Phase 0 of the mono-agent delegation plan — see
   `mono-agent:docs/plans/local-agent-monomind-delegation.md`)
@@ -6,7 +6,7 @@
   the Coder mode threat model, the `--access full` guardrails (root refusal, no transitive
   escalation, env hygiene, audit log), what callers own, and residual risks (issue #360).
 - **Revision history**:
-  - rev 31 (2026-10-15): **`agent exec --attach FILE`** — new capability `agent-exec-attachments`
+  - rev 32 (2026-10-19): **`agent exec --attach FILE`** — new capability `agent-exec-attachments`
     (§3.1). Repeatable; each file must exist, be a regular file and be at most 20 MB, and at most
     10 may be given, else a usage error (exit 2, no events). The type comes from the file's first
     bytes, not its extension. claude: the turn's first user message becomes content blocks — an
@@ -19,6 +19,12 @@
     appended to the prompt and the agent opens them with its own file tools. A rate-limit retry
     that resumes the session (rev 20) sends `RESUME_PROMPT` without the files; a retry from
     scratch sends them again. Without `--attach` nothing changes: the message is the prompt string.
+  - rev 31 (2026-10-16): **`--runtime <id>` also accepts a runtime's CLI binary name** — no new
+    capability. `agent exec`, `agent models` and `agent test` resolve `--runtime` to a runner id
+    first, then, when the value is not a known id, to the one runner whose binary has that name
+    (`agy` → `antigravity`, `kimi` → `kimicode`). A binary name shared by more than one runner
+    (`qwen` by `qwen`/`qwen-rpc`, `pi` by `pi`/`pi-rpc`) is left unresolved — those ids must still
+    be given directly. §3's `--runtime <id>` row and §12/§13 reflect this.
   - rev 30 (2026-10-07): **Claude runtime reports served models, effort, context size and
     coder-mode delegation counts** (#655) — no new capability. §3.2's `result`, Claude runtime
     only, optionally gains `model_usage` (tokens per model actually served, child agents
@@ -585,11 +591,11 @@ progress go to stderr. A caller must be able to `JSON.parse` every stdout line.
 
 | Flag | Req | Meaning |
 |---|---|---|
-| `--runtime <id>` | ✓ | Runner id: `claude, codex, kimicode, opencode, antigravity, grok, qwen, qwen-rpc, crush, copilot, pi, pi-rpc, vercel, gemini, cursor` (set grows with monomind releases) |
+| `--runtime <id>` | ✓ | Runner id: `claude, codex, kimicode, opencode, antigravity, grok, qwen, qwen-rpc, crush, copilot, pi, pi-rpc, vercel, gemini, cursor` (set grows with monomind releases). **rev 31**: also accepts the runtime's CLI binary name when it differs from the id and is unambiguous (`agy` → `antigravity`, `kimi` → `kimicode`); a binary shared by more than one id (`qwen`, `pi`) is not resolved |
 | `--prompt <text>` | ✓* | Prompt text (or `--prompt-file`) |
 | `--prompt-file <path>` | ✓* | Prompt from file (large prompts; avoids argv limits) |
 | `--system-file <path>` | | System prompt file (prepended first turn only, runner-dependent — same semantics as orgrt) |
-| `--attach <file>` | | rev 31, capability `agent-exec-attachments`. A file sent with the prompt; repeatable, at most 10 files of at most 20 MB each (missing, not a regular file, too large or too many → usage error, exit 2). The type comes from the first bytes. claude: PNG/JPEG/GIF/WebP as `image` and PDF as `document` content blocks (base64) before the prompt text; any other file, an image over 5 MB or over 8000 px a side (or whose size its header does not give), or files past 20 MB of blocks in all are listed by path in the text. codex: images via `--image` on the turn's first exec; other files listed. Every other runtime: an `Attached files:` block of absolute paths after the prompt |
+| `--attach <file>` | | rev 32, capability `agent-exec-attachments`. A file sent with the prompt; repeatable, at most 10 files of at most 20 MB each (missing, not a regular file, too large or too many → usage error, exit 2). The type comes from the first bytes. claude: PNG/JPEG/GIF/WebP as `image` and PDF as `document` content blocks (base64) before the prompt text; any other file, an image over 5 MB or over 8000 px a side (or whose size its header does not give), or files past 20 MB of blocks in all are listed by path in the text. codex: images via `--image` on the turn's first exec; other files listed. Every other runtime: an `Attached files:` block of absolute paths after the prompt |
 | `--tools <mode>` | | `none` (default) or `stdio` — enable caller-side tool execution (§4) |
 | `--tools-file <path>` | | Tool definitions as JSON (§4.1); enables native tool wiring where the runner supports it |
 | `--tool-timeout <dur>` | | Max wait for a caller `tool_result` frame (default `120s`), per call, in every access mode (rev 22: `--access full` included). monomind sets no upper limit; the effective maximum is the turn's `--timeout` (none by default). On claude, Claude Code's own MCP call timeout also applies (`MCP_TOOL_TIMEOUT`, settable with `--env`); a 130s call under `--tool-timeout 180s --access full` was verified end to end on Claude Code 2.1.226. Fence runtimes run the call between model rounds, so the vendor CLI does not time it out. On expiry the call gets `ERROR: tool timeout` and the turn continues (§4.3) |

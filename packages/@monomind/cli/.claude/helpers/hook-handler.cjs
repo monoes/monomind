@@ -85,6 +85,9 @@ const intelligence = safeRequire(path.join(helpersDir, 'intelligence.cjs'));
 // directly, or the bridge silently no-ops.
 let _hooksModule = null;
 let _hooksModuleLoadAttempted = false;
+// Session id of the event being handled, set by main() once stdin is parsed;
+// _warnHooksBridgeUnavailable() keys its once-per-session marker on it.
+let _hookSessionId = '';
 async function _ensureHooksModule() {
   if (_hooksModule) return _hooksModule;
   if (_hooksModuleLoadAttempted) return null; // already tried+failed this process
@@ -128,7 +131,7 @@ async function _ensureHooksModule() {
 // every single tool call.
 function _warnHooksBridgeUnavailable() {
   try {
-    var sessId = String((hookInput && (hookInput.sessionId || hookInput.session_id)) || '');
+    var sessId = _hookSessionId;
     var flagFile = path.join(CWD, '.monomind', 'hooks-bridge-warned.json');
     var alreadyWarned = false;
     if (sessId && fs.existsSync(flagFile)) {
@@ -256,6 +259,7 @@ async function main() {
       }
     } catch (e) { /* ignore parse errors */ }
   }
+  _hookSessionId = String(hookInput.sessionId || hookInput.session_id || '');
 
   // Merge stdin data into prompt resolution: prefer stdin fields, then env vars.
   // NEVER fall back to argv args — shell glob expansion of braces in bash output

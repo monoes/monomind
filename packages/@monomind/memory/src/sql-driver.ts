@@ -177,7 +177,19 @@ export class SqlJsDriver implements SqlDriver {
   constructor(
     private db: SqlJsDb,
     private flush?: (bytes: Uint8Array) => Promise<void>,
-  ) {}
+    cleanAtOpen = false,
+  ) {
+    // Row changes seen at the last export (or at open, for an existing file that
+    // has not been touched yet). -1 forces the first persist, e.g. a new database.
+    this.persistedChanges = cleanAtOpen ? this.totalChanges() : -1;
+  }
+
+  private persistedChanges: number;
+
+  private totalChanges(): number {
+    const result = this.db.exec('SELECT total_changes()') as { values: unknown[][] }[];
+    return Number(result[0]?.values[0]?.[0] ?? 0);
+  }
 
   run(sql: string, params: SqlParam[] = []): number {
     this.db.run(sql, params as unknown[]);
@@ -261,7 +273,16 @@ export class SqlJsDriver implements SqlDriver {
 
   async persist(): Promise<void> {
     if (!this.flush) return; // :memory: — nothing durable to write
-    await this.flush(this.db.export());
+    // Exporting writes the whole in-memory snapshot over the file, so an unchanged
+    // snapshot must not be exported: it would erase whatever other processes wrote
+    // since this one loaded it.
+    if (this.totalChanges() === this.persistedChanges) return;
+    const bytes = this.db.export();
+    // export() reopens the database, which restarts the change counter. Record it
+    // before awaiting the write so changes made during the write stay dirty.
+    const changesAtExport = this.totalChanges();
+    await this.flush(bytes);
+    this.persistedChanges = changesAtExport;
   }
 
   close(): void {
