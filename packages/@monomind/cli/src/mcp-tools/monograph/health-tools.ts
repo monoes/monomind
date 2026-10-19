@@ -19,7 +19,7 @@ export const monographStatsTool: MCPTool = {
     const dbPath = getDbPath();
     if (!_isValidDb(dbPath))
       return text('Monograph index not built yet. Run monograph_build first.');
-    const { openDb, closeDb, countNodes, countEdges, readManifest } = await import(
+    const { openDb, closeDb, countNodes, countEdges, readManifest, embeddingStatus } = await import(
       '@monoes/monograph'
     );
     const db = openDb(dbPath);
@@ -51,8 +51,15 @@ export const monographStatsTool: MCPTool = {
             `  parse warnings: ${manifest.parseWarnings.count}${manifest.parseWarnings.sample.length ? ` (e.g. ${manifest.parseWarnings.sample.slice(0, 3).join('; ')})` : ''}`,
           ].join('\n')
         : '\nLast build: no manifest recorded (index predates it — rebuild to get one).';
+      const sem = embeddingStatus(db);
+      const semanticStr =
+        sem.total === 0
+          ? ''
+          : sem.embedded === 0
+            ? '\nSemantic search: not built yet (lexical only) — runs in the background after a build, or: monomind monograph embed'
+            : `\nSemantic search: ${sem.embedded}/${sem.total} summaries embedded (${sem.model})${sem.embedded < sem.total ? ' — catching up in the background' : ''}`;
       return text(
-        `Monograph index stats:\n  nodes: ${nodes}\n  edges: ${edges}\n${metaStr}${manifestStr}`,
+        `Monograph index stats:\n  nodes: ${nodes}\n  edges: ${edges}\n${metaStr}${manifestStr}${semanticStr}`,
       );
     } finally {
       closeDb(db);

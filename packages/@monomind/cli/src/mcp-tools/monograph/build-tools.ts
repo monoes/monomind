@@ -1,6 +1,7 @@
 import { join, resolve, sep } from 'node:path';
 import type { MCPTool } from '../types.js';
 import { getProjectCwd } from '../types.js';
+import { triggerBackgroundEmbed } from './semantic.js';
 import { _isValidDb, getDbPath, text } from './shared.js';
 
 // ── Active watcher registry ──────────────────────────────────────────────────
@@ -38,6 +39,7 @@ export const monographBuildTool: MCPTool = {
       },
     });
     const skipped = progressLog.includes('skipping rebuild');
+    if (!skipped) triggerBackgroundEmbed(join(resolve(repoPath), '.monomind', 'monograph.db'));
     const summary = skipped
       ? `Index was already fresh — no rebuild needed for ${repoPath}`
       : `Monograph build complete for ${repoPath}`;

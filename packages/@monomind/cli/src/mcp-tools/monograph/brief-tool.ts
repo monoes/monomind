@@ -6,6 +6,7 @@
 
 import type { MCPTool } from '../types.js';
 import { getProjectCwd } from '../types.js';
+import { semanticEmbedder } from './semantic.js';
 import { _isValidDb, computeCommitsBehind, getDbPath, text } from './shared.js';
 
 const MAX_TASK_LEN = 16 * 1024;
@@ -16,7 +17,7 @@ const loc = (n: { filePath?: string; startLine?: number }): string =>
 export const monographBriefTool: MCPTool = {
   name: 'monograph_brief',
   description:
-    'Task in plain words → best code entry points with callers, callees and tests, covering docs, and the top hit\'s blast radius (risk, files, tests to run). Use instead of chaining suggest, context and impact.',
+    "Task in plain words → best code entry points with callers, callees and tests, covering docs, and the top hit's blast radius (risk, files, tests to run). Use instead of chaining suggest, context and impact.",
   inputSchema: {
     type: 'object',
     properties: {
@@ -40,6 +41,7 @@ export const monographBriefTool: MCPTool = {
     const db = openDb(dbPath);
     try {
       const brief = await getMonographBrief(db, task, {
+        embedder: await semanticEmbedder(db, dbPath),
         entryPoints: clamp(input.entryPoints, 5),
         docs: clamp(input.docs, 3),
       });

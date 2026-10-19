@@ -8,6 +8,7 @@ import {
   buildSummaryText,
   extractFileHeader,
   extractLeadingComment,
+  extractMarkdownLead,
   splitWords,
 } from '../../pipeline/phases/summaries.js';
 import { searchGraph } from '../../search/hybrid-query.js';
@@ -50,6 +51,26 @@ describe('summary text', () => {
       extractFileHeader(['#!/usr/bin/env node', '// Builds the release notes', '', 'import x'])
         .length,
     ).toBeGreaterThan(0);
+  });
+
+  it("takes a markdown document's title and opening paragraph, without markup or front matter", () => {
+    const lines = [
+      '---',
+      'title: x',
+      '---',
+      '',
+      '# Org Runtime',
+      '',
+      'How **agents** run, see [the guide](g.md).',
+      'Second line.',
+      '',
+      '## Later',
+      'ignored',
+    ];
+    expect(extractMarkdownLead(lines)).toBe(
+      'Org Runtime. How agents run, see the guide. Second line.',
+    );
+    expect(extractMarkdownLead(['no heading here'])).toBe('.');
   });
 
   it('combines name, comment and location', () => {

@@ -98,7 +98,7 @@ export interface GraphSearchResult {
   /** Last line of the symbol in its source file (1-based, null if unknown). */
   endLine: number | null;
   /** Which retrieval strategy surfaced this row. */
-  matchStrategy: 'fts' | 'like' | 'fuzzy';
+  matchStrategy: 'fts' | 'like' | 'fuzzy' | 'semantic';
 }
 
 /**
@@ -172,9 +172,9 @@ export function searchGraph(
 const SUMMARY_WEIGHT = 0.8;
 const LEXICAL_ONLY_FACTOR = 0.25;
 /** Tests restate the code they exercise; they rank below it unless asked for. */
-const TEST_PATH = /(\.test\.|\.spec\.|__tests__|__mocks__|\/tests?\/)/;
-const TEST_INTENT = /\b(tests?|specs?|mocks?|fixtures?)\b/i;
-const TEST_FACTOR = 0.6;
+export const TEST_PATH = /(\.test\.|\.spec\.|__tests__|__mocks__|\/tests?\/)/;
+export const TEST_INTENT = /\b(tests?|specs?|mocks?|fixtures?)\b/i;
+export const TEST_FACTOR = 0.6;
 
 function searchLabels(
   db: Database.Database,

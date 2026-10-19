@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import { getProjectCwd } from '../types.js';
+import { triggerBackgroundEmbed } from './semantic.js';
 
 let _cachedDbPath: string | undefined;
 let _cachedCwd: string | undefined;
@@ -306,7 +307,10 @@ export function triggerBackgroundBuildIfNeeded(
     // No `codeOnly` here on purpose: the build reuses the scope the index was
     // last built with. Forcing `codeOnly: true` made this refresh delete every
     // previously-indexed Document node, silently narrowing the graph.
-    .then(({ buildAsync }) => buildAsync(repoPath))
+    .then(async ({ buildAsync }) => {
+      await buildAsync(repoPath);
+      triggerBackgroundEmbed(join(repoPath, '.monomind', 'monograph.db'));
+    })
     .catch((e) => {
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
         console.error('[triggerBackgroundBuildIfNeeded] staleness-triggered rebuild failed:', e);

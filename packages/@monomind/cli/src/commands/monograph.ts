@@ -6,6 +6,7 @@
 import { output } from '../output.js';
 import type { Command, CommandResult } from '../types.js';
 import { buildCommand } from './monograph-build.js';
+import { embedCommand } from './monograph-embed.js';
 import { lspCommand } from './monograph-lsp.js';
 import { searchCommand } from './monograph-search.js';
 import { statsCommand } from './monograph-stats.js';
@@ -18,7 +19,15 @@ export const monographCommand: Command = {
   name: 'monograph',
   description: 'Knowledge graph for code and documents — build, search, explore',
   aliases: ['kg'],
-  subcommands: [buildCommand, wikiCommand, searchCommand, statsCommand, watchCommand, lspCommand],
+  subcommands: [
+    buildCommand,
+    embedCommand,
+    wikiCommand,
+    searchCommand,
+    statsCommand,
+    watchCommand,
+    lspCommand,
+  ],
   examples: [
     { command: 'monomind monograph wiki', description: 'Build KG from all docs and PDFs' },
     {

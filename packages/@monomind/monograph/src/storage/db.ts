@@ -12,6 +12,7 @@ import {
   CREATE_EDGES,
   CREATE_INDEX_META,
   CREATE_INDEXES,
+  CREATE_NODE_EMBEDDINGS,
   CREATE_NODE_SUMMARIES_FTS,
   CREATE_NODES,
   CREATE_NODES_FTS,
@@ -71,6 +72,7 @@ function applyMigrations(db: MonographDb): void {
   db.exec(CREATE_INDEX_META);
   db.exec(CREATE_NODES_FTS);
   db.exec(CREATE_NODE_SUMMARIES_FTS);
+  db.exec(CREATE_NODE_EMBEDDINGS);
   for (const idx of CREATE_INDEXES) db.exec(idx);
   db.exec(FTS_SYNC_TRIGGERS);
   db.exec(CREATE_WIKI_PAGES);

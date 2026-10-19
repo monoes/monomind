@@ -276,5 +276,201 @@
   "expect": [
    "architect"
   ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "check if the index is stale compared to git history",
+  "expect": [
+   "git-staleness"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "generate a wiki page for each community",
+  "expect": [
+   "wiki"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "export the graph as an interactive html visualization",
+  "expect": [
+   "export/html"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "find duplicated code blocks",
+  "expect": [
+   "duplicates"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "start the language server for editors",
+  "expect": [
+   "lsp/server"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "which file scans the repository and honours gitignore",
+  "expect": [
+   "pipeline/phases/scan"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "compute pagerank scores for nodes",
+  "expect": [
+   "pagerank"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "assign every symbol to a cluster",
+  "expect": [
+   "communities"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "rank the agents for a task description",
+  "expect": [
+   "agent-pick"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "approximate nearest neighbour index for vectors",
+  "expect": [
+   "hnsw-index"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "generate the CLAUDE.md for a new project",
+  "expect": [
+   "claudemd-generator"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "read the frontmatter of agent markdown files",
+  "expect": [
+   "agent-registry"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "split an identifier into separate words",
+  "expect": [
+   "splitWords"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "which tests cover this function",
+  "expect": [
+   "tests-edges"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "limit the response to a token budget",
+  "expect": [
+   "query-tools-search"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "detect framework used by the project",
+  "expect": [
+   "framework-detect"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "resolve imports between files",
+  "expect": [
+   "import-resolver"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "find api routes and handlers",
+  "expect": [
+   "routes"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "surface surprising dependencies between modules",
+  "expect": [
+   "surprises"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "keep track of what the last build produced",
+  "expect": [
+   "manifest"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "extract sections from markdown documents",
+  "expect": [
+   "markdown"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "pre-seed the embedding model on install",
+  "expect": [
+   "download-embedding-model"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "watch files and rebuild when they change",
+  "expect": [
+   "watch"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "find unreachable code",
+  "expect": [
+   "reachability"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "detect cycles in the import graph",
+  "expect": [
+   "cycle"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "measure how well search finds the right symbol",
+  "expect": [
+   "eval"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "compute blast radius of a change",
+  "expect": [
+   "impact"
+  ]
+ },
+ {
+  "kind": "natural-heldout",
+  "query": "show the callers of a function",
+  "expect": [
+   "context"
+  ]
  }
 ]

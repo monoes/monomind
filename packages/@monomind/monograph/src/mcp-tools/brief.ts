@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
-import { searchGraph } from '../search/hybrid-query.js';
+import type { Embedder } from '../embeddings/store.js';
+import { searchGraphFused } from '../search/fused-search.js';
 import { rowToNode } from '../storage/node-store.js';
 import type { MonographNode } from '../types.js';
 import { monographImpact, type RiskLevel } from './impact.js';
@@ -66,12 +67,13 @@ function testsFor(db: Database.Database, node: MonographNode): string[] {
 export async function getMonographBrief(
   db: Database.Database,
   task: string,
-  options: { entryPoints?: number; docs?: number } = {},
+  options: { entryPoints?: number; docs?: number; embedder?: Embedder | null } = {},
 ): Promise<MonographBrief> {
   const nEntry = options.entryPoints ?? 5;
   const nDocs = options.docs ?? 3;
-  const code = searchGraph(db, task, { limit: nEntry, scope: 'code' });
-  const docHits = searchGraph(db, task, { limit: nDocs, scope: 'docs' });
+  const { embedder } = options;
+  const code = await searchGraphFused(db, task, { limit: nEntry, scope: 'code', embedder });
+  const docHits = await searchGraphFused(db, task, { limit: nDocs, scope: 'docs', embedder });
 
   const entryPoints: BriefSymbol[] = [];
   for (const hit of code) {

@@ -8,7 +8,9 @@
  */
 
 import type Database from 'better-sqlite3';
-import { type GraphSearchOptions, searchGraph } from './hybrid-query.js';
+import type { Embedder } from '../embeddings/store.js';
+import { searchGraphFused } from './fused-search.js';
+import type { GraphSearchOptions } from './hybrid-query.js';
 
 export interface EvalCase {
   query: string;
@@ -36,17 +38,19 @@ export interface EvalReport {
   results: EvalCaseResult[];
 }
 
-export function evaluateRetrieval(
+export async function evaluateRetrieval(
   db: Database.Database,
   cases: EvalCase[],
-  options: { k?: number; search?: Partial<GraphSearchOptions> } = {},
-): EvalReport {
+  options: { k?: number; search?: Partial<GraphSearchOptions>; embedder?: Embedder | null } = {},
+): Promise<EvalReport> {
   const k = options.k ?? 10;
-  const results: EvalCaseResult[] = cases.map((c) => {
-    const hits = searchGraph(db, c.query, {
+  const results: EvalCaseResult[] = [];
+  for (const c of cases) {
+    const hits = await searchGraphFused(db, c.query, {
       ...options.search,
       scope: c.scope ?? options.search?.scope,
       limit: k,
+      embedder: options.embedder,
     });
     const wanted = c.expect.map((e) => e.toLowerCase());
     const idx = hits.findIndex((h) =>
@@ -54,8 +58,8 @@ export function evaluateRetrieval(
         (w) => h.name.toLowerCase().includes(w) || (h.filePath ?? '').toLowerCase().includes(w),
       ),
     );
-    return { query: c.query, kind: c.kind ?? 'general', rank: idx === -1 ? null : idx + 1 };
-  });
+    results.push({ query: c.query, kind: c.kind ?? 'general', rank: idx === -1 ? null : idx + 1 });
+  }
 
   const summarize = (rs: EvalCaseResult[]) => ({
     cases: rs.length,

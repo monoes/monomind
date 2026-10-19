@@ -67,6 +67,18 @@ CREATE VIRTUAL TABLE IF NOT EXISTS node_summaries_fts USING fts5(
   tokenize='porter unicode61'
 )`;
 
+/**
+ * int8 (x * 127) sentence embeddings of the node_summaries_fts text, one per
+ * node, tagged with a hash of the text they were made from. Filled lazily by
+ * `embedPending`, never by the build itself.
+ */
+export const CREATE_NODE_EMBEDDINGS = `
+CREATE TABLE IF NOT EXISTS node_embeddings (
+  node_id TEXT PRIMARY KEY,
+  text_hash TEXT NOT NULL,
+  vec BLOB NOT NULL
+)`;
+
 export const CREATE_WIKI_PAGES = `
 CREATE TABLE IF NOT EXISTS wiki_pages (
   community_id TEXT PRIMARY KEY,

@@ -13,13 +13,14 @@ Defined in `packages/@monomind/cli/src/commands/monograph.ts` and `packages/@mon
 
 ---
 
-## CLI Subcommands (6)
+## CLI Subcommands (7)
 
 Every subcommand takes `-p, --path <dir>` for the root to work on (default: the current directory).
 
 | Subcommand | Description | Key Flags | Source Reference |
 |---|---|---|---|
 | `build` | Builds or rebuilds the graph from code, docs and PDFs | `-f, --force` (full rebuild even if the index is fresh), `--code-only` (skip documents), `--llm` and `--llm-sections <n>` (Claude semantic extraction, default 50 sections), `--report-path <path>` (where `GRAPH_REPORT.md` goes; default `.monomind/GRAPH_REPORT.md`, env `MONOGRAPH_REPORT_PATH`) | [`monograph-build.ts → buildCommand`](packages/@monomind/cli/src/commands/monograph-build.ts#buildCommand) |
+| `embed` | Embeds symbol and document summaries so search can answer plain-language questions. Incremental (only new or changed summaries) and resumable; a cold run over a large repository takes minutes, so it normally runs in the background after a build instead | `-p, --path`, `--max-seconds <n>` (stop after N seconds; run again to continue). Needs the local model (`monomind download-embeddings`); `MONOGRAPH_EMBED=0` turns the semantic index off | [`monograph-embed.ts → embedCommand`](packages/@monomind/cli/src/commands/monograph-embed.ts#embedCommand) |
 | `wiki` | Scans all docs and PDFs in the project into a searchable document graph | `-f, --force`, `--llm`, `--llm-sections <n>` (default 100) | [`monograph-wiki.ts`](packages/@monomind/cli/src/commands/monograph-wiki.ts) |
 | `search` | Searches the graph | `-q, --query` (required), `-l, --limit` (default 15), `-m, --mode bm25\|semantic\|hybrid` (default `hybrid`), `--label <type>` (filter by node type such as `Section`, `Function`, `Concept`, `File`) | [`monograph-search.ts`](packages/@monomind/cli/src/commands/monograph-search.ts) |
 | `stats` | Displays node counts, edge types and top concepts | `--top <n>` (default 10) | [`monograph-stats.ts`](packages/@monomind/cli/src/commands/monograph-stats.ts) |
@@ -54,7 +55,7 @@ Monomind exposes 19 core `monograph_*` tools for Model Context Protocol integrat
 | Tool Name | Key Arguments | Purpose |
 |---|---|---|
 | `monograph_build` | `path`, `codeOnly`, `force`, `incremental` | Build or update the knowledge graph. |
-| `monograph_query` | `query` (required), `limit`, `label`, `mode`, `expandNeighbors`, `damping`, `tokenBudget` | Lexical keyword search; `mode=hybrid` (default) ranks by BM25, LIKE fallback and fuzzy matching, `mode=bm25` by BM25 only. |
+| `monograph_query` | `query` (required), `limit`, `label`, `mode`, `scope`, `expandNeighbors`, `damping`, `tokenBudget` | Search by name and by plain-language description. Lexical ranking (BM25 over names and stemmed summaries, LIKE and fuzzy fallback; `mode=bm25` for BM25 only) is fused with semantic similarity once the index has been embedded; `scope` picks code, docs or agents. |
 | `monograph_suggest` | `task`, `limit`, `checkStaleness` | Nodes most relevant to a task, with `file:line`; without `task`, graph-topology questions. |
 | `monograph_impact` | `name` (required), `nodeId`, `filePath`, `depth` | Blast radius: direct and transitive callers of a symbol, with a risk score. When a name matches several definitions the candidates are listed; re-query with `nodeId` or `filePath`. |
 | `monograph_context` | `name` (required), `nodeId`, `filePath` | 360-degree view of a symbol: callers, callees, imports, importedBy, community and processes. |

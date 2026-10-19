@@ -77,6 +77,39 @@ export function extractFileHeader(lines: string[]): string {
     .slice(0, MAX_COMMENT_CHARS);
 }
 
+const stripMarkdown = (s: string): string =>
+  s
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[`*_>#|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** A markdown document's title and opening paragraph — what it says it is about. */
+export function extractMarkdownLead(lines: string[]): string {
+  let i = 0;
+  if (lines[0]?.trim() === '---') {
+    i = lines.findIndex((l, n) => n > 0 && l.trim() === '---') + 1 || 0;
+  }
+  let title = '';
+  while (i < lines.length && !title) {
+    const m = /^#{1,3}\s+(.+)/.exec(lines[i]);
+    if (m) title = m[1];
+    i++;
+  }
+  const para: string[] = [];
+  for (; i < lines.length && para.length < 6; i++) {
+    const l = lines[i].trim();
+    if (/^#{1,6}\s/.test(l) || l.startsWith('```') || l.startsWith('|')) {
+      if (para.length) break;
+      continue;
+    }
+    if (l) para.push(l);
+    else if (para.length) break;
+  }
+  return stripMarkdown(`${title}. ${para.join(' ')}`).slice(0, MAX_COMMENT_CHARS);
+}
+
 /** Words a person would use to describe a symbol: its name, location and comment. */
 export function buildSummaryText(name: string, filePath: string | null, comment: string): string {
   const where = filePath
@@ -91,13 +124,14 @@ export const summariesPhase: PipelinePhase<{ summarized: number }> = {
   deps: ['stale-sweep', 'agent-registry'],
   async execute(ctx) {
     const db = ctx.db;
-    const placeholders = CODE_SCOPE_LABELS.map(() => '?').join(',');
+    const labels = [...CODE_SCOPE_LABELS, 'Document'];
+    const placeholders = labels.map(() => '?').join(',');
     const rows = db
       .prepare(
         `SELECT id, label, name, file_path, start_line FROM nodes
          WHERE label IN (${placeholders}) AND file_path IS NOT NULL ORDER BY file_path`,
       )
-      .all(...CODE_SCOPE_LABELS) as {
+      .all(...labels) as {
       id: string;
       label: string;
       name: string;
@@ -135,14 +169,16 @@ export const summariesPhase: PipelinePhase<{ summarized: number }> = {
           lines = [];
         }
       }
-      const comment =
-        r.label === 'File'
+      const isDoc = r.label === 'Document' || /\.(md|mdx)$/i.test(r.file_path);
+      const comment = isDoc
+        ? extractMarkdownLead(lines)
+        : r.label === 'File'
           ? extractFileHeader(lines)
           : r.start_line
             ? extractLeadingComment(lines, r.start_line)
             : '';
       const text = buildSummaryText(
-        r.label === 'File' ? basename(r.file_path) : r.name,
+        r.label === 'File' || r.label === 'Document' ? basename(r.file_path) : r.name,
         r.file_path,
         comment,
       );

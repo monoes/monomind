@@ -5,6 +5,7 @@
 
 import type { MCPTool } from '../types.js';
 import { getProjectCwd } from '../types.js';
+import { semanticEmbedder } from './semantic.js';
 import type { ExpandedNode, SeedNode } from './shared.js';
 import {
   _isValidDb,
@@ -58,7 +59,7 @@ export const monographQueryTool: MCPTool = {
     const dbPath = getDbPath();
     if (!_isValidDb(dbPath))
       return text('Monograph index not built yet. Run monograph_build first.');
-    const { openDb, closeDb, searchGraph } = await import('@monoes/monograph');
+    const { openDb, closeDb, searchGraphFused } = await import('@monoes/monograph');
     const db = openDb(dbPath);
     try {
       // Cap limit: passed directly to SQLite queries and searchGraph; an
@@ -163,11 +164,12 @@ export const monographQueryTool: MCPTool = {
       // One retrieval path, shared with the package-level monograph_query tool.
       // searchGraph returns monograph's single score convention (higher is
       // better, never negative), so nothing here has to know about FTS5 rank.
-      const results = searchGraph(db, query, {
+      const results = await searchGraphFused(db, query, {
         limit: expandNeighbors ? limit * 2 : limit,
         label,
         mode,
         scope,
+        embedder: await semanticEmbedder(db, dbPath),
       });
       if (results.length === 0) return text(`No results found.${zeroResultHint}${stalenessNote}`);
 
@@ -206,7 +208,8 @@ export const monographSuggestTool: MCPTool = {
       limit: { type: 'number', description: 'Max nodes and max questions (default 10)' },
       checkStaleness: {
         type: 'boolean',
-        description: 'Check staleness and rebuild in the background when behind HEAD (default true)',
+        description:
+          'Check staleness and rebuild in the background when behind HEAD (default true)',
       },
     },
   },
@@ -237,7 +240,7 @@ export const monographSuggestTool: MCPTool = {
       return text(
         `Monograph index not built yet. Run monograph_build first.${stalenessAnnotation}`,
       );
-    const { openDb, closeDb, searchGraph } = await import('@monoes/monograph');
+    const { openDb, closeDb, searchGraphFused } = await import('@monoes/monograph');
     const db = openDb(dbPath);
     try {
       // "Run monograph_build" is only true when the graph has no nodes; a
@@ -288,7 +291,10 @@ export const monographSuggestTool: MCPTool = {
         // scope "auto" ranks code ahead of documentation, so a task phrased in
         // generic words ("improve", "discovery") no longer fills the result
         // with headings from unrelated docs.
-        const relevantHits = searchGraph(db, task, { limit: Math.max(limit, 20) });
+        const relevantHits = await searchGraphFused(db, task, {
+          limit: Math.max(limit, 20),
+          embedder: await semanticEmbedder(db, dbPath),
+        });
         hitIds = [...new Set(relevantHits.map((h) => h.id))];
         if (hitIds.length === 0) {
           return text(
