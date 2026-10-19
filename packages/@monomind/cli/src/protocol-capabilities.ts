@@ -165,7 +165,7 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  *    claude gets PNG/JPEG/GIF/WebP as `image` and PDF as `document` content
  *    blocks, codex gets images as `--image`, and every other file or runtime
  *    gets an "Attached files:" block of absolute paths after the prompt
- *    (§3.1, rev 31)
+ *    (§3.1, rev 32)
  */
 export const AGENT_PROTOCOL_CAPABILITIES = [
   'agent-exec',

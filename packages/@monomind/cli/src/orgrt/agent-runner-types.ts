@@ -49,7 +49,7 @@ export interface AgentRunArgs {
   sandbox?: 'read-only' | 'restricted' | 'workspace-write' | 'full';
   /** The mailbox prompt stream (or any async iterable of prompt messages). */
   prompt: AsyncIterable<any>;
-  /** rev 31 (agent exec `--attach`): image files for the first prompt
+  /** rev 32 (agent exec `--attach`): image files for the first prompt
    *  message. Only CodexAgentRunner reads it (`codex exec --image`, first exec
    *  only); claude gets them as content blocks in `prompt`, others as paths. */
   images?: string[];

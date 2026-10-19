@@ -1,5 +1,5 @@
 /**
- * `agent exec --attach FILE` (rev 31, capability `agent-exec-attachments`):
+ * `agent exec --attach FILE` (rev 32, capability `agent-exec-attachments`):
  * flag validation at the command layer, claude content blocks through the
  * REAL ClaudeAgentRunner (fake Agent SDK), codex `--image` argv (first exec
  * only), the "Attached files:" fallback for every other runtime, the

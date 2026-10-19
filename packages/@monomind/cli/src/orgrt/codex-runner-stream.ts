@@ -138,7 +138,7 @@ export function restrictCodexHome(codexHome: string): string[] {
  * An explicit `sandbox` (#396, `agent exec --sandbox`) of read-only or
  * workspace-write replaces both the role's default and the full-access
  * bypass flag; `full` or unset keeps the behaviour above.
- * `images` (rev 31, `agent exec --attach`) come after `resume <id>`, so a
+ * `images` (rev 32, `agent exec --attach`) come after `resume <id>`, so a
  * resumed turn uses `exec resume`'s own `--image` (codex-cli 0.159.3 has
  * `-i, --image` on both `exec` and `exec resume`).
  */
@@ -184,7 +184,7 @@ export function codexExecArgs(
  * into `outcome`, which the caller reads after this generator completes.
  * `idPrefix` keeps tool-call ids unique across spawns (codex restarts its
  * item numbering per process — codex-runner-tools.ts). `images` go to
- * `--image` (rev 31).
+ * `--image` (rev 32).
  */
 export async function* streamTurn(
   bin: string,

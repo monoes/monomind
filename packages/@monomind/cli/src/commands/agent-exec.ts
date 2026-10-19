@@ -216,7 +216,7 @@ export async function runExec(
   const parsedSettings = parseSettingsFlag(ctx.flags.settings);
   if ('error' in parsedSettings) return usageError(parsedSettings.error);
 
-  const attach = parseAttachFlags(ctx.flags.attach); // rev 31
+  const attach = parseAttachFlags(ctx.flags.attach); // rev 32
   if ('error' in attach) return usageError(attach.error);
 
   let systemPrompt: string | undefined;

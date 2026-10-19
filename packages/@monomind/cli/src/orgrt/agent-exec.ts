@@ -98,7 +98,7 @@ export async function runAgentExecOnce(
       bridge ? bridge.call(t.name, args) : Promise.resolve({ text: 'ERROR: tools not bridged' }),
   }));
 
-  // Single-message prompt stream; rev 31: `--attach` files shaped per runtime.
+  // Single-message prompt stream; rev 32: `--attach` files shaped per runtime.
   const turn = execPrompt(opts);
 
   const usage = new UsageTracker();
@@ -261,7 +261,7 @@ export async function runAgentExecOnce(
       stream = runner.run({
         tools,
         prompt: turn.stream,
-        ...(turn.images ? { images: turn.images } : {}), // rev 31: codex --image
+        ...(turn.images ? { images: turn.images } : {}), // rev 32: codex --image
         systemPrompt,
         model: opts.model,
         effort: opts.effort, // rev 16 (+ rev 19/20 runners): each runner maps or ignores it

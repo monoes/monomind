@@ -1,6 +1,6 @@
 // packages/@monomind/cli/src/orgrt/agent-exec-attach.ts
 /**
- * `agent exec --attach FILE` (doc/agent-exec-protocol.md §3.1, rev 31,
+ * `agent exec --attach FILE` (doc/agent-exec-protocol.md §3.1, rev 32,
  * capability `agent-exec-attachments`): files that go with the prompt.
  *
  * The command layer validates the flag (parseAttachFlags: usage error, exit

@@ -1,5 +1,5 @@
 /**
- * `agent exec --attach` (rev 31): media type sniffing and the Claude API's
+ * `agent exec --attach` (rev 32): media type sniffing and the Claude API's
  * 8000 px image limit — the pixel size read from PNG, JPEG, GIF and WebP
  * headers; an image too large, or whose size cannot be read, is listed by
  * path instead of sent as a block. Fixtures are generated here.

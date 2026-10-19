@@ -173,7 +173,7 @@ export class CodexAgentRunner implements AgentRunner {
     let threadId: string | undefined = args.resume;
     // Per-spawn tool-call id prefix (codex-runner-tools.ts).
     let spawnSeq = 0;
-    // rev 31 (agent exec --attach): images go with the first exec only.
+    // rev 32 (agent exec --attach): images go with the first exec only.
     let images = args.images ?? [];
 
     try {
