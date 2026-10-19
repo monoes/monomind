@@ -1,5 +1,6 @@
 import type { MCPTool } from '../types.js';
 import { getProjectCwd } from '../types.js';
+import { semanticModelAvailable } from './semantic.js';
 import {
   _isValidDb,
   computeCommitsBehind,
@@ -56,7 +57,9 @@ export const monographStatsTool: MCPTool = {
         sem.total === 0
           ? ''
           : sem.embedded === 0
-            ? '\nSemantic search: not built yet (lexical only) — runs in the background after a build, or: monomind monograph embed'
+            ? (await semanticModelAvailable())
+              ? '\nSemantic search: not built yet (keyword only) — runs in the background after a build, or: monomind monograph embed'
+              : '\nSemantic search: off — embedding model not installed (keyword only). Run: monomind download-embeddings'
             : `\nSemantic search: ${sem.embedded}/${sem.total} summaries embedded (${sem.model})${sem.embedded < sem.total ? ' — catching up in the background' : ''}`;
       return text(
         `Monograph index stats:\n  nodes: ${nodes}\n  edges: ${edges}\n${metaStr}${manifestStr}${semanticStr}`,

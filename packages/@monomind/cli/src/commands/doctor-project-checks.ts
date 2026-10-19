@@ -25,6 +25,7 @@ export {
   checkMonoesMemory,
   checkMonograph,
   checkMonographFreshness,
+  checkMonographSemantic,
 } from './doctor-monograph-checks.js';
 export { checkAgentRegistry, checkMonoesIntegration } from './doctor-routing-checks.js';
 export { checkMetricsFreshness, checkSecurityAuditFindings } from './doctor-worker-checks.js';

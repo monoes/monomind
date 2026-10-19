@@ -187,6 +187,18 @@ describe('searchGraphFused', () => {
     expect(fused[0].name).toBe('worker');
   });
 
+  it("never drops keyword search's best hit in favour of the semantic lane", async () => {
+    // "job" is the only word the question shares with jobLog; semantically it is far from it.
+    const embedder = fakeEmbedder();
+    const fused = await searchGraphFused(db, 'which assignee takes the job log', {
+      limit: 2,
+      embedder,
+    });
+    const lexicalTop = searchGraph(db, 'which assignee takes the job log', { limit: 1 })[0];
+    expect(fused.map((r) => r.id)).toContain(lexicalTop.id);
+    expect(fused).toHaveLength(2);
+  });
+
   it('falls back to lexical results if the embedder fails', async () => {
     const broken: Embedder = {
       ...fakeEmbedder(),

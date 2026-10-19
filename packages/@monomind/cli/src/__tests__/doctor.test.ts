@@ -165,12 +165,12 @@ describe('doctorCommand', () => {
     expect(Array.isArray(data.results)).toBe(true);
     // alwaysOnChecks (29, including #502 review's org-skills, planted-config and MCP-approval and i-055 doctor follow-up's crash-reporting
     // check, o-16's Project Root disclosure check and the hook-settings
-    // check) + codeOnlyChecks (10,
+    // check) + codeOnlyChecks (11,
     // including platform adapters, the native-binding probe, i-066's
-    // monoes token-exposure check, #328's hook graph rebuild check and the
+    // monoes token-exposure check, the graph semantic-search check, #328's hook graph rebuild check and the
     // running MCP server version check) — no
     // fingerprint present, so isCodeProject defaults to true and the full set runs.
-    expect(data.results.length).toBe(40 + JEV_ROW);
+    expect(data.results.length).toBe(41 + JEV_ROW);
     expect(data.results.map((r) => r.name)).toEqual(
       expect.arrayContaining(['Claude runtime', 'Agent runtime readiness']),
     );

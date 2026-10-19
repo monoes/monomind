@@ -331,3 +331,86 @@ export async function checkMonoesMemory(): Promise<HealthCheck> {
     fix: 'npm install @monoes/memory',
   };
 }
+
+/**
+ * Semantic (plain-language) search needs a local embedding model and vectors for
+ * the graph's summaries. Without either, search quietly falls back to keywords —
+ * this says so, and what to run.
+ */
+export async function checkMonographSemantic(
+  cwd: string = process.cwd(),
+  modelAvailable?: () => Promise<boolean>,
+): Promise<HealthCheck> {
+  const name = 'Graph semantic search';
+  try {
+    const dbPath = join(cwd, '.monomind', 'monograph.db');
+    if (!existsSync(dbPath)) return { name, status: 'pass', message: 'No graph built yet' };
+    // Immutable read-only: `doctor` must not touch the project, and a normal open of
+    // a WAL database (or monograph's own openDb, which migrates) writes files.
+    const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite');
+    const db = new DatabaseSync(`file:${dbPath}?immutable=1`, { readOnly: true });
+    const count = (sql: string): number => {
+      try {
+        return Number((db.prepare(sql).get() as { n: number }).n);
+      } catch {
+        return 0; // table missing: an index from before that feature
+      }
+    };
+    let status: { total: number; embedded: number; model: string | null };
+    try {
+      const model = (() => {
+        try {
+          return (
+            (
+              db.prepare("SELECT value FROM index_meta WHERE key = 'embedding_model'").get() as
+                | { value: string }
+                | undefined
+            )?.value ?? null
+          );
+        } catch {
+          return null;
+        }
+      })();
+      status = {
+        total: count('SELECT COUNT(*) AS n FROM node_summaries_fts'),
+        embedded: count(
+          'SELECT COUNT(*) AS n FROM node_embeddings e JOIN node_summaries_fts s ON s.node_id = e.node_id',
+        ),
+        model,
+      };
+    } finally {
+      db.close();
+    }
+    if (status.total === 0)
+      return {
+        name,
+        status: 'warn',
+        message: 'Graph has no symbol summaries (built before they existed) — keyword search only',
+        fix: 'mcp__monomind__monograph_build force:true',
+      };
+    if (status.embedded >= status.total)
+      return {
+        name,
+        status: 'pass',
+        message: `${status.embedded}/${status.total} summaries embedded (${status.model})`,
+      };
+    const available = await (
+      modelAvailable ?? (await import('../mcp-tools/monograph/semantic.js')).semanticModelAvailable
+    )();
+    if (!available)
+      return {
+        name,
+        status: 'warn',
+        message: `Embedding model not installed — plain-language search is keyword only (${status.embedded}/${status.total} embedded)`,
+        fix: 'monomind download-embeddings',
+      };
+    return {
+      name,
+      status: 'warn',
+      message: `${status.embedded}/${status.total} summaries embedded — catching up in the background`,
+      fix: 'monomind monograph embed',
+    };
+  } catch {
+    return { name, status: 'warn', message: 'Could not check semantic search' };
+  }
+}

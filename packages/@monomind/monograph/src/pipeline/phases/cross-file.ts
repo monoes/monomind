@@ -107,10 +107,16 @@ export const crossFilePhase: PipelinePhase<CrossFileOutput> = {
       }
     }
 
+    // A re-export can resolve to a file that has no node (`export { default } from
+    // './en-US.json'`): an edge to it would violate the edges foreign key and fail the
+    // whole build, so only edges between existing nodes are kept.
+    let linkable = resolvedEdges;
     if (ctx.db && resolvedEdges.length > 0) {
-      insertEdges(ctx.db, resolvedEdges);
+      const hasNode = ctx.db.prepare('SELECT 1 FROM nodes WHERE id = ?');
+      linkable = resolvedEdges.filter((e) => hasNode.get(e.sourceId) && hasNode.get(e.targetId));
+      insertEdges(ctx.db, linkable);
     }
 
-    return { resolvedEdges };
+    return { resolvedEdges: linkable };
   },
 };

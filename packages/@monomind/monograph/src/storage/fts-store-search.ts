@@ -59,6 +59,12 @@ function quoteFtsTerm(term: string): string {
   return `"${escaped}"`;
 }
 
+/**
+ * Keyword search over node names and file paths (FTS5 trigram index), best
+ * match first. A plain-language query that matches nothing is retried on the
+ * identifier-like words extracted from it, and a short or malformed query falls
+ * back to a substring (LIKE) match, so a search never fails on its syntax.
+ */
 export function ftsSearch(
   db: Database.Database,
   query: string,

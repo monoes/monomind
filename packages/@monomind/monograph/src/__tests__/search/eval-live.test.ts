@@ -12,12 +12,16 @@ import { type EvalCase, evaluateRetrieval } from '../../search/eval.js';
 //   MONOGRAPH_EVAL_DB=.monomind/monograph.db \
 //   MONOGRAPH_EVAL_HF=<path to @huggingface/transformers/dist/transformers.node.mjs> \
 //   MONOGRAPH_EVAL_OUT=/tmp/eval.json  pnpm vitest run eval-live
+// MONOGRAPH_EVAL_GOLD points at another gold file (eval/gold-monote.json is for a different repository).
 const dbPath = process.env.MONOGRAPH_EVAL_DB;
 
 describe.skipIf(!dbPath)('live retrieval benchmark', () => {
   it('reports recall and MRR: lexical only vs lexical + semantic', async () => {
     const cases = JSON.parse(
-      readFileSync(join(__dirname, '../../../eval/gold.json'), 'utf8'),
+      readFileSync(
+        process.env.MONOGRAPH_EVAL_GOLD ?? join(__dirname, '../../../eval/gold.json'),
+        'utf8',
+      ),
     ) as EvalCase[];
     const db = new Database(dbPath as string, { readonly: true });
     const hf = process.env.MONOGRAPH_EVAL_HF;

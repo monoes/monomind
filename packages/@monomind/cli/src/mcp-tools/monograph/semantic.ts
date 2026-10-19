@@ -17,6 +17,11 @@ export function getEmbedder(): Promise<Embedder | null> {
   return embedderPromise;
 }
 
+/** Why semantic search is off, for messages: no model on disk (or switched off) vs. just not built yet. */
+export async function semanticModelAvailable(): Promise<boolean> {
+  return (await getEmbedder()) !== null;
+}
+
 const MAX_EMBED_MS = 30 * 60 * 1000;
 let embedInFlight = false;
 

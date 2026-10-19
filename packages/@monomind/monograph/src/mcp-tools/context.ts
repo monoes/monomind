@@ -48,6 +48,11 @@ function queryRelated(
 
 // ── Implementation ─────────────────────────────────────────────────────────────
 
+/**
+ * The 360° view of one symbol: who calls it, what it calls, what imports it,
+ * which tests cover it, which community and processes it belongs to. A name
+ * that matches several definitions comes back as candidates rather than a guess.
+ */
 export function getMonographContext(
   db: Database.Database,
   input: { name: string; filePath?: string; nodeId?: string },

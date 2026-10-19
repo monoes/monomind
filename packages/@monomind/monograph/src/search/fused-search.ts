@@ -25,6 +25,8 @@ import {
 } from './hybrid-query.js';
 
 const RRF_K = 60;
+/** How many of keyword search's top hits are never dropped by fusion. */
+const PROTECTED_LEXICAL = 2;
 /** [lexical, semantic] weights. */
 const WEIGHTS_IDENTIFIER: readonly [number, number] = [2, 1];
 const WEIGHTS_NATURAL: readonly [number, number] = [1, 2];
@@ -106,5 +108,22 @@ export async function searchGraphFused(
   const lower = q.toLowerCase();
   const exact = ranked.filter((r) => r.name.toLowerCase() === lower);
   const rest = ranked.filter((r) => r.name.toLowerCase() !== lower);
-  return [...exact, ...rest].slice(0, limit);
+  const final = [...exact, ...rest].slice(0, limit);
+
+  // Keyword search's two best hits stay in the results even when the semantic lane crowds
+  // them out (a sentence that contains a real name — "share a meeting" -> shareRoutes —
+  // is exactly where a keyword hit is right and the embedding is only roughly so).
+  const present = new Set(final.map((r) => r.id));
+  const protectedHits = lexical.slice(0, PROTECTED_LEXICAL).filter((h) => !present.has(h.id));
+  for (const hit of protectedHits) {
+    if (final.length >= limit) {
+      if (final.length <= exact.length) break; // never evict an exact name match
+      final.pop();
+    }
+    final.push({
+      ...(ranked.find((r) => r.id === hit.id) ?? hit),
+      relevance: final.at(-1)?.relevance ?? 0,
+    });
+  }
+  return final;
 }

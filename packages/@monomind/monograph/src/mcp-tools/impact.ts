@@ -92,6 +92,13 @@ function reverseBfs(
 
 // ── Implementation ─────────────────────────────────────────────────────────────
 
+/**
+ * "What breaks if I change this?" — walks outward from a symbol through its
+ * callers, importers, references and subclasses. Returns the affected symbols
+ * by distance, the affected files, the tests that cover any of them
+ * (`affectedTests`) and a risk level. A name that matches several definitions
+ * comes back as candidates rather than a guess.
+ */
 export function getMonographImpact(
   db: Database.Database,
   input: { name: string; filePath?: string; nodeId?: string; depth?: number },

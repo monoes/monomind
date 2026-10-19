@@ -1,0 +1,149 @@
+[
+ {
+  "kind": "natural",
+  "query": "how are ai responses cached",
+  "expect": [
+   "response-cache"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "track how much each model call costs",
+  "expect": [
+   "cost-tracker"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "write structured logs",
+  "expect": [
+   "logger"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "check whether a user is allowed to access a resource",
+  "expect": [
+   "authz"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "connect to the database",
+  "expect": [
+   "connection"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "share a meeting with someone",
+  "expect": [
+   "routes/share"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "merge speech recognition output with the transcript",
+  "expect": [
+   "transcript-fusion"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "create embeddings for text chunks",
+  "expect": [
+   "embedding-pipeline"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "anthropic language model provider",
+  "expect": [
+   "llm-anthropic"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "measure api request metrics",
+  "expect": [
+   "metrics"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "distributed tracing spans",
+  "expect": [
+   "tracing"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "make the page accessible for screen readers",
+  "expect": [
+   "a11y"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "capture audio or video in the browser",
+  "expect": [
+   "BrowserCapture"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "log slow database queries",
+  "expect": [
+   "query-logger"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "login and authentication routes",
+  "expect": [
+   "routes/auth"
+  ]
+ },
+ {
+  "kind": "natural",
+  "query": "define the shape of events sent between services",
+  "expect": [
+   "contracts/src/events"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "response-cache",
+  "expect": [
+   "response-cache"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "cost-tracker",
+  "expect": [
+   "cost-tracker"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "BrowserCapture",
+  "expect": [
+   "BrowserCapture"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "transcript-fusion",
+  "expect": [
+   "transcript-fusion"
+  ]
+ },
+ {
+  "kind": "exact",
+  "query": "query-logger",
+  "expect": [
+   "query-logger"
+  ]
+ }
+]

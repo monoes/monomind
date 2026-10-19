@@ -51,6 +51,14 @@ function percentile(sorted: number[], p: number): number {
   return sorted[Math.min(idx, sorted.length - 1)];
 }
 
+/**
+ * Finds the graph's hubs — the most connected real code entities. Ranks by how
+ * many symbols depend on them (fan-in) and how many they depend on (fan-out),
+ * and flags bridge nodes between clusters, circular imports, churn hotspots,
+ * isolated clusters and unreachable code, using percentile thresholds taken
+ * from this graph rather than fixed numbers. Test code and anonymous closures
+ * are never ranked.
+ */
 export const godNodesPhase: PipelinePhase<GodNodesOutput> = {
   name: 'god-nodes',
   deps: ['cross-file', 'parse'],
