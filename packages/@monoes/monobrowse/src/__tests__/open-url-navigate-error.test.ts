@@ -54,3 +54,36 @@ describe('openUrl navigation-failure detection', () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+describe('openUrl on a page with a persistent connection (#670)', () => {
+  it('resolves once the page has loaded even though the network never goes idle', async () => {
+    vi.useFakeTimers();
+    try {
+      const handlers = new Map<string, (p: Record<string, unknown>, sid?: string) => void>();
+      const client = {
+        send: vi.fn(async (method: string) => {
+          if (method === 'Page.navigate') return { frameId: 'f1' };
+          if (method === 'Runtime.evaluate') return { result: { value: true } };
+          return {};
+        }),
+        on: vi.fn((event: string, fn: (p: Record<string, unknown>, sid?: string) => void) => {
+          handlers.set(event, fn);
+          // An SSE/long-poll request that never finishes.
+          if (event === 'Network.requestWillBeSent') {
+            queueMicrotask(() => fn({ requestId: 'sse' }, 'sess-1'));
+          }
+          return () => handlers.delete(event);
+        }),
+      } as unknown as CdpClient;
+
+      const done = openUrl(client, 'sess-1', 'http://127.0.0.1:1/login').then(
+        () => 'ok',
+        (e: Error) => e.message,
+      );
+      await vi.advanceTimersByTimeAsync(31_000);
+      await expect(done).resolves.toBe('ok');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
