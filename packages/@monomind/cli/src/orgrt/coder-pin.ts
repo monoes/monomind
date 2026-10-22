@@ -7,8 +7,8 @@
  * Code ranks above the `--effort` flag. Inline `settings` are a higher scope
  * than the user/project/local files, so the pin goes there as well as into the
  * spawned env. Subagents inherit the parent model only by default: a per-call
- * `Agent.model` or agent frontmatter wins over CLAUDE_CODE_SUBAGENT_MODEL, and
- * the bundled CLI (0.3.226) has no `_FORCE` switch, so a PreToolUse hook
+ * `Agent.model` or agent frontmatter wins over CLAUDE_CODE_SUBAGENT_MODEL unless
+ * `_FORCE` is honoured (older runtimes ignore it), so a PreToolUse hook also
  * refuses an Agent launch that names a different model.
  */
 
