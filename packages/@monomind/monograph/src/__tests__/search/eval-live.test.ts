@@ -42,5 +42,10 @@ describe.skipIf(!dbPath)('live retrieval benchmark', () => {
     if (process.env.MONOGRAPH_EVAL_OUT)
       writeFileSync(process.env.MONOGRAPH_EVAL_OUT, JSON.stringify(out, null, 1));
     expect(out.lexical.recallAtK).toBeGreaterThan(0);
+    // Regression gate for the default gold set only (baseline fused recall@10 0.85, #682).
+    if (out.fused && !process.env.MONOGRAPH_EVAL_GOLD) {
+      expect(out.fused.recallAtK).toBeGreaterThanOrEqual(0.8);
+      expect(out.fused.byKind.exact?.recallAtK ?? 1).toBe(1);
+    }
   }, 600_000);
 });
