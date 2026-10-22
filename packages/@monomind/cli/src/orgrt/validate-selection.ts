@@ -1,6 +1,6 @@
 // packages/@monomind/cli/src/orgrt/validate-selection.ts
 /**
- * Org sections spec 7.1 and 7.3 items 19 to 21 (Phase 5): warnings for a structure
+ * Org sections spec 7.1 and 7.3 items 19 to 21 (Phase 5), plus #25 (roster size): warnings for a structure
  * that the measured results (spec 14) say fits the work badly. Advice only, never an
  * error: shape alone cannot prove the work is sequential, independent or hand-off
  * critical, so each message states what it saw and the measured reason.
@@ -11,7 +11,10 @@ const isAgent = (r: OrgDef['roles'][number]): boolean => r.kind !== 'endpoint';
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** Warnings for items 19 (chain), 20 (team without a deadline) and 21 (documents without checks). */
+/** Roles a flat (sectionless) org may carry before #25 advises merging or sectioning. */
+const FLAT_ROSTER_LIMIT = 6;
+
+/** Warnings for items 19 (chain), 20 (team without a deadline), 21 (documents without checks) and 25 (large flat roster). */
 export function selectionWarnings(def: OrgDef, sectionsOn: boolean): string[] {
   const out: string[] = [];
   const agents = def.roles.filter(isAgent);
@@ -44,5 +47,11 @@ export function selectionWarnings(def: OrgDef, sectionsOn: boolean): string[] {
         out.push(
           `#21 documents.${type}: no checks declared, so a consumer's org_doc_check has nothing to run; measured, a consumer with per-answer evidence and checks caught 8 of 8 injected inconsistencies where one without caught 3 of 8 (0 of 4 wrong values) — add checks over the evidence the producer attaches (errors that agree with their own evidence still pass any check)`,
         );
+
+  // #25 a large roster with no sections: every role is its own seat under one boss.
+  if (!sectionsOn && agents.length > FLAT_ROSTER_LIMIT)
+    out.push(
+      `#25 ${agents.length} roles and no sections; every role pays its own startup context and the boss briefs each one — merge roles that share a skill set or a stage (a reviewer into its executor, near-duplicate workers into one), or group the stages that hand typed work to each other into sections. Keep a flat org to ${FLAT_ROSTER_LIMIT} roles or fewer`,
+    );
   return out;
 }
