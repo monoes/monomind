@@ -36,8 +36,8 @@ Monomind is an **open-source CLI and MCP server** that plugs into Claude Code, [
 - **Codebase knowledge graph** — tree-sitter parses your code into a SQLite-backed graph of files, functions, classes, and their relationships. Query imports, callers, and blast radius before making changes.
 - **Persistent memory** — a JSON pattern store with episodic recall that survives across sessions. Agents and orgs share context without re-prompting.
 - **Multi-agent coordination** — in-session, spawn ad-hoc agent teams via Claude Code's Task tool; for persistent background work, `monomind org run` starts a real SDK-backed daemon with policy-gated role agents and a live dashboard.
-- **Agents, skills and picking** — ships <!-- doc-count:pickable-agents -->84<!-- /doc-count:pickable-agents --> pickable agents, <!-- doc-count:pickable-skills -->83<!-- /doc-count:pickable-skills --> skills and <!-- doc-count:org-skills -->376<!-- /doc-count:org-skills --> Org skills, and you add your own as Markdown files. One index of all of them ranks the best fit for each task; the prompt hook puts it in Claude's context as a `[PICK]` line, and `monomind pick` or the `pick` MCP tool return it on request. See [Agents & Skills](doc/concepts/agents-and-skills.md) and [Routing](doc/concepts/routing.md).
-- **Reusable slash commands** — <!-- doc-count:mastermind-commands -->42<!-- /doc-count:mastermind-commands --> workflows (plan, execute, review, debug, release, research, worktree) available as `/mastermind:*` commands inside Claude Code.
+- **Agents, skills and picking** — ships <!-- doc-count:pickable-agents -->83<!-- /doc-count:pickable-agents --> pickable agents, <!-- doc-count:pickable-skills -->82<!-- /doc-count:pickable-skills --> skills and <!-- doc-count:org-skills -->560<!-- /doc-count:org-skills --> Org skills, and you add your own as Markdown files. One index of all of them ranks the best fit for each task; the prompt hook puts it in Claude's context as a `[PICK]` line, and `monomind pick` or the `pick` MCP tool return it on request. See [Agents & Skills](doc/concepts/agents-and-skills.md) and [Routing](doc/concepts/routing.md).
+- **Reusable slash commands** — <!-- doc-count:mastermind-commands -->40<!-- /doc-count:mastermind-commands --> workflows (plan, execute, review, debug, release, research, worktree) available as `/mastermind:*` commands inside Claude Code.
 
 ```bash
 npm install -g monomind        # Apache 2.0 licensed; runs locally and keeps its state locally
@@ -193,7 +193,7 @@ monomind org delete <name>          # remove an org
 monomind org memory <name>          # cross-run KG memory: stats (default) | search <q> | rules | rollback <run-ref>
 ```
 
-`org` has <!-- doc-count:org-subcommands -->37<!-- /doc-count:org-subcommands --> subcommands total (skills, run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory, costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete, role).
+`org` has <!-- doc-count:org-subcommands -->39<!-- /doc-count:org-subcommands --> subcommands total (skills, run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory, costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete, role).
 
 > **Note:** `/mastermind:runorg` delegates directly to the Org Runtime daemon (the same path as `monomind org run`) — there is no boss agent, no monotask board, and no manual curl calls in this path. `/mastermind:runorg` converts legacy-format org config files with `monomind org migrate` before starting the daemon. New orgs should use `monomind org run` (or `/mastermind:runorg`) against a hand-authored `.monomind/orgs/<name>.json`.
 
@@ -241,7 +241,7 @@ monomind doctor --fix
 
 > **Native module install blocked?** If `doctor` reports a missing `better-sqlite3` binding (`Could not locate the bindings file`, or npm logs an install script that was "blocked because it is not covered by allowScripts"), your npm's `allowScripts` policy blocked its native build — this isn't a Monomind bug. Run `npm install-scripts approve better-sqlite3 && npm rebuild better-sqlite3`, then re-run `monomind doctor --fix`.
 
-Open Claude Code. You now have <!-- doc-count:mastermind-commands -->42<!-- /doc-count:mastermind-commands --> `/mastermind:*` workflows available:
+Open Claude Code. You now have <!-- doc-count:mastermind-commands -->40<!-- /doc-count:mastermind-commands --> `/mastermind:*` workflows available:
 
 ```bash
 /mastermind:review --tillend      # review and fix until nothing is left
@@ -316,7 +316,7 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 # → "find all callers of validateToken()"
 ```
 
-19 default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
+<!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
 
 ---
 
@@ -358,7 +358,7 @@ In Claude Code, the live pre-bash/pre-write gate is wired up via its own lazy-lo
 
 ---
 
-## 📋 <!-- doc-count:mastermind-commands -->42<!-- /doc-count:mastermind-commands --> Mastermind Commands
+## 📋 <!-- doc-count:mastermind-commands -->40<!-- /doc-count:mastermind-commands --> Mastermind Commands
 
 Everything runs from inside Claude Code via slash commands. Here's the highlight reel:
 
@@ -390,7 +390,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `/mastermind:finance` | Budgets, invoicing, modeling |
 | `/mastermind:ops` | Operations and workflow automation |
 
-**[→ Full reference (<!-- doc-count:mastermind-commands -->42<!-- /doc-count:mastermind-commands --> commands)](https://monoes.github.io/monomind/#slash)**
+**[→ Full reference (<!-- doc-count:mastermind-commands -->40<!-- /doc-count:mastermind-commands --> commands)](https://monoes.github.io/monomind/#slash)**
 
 ---
 
