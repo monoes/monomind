@@ -96,18 +96,30 @@ describe('checklist #21: a document type with no checks', () => {
   });
 });
 
-describe('checklist #25: a large flat roster', () => {
+describe('checklist #25: roster size', () => {
   const flat = (n: number) => [
     role('boss', null),
     ...Array.from({ length: n }, (_, i) => role(`w${i}`, 'boss')),
   ];
-  it('warns above six roles with no sections', () => {
-    const w = checklistFindings(org(flat(6), { run_config: { max_run: '1h' } })).warnings;
+  const rc = { run_config: { max_run: '1h' } };
+  it('warns above four roles with no sections, and is quiet at four', () => {
+    const w = checklistFindings(org(flat(4), rc)).warnings;
     expect(has(w, 25)).toHaveLength(1);
     expect(has(w, 25)[0]).toMatch(/merge roles/);
+    expect(has(checklistFindings(org(flat(3), rc)).warnings, 25)).toHaveLength(0);
   });
-  it('is quiet at six roles', () => {
-    const w = checklistFindings(org(flat(5), { run_config: { max_run: '1h' } })).warnings;
-    expect(has(w, 25)).toHaveLength(0);
+  it('warns on a section above four roles, not on a one-role section', () => {
+    const roles = flat(5);
+    const w = checklistFindings(
+      org(roles, {
+        ...rc,
+        sections: {
+          big: { lead: 'w0', members: ['w0', 'w1', 'w2', 'w3', 'w4'] },
+          solo: { members: ['w4'] },
+        },
+      }),
+    ).warnings;
+    expect(has(w, 25).some((x) => x.includes('sections.big'))).toBe(true);
+    expect(has(w, 25).some((x) => x.includes('sections.solo'))).toBe(false);
   });
 });

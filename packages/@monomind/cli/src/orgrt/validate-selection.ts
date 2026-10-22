@@ -12,7 +12,10 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** Roles a flat (sectionless) org may carry before #25 advises merging or sectioning. */
-const FLAT_ROSTER_LIMIT = 6;
+const FLAT_ROSTER_LIMIT = 4;
+/** A sections org: sections it may declare and roles one section may hold (lead included). */
+const MAX_SECTIONS = 10;
+const MAX_SECTION_ROLES = 4;
 
 /** Warnings for items 19 (chain), 20 (team without a deadline), 21 (documents without checks) and 25 (large flat roster). */
 export function selectionWarnings(def: OrgDef, sectionsOn: boolean): string[] {
@@ -53,5 +56,27 @@ export function selectionWarnings(def: OrgDef, sectionsOn: boolean): string[] {
     out.push(
       `#25 ${agents.length} roles and no sections; every role pays its own startup context and the boss briefs each one — merge roles that share a skill set or a stage (a reviewer into its executor, near-duplicate workers into one), or group the stages that hand typed work to each other into sections. Keep a flat org to ${FLAT_ROSTER_LIMIT} roles or fewer`,
     );
+
+  // #25 (sections form) too many sections, or a section too large to lead.
+  const sections = (def as unknown as { sections?: unknown }).sections;
+  if (sectionsOn && isObject(sections)) {
+    const names = Object.keys(sections);
+    if (names.length > MAX_SECTIONS)
+      out.push(
+        `#25 ${names.length} sections; keep an org to ${MAX_SECTIONS} sections or fewer — merge sections whose output is consumed by the same stage`,
+      );
+    for (const [name, sec] of Object.entries(sections)) {
+      if (!isObject(sec)) continue;
+      const roster = new Set<string>(
+        [...(Array.isArray(sec.members) ? sec.members : []), sec.lead].filter(
+          (x): x is string => typeof x === 'string',
+        ),
+      );
+      if (roster.size > MAX_SECTION_ROLES)
+        out.push(
+          `#25 sections.${name} holds ${roster.size} roles; keep a section to ${MAX_SECTION_ROLES} or fewer (3 is the default, 1 is fine when one role can do the stage) — split it or merge roles`,
+        );
+    }
+  }
   return out;
 }
