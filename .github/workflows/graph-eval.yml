@@ -1,0 +1,66 @@
+# Semantic graph-search retrieval benchmark (#682). Nightly and on demand only:
+# it needs the local embedding model, and HuggingFace rate limits already broke
+# CI model provisioning (#511), so the PR gate never depends on this job.
+# The keyword-only gate runs in the normal test job
+# (packages/@monomind/monograph/src/__tests__/search/eval-fixture.test.ts).
+name: Graph search eval
+
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  semantic-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm --filter "@monoes/monomindcli^..." run build
+
+      - name: Cache embedding models
+        uses: actions/cache@v4
+        with:
+          path: ~/.monomind/models
+          key: graph-eval-models-${{ runner.os }}-v1
+
+      - name: Build graph and embed
+        run: |
+          node packages/@monomind/cli/bin/cli.js download-embeddings
+          node packages/@monomind/cli/bin/cli.js monograph build
+          node packages/@monomind/cli/bin/cli.js monograph embed
+
+      - name: Run benchmark (keyword only vs fused)
+        working-directory: packages/@monomind/monograph
+        env:
+          MONOGRAPH_EVAL_DB: ${{ github.workspace }}/.monomind/monograph.db
+          MONOGRAPH_EVAL_OUT: ${{ runner.temp }}/eval.json
+        run: |
+          export MONOGRAPH_EVAL_HF="$(node -p "require('fs').realpathSync('../cli/node_modules/@huggingface/transformers')")/dist/transformers.node.mjs"
+          npx vitest run src/__tests__/search/eval-live.test.ts
+
+      - name: Job summary
+        if: always()
+        run: |
+          node -e '
+          const fs = require("fs");
+          const f = process.env.RUNNER_TEMP + "/eval.json";
+          if (!fs.existsSync(f)) { console.log("No eval output."); process.exit(0); }
+          const r = JSON.parse(fs.readFileSync(f, "utf8"));
+          const row = (n, s) => s ? `| ${n} | ${s.recallAtK.toFixed(2)} | ${s.mrr.toFixed(2)} |` : "";
+          const out = ["| Set | recall@10 | MRR |", "|---|---|---|"];
+          for (const [v, s] of [["keyword", r.lexical], ["fused", r.fused]]) {
+            if (!s) continue;
+            out.push(row(v + " overall", s));
+            for (const [k, b] of Object.entries(s.byKind)) out.push(row(v + " " + k, b));
+          }
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, out.join("\n") + "\n");
+          '
