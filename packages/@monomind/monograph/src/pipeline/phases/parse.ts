@@ -18,6 +18,9 @@ export interface ParseOutput {
   cacheStats: { hits: number; misses: number };
 }
 
+/** Rows per insert call; one progress event is emitted per chunk. */
+const INSERT_CHUNK = 2000;
+
 export const parsePhase: PipelinePhase<ParseOutput> = {
   name: 'parse',
   deps: ['structure'],
@@ -158,13 +161,36 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
       // removed symbol's old row would survive forever (INSERT OR REPLACE only
       // overwrites rows whose id still matches; it never deletes rows whose id
       // disappeared because the symbol was renamed).
+      // Heartbeat: a large cached insert can run for minutes with no other output
+      // (#680), so report every chunk — a healthy build must not look hung.
+      const reportInsert = (kind: 'nodes' | 'edges', done: number, total: number) =>
+        ctx.onProgress?.({
+          phase: 'parse',
+          filesProcessed: processed,
+          totalFiles: fileNodes.length,
+          message: `inserted ${done}/${total} ${kind}`,
+        });
       const writeAll = db.transaction(() => {
         for (const filePath of staleFilePaths) {
           deleteEdgesForFile(db, filePath);
           deleteNodesForFile(db, filePath);
         }
-        insertNodes(db, nodesToInsert);
-        insertEdges(db, edgesToInsert);
+        for (let i = 0; i < nodesToInsert.length; i += INSERT_CHUNK) {
+          insertNodes(db, nodesToInsert.slice(i, i + INSERT_CHUNK));
+          reportInsert(
+            'nodes',
+            Math.min(i + INSERT_CHUNK, nodesToInsert.length),
+            nodesToInsert.length,
+          );
+        }
+        for (let i = 0; i < edgesToInsert.length; i += INSERT_CHUNK) {
+          insertEdges(db, edgesToInsert.slice(i, i + INSERT_CHUNK));
+          reportInsert(
+            'edges',
+            Math.min(i + INSERT_CHUNK, edgesToInsert.length),
+            edgesToInsert.length,
+          );
+        }
       });
       writeAll();
     }
