@@ -151,7 +151,9 @@ export async function runWithRateLimitRetry(
       opts.emit({ v: 1, type: 'done', exit_code: 130 });
       return 130;
     }
-    attemptOpts = resume === null ? opts : { ...opts, resume, prompt: RESUME_PROMPT };
+    // A resumed session already holds the `--attach` files (rev 32); resend none.
+    attemptOpts =
+      resume === null ? opts : { ...opts, resume, prompt: RESUME_PROMPT, attachments: undefined };
   }
 }
 

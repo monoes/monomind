@@ -118,7 +118,7 @@ export function restrictCodexHome(codexHome: string): string[] {
  *   codex exec --json [--model X] [-c model_reasoning_effort=L]
  *              -c features.shell_snapshot=false -c features.shell_snapshot_v2=false [--cd Y]
  *              [--skip-git-repo-check] [--sandbox <mode> | --dangerously-…]
- *              [resume <threadId>] -- -
+ *              [resume <threadId>] [--image <file>]… -- -
  * The prompt goes over STDIN, not argv: a single argv element is capped
  * at 128 KiB on Linux (E2BIG), and a system prompt + tool protocol +
  * tool results routinely exceeds that. `-` is codex's documented "read
@@ -138,8 +138,15 @@ export function restrictCodexHome(codexHome: string): string[] {
  * An explicit `sandbox` (#396, `agent exec --sandbox`) of read-only or
  * workspace-write replaces both the role's default and the full-access
  * bypass flag; `full` or unset keeps the behaviour above.
+ * `images` (rev 32, `agent exec --attach`) come after `resume <id>`, so a
+ * resumed turn uses `exec resume`'s own `--image` (codex-cli 0.159.3 has
+ * `-i, --image` on both `exec` and `exec resume`).
  */
-export function codexExecArgs(args: AgentRunArgs, threadId: string | undefined): string[] {
+export function codexExecArgs(
+  args: AgentRunArgs,
+  threadId: string | undefined,
+  images: string[] = [],
+): string[] {
   const cliArgs: string[] = ['exec', '--json'];
   if (args.model) cliArgs.push('--model', args.model);
   cliArgs.push(...codexEffortArgs(args.effort));
@@ -163,6 +170,7 @@ export function codexExecArgs(args: AgentRunArgs, threadId: string | undefined):
   if (threadId) {
     cliArgs.push('resume', threadId);
   }
+  for (const image of images) cliArgs.push('--image', image);
   cliArgs.push('--', '-');
   return cliArgs;
 }
@@ -175,7 +183,8 @@ export function codexExecArgs(args: AgentRunArgs, threadId: string | undefined):
  * code, stderr tail, thread id, usage, error, timeout flag) are written
  * into `outcome`, which the caller reads after this generator completes.
  * `idPrefix` keeps tool-call ids unique across spawns (codex restarts its
- * item numbering per process — codex-runner-tools.ts).
+ * item numbering per process — codex-runner-tools.ts). `images` go to
+ * `--image` (rev 32).
  */
 export async function* streamTurn(
   bin: string,
@@ -184,8 +193,9 @@ export async function* streamTurn(
   args: AgentRunArgs,
   outcome: TurnOutcome,
   idPrefix = '',
+  images: string[] = [],
 ): AsyncGenerator<CodexStreamEvent> {
-  const cliArgs = codexExecArgs(args, threadId);
+  const cliArgs = codexExecArgs(args, threadId, images);
 
   // Full access: own process group + tree tracking (process-group-spawn.ts),
   // so cancel reaches every descendant and agent-exec can report
