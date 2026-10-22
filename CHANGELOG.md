@@ -2,6 +2,12 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Changed
+
+- **The `release` org is now a sections org with a much smaller startup context per role.** Eight sections (`build`, `qa-cli`, `qa-integration`, `qa-runtime`, `repair`, `docs`, `ship`, `audit`) hand work over as nine schema-validated documents (`build-record`, `test-record`, `qa-*-record`, `fix-record`, `docs-record`, `prep-record`, `audit-verdict`) instead of long free-text reports; `publisher` accepts the evidence records and the audit verdict before PUBLISH, `release-auditor` accepts the release commit's `prep-record`, and every section caps rework at 2 rounds. The 29 KB rules skill pinned to every role is split into a ~5 KB shared core plus per-role skills, the publisher's PREFLIGHT, SETUP, PREP and PUBLISH procedures load on demand, and the generic library skills moved to each role's on-demand pool, so a role's startup prompt dropped from about 37-63 KB to 14-16 KB (captain 28 KB). All safety gates are kept (release lock, GitHub `Tests` gate, `completion_evidence`, GO verdict plus approving audit before PUBLISH, publish, push, tag, release, Pages, local-main sync, issue filing and cleanup order, sandbox policies). Every role is pinned to `claude-sonnet-5-5`; `docs-writer` now runs at low effort. Re-sign the org (`monomind org sign release`) after pulling.
+
 ## [2.24.9] — 2026-10-16
 
 ### Added

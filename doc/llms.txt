@@ -64,7 +64,7 @@
 ### Org Runtime
 - Autonomous multi-agent organization coordinator (`OrgDaemon`).
 - Supports 19 registered runtime ids (`AgentRunner` implementations): `claude`, `codex`, `kimicode`, `opencode`, `vercel`, `antigravity`, `grok`, `qwen`, `qwen-rpc`, `crush`, `copilot`, `pi`, `pi-rpc`, `hermes`, `cline`, `aider`, `dsh`, `kilo` and `freebuff`. `freebuff` is discovered but never runs (`execution_supported: false`: its CLI has no headless transport, so it is blocked upstream); `kilo` runs with explicit full access only.
-- An org definition takes effect only after the operator signs it (`monomind org sign`). Sections orgs (sub-orgs that exchange work only through documents) are generally available. `run_config.context` opts into typed task briefs, role notes and a session cap. The repository's own `release` org (10 roles, `config/orgs/release.json`) runs a release unattended, with a human asked only at PREFLIGHT.
+- An org definition takes effect only after the operator signs it (`monomind org sign`). Sections orgs (sub-orgs that exchange work only through documents) are generally available. `run_config.context` opts into typed task briefs, role notes and a session cap. The repository's own `release` org (10 roles in 8 sections that hand work over as typed documents, `config/orgs/release.json`) runs a release unattended, with a human asked only at PREFLIGHT.
 - Concept Doc: [`doc/concepts/org-runtime.md`](doc/concepts/org-runtime.md)
 
 ### Coder Mode Security (`agent exec --access full`)

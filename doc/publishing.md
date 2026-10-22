@@ -129,9 +129,28 @@ A release is run by the `release` org, defined in `.monomind/orgs/release.json` 
 `release-auditor`. It runs with a 4,000,000-token budget, task-scoped sessions and
 `completion_evidence` on, so a task closes only on commands and exit codes pinned to a commit.
 
-One run is meant to be unattended. PREFLIGHT comes first: it checks npm publish rights without
-an OTP, GitHub and git push rights, a Claude login for the agent trials, tools and disk, and
-asks the human once, only when something is missing. After that the org verifies, fixes, updates
+It is a sections org. Every role except the captain sits in one of eight sections (`build`,
+`qa-cli`, `qa-integration`, `qa-runtime`, `repair`, `docs`, `ship`, `audit`) and the sections
+hand work over as schema-validated documents rather than free-text reports: `build-record` and
+`test-record` (builder), `qa-cli-record`, `qa-integration-record` and `qa-runtime-record` (the QA
+roles), `fix-record` (maintainer and fixer), `docs-record` (docs-writer), `prep-record` (publisher)
+and `audit-verdict` (release-auditor). Each is a compact record of SHAs, check rows and log
+paths with cited command evidence. `publisher` accepts or rejects the build, test, QA, fix, docs
+and audit records, `docs-writer` accepts `fix-record`, `release-auditor` accepts `prep-record`, and
+the captain reads every document. A rejection goes straight to the producer and each section
+caps rework at two rounds. The captain still dispatches every task and keeps the pipeline,
+triage and fix-cap rules.
+
+Startup context is kept small: every role pins one ~5 KB shared rules skill
+(`monomind-release-rules`) plus its own skills (`release-scratch`, `release-commit`,
+`release-captain-ops`), and the long procedures load on demand: `release-preflight-setup`,
+`release-integrate-prep` and `release-publish` for `publisher`, `release-closeout` for the
+captain.
+
+One run is meant to be unattended. PREFLIGHT comes first, run by `publisher` (the one role with
+credentials) as a read-only task: it checks npm publish rights without an OTP, GitHub and git
+push rights, a Claude login for the agent trials, tools and disk, and the captain asks the human
+once, only when something is missing. After that the org verifies, fixes, updates
 docs and the site, bumps the version and CHANGELOG, and re-verifies the release commit. On an
 evidence-backed GO it publishes to npm, fast-forwards `main`, tags, creates the GitHub release,
 confirms the website deploy, syncs local `main`, files GitHub issues for anything left unfixed
