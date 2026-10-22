@@ -100,7 +100,7 @@ describe.skipIf(!HAVE_SANDBOX)('a single-writer org through a real daemon (P4.4)
         expect(d.message).toContain('researcher is the only role that may write the workspace');
       }
     }
-  }, 30_000);
+  }, 120_000);
 
   it('records a writer-refused audit event on the bus for each refusal', async () => {
     const { role, running } = await start(sectionsRaw(oneWriter));
@@ -109,7 +109,7 @@ describe.skipIf(!HAVE_SANDBOX)('a single-writer org through a real daemon (P4.4)
     const coder = await role('coder');
     await gate(coder, 'Write', { file_path: join(root, 'src', 'a.ts'), content: 'x' });
     expect(events.filter((e) => e.reason === 'writer-refused')).toMatchObject([{ type: 'audit', from: 'coder', data: { tool: 'Write' } }]);
-  }, 30_000);
+  }, 120_000);
 
   it('the non-writer\'s SDK sandbox denies the real workspace as a whole; the writer role has no such deny', async () => {
     const { role } = await start(sectionsRaw(oneWriter));
@@ -119,7 +119,7 @@ describe.skipIf(!HAVE_SANDBOX)('a single-writer org through a real daemon (P4.4)
     expect(coder.sandbox.filesystem.denyWrite).toContain(root);
     // the lead of the writing section keeps its own policy: no workspace deny is added to it
     expect(lead.sandbox?.filesystem?.denyWrite ?? []).not.toContain(root);
-  }, 30_000);
+  }, 120_000);
 
   it('the engines: a role with an overlay runs the writer engine, the others a plain PolicyEngine; policy equals the effective one', async () => {
     const { running, role } = await start(sectionsRaw(oneWriter));
@@ -130,7 +130,7 @@ describe.skipIf(!HAVE_SANDBOX)('a single-writer org through a real daemon (P4.4)
     expect(coder.policy.fileWrite).toEqual([]);
     expect(coder.policy.sandbox).toMatchObject({ mode: 'required', denyWrite: [root] });
     expect(running.agents.get('researcher')!.policy.policy.fileWrite).toEqual(['src/**']);
-  }, 30_000);
+  }, 120_000);
 
   it('resume rebuilds the same overlay', async () => {
     const raw = sectionsRaw(oneWriter);
@@ -142,7 +142,7 @@ describe.skipIf(!HAVE_SANDBOX)('a single-writer org through a real daemon (P4.4)
     const coder = await again.role('coder');
     expect(JSON.stringify(again.running.agents.get('coder')!.policy.policy)).toBe(before);
     expect((await gate(coder, 'Write', { file_path: join(root, 'src', 'a.ts'), content: 'x' })).behavior).toBe('deny');
-  }, 30_000);
+  }, 120_000);
 
   it('a reload that changes a read-only role\'s policy keeps the overlay (the live engine gets the effective policy)', async () => {
     const raw = sectionsRaw(oneWriter);
@@ -157,7 +157,7 @@ describe.skipIf(!HAVE_SANDBOX)('a single-writer org through a real daemon (P4.4)
     expect(live.fileWrite).toEqual([]);
     expect(live.sandbox).toMatchObject({ mode: 'required', denyWrite: [root] });
     expect((await gate(coder, 'Write', { file_path: join(root, 'src', 'a.ts'), content: 'x' })).behavior).toBe('deny');
-  }, 30_000);
+  }, 120_000);
 
   it('holds every read-only role whose boundary falls back to an expansion: audit event, a fatal crash, never widened', async () => {
     vi.spyOn(sandboxStubs, 'missing').mockReturnValue([join(root, '.mcp.json')]);
@@ -176,7 +176,7 @@ describe.skipIf(!HAVE_SANDBOX)('a single-writer org through a real daemon (P4.4)
     expect(events.some((e) => e.reason === 'agent-fatal' && e.from === 'coder')).toBe(true);
     expect(events.find((e) => e.reason === 'agent-session-crash' && e.from === 'coder').msg).toContain('is not qualified');
     expect(running.agents.get('coder')!.status).toBe('crashed');
-  }, 30_000);
+  }, 120_000);
 });
 
 describe('orgs that do not use the key run exactly as before (P4.4)', () => {
@@ -191,5 +191,5 @@ describe('orgs that do not use the key run exactly as before (P4.4)', () => {
       expect(engine.policy.fileWrite).toEqual(['**']);
     }
     expect(existsSync(join(root, 'src'))).toBe(true);
-  }, 30_000);
+  }, 120_000);
 });

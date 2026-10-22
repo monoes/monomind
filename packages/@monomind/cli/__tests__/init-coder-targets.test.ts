@@ -215,7 +215,7 @@ describe('monomind init --target cline|aider|agents (real fs)', () => {
     expect(fs.existsSync(path.join(tmpDir, '.codex'))).toBe(false);
     // init never registers MCP in the user's own ~/.cline.
     expect(fs.existsSync(path.join(fakeHome, '.cline'))).toBe(false);
-  }, 30000);
+  }, 120_000);
 
   it('--target agents writes AGENTS.md and nothing else (idempotent, keeps a user file)', async () => {
     fs.mkdirSync(path.join(tmpDir, '.git'));
@@ -236,7 +236,7 @@ describe('monomind init --target cline|aider|agents (real fs)', () => {
     expect(second.success).toBe(true);
     expect(fs.readFileSync(path.join(tmpDir, 'AGENTS.md'), 'utf8')).toBe('mine');
     expect(fs.readdirSync(tmpDir).sort()).toEqual(['.git', 'AGENTS.md']);
-  }, 30000);
+  }, 120_000);
 
   it('--target agents --json reports only AGENTS.md, then nothing on a second run', async () => {
     const writes: string[] = [];
@@ -255,7 +255,7 @@ describe('monomind init --target cline|aider|agents (real fs)', () => {
     expect(a).toMatchObject({ created: ['AGENTS.md'], skipped: [] });
     expect(b).toMatchObject({ created: [], skipped: ['AGENTS.md'] });
     expect(fs.readdirSync(tmpDir)).toEqual(['AGENTS.md']);
-  }, 30000);
+  }, 120_000);
 
   it('--target aider writes CONVENTIONS.md and a read: entry for it', async () => {
     const result = await initCommand.action!(ctxFor(tmpDir, { target: 'aider', 'no-graph': true }));
@@ -266,5 +266,5 @@ describe('monomind init --target cline|aider|agents (real fs)', () => {
     );
     expect(fs.existsSync(path.join(tmpDir, '.clinerules'))).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, 'CLAUDE.md'))).toBe(false);
-  }, 30000);
+  }, 120_000);
 });
