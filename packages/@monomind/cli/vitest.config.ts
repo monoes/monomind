@@ -24,12 +24,15 @@ export default defineConfig({
     // keeps peak memory sane; the suite wall-time is unchanged in practice
     // because the thrash was already serializing everything.
     maxWorkers: 4,
-    // 30s default: this suite intentionally runs real-fs / real-subprocess
+    // 60s default (#683; was 30s): this suite intentionally runs real-fs / real-subprocess
     // tests (init, doctor, memory backends with first-use embedding-model
     // loads). At 15s those tests were green in isolation but timed out
     // variably under full-suite parallel load — pure contention flakiness.
     // Tests that need longer still carry their own explicit timeout.
-    testTimeout: 30000,
+    testTimeout: 60000,
+    // #683: daemon/e2e tests took 40-47s under load average 25-31; hooks (spawned
+    // CLIs, daemons) get a generous ceiling. Slow files still set their own timeout.
+    hookTimeout: 60000,
     // #522: the Claude runtime uses an installed Claude Code when it finds
     // one; tests must not depend on whether this machine has one.
     env: { MONOMIND_CLAUDE_PATH: 'bundled' },
