@@ -200,7 +200,13 @@ describe('session-restore-handler', () => {
 
   it('still surfaces [AGENT_RUNTIMES] from an expired cache when a rescan is unavailable (#676)', async () => {
     const rtFile = path.join(tmpDir, '.monomind', 'agent-runtimes.json');
-    fs.writeFileSync(rtFile, JSON.stringify({ v: 1, agents: [{ id: 'codex', installed: true, execution_supported: true }] }));
+    fs.writeFileSync(
+      rtFile,
+      JSON.stringify({
+        v: 1,
+        agents: [{ id: 'codex', installed: true, execution_supported: true }],
+      }),
+    );
     const old = new Date(Date.now() - 3 * 86400000);
     fs.utimesSync(rtFile, old, old);
     const savedPath = process.env.PATH;
