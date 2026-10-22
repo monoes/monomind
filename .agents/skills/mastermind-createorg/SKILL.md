@@ -64,6 +64,17 @@ Rules that follow from the results:
 - State what the evidence does not cover: natural errors that agree with their own evidence were not caught by any check; one trial per arm; the injected faults were detectable by construction.
 - An explicit `roles_desc` from the user stays authoritative (Step 2). Still tell them, in the plan, which row applies and what the checklist warns (items 19 to 21 of `org validate`: a chain of roles, a parallel team with no deadline, a document type with no checks). Warnings are advice; never block on them.
 
+## Step 1c — Roster budget (before listing roles)
+
+Every role is a live session that pays its own startup context, and the boss spends turns briefing each one, so roles are the main cost of an org. Derive the smallest roster that does the work:
+
+- **Default: a boss plus 2 to 3 workers (4 roles).** More than 6 roles needs a reason per extra role that a smaller roster cannot meet: a stream with its own deadline, a skill set no other role has, or a stage whose output another stage must accept before it starts.
+- **Merge before adding.** A reviewer is the executor's own checklist step unless review must be independent of the author. Two roles with overlapping skills become one. One role per tool or per file type is a sign of over-splitting.
+- **Group when you still need more than 6.** Put stages that hand typed work to each other into `sections` (Step 3) and keep each section to a lead plus at most 2 members; a flat roster above 6 draws `org validate` #25.
+- Say in the Step 4 plan how many roles you cut or merged and why, and never exceed a user's explicit `roles_desc` (Step 2).
+
+---
+
 ## Step 2 — Ingest Roles
 
 Parse `roles_desc` (if provided) into a list of role titles. If not provided, derive a set of roles from `prompt` by identifying the human functions needed to achieve the goal.
@@ -205,6 +216,22 @@ Produce an org config object matching `OrgDefSchema` exactly:
   ]
 }
 ```
+
+**Sections shape (only when Step 1b chose the hand-off row and Step 1c left more than 6 roles).** Every non-root role belongs to exactly one section and reports to that section's lead; the root belongs to none. Add `"requires": {"sections": 1}` and `"run_config.completion": {"mode": "boss"}`, then:
+
+```json
+"sections": {
+  "build":  { "lead": "builder", "members": ["builder", "fixer"], "publishes": ["build-record"], "max_rework_rounds": 2 },
+  "verify": { "lead": "qa", "members": ["qa"], "consumes": ["build-record"], "publishes": ["qa-record"], "max_rework_rounds": 2 }
+},
+"documents": {
+  "build-record": { "schema": { "type": "object", "required": ["status"], "properties": { "status": { "enum": ["PASS", "FAIL"] } } }, "evidence": [{ "kind": "command", "min": 1 }], "visibility": "org", "max_publish_attempts": 5 }
+}
+```
+
+Each published type needs a `documents` entry, a producer and a consumer. A single-member section leads itself. `/doc/concepts/org-runtime.md` section 6.7 has the full contract. Do not use sections as a mere grouping of roles with no typed hand-off between them: merge the roles instead.
+
+**Efficiency defaults (every org).** Put routine workers on the cheap tier and keep the boss and any role that judges others on the default model: `"cost_tiers": {"roles": {"<worker id>": {"tier": "economy", "effort": "low"}, "<boss or judge id>": "exempt"}}`. Set `"session_scope": "task"` in `run_config` for workers that take independent tasks (a worker resumed per task does not carry a growing transcript), `max_concurrent_agents` to the number of roles that really run at once, and a `budget_tokens` that is the sum of the roles' own need rather than a flat 1M each when most roles only write short files.
 
 `status` starts `"stopped"` regardless of whether `schedule` is set — the org does not run until `monomind org run <name>` (one-shot) or `monomind org serve` (picks up any org whose `schedule` is set) is invoked.
 

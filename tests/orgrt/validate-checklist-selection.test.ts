@@ -95,3 +95,19 @@ describe('checklist #21: a document type with no checks', () => {
     expect(has(w, 21)).toHaveLength(0);
   });
 });
+
+describe('checklist #25: a large flat roster', () => {
+  const flat = (n: number) => [
+    role('boss', null),
+    ...Array.from({ length: n }, (_, i) => role(`w${i}`, 'boss')),
+  ];
+  it('warns above six roles with no sections', () => {
+    const w = checklistFindings(org(flat(6), { run_config: { max_run: '1h' } })).warnings;
+    expect(has(w, 25)).toHaveLength(1);
+    expect(has(w, 25)[0]).toMatch(/merge roles/);
+  });
+  it('is quiet at six roles', () => {
+    const w = checklistFindings(org(flat(5), { run_config: { max_run: '1h' } })).warnings;
+    expect(has(w, 25)).toHaveLength(0);
+  });
+});
