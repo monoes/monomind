@@ -68,10 +68,10 @@ Rules that follow from the results:
 
 Every role is a live session that pays its own startup context, and the boss spends turns briefing each one, so roles are the main cost of an org. Derive the smallest roster that does the work:
 
-- **Default: a boss plus 2 to 3 workers (4 roles).** More than 6 roles needs a reason per extra role that a smaller roster cannot meet: a stream with its own deadline, a skill set no other role has, or a stage whose output another stage must accept before it starts.
+- **A flat org (no sections) holds at most 4 roles**, the boss included. Past 4, organise the roles into sections.
+- **A sections org holds at most 10 sections, and a section at most 4 roles (lead included). Default to 3 roles per section.** A one-role section is fine, and often best: a capable role can do more than one stage, so do not add a second role to a section just to fill it.
 - **Merge before adding.** A reviewer is the executor's own checklist step unless review must be independent of the author. Two roles with overlapping skills become one. One role per tool or per file type is a sign of over-splitting.
-- **Group when you still need more than 6.** Put stages that hand typed work to each other into `sections` (Step 3) and keep each section to a lead plus at most 2 members; a flat roster above 6 draws `org validate` #25.
-- Say in the Step 4 plan how many roles you cut or merged and why, and never exceed a user's explicit `roles_desc` (Step 2).
+- Say in the Step 4 plan how many roles you cut or merged and why, and never exceed a user's explicit `roles_desc` (Step 2). `org validate` #25 warns on a flat org above 4 roles, more than 10 sections, or a section above 4 roles.
 
 ---
 
@@ -217,7 +217,7 @@ Produce an org config object matching `OrgDefSchema` exactly:
 }
 ```
 
-**Sections shape (only when Step 1b chose the hand-off row and Step 1c left more than 6 roles).** Every non-root role belongs to exactly one section and reports to that section's lead; the root belongs to none. Add `"requires": {"sections": 1}` and `"run_config.completion": {"mode": "boss"}`, then:
+**Sections shape (when Step 1c leaves more than 4 roles).** Every non-root role belongs to exactly one section and reports to that section's lead; the root belongs to none. Add `"requires": {"sections": 1}` and `"run_config.completion": {"mode": "boss"}`, then:
 
 ```json
 "sections": {
@@ -229,7 +229,7 @@ Produce an org config object matching `OrgDefSchema` exactly:
 }
 ```
 
-Each published type needs a `documents` entry, a producer and a consumer. A single-member section leads itself. `/doc/concepts/org-runtime.md` section 6.7 has the full contract. Do not use sections as a mere grouping of roles with no typed hand-off between them: merge the roles instead.
+Each published type needs a `documents` entry, a producer and a consumer. A single-member section leads itself. `/doc/concepts/org-runtime.md` section 6.7 has the full contract. Sections are the way to go past 4 roles; make each one a stage with a real typed hand-off, and merge roles that do not need one.
 
 **Efficiency defaults (every org).** Put routine workers on the cheap tier and keep the boss and any role that judges others on the default model: `"cost_tiers": {"roles": {"<worker id>": {"tier": "economy", "effort": "low"}, "<boss or judge id>": "exempt"}}`. Set `"session_scope": "task"` in `run_config` for workers that take independent tasks (a worker resumed per task does not carry a growing transcript), `max_concurrent_agents` to the number of roles that really run at once, and a `budget_tokens` that is the sum of the roles' own need rather than a flat 1M each when most roles only write short files.
 
