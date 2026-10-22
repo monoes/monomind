@@ -117,6 +117,8 @@ function safeExec(cmd, timeoutMs = 2000) {
       encoding: 'utf-8',
       timeout: timeoutMs,
       stdio: ['pipe', 'pipe', 'pipe'],
+      // #681: read-only polling must not take .git/index.lock (a kill leaves it stale)
+      env: Object.assign({}, process.env, { GIT_OPTIONAL_LOCKS: '0' }),
     }).trim();
   } catch {
     return '';

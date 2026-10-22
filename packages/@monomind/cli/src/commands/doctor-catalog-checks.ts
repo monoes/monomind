@@ -87,7 +87,10 @@ export function checkMcpjsonApprovals(root: string): HealthCheck {
   if (!approved.length)
     return { name: NAME, status: 'pass', message: 'No .mcp.json servers approved by name' };
   const git = (args: string[]) =>
-    spawnSync('git', ['-C', root, ...args], { stdio: 'ignore' }).status;
+    spawnSync('git', ['-C', root, ...args], {
+      stdio: 'ignore',
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' }, // #681
+    }).status;
   const state = !existsSync(join(root, '.mcp.json'))
     ? 'missing'
     : git(['ls-files', '--error-unmatch', '.mcp.json']) !== 0

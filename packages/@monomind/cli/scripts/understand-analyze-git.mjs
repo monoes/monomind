@@ -7,7 +7,7 @@ export function getChangedFiles(dir, lastHash) {
   const files = new Set();
   function runGit(args) {
     try {
-      const out = execFileSync('git', args, { cwd: dir, encoding: 'utf-8' });
+      const out = execFileSync('git', args, { cwd: dir, encoding: 'utf-8', env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } });
       for (const line of out.split('\n')) {
         const trimmed = line.trim();
         if (!trimmed) continue;
