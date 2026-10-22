@@ -1,6 +1,6 @@
 # Claude SDK maintenance
 
-The Claude runtime (org roles, `agent exec --runtime claude`, `agent models --runtime claude`) uses `@anthropic-ai/claude-agent-sdk`, pinned to an exact version in `packages/@monomind/cli/package.json` and `src/utils/optional-deps.ts` (currently 0.3.289). The SDK is not installed with the CLI: it is installed on first use into `~/.monomind/deps`, from hash-pinned tarballs (`monomind deps install` does it on request). New Claude models require a recent SDK pin.
+The Claude runtime (org roles, `agent exec --runtime claude`, `agent models --runtime claude`) uses `@anthropic-ai/claude-agent-sdk`, pinned to an exact version in `packages/@monomind/cli/package.json` and `src/utils/optional-deps.ts` (currently 0.3.303). The SDK is not installed with the CLI: it is installed on first use into `~/.monomind/deps`, from hash-pinned tarballs (`monomind deps install` does it on request). New Claude models require a recent SDK pin.
 
 Which Claude Code binary runs is a separate choice. The SDK ships its own copy, but the runtime passes a usable installed `claude` to the SDK instead, and then installs the SDK without its bundled binary. The order is `--claude-path <absolute-file|bundled>`, `MONOMIND_CLAUDE_PATH`, `monomind config set claude.path`, then a system-installed `claude` found on its own. See [Org Runtime](concepts/org-runtime.md#21-claudeagentrunner-default) for the acceptance rules. Model discovery uses whichever binary was selected, so it falls back to the bundled copy only when no local Claude Code is selected.
 
