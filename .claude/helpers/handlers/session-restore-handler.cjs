@@ -637,21 +637,30 @@ module.exports = {
     try {
       var rtFile = path.join(CWD, '.monomind', 'agent-runtimes.json');
       var rtScan = null;
+      var rtStale = null; // expired or unparsable-now cache: better than no line when a rescan fails (#676)
+      var rtFresh = false;
       try {
-        if (Date.now() - fs.statSync(rtFile).mtimeMs < 86400000) rtScan = JSON.parse(fs.readFileSync(rtFile, 'utf-8'));
-      } catch (_) { /* no fresh cache */ }
-      if (!rtScan) {
-        var rtBin = require('../utils/monograph-resolve.cjs').findMonomindBin(CWD);
-        if (rtBin) {
-          var rtOut = require('child_process').execFileSync(rtBin, ['agent', 'scan', '--json'], {
-            cwd: CWD, timeout: 8000, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'],
-            env: Object.assign({}, process.env, { MONOMIND_EXEC_TREE: '' }),
-            shell: process.platform === 'win32',
-          });
-          rtScan = JSON.parse(rtOut);
-          fs.mkdirSync(path.dirname(rtFile), { recursive: true });
-          fs.writeFileSync(rtFile, JSON.stringify(rtScan), 'utf-8');
-        }
+        var rtCached = JSON.parse(fs.readFileSync(rtFile, 'utf-8'));
+        if (Date.now() - fs.statSync(rtFile).mtimeMs < 86400000) { rtScan = rtCached; rtFresh = true; }
+        else rtStale = rtCached;
+      } catch (_) { /* no usable cache */ }
+      if (!rtFresh) {
+        try {
+          var rtBin = require('../utils/monograph-resolve.cjs').findMonomindBin(CWD);
+          if (rtBin) {
+            var rtOut = require('child_process').execFileSync(rtBin, ['agent', 'scan', '--json'], {
+              cwd: CWD, timeout: 8000, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'],
+              env: Object.assign({}, process.env, { MONOMIND_EXEC_TREE: '' }),
+              shell: process.platform === 'win32',
+            });
+            rtScan = JSON.parse(rtOut);
+            fs.mkdirSync(path.dirname(rtFile), { recursive: true });
+            var rtTmp = rtFile + '.' + process.pid + '.tmp';
+            fs.writeFileSync(rtTmp, JSON.stringify(rtScan), 'utf-8');
+            fs.renameSync(rtTmp, rtFile);
+          }
+        } catch (_) { /* scan unavailable or timed out — fall back to the stale cache */ }
+        if (!rtScan) rtScan = rtStale;
       }
       var rtIds = ((rtScan && rtScan.agents) || [])
         .filter(function(a) { return a.installed && a.execution_supported; })
