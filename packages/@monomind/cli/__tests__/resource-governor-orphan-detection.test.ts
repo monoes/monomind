@@ -27,7 +27,7 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...actual, platform: () => platformMock() };
 });
 
-const { parseProcStat, selectOrphanedSdkPids } = await import('../src/utils/resource-governor.js');
+const { parseProcStat, selectOrphanedSdkPids, reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
 
 const SDK = 'node /path/to/claude-agent-sdk/cli.js --output-format json';
 const SELF = 9000;
@@ -395,5 +395,45 @@ describe('reapOrphanedSdkProcesses — ps fallback', () => {
     expect(killMock).toHaveBeenCalledWith(1234, 'SIGTERM');
     expect(killMock).toHaveBeenCalledWith(9999, 'SIGTERM');
     expect(killMock).not.toHaveBeenCalledWith(5678, 'SIGTERM');
+  });
+});
+
+describe('reapOrphanedSdkProcesses — injected process source (#671)', () => {
+  const killMock = vi.fn();
+  const originalKill = process.kill;
+
+  beforeEach(() => {
+    killMock.mockReset();
+    process.kill = killMock as unknown as typeof process.kill;
+  });
+  afterEach(() => {
+    process.kill = originalKill;
+  });
+
+  it('reaps a genuine orphan (own session, adopted by init) from a supplied table', () => {
+    const table = [init, ...invoker, { pid: 5678, ppid: 1, pgrp: 5678, sid: 5678, cmd: SDK }];
+    expect(reapOrphanedSdkProcesses(new Set(), undefined, { table, selfPid: SELF })).toBe(1);
+    expect(killMock).toHaveBeenCalledWith(5678, 'SIGTERM');
+  });
+
+  it('keeps a live-parented SDK child from a supplied table', () => {
+    const table = [
+      init,
+      ...invoker,
+      { pid: 5000, ppid: 1, pgrp: 5000, sid: 5000, cmd: 'node /srv/app.js' },
+      { pid: 5001, ppid: 5000, pgrp: 5000, sid: 5000, cmd: SDK },
+    ];
+    expect(reapOrphanedSdkProcesses(new Set(), undefined, { table, selfPid: SELF })).toBe(0);
+    expect(killMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps everything when the whole table shares the invoker session (the bwrap case)', () => {
+    const sandboxed = [
+      { pid: 1, ppid: 0, pgrp: 1, sid: 1, cmd: 'bwrap' },
+      { pid: SELF, ppid: 1, pgrp: SELF, sid: 1, cmd: 'node monomindcli cleanup --force' },
+      { pid: 5678, ppid: 1, pgrp: 5678, sid: 1, cmd: SDK },
+    ];
+    expect(reapOrphanedSdkProcesses(new Set(), undefined, { table: sandboxed, selfPid: SELF })).toBe(0);
+    expect(killMock).not.toHaveBeenCalled();
   });
 });
