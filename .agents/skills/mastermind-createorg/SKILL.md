@@ -80,7 +80,7 @@ Every role is a live session that pays its own startup context, and the boss spe
 Parse `roles_desc` (if provided) into a list of role titles. If not provided, derive a set of roles from `prompt` by identifying the human functions needed to achieve the goal.
 
 **Required roles to include when deriving roles from the prompt** (**skip this rule for persona-based orgs**, see below, where the characters themselves define the structure):
-- A coordinator/boss role that owns the goal — exactly one role with `reports_to: null`
+- A coordinator/boss role that owns the goal — exactly one role with `reports_to: null`; its `responsibilities` must say it sends self-contained task briefs (a worker resumed from a task session knows nothing else; `org validate` #8)
 - At least one executor role that does the primary work
 - A reviewer role if quality output is implied
 
@@ -180,7 +180,7 @@ For any role that needs non-default behavior, also set (all optional — omit to
   - `fileRead`/`fileWrite` must list every file the role reads or writes, including files other roles write for it (a scorer that reads `red-team.md` needs that file listed, and a role that must re-read its own output folder needs the folder). The runtime already lets a role read its own saved tool results and its own mail digests; nothing else outside the list.
   - `denyTools: ["Agent", "Task"]` on any role that must not launch subagents or choose models for them (an org whose seats are pinned to vendors needs this on the lead). A denied tool is not listed in the role's briefing, so say in its responsibilities which common tools it lacks ("Bash is not available; use Read and Write"), or it tries them first and is refused.
   - `antigravity` has no OS sandbox, and `codex`'s own sandbox confines writes to the working directory but does not restrict reads: `fileRead`/`fileWrite` on those roles are a request to the model, not enforced (`org validate` #24). Do not rely on them to keep a scorer blind or out of a folder; say in the role's responsibilities what it must not read, and keep what must stay hidden out of its brief.
-  - `autoApproveTools: [...]` — tool/action names this role may use without pausing for a human approval, even though they're normally on the sensitive-actions list (`Bash`, `WebFetch`, `WebSearch`, `org_complete`). **Mandatory, not optional, for any org with a `schedule` set** (an unattended/scheduled org): a role that pauses on `WebSearch` or `org_complete` waiting for a human who isn't there to click approve will deadlock forever on every scheduled run, repeatedly re-asking through both `ask_human` and `org_gate` with nothing to show for it. Grant every tool a scheduled org's roles routinely need — including `org_complete` for the boss role — rather than leaving the default human-approval gate in place for automation that's supposed to run with nobody watching.
+  - `autoApproveTools: [...]` — tool/action names this role may use without pausing for a human approval, even though they're normally on the sensitive-actions list (`Bash`, `WebFetch`, `WebSearch`, `org_complete`). **List every sensitive tool the role's duties use, in every org** (`org validate` #5 fires for an unscheduled org too, and nobody is there to answer a one-shot run either). **Mandatory without exception for any org with a `schedule` set** (an unattended/scheduled org): a role that pauses on `WebSearch` or `org_complete` waiting for a human who isn't there to click approve will deadlock forever on every scheduled run, repeatedly re-asking through both `ask_human` and `org_gate` with nothing to show for it. Grant every tool a scheduled org's roles routinely need — including `org_complete` for the boss role — rather than leaving the default human-approval gate in place for automation that's supposed to run with nobody watching.
 
 Do not invent values for these — only populate `provider`, `runtime`, or `policy` when the user actually specified or clearly implied it, or when a role's responsibilities require it (the `webAllow`/`autoApproveTools` cases above).
 
@@ -231,7 +231,7 @@ Produce an org config object matching `OrgDefSchema` exactly:
 
 Each published type needs a `documents` entry, a producer and a consumer. A single-member section leads itself. `/doc/concepts/org-runtime.md` section 6.7 has the full contract. Sections are the way to go past 4 roles; make each one a stage with a real typed hand-off, and merge roles that do not need one.
 
-**Efficiency defaults (every org).** Put routine workers on the cheap tier and keep the boss and any role that judges others on the default model: `"cost_tiers": {"roles": {"<worker id>": {"tier": "economy", "effort": "low"}, "<boss or judge id>": "exempt"}}`. Set `"session_scope": "task"` in `run_config` for workers that take independent tasks (a worker resumed per task does not carry a growing transcript), `max_concurrent_agents` to the number of roles that really run at once, and a `budget_tokens` that is the sum of the roles' own need rather than a flat 1M each when most roles only write short files.
+**Efficiency defaults (every org).** Put routine workers on the cheap tier and keep the boss and any role that judges others on the default model: `"cost_tiers": {"roles": {"<worker id>": {"tier": "economy", "effort": "low"}, "<boss or judge id>": "exempt"}}`. Set `"session_scope": "task"` in `run_config` for workers that take independent tasks (a worker resumed per task does not carry a growing transcript), and `max_concurrent_agents` to the number of roles (an idle role keeps its slot; `org validate` #3 and the sections check reject less). Keep `budget_tokens` at the default of 1M per role: a smaller total draws #23, and the savings come from the cheap tiers, not from a tight budget.
 
 `status` starts `"stopped"` regardless of whether `schedule` is set — the org does not run until `monomind org run <name>` (one-shot) or `monomind org serve` (picks up any org whose `schedule` is set) is invoked.
 
@@ -310,7 +310,11 @@ mkdir -p .monomind/orgs
 Write the confirmed org config as JSON using `jq` to guarantee valid encoding:
 
 ```bash
-# Set shell variables from the confirmed plan before running this block:
+# Set shell variables from the confirmed plan before running this block
+# (extra_json: top-level keys beyond these, e.g. sections, documents, requires, cost_tiers —
+#  a "run_config" object here is merged into the one below, so session_scope and completion go in it).
+extra_json=${extra_json:-'{}'}
+# Other variables:
 #   goal, schedule_val ("" if none), budget_tokens_val, max_run_val ("" if none),
 #   roles_json (JSON array matching the role shape above)
 jq -n \
@@ -320,12 +324,13 @@ jq -n \
   --argjson budget_tokens "${budget_tokens_val:-$(( $(jq length <<<"$roles_json") * 1000000 ))}" \
   --arg max_run "${max_run_val:-}" \
   --argjson roles "$roles_json" \
+  --argjson extra "$extra_json" \
   '{name:$name,goal:$goal,status:"stopped",
     schedule:(if $schedule=="" then null else $schedule end),
     run_config:({max_concurrent_agents:($roles|length),budget_tokens:$budget_tokens,
                  memory_namespace:("org:"+$name),max_turns_per_message:80}
                 + (if $max_run=="" then {} else {max_run:$max_run} end)),
-    roles:$roles}' \
+    roles:$roles} * $extra' \
   > "${orgJson}.tmp" && mv "${orgJson}.tmp" "$orgJson"
 ```
 
