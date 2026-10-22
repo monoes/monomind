@@ -8,7 +8,6 @@ import { CodexAgentRunner } from './codex-runner.js';
 import { CopilotAgentRunner } from './copilot-runner.js';
 import { CrushAgentRunner } from './crush-runner.js';
 import { DshAgentRunner } from './dsh-runner.js';
-import { FreebuffAgentRunner } from './freebuff-runner.js';
 import { GrokAgentRunner } from './grok-runner.js';
 import { HermesAgentRunner } from './hermes-runner.js';
 import { KiloAgentRunner } from './kilo-runner.js';
@@ -74,7 +73,6 @@ export type RuntimeKind =
   /** DeepSeek Harness (`dsh --profile headless --json`), developer preview;
    *  free models via `<route>/<model>` over its pi-ai adapter (#384). */
   | 'dsh'
-  | 'freebuff'
   | 'kilo';
 export type ProviderKind =
   | 'subscription'
@@ -123,7 +121,6 @@ export function resolveRunner(
   if (selected === 'hermes') return new HermesAgentRunner();
   if (selected === 'cline') return new ClineAgentRunner();
   if (selected === 'aider') return new AiderAgentRunner();
-  if (selected === 'freebuff') return new FreebuffAgentRunner();
   if (selected === 'kilo') return new KiloAgentRunner();
   if (selected === 'dsh') return new DshAgentRunner();
   return undefined;

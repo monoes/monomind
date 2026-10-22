@@ -106,7 +106,6 @@ const READ_ONLY: readonly SandboxMode[] = ['read-only', 'full'];
 
 /** The `--sandbox` values each runtime accepts (`agent scan --json` sandbox_modes). */
 export const RUNNER_SANDBOX_MODES: Record<RuntimeKind, readonly SandboxMode[]> = {
-  freebuff: [],
   kilo: FULL,
   claude: FS, // scoped/read access only — see sandboxModes()
   codex: FS,
@@ -286,8 +285,6 @@ export function sandboxReport(
     case 'hermes':
       // No --yolo: hermes's dangerous-command approval stays on.
       return { native_sandbox: 'none', approvals: 'on' };
-    case 'freebuff':
-      return { native_sandbox: 'none', approvals: 'n/a' };
     case 'kilo':
       return { native_sandbox: 'none', approvals: access === 'full' ? 'off' : 'n/a' };
     case 'vercel':

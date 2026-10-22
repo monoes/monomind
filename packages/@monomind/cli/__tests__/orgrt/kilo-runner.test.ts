@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { KiloAgentRunner } from "../../src/orgrt/kilo-runner.js";
-import { FreebuffAgentRunner } from "../../src/orgrt/freebuff-runner.js";
 import type {
   AgentRunArgs,
   AgentMessage,
@@ -145,29 +144,16 @@ describe("Kilo dedicated JSON transport", () => {
     setTimeout(() => controller.abort(), 100);
     await expect(pending).rejects.toMatchObject({ code: "cancelled" });
   });
-  it("Freebuff refuses execution without invoking a binary", async () => {
-    const args = fixture("");
-    args.env.FREEBUFF_CLI_BIN = "/missing";
-    await expect(
-      (async () => {
-        for await (const _ of new FreebuffAgentRunner().run(args)) {
-          /* no frames */
-        }
-      })(),
-    ).rejects.toMatchObject({ code: "unsupported" });
-  });
 });
 
 it('discovery distinguishes interactive-only installation from verified full-only execution', async () => {
   const { scanInstalled } = await import('../../src/orgrt/runner-registry.js');
   const args = fixture('process.exit(99)');
-  const scan = await scanInstalled({ env: { PATH: '', KILO_CLI_BIN: args.env.KILO_CLI_BIN, FREEBUFF_CLI_BIN: args.env.KILO_CLI_BIN } });
-  const freebuff = scan.agents.find(agent => agent.id === 'freebuff')!;
-  expect(freebuff).toMatchObject({ installed: true, binary: args.env.KILO_CLI_BIN, execution_supported: false, full_access: false, access_modes: [], sandbox_modes: [], init_target: null });
-  expect(freebuff.execution_unsupported_reason).toBeTruthy();
+  const scan = await scanInstalled({ env: { PATH: '', KILO_CLI_BIN: args.env.KILO_CLI_BIN } });
   const kilo = scan.agents.find(agent => agent.id === 'kilo')!;
   expect(kilo).toMatchObject({ installed: true, binary: args.env.KILO_CLI_BIN, execution_supported: true, execution_unsupported_reason: null, full_access: true, access_modes: ['full'], resume: true, reports_cost: true, tool_activity_fidelity: 'full', init_target: null });
-  for (const runtime of ['freebuff', 'kilo']) expect(scan.agents.find(agent => agent.id === runtime)!.install).toEqual({ kind: 'npm', packages: [runtime === 'kilo' ? '@kilocode/cli@7.8.3' : 'freebuff'] });
+  expect(scan.agents.find(agent => agent.id === 'freebuff')).toBeUndefined();
+  expect(kilo.install).toEqual({ kind: 'npm', packages: ['@kilocode/cli@7.8.3'] });
 });
 it('disables daemon reuse regardless of inherited or caller environment', async () => {
   const args=fixture(`if(process.env.KILO_NO_DAEMON !== '1') process.exit(99);console.log(JSON.stringify({type:'text',sessionID:'s',part:{id:'p',text:'done'}}));`);

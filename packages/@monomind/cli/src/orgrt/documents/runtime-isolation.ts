@@ -263,14 +263,6 @@ export const RUNTIME_ISOLATION: Record<RuntimeKind, RuntimeIsolation> = {
     verified: 'unverified',
     note: 'Kilo supports full access only and a sections org refuses full access (a full-access role runs with no authority mask), so no role can run on it; its copies (kilo.db, logs, config, cache under HOME/XDG, probed) cannot be kept apart',
   },
-  // Not executable: its published CLI has no headless prompt or JSON transport (runner-specs.ts).
-  freebuff: {
-    strategy: 'refused',
-    authFiles: [],
-    nativeDirs: [],
-    verified: 'unverified',
-    note: 'Freebuff has no headless prompt or JSON transport, so no role can run on it; the runner refuses with "unsupported" before any process starts (tests/eval/org/runtime-probes/freebuff.json)',
-  },
   dsh: {
     strategy: 'private-home',
     authFiles: [GIT_CONFIG],

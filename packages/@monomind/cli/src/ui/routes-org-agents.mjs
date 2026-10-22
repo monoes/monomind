@@ -18,7 +18,6 @@ const ADAPTER_LABELS = {
   pi: 'Pi CLI',
   opencode: 'OpenCode CLI',
   kimicode: 'KimiCode CLI',
-  freebuff: 'Freebuff CLI',
   kilo: 'Kilo CLI',
   'qwen-rpc': 'Qwen CLI (RPC)',
   'pi-rpc': 'Pi CLI (RPC)',
@@ -30,7 +29,7 @@ const ADAPTER_LABELS = {
 };
 
 // One entry per runtime id the registry knows; `type` is the value a role's or an org's
-// `runtime` takes. A runtime that cannot be driven (freebuff) is listed disabled, with the reason.
+// `runtime` takes. A runtime that cannot be driven (kilo on an old CLI) is listed disabled, with the reason.
 const _runtimeAdapters = () =>
   RUNNER_SPECS.map((spec) => ({
     type: spec.id,
@@ -75,7 +74,7 @@ export async function handleOrgAgentRoutes(req, res, url, corsOrigin, ctx) {
         // One entry per runtime id the registry knows (orgrt/runner-registry.ts),
         // so a newly added runtime shows up without editing this list. `type` is
         // the value a role's or an org's `runtime` takes. A runtime whose
-        // binary is discoverable but cannot be driven (freebuff) is listed
+        // binary is discoverable but cannot be driven (kilo on an old CLI) is listed
         // disabled, with the registry's reason.
         res.end(
           JSON.stringify({

@@ -433,7 +433,7 @@ describe('adapters list', () => {
     writeDef(goodDef());
     const r = await call('GET', `/api/org/${ORG}/adapters?dir=${encodeURIComponent(root)}`);
     const types = r.json.adapters.map((a: any) => a.type);
-    for (const t of ['freebuff', 'kilo', 'qwen-rpc', 'pi-rpc', 'hermes', 'cline', 'aider', 'dsh'])
+    for (const t of ['kilo', 'qwen-rpc', 'pi-rpc', 'hermes', 'cline', 'aider', 'dsh'])
       expect(types).toContain(t);
   });
 });
