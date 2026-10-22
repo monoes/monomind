@@ -5,6 +5,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { detectAgentContextMarker } from '../orgrt/agent-context.js';
 import { utcDateMinute } from '../orgrt/reporting.js';
 import { ORG_DIR } from '../orgrt/types.js';
 import { output } from '../output.js';
@@ -127,6 +128,20 @@ async function resolveApproval(
   approved: boolean,
 ): Promise<CommandResult> {
   const verb = approved ? 'approved' : 'denied';
+  // #677: an automation call may send a message to a person; only a human
+  // (no agent-context marker in the environment) may release it.
+  if (approved && action.startsWith('monoagent__automation_')) {
+    const marker = detectAgentContextMarker();
+    if (marker) {
+      log(
+        output.error(
+          `Refusing: this looks like an agent/automated context (${marker} is set) — ` +
+            'approving an automation call must be done by a human. Run this yourself in a terminal.',
+        ),
+      );
+      return { success: false, message: `refused: agent context detected (${marker})` };
+    }
+  }
   // M5: attribution and request scoping.
   const byFlag = await resolverFlag(ctx);
   if (!byFlag.ok) return { success: false, message: byFlag.message };
