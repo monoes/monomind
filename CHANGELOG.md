@@ -8,6 +8,37 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 - **The `release` org is now a sections org with a much smaller startup context per role.** Eight sections (`build`, `qa-cli`, `qa-integration`, `qa-runtime`, `repair`, `docs`, `ship`, `audit`) hand work over as nine schema-validated documents (`build-record`, `test-record`, `qa-*-record`, `fix-record`, `docs-record`, `prep-record`, `audit-verdict`) instead of long free-text reports; `publisher` accepts the evidence records and the audit verdict before PUBLISH, `release-auditor` accepts the release commit's `prep-record`, and every section caps rework at 2 rounds. The 29 KB rules skill pinned to every role is split into a ~5 KB shared core plus per-role skills, the publisher's PREFLIGHT, SETUP, PREP and PUBLISH procedures load on demand, and the generic library skills moved to each role's on-demand pool, so a role's startup prompt dropped from about 37-63 KB to 14-16 KB (captain 28 KB). All safety gates are kept (release lock, GitHub `Tests` gate, `completion_evidence`, GO verdict plus approving audit before PUBLISH, publish, push, tag, release, Pages, local-main sync, issue filing and cleanup order, sandbox policies). Every role is pinned to `claude-sonnet-5-5`; `docs-writer` now runs at low effort. Re-sign the org (`monomind org sign release`) after pulling.
 
+## [2.25.0] — 2026-10-22
+
+### Added
+
+- **`monograph_brief`: one call from a task description to entry points, related docs and blast radius**, advertised in the core MCP roster within the schema budget and referenced by task-start guidance (27aafc56d, 515620722, 59985c8c0).
+- **Scope-aware search ranks code before documentation**, and an `agents` scope covers agent/skill registry nodes (386ad9c76, ac6768921).
+- **`TESTS` edges: `context` and `impact` now name the tests covering a symbol** (4683cf672); the index manifest is recorded per build and shown in `stats` (b6ecac759).
+- **Semantic search: local embeddings fused with lexical ranking** for plain-language queries, with a retrieval eval harness and stemmed symbol summaries (27d2fceb5, de221b3b5). `doctor` gains a `graph-semantic` check.
+- **`agent exec --attach` sends files with the prompt** (d7e37048a); closes #679.
+- **Graph builds report a progress heartbeat while inserting cached nodes, and per-phase elapsed time** (#693, 43a05f8db).
+- **Sections orgs (`orgrt`)**: role sessions run at medium effort by default on claude and codex (a8026860e); the `release` org is rebuilt as a sections org with a small per-role startup context (#695, 4b35787c9); org creation learned the lessons of a real run and warns that codex file scopes are not enforced (d28070235, ab15cb2c8); the contradictory "pin an explicit model" checklist warning is dropped (863bc1a20).
+
+### Changed
+
+- **Models resolve to the newest of each family instead of pinned ids** (3d9b8211e), and Claude Fable / GPT Astra models are never assigned or routed (4aeefe60d).
+- **Claude Agent SDK bumped to 0.3.303 (Claude Code 2.1.303)** (#678, feb9d85e6).
+- **Default MCP tool count is generated in both READMEs**; sections docs corrected as generally available (#690, a51ffb852; 48524dfcb).
+
+### Fixed
+
+- **`agent-context` approval of `monoagent__automation_*` actions is refused** (#686, d6bfd1159).
+- **Read-only git calls in hooks no longer take `.git/index.lock`** (#694, 407416dd5).
+- **The `[AGENT_RUNTIMES]` line is kept when the runtime rescan fails** (#691, 91dd24e39).
+- **`monobrowse` `open` no longer times out on pages with a persistent connection** (#687, 00794558a).
+- **Semantic search no longer downloads a model implicitly; re-export edges to non-nodes no longer fail the build** (49bcda825).
+- **Dependency advisories: unpatched `braces` advisory ignored with justification; `vite` override bumped past the `launch-editor` advisory** (#689, bb8498a47).
+
+### Tests
+
+- Keyword retrieval quality gated on a fixture repo, semantic benchmark nightly (#688, bf824d558); hook/test timeouts raised (#684, 0539c345e); orphan SDK reaper takes an injected process table (#692, 27cdbcf7c); coder pin covered incl. resume and Opus/Fable refusal (#655, #685, c06156105); impact fixtures carry `affectedTests` (b73d8e201).
+
 ## [2.24.9] — 2026-10-16
 
 ### Added
