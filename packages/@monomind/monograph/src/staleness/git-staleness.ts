@@ -121,6 +121,7 @@ function checkDirtyWorktree(repoPath: string): DirtyWorktree {
       cwd: repoPath,
       encoding: 'utf8',
       maxBuffer: 8 * 1024 * 1024,
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' }, // #681: never take .git/index.lock
       stdio: ['ignore', 'pipe', 'pipe'], // #371
     });
     // Porcelain v1 lines are `XY <path>`; ignored files are excluded by default.
@@ -300,6 +301,7 @@ export function checkStaleness(db: MonographDb, repoPath: string): StalenessRepo
     const diff = execSync(`git diff --name-only ${indexedCommitFull}..HEAD`, {
       cwd: repoPath,
       encoding: 'utf8',
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' }, // #681
     });
     changedSince = diff.trim().split('\n').filter(Boolean);
   } catch {
