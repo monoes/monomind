@@ -134,6 +134,7 @@ ${rowsLiteral}
 /** Every doc file that carries at least one <!-- doc-count:* --> marker. */
 const DOC_FILES = [
   'README.md',
+  'packages/@monomind/cli/README.md',
   'CLAUDE.md',
   'packages/@monomind/cli/CLAUDE.md',
   'doc/index.html',

@@ -1,0 +1,14 @@
+[
+ {"kind":"exact","query":"canAccessResource","expect":["canAccessResource"]},
+ {"kind":"exact","query":"hashPassword","expect":["hashPassword"]},
+ {"kind":"exact","query":"RefundProcessor","expect":["RefundProcessor"]},
+ {"kind":"exact","query":"generateInvoice","expect":["generateInvoice"]},
+ {"kind":"exact","query":"StructuredLogger","expect":["StructuredLogger"]},
+ {"kind":"exact","query":"fuseRankings","expect":["fuseRankings"]},
+ {"kind":"natural","query":"password hasher","expect":["password-hasher"]},
+ {"kind":"natural","query":"refund an invoice","expect":["refund-processor"]},
+ {"kind":"natural","query":"cache response","expect":["response-cache"]},
+ {"kind":"natural","query":"structured logger write","expect":["structured-logger"]},
+ {"kind":"doc","query":"rollback procedure","expect":["Rollback procedure"],"scope":"docs"},
+ {"kind":"doc","query":"deployment guide","expect":["Deployment guide"],"scope":"docs"}
+]

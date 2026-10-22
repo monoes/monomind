@@ -18,7 +18,7 @@ overrides:
   protobufjs: '>=8.6.6'
   '@protobufjs/utf8': '>=1.1.1'
   '@grpc/grpc-js': '>=1.14.4'
-  vite: '>=8.0.16'
+  vite: '>=8.1.6'
   postcss: '>=8.5.18'
   fast-uri: '>=4.1.3'
   '@xmldom/xmldom': '>=0.8.15'
@@ -39,6 +39,15 @@ overrides:
   vitest: '>=4.1.11 <5'
   '@vitest/mocker': '>=4.1.11 <5'
   '@modelcontextprotocol/sdk': '>=1.31.0 <2'
+
+# braces GHSA-vfj7-8cjw-p6xm (#664, #675): stack-exhaustion DoS in brace
+# expansion of attacker-controlled nested patterns. No patched release exists
+# (advisory patched range is <0.0.0). Only reachable via chokidar > braces, where
+# patterns are our own watch globs, never untrusted input. Remove this entry
+# once braces publishes a fix and re-run `pnpm audit`.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-vfj7-8cjw-p6xm
 
 peerDependencyRules:
   allowedVersions:

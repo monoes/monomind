@@ -122,7 +122,7 @@ Where and how:
 
 - Everything goes into `~/.monomind/deps/` (`$MONOMIND_HOME/deps/` when that
   is set), one directory per package and version, for example
-  `~/.monomind/deps/@anthropic-ai+claude-agent-sdk@0.3.289/`. Nothing is
+  `~/.monomind/deps/@anthropic-ai+claude-agent-sdk@0.3.303/`. Nothing is
   installed into your project, and your `package.json` and lockfile are
   never read or written.
 - npm runs `npm ci` in a staging directory there, against a lockfile that
@@ -168,7 +168,7 @@ with the exact command to run by hand (a plain `npm install` of the pinned
 version, without the lockfile), such as
 
 ```sh
-npm install --prefix '/home/you/.monomind/deps/@anthropic-ai+claude-agent-sdk@0.3.289' --global=false --ignore-scripts --legacy-peer-deps --no-audit --no-fund --save-exact @anthropic-ai/claude-agent-sdk@0.3.289
+npm install --prefix '/home/you/.monomind/deps/@anthropic-ai+claude-agent-sdk@0.3.303' --global=false --ignore-scripts --legacy-peer-deps --no-audit --no-fund --save-exact @anthropic-ai/claude-agent-sdk@0.3.303
 ```
 
 To remove them, delete `~/.monomind/deps`.
@@ -230,7 +230,7 @@ bundled binary ([#596](https://github.com/monoes/monomind/issues/596)):
 - Then `claude --version` runs once per process, with no shell and a
   5-second timeout. It must print `x.y.z (Claude Code)`, and the version
   must be 2.x and at least the Claude Code release the pinned SDK bundles
-  (2.1.289 for SDK 0.3.289): the SDK passes that release's flags and
+  (2.1.303 for SDK 0.3.303): the SDK passes that release's flags and
   control messages, which older CLIs reject.
 
 When a Claude Code was found but not used, the install notice says which

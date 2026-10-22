@@ -360,15 +360,29 @@ export function selectOrphanedSdkPids(
  *  @param protectedPids PIDs to never kill (e.g. sibling org agents).
  *  @param ownerPid Only kill SDK processes whose parent is this PID.
  *    When undefined, only kills processes `selectOrphanedSdkPids` proves
- *    orphaned by ownership (see there). */
-export function reapOrphanedSdkProcesses(protectedPids: Set<number>, ownerPid?: number): number {
+ *    orphaned by ownership (see there).
+ *  @param source Test seam (#671): a process table and invoking pid to judge
+ *    instead of reading the real ones, so the orphan path can be exercised
+ *    where real session ids can't be arranged (e.g. every process in a bwrap
+ *    sandbox shares session 1). */
+export function reapOrphanedSdkProcesses(
+  protectedPids: Set<number>,
+  ownerPid?: number,
+  source?: { table: ProcEntry[]; selfPid: number },
+): number {
   // ps doesn't exist on native Windows — same rationale as countSdkProcesses above.
   if (platform() === 'win32') return 0;
   try {
-    const table = (platform() === 'linux' ? readProcTable() : null) ?? readPsTable();
+    const table =
+      source?.table ?? (platform() === 'linux' ? readProcTable() : null) ?? readPsTable();
     const starts = new Map(table.map((p) => [p.pid, p.start]));
     let reaped = 0;
-    for (const pid of selectOrphanedSdkPids(table, process.pid, protectedPids, ownerPid)) {
+    for (const pid of selectOrphanedSdkPids(
+      table,
+      source?.selfPid ?? process.pid,
+      protectedPids,
+      ownerPid,
+    )) {
       // PID-reuse guard: the pid must still be the process that was judged.
       const start = starts.get(pid);
       if (start !== undefined && readProcStat(pid)?.start !== start) continue;

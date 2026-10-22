@@ -58,7 +58,11 @@ export async function openUrl(client: CdpClient, sessionId: string, url: string)
   // connection previously reported success against that error page.
   const nav = await client.send<{ errorText?: string }>('Page.navigate', { url }, sessionId);
   if (nav.errorText) throw new Error(`Navigation to ${url} failed: ${nav.errorText}`);
-  await waitForNetworkIdle(client, sessionId, 500, 30_000);
+  await waitForLoad(client, sessionId, 'load', 30_000);
+  // Best-effort settle for SPAs that keep fetching after `load`. A page holding
+  // an SSE/long-poll connection (e.g. the monomind dashboard) never goes idle,
+  // so a timeout here is not a failure (#670).
+  await waitForNetworkIdle(client, sessionId, 500, 5_000).catch(() => undefined);
 }
 
 export async function waitForLoad(

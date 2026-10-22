@@ -198,6 +198,28 @@ describe('session-restore-handler', () => {
     expect(rtLine).not.toContain('grok');
   });
 
+  it('still surfaces [AGENT_RUNTIMES] from an expired cache when a rescan is unavailable (#676)', async () => {
+    const rtFile = path.join(tmpDir, '.monomind', 'agent-runtimes.json');
+    fs.writeFileSync(
+      rtFile,
+      JSON.stringify({
+        v: 1,
+        agents: [{ id: 'codex', installed: true, execution_supported: true }],
+      }),
+    );
+    const old = new Date(Date.now() - 3 * 86400000);
+    fs.utimesSync(rtFile, old, old);
+    const savedPath = process.env.PATH;
+    process.env.PATH = path.join(tmpDir, 'no-bin');
+    let lines;
+    try {
+      lines = await runCapture(makeHCtx({ CWD: tmpDir }));
+    } finally {
+      process.env.PATH = savedPath;
+    }
+    expect(lines.find((l) => l.includes('[AGENT_RUNTIMES]'))).toContain('codex');
+  });
+
   it('surfaces [UPDATE_AVAILABLE] when pending-update.json has from≠to', async () => {
     const updatePath = path.join(tmpDir, '.monomind', 'pending-update.json');
     fs.writeFileSync(updatePath, JSON.stringify({ from: '1.10.28', to: '1.10.29' }));

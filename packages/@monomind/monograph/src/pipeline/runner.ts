@@ -25,9 +25,14 @@ export class PipelineRunner {
         // Wait for all dep phases to finish
         await Promise.all(phase.deps.map((dep) => getOrCreatePromise(dep)));
         ctx.onProgress?.({ phase: phase.name });
+        const startedAt = Date.now();
         try {
           const output = await phase.execute(ctx, outputs);
           outputs.set(phase.name, output);
+          ctx.onProgress?.({
+            phase: phase.name,
+            message: `done in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`,
+          });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           throw new MonographError(`Phase '${phase.name}' failed: ${msg}`);

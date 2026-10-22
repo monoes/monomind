@@ -160,6 +160,12 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  *  - `org-sign-review-json` — `org sign <org> --format json` without `--yes`
  *    prints the review (what signing would approve) with its `hash` as one
  *    JSON object and signs nothing, even on a TTY (§7.2, rev 29)
+ *  - `agent-exec-attachments` — `agent exec --attach FILE` (repeatable, at
+ *    most 10 files of 20 MB each; anything else is a usage error, exit 2):
+ *    claude gets PNG/JPEG/GIF/WebP as `image` and PDF as `document` content
+ *    blocks, codex gets images as `--image`, and every other file or runtime
+ *    gets an "Attached files:" block of absolute paths after the prompt
+ *    (§3.1, rev 32)
  */
 export const AGENT_PROTOCOL_CAPABILITIES = [
   'agent-exec',
@@ -198,6 +204,7 @@ export const AGENT_PROTOCOL_CAPABILITIES = [
   'org-sign-check',
   'org-sign-expect-hash',
   'org-sign-review-json',
+  'agent-exec-attachments',
 ] as const;
 
 /** The exact handshake object emitted by `monomind --version --json`. */

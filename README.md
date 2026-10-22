@@ -221,6 +221,7 @@ monomind agent exec --runtime codex --prompt "summarize ./README" --effort high
 | `--sandbox <mode>` / `--sandbox-fallback` | Use the vendor CLI's own sandbox; choose what happens when a runtime lacks the mode. |
 | `--effort off\|low\|medium\|high\|xhigh\|max` | Reasoning effort, mapped per runtime. |
 | `--settings none\|user,project,local` | Let Claude load your CLAUDE.md, skills, hooks and MCP servers. |
+| `--attach <file>` | Send a file with the prompt (repeatable, up to 10, 20 MB each): Claude sees images and PDFs directly, Codex sees images, other runtimes get the file paths. |
 | `--claude-path <file\|bundled>` | Choose the Claude Code binary (also `MONOMIND_CLAUDE_PATH` or `monomind config set claude.path`). |
 
 In coder mode the model and effort you select win over `CLAUDE_CODE_EFFORT_LEVEL` in your settings, and a subagent launch that names a different model is refused. `MONOMIND_CODER_MAX_AGENTS` (default 40) and `MONOMIND_CODER_MAX_REVIEW_AGENTS` (default 12) cap how many subagents a turn may launch; 0 turns a cap off. Threat model: [Coder mode security](doc/concepts/coder-mode-security.md).
@@ -346,7 +347,7 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 # → "find all callers of validateToken()"
 ```
 
-19 default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
+<!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
 
 The MCP server advertises a lean core of <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> tools by default to keep Claude's context small. Every other tool stays callable by name, and `monomind_tool_search` finds it. `MONOMIND_MCP_FULL=1` advertises all <!-- doc-count:mcp-tools-full -->199<!-- /doc-count:mcp-tools-full --> ([MCP server](doc/concepts/mcp-server.md)).
 

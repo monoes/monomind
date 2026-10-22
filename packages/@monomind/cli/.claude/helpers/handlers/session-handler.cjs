@@ -93,7 +93,7 @@ module.exports = {
               sessionSuccess = true;
             } else {
               // No commits — check if files were modified (work in progress, not failure)
-              var gitStatus = execSync('git diff --name-only 2>/dev/null || true', { cwd: CWD, timeout: 3000, encoding: 'utf-8' }).trim();
+              var gitStatus = execSync('git diff --name-only 2>/dev/null || true', { cwd: CWD, timeout: 3000, encoding: 'utf-8', env: Object.assign({}, process.env, { GIT_OPTIONAL_LOCKS: '0' }) }).trim();
               // Modified files = probably still working; no changes at all = exploration or failure
               if (gitStatus.length === 0 && outcomesSignal !== null) {
                 sessionSuccess = outcomesSignal;
@@ -250,7 +250,7 @@ module.exports = {
           }).slice(0, 5);
         }
         // Get modified files from working tree
-        var diffOut = execSync('git diff --name-only HEAD 2>/dev/null || true', { cwd: CWD, timeout: 3000, encoding: 'utf-8' });
+        var diffOut = execSync('git diff --name-only HEAD 2>/dev/null || true', { cwd: CWD, timeout: 3000, encoding: 'utf-8', env: Object.assign({}, process.env, { GIT_OPTIONAL_LOCKS: '0' }) });
         editedFiles = diffOut.trim().split('\n').filter(Boolean).map(function(f) { return path.basename(f); }).slice(0, 15);
         if (sessionOutcome === 'unknown' && editedFiles.length > 0) {
           sessionOutcome = 'in-progress';

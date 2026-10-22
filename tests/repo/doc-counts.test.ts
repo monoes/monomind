@@ -15,7 +15,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -59,4 +59,14 @@ describe('doc counts are the same on every machine', () => {
       rmSync(probe, { recursive: true, force: true });
     }
   });
+});
+
+describe('#668: the default MCP tool count in READMEs is generated', () => {
+  it.each(['README.md', 'packages/@monomind/cli/README.md'])(
+    '%s has no hand-typed "N default MCP tools"',
+    (file) => {
+      const text = readFileSync(join(REPO_ROOT, file), 'utf8');
+      expect(text).not.toMatch(/(?<!-->)\b\d+ default MCP tools/);
+    },
+  );
 });

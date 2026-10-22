@@ -49,7 +49,7 @@ function probe(installed?: string): Probe {
     stat: () => ({ uid: 0, mode: 0o755, isFile: () => true }) as unknown as Stats,
     isExecutable: () => true,
     head: () => '\x7fE',
-    version: async () => '2.1.300 (Claude Code)\n',
+    version: async () => '2.1.999 (Claude Code)\n',
     log: () => {},
   };
 }
