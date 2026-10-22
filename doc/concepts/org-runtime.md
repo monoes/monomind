@@ -878,9 +878,12 @@ below). `kilo` and `freebuff` are `refused` in a sections org and report why:
 | `kilo` | refused | full-access only (§ Coder Mode), and a sections org refuses full access |
 | `freebuff` | refused | discovery stub only — its CLI has no headless transport |
 
-Every other runtime without a copy-inventory entry is also refused in a non-eval sections org
-until it gets one; only Claude roles have one today. `agent scan` and `doctor -c agent-runtimes`
-report `execution_supported` and the refusal reason for each.
+The registry (`orgrt/documents/runtime-isolation.ts`) has probed, verified entries for `claude`,
+`codex`, `antigravity`, `opencode`, `pi`, `pi-rpc`, `crush`, `grok`, `copilot` and `hermes`; `vercel`,
+`kimicode`, `qwen`, `qwen-rpc`, `cline`, `aider` and `dsh` use a generic strategy that is not yet probed
+(a warning, not a refusal); only `kilo` and `freebuff` are refused. A runtime with no entry at all is
+refused in a non-eval sections org. `agent scan` and `doctor -c agent-runtimes` report
+`execution_supported` and the refusal reason for each.
 
 **Hardening (gate rows R1–R7):**
 
