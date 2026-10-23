@@ -8,7 +8,7 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ### Removed
 
-- **The `freebuff` runtime is gone (#600).** It was a discovery stub with no headless transport, so it never ran. `agent scan`, the adapters list and `doctor` no longer list it, and an org that declares `runtime: freebuff` now fails validation as an unknown runtime.
+- **The `freebuff` runtime is gone (#600; bb217b33b).** It was a discovery stub with no headless transport, so it never ran. `agent scan`, the adapters list and `doctor` no longer list it, and an org that declares `runtime: freebuff` now fails validation as an unknown runtime.
 
 ### Changed
 
@@ -16,7 +16,7 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ### Fixed
 
-- **The createorg skill budgets the roster (#25; 4f69074e0, 94f8b7e6d, bdac83dcd).** Flat orgs hold 4 roles; sections orgs take up to 10 sections of 4 roles each (default 3), one-role sections allowed only for real gates; the skill shows the sections shape and defaults to cheap tiers. Later createorg commits (7d316d8eb, b095f1668, 410e97947) group adjacent stages into sections of 2-4 roles, make the terminal section publish nothing, list-or-deny each sensitive tool, and put the boss-briefs rule and `autoApproveTools` in every org.
+- **The createorg skill budgets the roster (#25; 4f69074e0, 94f8b7e6d, bdac83dcd).** Flat orgs hold 4 roles; sections orgs take up to 10 sections of 4 roles each (default 3), one-role sections allowed only for real gates; the skill shows the sections shape and defaults to cheap tiers. Later createorg commits (7d316d8eb, b095f1668, 410e97947, 1d44bef78) group adjacent stages into sections of 2-4 roles, make the terminal section publish nothing, list-or-deny each sensitive tool, and put the boss-briefs rule and `autoApproveTools` in every org.
 - **`org validate` warns on large rosters (#25; 117f3a278).** Large flat rosters and oversized sections now produce a warning.
 - **Check #21 fires only for answer-sheet documents (55292c415).** It no longer reports on documents where its checks cannot apply.
 
