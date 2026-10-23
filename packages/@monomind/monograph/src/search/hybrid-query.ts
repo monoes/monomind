@@ -184,7 +184,15 @@ function searchLabels(
   label?: string | readonly string[],
 ): GraphSearchResult[] {
   const lexical = searchLexical(db, normalizedQuery, limit, mode, label);
-  const described = summarySearch(db, normalizedQuery, limit * 2, label);
+  // Documents carry a body excerpt in their summary, so a single word is a
+  // meaningful query there (#698); for code a bare word is the lexical path's job.
+  const described = summarySearch(
+    db,
+    normalizedQuery,
+    limit * 2,
+    label,
+    label === DOC_SCOPE_LABELS ? 1 : 2,
+  );
   if (described.length === 0) return lexical;
   // A multi-word question is not an identifier: a lexical-only hit is then
   // usually a substring accident ("handle" inside handleTasksStatus), so it
