@@ -12,7 +12,9 @@
  * nothing. `org sign` asks this guard first and refuses before writing; `org
  * run` uses the same message to explain a missing signature.
  */
-import { readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join, resolve, sep } from 'node:path';
 
 const unescapeMount = (s: string): string =>
   s.replace(/\\([0-7]{3})/g, (_m, o: string) => String.fromCharCode(Number.parseInt(o, 8)));
@@ -70,4 +72,32 @@ export function operatorDirProtectedMessage(dir: string, why?: string): string {
     'Nothing was written. Ask the operator to run `monomind org sign <org>` in their own terminal, ' +
     'or use a pre-signed org (`monomind org sign <org> --check` reports the state).'
   );
+}
+
+/** #699: a role-run QA drill may sign a throwaway org, but only against a key
+ *  of its own, never the operator's. Allowed only when the operator dir is
+ *  moved (MONOMIND_ORGRT_OPERATOR_DIR) to a directory INSIDE the project being
+ *  signed, and that project is not in a git work tree. A signature made this
+ *  way is read only by a process given the same variable; the daemon and
+ *  `org serve` use the real operator dir, so it never applies to a real org
+ *  (those live in a repository), and nothing is written to the operator dir. */
+export function drillSigningScope(
+  root: string,
+  env: NodeJS.ProcessEnv = process.env,
+): { ok: true } | { ok: false; reason: string } {
+  const override = env.MONOMIND_ORGRT_OPERATOR_DIR;
+  if (!override) return { ok: false, reason: 'MONOMIND_ORGRT_OPERATOR_DIR is not set' };
+  const real = realOrSelf(resolve(override));
+  const project = realOrSelf(resolve(root));
+  const home = join(realOrSelf(homedir()), '.monomind', 'orgrt-operator');
+  if (real === home || project === home || project.startsWith(`${home}${sep}`))
+    return { ok: false, reason: 'it is the operator directory' };
+  if (real === project || !real.startsWith(`${project}${sep}`))
+    return { ok: false, reason: 'the operator dir override is not inside the project' };
+  for (let dir = project; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, '.git')))
+      return { ok: false, reason: `${project} is inside a git work tree (${dir})` };
+    if (dirname(dir) === dir) break;
+  }
+  return { ok: true };
 }
