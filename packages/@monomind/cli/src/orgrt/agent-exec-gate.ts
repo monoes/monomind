@@ -28,13 +28,14 @@ export function scopedCanUseTool(
     if (toolName === 'Bash' && bashPrefixes.length > 0 && typeof input.command === 'string') {
       const cmd = input.command.trimStart();
       const matchesPrefix = bashPrefixes.some((p) => cmd === p || cmd.startsWith(`${p} `));
+      // Return the scanned string: bash must run exactly what was checked.
       if (matchesPrefix && !hasUnsafeShellSyntax(cmd))
-        return { behavior: 'allow', updatedInput: input };
+        return { behavior: 'allow', updatedInput: { ...input, command: cmd } };
       if (matchesPrefix)
         return {
           behavior: 'deny',
           message:
-            'Bash command contains shell metacharacters (;, &, |, `, $(, <() — only a single literal invocation is allowed, no chaining/substitution/redirection.',
+            'Bash command refused: only plain words, \'single-quoted\' text and simple "double-quoted" text are allowed (one literal invocation: no chaining, substitution, redirection, globs or expansion). Wrap anything else, such as regexes, globs or non-ASCII text, in single quotes.',
         };
     }
     return {

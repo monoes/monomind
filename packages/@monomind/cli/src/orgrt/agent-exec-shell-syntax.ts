@@ -15,11 +15,11 @@
 // quote-toggle sees quote/backslash/quote/quote and believes everything after
 // is inside single quotes — issue #702). Instead the command is accepted only
 // if it is a sequence of words, each a concatenation of:
-//   - bare runs of [A-Za-z0-9._:/=@+,%~-] (a `~` is never first in a word or
-//     right after `=` / `:`, where bash would tilde-expand);
+//   - bare runs of [A-Za-z0-9._:/=@+,%~^-] (a `~` is never first in a word or
+//     right after `=` / `:`, where bash would tilde-expand; a word never
+//     starts with `=`, which zsh expands to a command path);
 //   - `\` plus one printable ASCII character (an escaped character is literal
-//     to bash, never a quote or operator), or a lone `\` as the very last
-//     character of the string (a literal backslash when no newline follows);
+//     to bash, never a quote or operator);
 //   - '...' single-quoted text: bash treats everything inside as literal, so
 //     any text without a `'`, a control character or a line separator is fine;
 //   - "..." double-quoted text limited to characters with no meaning in
@@ -31,7 +31,7 @@
 // newlines, non-ASCII — is unsafe, and so is an unterminated quote. Fail
 // closed: if the tokenizer does not positively recognise it, it is unsafe.
 
-const BARE = /[A-Za-z0-9._:/=@+,%~-]/;
+const BARE = /[A-Za-z0-9._:/=@+,%~^-]/;
 // C0 controls (incl. NUL, tab, newline, CR), DEL, C1 controls (incl. NEL),
 // and the Unicode line/paragraph separators.
 const UNQUOTABLE = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
@@ -60,13 +60,13 @@ export const hasUnsafeShellSyntax = (cmd: string): boolean => {
       continue;
     }
     if (c === '\\') {
-      if (i === n - 1) return false; // lone trailing backslash is a literal `\`
-      if (!ESCAPABLE.test(cmd[i + 1])) return true;
+      if (i + 1 >= n || !ESCAPABLE.test(cmd[i + 1])) return true; // incl. a lone trailing `\`
       atWordStart = false;
       i += 2;
       continue;
     }
     if (!BARE.test(c)) return true;
+    if (c === '=' && atWordStart) return true; // zsh `=cmd` expansion
     if (c === '~' && (atWordStart || cmd[i - 1] === '=' || cmd[i - 1] === ':')) return true;
     atWordStart = false;
     i++;

@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { scopedCanUseTool } from '../orgrt/agent-exec-gate.js';
-import { checkReadOnlyCommand } from '../orgrt/agent-exec-read.js';
+import { checkReadOnlyCommand, readAccessCanUseTool } from '../orgrt/agent-exec-read.js';
 import { hasUnsafeShellSyntax } from '../orgrt/agent-exec-shell-syntax.js';
 
 const PREFIX = 'monoagentcli --profile p browser tabs';
@@ -101,6 +101,9 @@ describe('#702 legitimate commands stay allowed', () => {
     "rg '\\bword\\b$' src",
     '  monoagentcli --profile p browser tabs  ',
     'monoagentcli --profile p\tbrowser tabs',
+    'monoagentcli --profile p browser tabs --tab=3 --x=a=b',
+    'git diff HEAD^ HEAD^^',
+    "git log --format='%H %s' a^..b",
   ];
   it.each(ok)('allows %s', (cmd) => {
     expect(hasUnsafeShellSyntax(cmd)).toBe(false);
@@ -143,6 +146,9 @@ describe('#702 unsafe syntax is refused', () => {
     `${PREFIX} 'a\0b'`,
     `${PREFIX} {a,b}`,
     `${PREFIX} {1..3}`,
+    `${PREFIX} \\`,
+    `${PREFIX} =ls`,
+    `${PREFIX} x =ls`,
     `${PREFIX} ~`,
     `${PREFIX} ~root`,
     `${PREFIX} --out=~/x`,
@@ -161,6 +167,32 @@ describe('#702 unsafe syntax is refused', () => {
   ];
   it.each(bad.map((b) => [JSON.stringify(b), b]))('refuses %s', (_l, cmd) => {
     expect(hasUnsafeShellSyntax(cmd)).toBe(true);
+  });
+});
+
+describe('#702 gates return the scanned command', () => {
+  it('scoped gate runs the trimmed string it scanned', async () => {
+    const gate = scopedCanUseTool(new Set(), ['monoagentcli']);
+    const r = await gate('Bash', { command: '  monoagentcli x \t', other: 1 });
+    expect(r).toEqual({
+      behavior: 'allow',
+      updatedInput: { command: 'monoagentcli x \t', other: 1 },
+    });
+  });
+  it('read gate runs the trimmed string it scanned', async () => {
+    const gate = readAccessCanUseTool(new Set());
+    const r = await gate('Bash', { command: '  git status  ' });
+    expect(r).toEqual({ behavior: 'allow', updatedInput: { command: 'git status' } });
+  });
+  it('deny messages tell the model what is allowed', async () => {
+    const gate = scopedCanUseTool(new Set(), ['monoagentcli']);
+    const r = await gate('Bash', { command: 'monoagentcli *.ts' });
+    expect(r).toMatchObject({
+      behavior: 'deny',
+      message: expect.stringContaining('single quotes'),
+    });
+    const read = checkReadOnlyCommand('rg café');
+    expect(read.ok === false && read.message).toContain('single quotes');
   });
 });
 
