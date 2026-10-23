@@ -21,7 +21,7 @@ export function contentWords(query: string): string[] {
  * Stemmed BM25 over `node_summaries_fts`. Terms are OR-ed — a natural-language
  * question rarely repeats every word a symbol is described with — and BM25
  * rewards the symbols that match the most of them. Returns `[]` for queries
- * with fewer than two content words (a bare identifier is the lexical path's
+ * with fewer than `minWords` (default two) content words (a bare identifier is the lexical path's
  * job) or when the table is missing/empty (index built before summaries).
  */
 export function summarySearch(
@@ -29,9 +29,10 @@ export function summarySearch(
   query: string,
   limit: number,
   label?: LabelFilter,
+  minWords = 2,
 ): FtsResult[] {
   const words = contentWords(query);
-  if (words.length < 2) return [];
+  if (words.length < minWords) return [];
   const match = words.map((w) => `"${w}"`).join(' OR ');
   let sql = `
     SELECT n.id, n.name, n.norm_label, n.file_path, n.label, n.start_line, n.end_line,

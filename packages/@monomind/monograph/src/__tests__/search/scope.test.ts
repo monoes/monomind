@@ -23,6 +23,10 @@ describe('searchGraph scope', () => {
       (_, i) => `## Improve Layout ${i}\n\nImprove the layout section ${i}.\n`,
     ).join('\n');
     writeFileSync(join(tmpDir, 'layout.md'), `# Layout\n\n${sections}`);
+    writeFileSync(
+      join(tmpDir, 'guide.md'),
+      '# Setup Guide\n\nShort intro.\n\n## Details\n\nRemember to configure the zeppelin gateway first.\n',
+    );
     await buildAsync(tmpDir);
     db = new Database(join(tmpDir, '.monomind', 'monograph.db'), { readonly: true });
   }, 60_000);
@@ -47,6 +51,11 @@ describe('searchGraph scope', () => {
     const hits = searchGraph(db, 'improve', { limit: 10, scope: 'code' });
     expect(hits.length).toBeGreaterThan(0);
     expect(hits.every((h) => CODE_SCOPE_LABELS.includes(h.label))).toBe(true);
+  });
+
+  it('docs scope finds a word that only appears in a document body', () => {
+    const hits = searchGraph(db, 'zeppelin', { limit: 5, scope: 'docs' });
+    expect(hits.map((h) => h.filePath)).toContain('guide.md');
   });
 
   it('docs scope never returns code', () => {

@@ -40,6 +40,10 @@ beforeEach(() => {
   // A plain (non-git) temp dir makes getMonomindDataRoot() fall back to
   // <dir>/.monomind — see src/mcp-tools/types.ts getMonomindDataRoot().
   process.env.MONOMIND_CWD = dir;
+  // The registry lookup walks up from cwd to the nearest .monomind or git root;
+  // a temp dir under the real home would otherwise resolve to the real
+  // ~/.monomind and rewrite its registry.json (#696, #697).
+  mkdirSync(join(dir, '.monomind'), { recursive: true });
   // updateSwarmActivityMetrics() (agent-lifecycle.ts L15-43) uses
   // process.cwd() directly rather than getProjectCwd()/MONOMIND_CWD, so it
   // must be stubbed separately for the monoswarm-activity.json side effect to

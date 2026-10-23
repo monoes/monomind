@@ -6,6 +6,8 @@ import { definitionText } from './agent-registry.js';
 
 const MAX_COMMENT_CHARS = 300;
 const HEADER_SCAN_LINES = 40;
+/** Bounded body excerpt indexed per document so body-only words are searchable (#698). */
+const MAX_DOC_BODY_CHARS = 4000;
 
 /** "pickAgents" / "pick_agents" / "pick-agents.ts" → "pick Agents" words. */
 export function splitWords(identifier: string): string {
@@ -110,6 +112,24 @@ export function extractMarkdownLead(lines: string[]): string {
   return stripMarkdown(`${title}. ${para.join(' ')}`).slice(0, MAX_COMMENT_CHARS);
 }
 
+/** A bounded excerpt of a markdown document's body (front matter and fenced code dropped). */
+export function extractMarkdownBody(lines: string[]): string {
+  let i = 0;
+  if (lines[0]?.trim() === '---') {
+    i = lines.findIndex((l, n) => n > 0 && l.trim() === '---') + 1 || 0;
+  }
+  let fenced = false;
+  const kept: string[] = [];
+  for (; i < lines.length; i++) {
+    if (lines[i].trim().startsWith('```')) {
+      fenced = !fenced;
+      continue;
+    }
+    if (!fenced) kept.push(lines[i]);
+  }
+  return stripMarkdown(kept.join('\n')).slice(0, MAX_DOC_BODY_CHARS);
+}
+
 /** Words a person would use to describe a symbol: its name, location and comment. */
 export function buildSummaryText(name: string, filePath: string | null, comment: string): string {
   const where = filePath
@@ -171,7 +191,7 @@ export const summariesPhase: PipelinePhase<{ summarized: number }> = {
       }
       const isDoc = r.label === 'Document' || /\.(md|mdx)$/i.test(r.file_path);
       const comment = isDoc
-        ? extractMarkdownLead(lines)
+        ? `${extractMarkdownLead(lines)} ${extractMarkdownBody(lines)}`
         : r.label === 'File'
           ? extractFileHeader(lines)
           : r.start_line
