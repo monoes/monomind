@@ -79,12 +79,19 @@ describe('checklist #21: a document type with no checks', () => {
   it('warns for each type without checks, naming it', () => {
     const w = checklistFindings(
       sectioned({
-        sheet: { schema: { type: 'object' } },
-        note: { schema: { type: 'object' }, checks: [{ type: 'files_in_module' }] },
+        sheet: { schema: { type: 'object', properties: { sheets: { type: 'array' } } } },
+        note: {
+          schema: { type: 'object', properties: { sheets: { type: 'array' } } },
+          checks: [{ type: 'files_in_module' }],
+        },
       }),
     ).warnings;
     expect(has(w, 21)).toHaveLength(1);
     expect(has(w, 21)[0]).toMatch(/documents\.sheet/);
+  });
+  it('is quiet for a free-form document the checks dialect cannot apply to', () => {
+    const w = checklistFindings(sectioned({ report: { schema: { type: 'object' } } })).warnings;
+    expect(has(w, 21)).toHaveLength(0);
   });
   it('does not warn in an org without sections', () => {
     const w = checklistFindings(
