@@ -4,6 +4,8 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.26.0] — 2026-10-23
+
 ### Removed
 
 - **The `freebuff` runtime is gone (#600).** It was a discovery stub with no headless transport, so it never ran. `agent scan`, the adapters list and `doctor` no longer list it, and an org that declares `runtime: freebuff` now fails validation as an unknown runtime.
@@ -11,6 +13,16 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 ### Changed
 
 - **The `release` org is now a sections org with a much smaller startup context per role.** Eight sections (`build`, `qa-cli`, `qa-integration`, `qa-runtime`, `repair`, `docs`, `ship`, `audit`) hand work over as nine schema-validated documents (`build-record`, `test-record`, `qa-*-record`, `fix-record`, `docs-record`, `prep-record`, `audit-verdict`) instead of long free-text reports; `publisher` accepts the evidence records and the audit verdict before PUBLISH, `release-auditor` accepts the release commit's `prep-record`, and every section caps rework at 2 rounds. The 29 KB rules skill pinned to every role is split into a ~5 KB shared core plus per-role skills, the publisher's PREFLIGHT, SETUP, PREP and PUBLISH procedures load on demand, and the generic library skills moved to each role's on-demand pool, so a role's startup prompt dropped from about 37-63 KB to 14-16 KB (captain 28 KB). All safety gates are kept (release lock, GitHub `Tests` gate, `completion_evidence`, GO verdict plus approving audit before PUBLISH, publish, push, tag, release, Pages, local-main sync, issue filing and cleanup order, sandbox policies). Every role is pinned to `claude-sonnet-5-5`; `docs-writer` now runs at low effort. Re-sign the org (`monomind org sign release`) after pulling.
+
+### Fixed
+
+- **The createorg skill budgets the roster (#25; 4f69074e0, 94f8b7e6d, bdac83dcd).** Flat orgs hold 4 roles; sections orgs take up to 10 sections of 4 roles each (default 3), one-role sections allowed only for real gates; the skill shows the sections shape and defaults to cheap tiers. Later createorg commits (7d316d8eb, b095f1668, 410e97947) group adjacent stages into sections of 2-4 roles, make the terminal section publish nothing, list-or-deny each sensitive tool, and put the boss-briefs rule and `autoApproveTools` in every org.
+- **`org validate` warns on large rosters (#25; 117f3a278).** Large flat rosters and oversized sections now produce a warning.
+- **Check #21 fires only for answer-sheet documents (55292c415).** It no longer reports on documents where its checks cannot apply.
+
+### Docs
+
+- Docs and site updated for 2.26.0 (79c21956e).
 
 ## [2.25.0] — 2026-10-22
 
