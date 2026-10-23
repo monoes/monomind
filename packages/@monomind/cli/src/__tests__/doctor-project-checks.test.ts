@@ -1016,6 +1016,13 @@ describe('doctor-project-checks', () => {
   // checkAgentRegistry
   // ---------------------------------------------------------------------
   describe('checkAgentRegistry', () => {
+    // findProjectRoot walks up to the git root; without one, a temp dir under
+    // the real home would resolve to the real ~/.monomind and write its
+    // registry there (#696, #697).
+    beforeEach(() => {
+      mkdirSync(join(dir, '.git'));
+    });
+
     it('warns when there are no agents under .claude/agents', async () => {
       const result = await checkAgentRegistry();
       expect(result.name).toBe('Agent Registry');
@@ -1024,7 +1031,6 @@ describe('doctor-project-checks', () => {
     });
 
     it('creates no .monomind in a directory that is not a project', async () => {
-      mkdirSync(join(dir, '.git'));
       await checkAgentRegistry();
       expect(existsSync(join(dir, '.monomind'))).toBe(false);
     });
