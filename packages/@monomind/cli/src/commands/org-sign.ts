@@ -9,6 +9,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultOperatorDir } from '../orgrt/broker.js';
 import {
+  drillSigningScope,
   operatorDirBlockedReason,
   operatorDirProtectedMessage,
 } from '../orgrt/operator-dir-guard.js';
@@ -93,15 +94,21 @@ export const signAction = async (input: CommandContext): Promise<CommandResult> 
   // A role's own process tree must never sign — it would approve its own
   // changes. A human's own coding-agent session (the createorg skill) is the
   // operator and may; the key's location is the real barrier for roles.
+  // #699: except a QA drill's throwaway project with a key of its own.
   const marker = roleContextMarker();
   if (marker) {
-    log(
-      output.error(
-        `Refusing: ${marker} is set — this is an org role or agent-exec process. ` +
-          'Only the operator signs org definitions; run this yourself in a terminal.',
-      ),
-    );
-    return { success: false, message: `refused: role context (${marker})` };
+    const at = resolveSignRoot(input);
+    const drill = drillSigningScope('root' in at ? at.root : input.cwd);
+    if (!drill.ok) {
+      log(
+        output.error(
+          `Refusing: ${marker} is set — this is an org role or agent-exec process. ` +
+            'Only the operator signs org definitions; run this yourself in a terminal. ' +
+            `(A drill may sign a throwaway project that is not in a git repository, with MONOMIND_ORGRT_OPERATOR_DIR set to a directory inside it; here ${drill.reason}.)`,
+        ),
+      );
+      return { success: false, message: `refused: role context (${marker})` };
+    }
   }
   // #643: a role's sandbox hides the operator dir on purpose; refuse before
   // anything is written (an empty tmpfs there would swallow the write).
