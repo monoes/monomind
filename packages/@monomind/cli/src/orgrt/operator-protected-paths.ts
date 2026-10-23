@@ -39,6 +39,7 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { protectedClaudeBinary } from './claude-sdk.js';
+import { OPERATOR_SETTINGS_DEFAULT, OPERATOR_SETTINGS_FILE } from './operator-settings.js';
 import {
   ensureToolchainDirs,
   mountPointAncestors,
@@ -329,6 +330,7 @@ function protectedCandidates(ctx: ProtectedCtx): string[] {
     join(ctx.home, '.monomind', 'runner-inputs'),
     join(mmHome, 'runner-inputs'),
     join(mmHome, 'enable-terminal.json'),
+    join(mmHome, OPERATOR_SETTINGS_FILE),
     ...monomindEntries,
     ...HOME_OPERATOR_EXEC.map((p) => join(ctx.home, p)),
     ...XDG_CONFIG_OPERATOR_EXEC.map((p) => join(xdgDirs(ctx.home, ctx.env).config, p)),
@@ -419,6 +421,19 @@ export function ensureOperatorProtectedPaths(ctx: {
     writeFileSync(gate, '{ "enabled": false }\n', { flag: 'wx' });
   } catch {
     /* exists (the operator's own choice) or unwritable */
+  }
+  // #699: the operator's role-permission settings, all off. Written in the
+  // passwd home's ~/.monomind too, which is where operator-settings.ts reads.
+  for (const root of new Set([mmHome, join(ctx.home, '.monomind')])) {
+    try {
+      mkdirSync(root, { recursive: true, mode: 0o700 });
+      writeFileSync(join(root, OPERATOR_SETTINGS_FILE), OPERATOR_SETTINGS_DEFAULT, {
+        flag: 'wx',
+        mode: 0o600,
+      });
+    } catch {
+      /* exists (the operator's own choice) or unwritable */
+    }
   }
   // #527: the toolchain list is recomputed for every org and session start,
   // after the directories it expects are created.

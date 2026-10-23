@@ -15,6 +15,7 @@
 import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
+import { allowDrillSigning } from './operator-settings.js';
 
 const unescapeMount = (s: string): string =>
   s.replace(/\\([0-7]{3})/g, (_m, o: string) => String.fromCharCode(Number.parseInt(o, 8)));
@@ -74,7 +75,8 @@ export function operatorDirProtectedMessage(dir: string, why?: string): string {
   );
 }
 
-/** #699: a role-run QA drill may sign a throwaway org, but only against a key
+/** #699: when the operator enables `org.allowDrillSigning` (operator-settings.ts;
+ *  off by default), a role-run QA drill may sign a throwaway org, but only against a key
  *  of its own, never the operator's. Allowed only when the operator dir is
  *  moved (MONOMIND_ORGRT_OPERATOR_DIR) to a directory INSIDE the project being
  *  signed, and that project is not in a git work tree. A signature made this
@@ -84,7 +86,16 @@ export function operatorDirProtectedMessage(dir: string, why?: string): string {
 export function drillSigningScope(
   root: string,
   env: NodeJS.ProcessEnv = process.env,
+  /** Whose operator settings decide; the passwd home unless a test says. */
+  settingsHome?: string,
 ): { ok: true } | { ok: false; reason: string } {
+  // Off unless the operator allowed it in a file no role can write (#699).
+  if (!allowDrillSigning(settingsHome))
+    return {
+      ok: false,
+      reason:
+        'the operator has not enabled org.allowDrillSigning in ~/.monomind/operator-settings.json',
+    };
   const override = env.MONOMIND_ORGRT_OPERATOR_DIR;
   if (!override) return { ok: false, reason: 'MONOMIND_ORGRT_OPERATOR_DIR is not set' };
   const real = realOrSelf(resolve(override));
