@@ -41,6 +41,13 @@ async function fetchJson(
   return { status: res.status, body: await res.json() };
 }
 
+// #700: the cost here is importing server.mjs, whose dispatch graph pulls in every
+// route module (~2s idle, ~4s of it in server-dispatch alone on a cold transform).
+// It scales with CPU contention (~9s at 2x oversubscription), so under full-suite
+// load it passed the 30s default hookTimeout. The server is the thing under test,
+// so the import stays real; the hook gets a generous ceiling like #683 (0539c345e).
+const SERVER_START_TIMEOUT_MS = 120_000;
+
 beforeAll(async () => {
   fs.mkdirSync(path.join(TEST_DIR, '.monomind'), { recursive: true });
   const mod = await import('../../packages/@monomind/cli/src/ui/server.mjs');
@@ -70,7 +77,7 @@ beforeAll(async () => {
       throw new Error('Could not obtain dashboard auth value');
     }
   }
-});
+}, SERVER_START_TIMEOUT_MS);
 
 beforeEach(() => {
   mockBridge.bridgeListEntries.mockReset();
