@@ -133,7 +133,6 @@ export const RoleSchema = z
         'cline',
         'aider',
         'dsh',
-        'freebuff',
         'kilo',
       ])
       .optional(),

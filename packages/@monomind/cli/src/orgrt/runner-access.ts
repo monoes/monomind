@@ -45,7 +45,6 @@ const NO_READ: RunnerAccess = { readAccess: false, callerTools: true };
 const READ: RunnerAccess = { readAccess: true, callerTools: true };
 
 export const RUNNER_ACCESS: Record<RuntimeKind, RunnerAccess> = {
-  freebuff: { readAccess: false, callerTools: false },
   kilo: { scopedAccess: false, readAccess: false, callerTools: false },
   claude: READ,
   codex: READ,

@@ -846,7 +846,7 @@ $ monomind agent scan --json
 
 One entry per known runner (set grows with monomind releases). Honors `<NAME>_CLI_BIN`
 overrides. Binary probes run in parallel with a 5s per-binary timeout so a hung `--version`
-probe cannot stall the scan. Exit 0 always (detection, not a test). Each entry also carries `execution_supported` and `execution_unsupported_reason` (`null` when supported). `execution_supported` is `false` for `freebuff` always (its CLI has no headless transport) and for `kilo` when the installed version is not the verified one; see [Freebuff and Kilo transport readiness](#freebuff-and-kilo-transport-readiness-600-601). **rev 5**: `streams_incrementally`
+probe cannot stall the scan. Exit 0 always (detection, not a test). Each entry also carries `execution_supported` and `execution_unsupported_reason` (`null` when supported). `execution_supported` is `false` for `kilo` when the installed version is not the verified one; see [Kilo transport readiness](#kilo-transport-readiness-601). **rev 5**: `streams_incrementally`
 is static per-runtime metadata (`RunnerSpec.streamsIncrementally`, §9) — unlike `installed`/`version`,
 it never depends on probing the binary, so it's always present even when `installed:false`. **rev 12**: `full_access` is likewise static per-runtime metadata (`RunnerSpec.supportsFullAccess`) — whether `agent exec --access full` (§3.1) is implemented for this runtime (**rev 19**: every coding runtime; `false` for vercel, hermes, qwen-rpc, pi-rpc; **rev 20**:
 pi-rpc, cline, aider and dsh are `true`). **rev 12**
@@ -1425,23 +1425,15 @@ obtain them. `doctor -c claude-runtime --json` reports the same selection withou
 installing the SDK. Human scan/models commands report a skipped newer native
 install once per process, even when the SDK is already installed.
 
-### Freebuff and Kilo transport readiness (#600, #601)
+### Kilo transport readiness (#601)
 
 `agent scan --json` distinguishes binary installation from usable automation
-with `execution_supported` and `execution_unsupported_reason`. Freebuff reports
-false, empty access/sandbox modes, no init target and no full-access capability.
+with `execution_supported` and `execution_unsupported_reason`.
 Kilo reports true when its installed version is verified as 7.8.3, with **full access only**: `access_modes: ["full"]`, resume,
 reported cost and complete native tool activity. Its init target remains absent;
 scoped/read access, caller tools, abstract effort and native max-turn limits are
 unsupported. `monomind doctor -c agent-runtimes` (also a default doctor check)
 reports installed but unavailable transports without running their binaries.
-
-Freebuff discovery honors `FREEBUFF_CLI_BIN`, exposes the `freebuff` npm recipe
-and `freebuff login` hint. Its [published parser](https://github.com/CodebuffAI/freebuff/blob/eaf90999faed783fd1ba3d2e8544d853bf2282fc/cli/src/cli-args.ts)
-has no headless prompt or JSON output option (also checked against main on
-2026-10-05). Execution refuses with `unsupported` before spawning. A supported
-upstream transport is required; Codebuff authentication/SDK and terminal
-scraping are not substitutes.
 
 Kilo discovery honors `KILO_CLI_BIN`, exposes the pinned `@kilocode/cli@7.8.3` npm recipe and
 `kilo auth login` hint. Execution accepts **7.8.3**; other versions refuse with an

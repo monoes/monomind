@@ -46,7 +46,7 @@ interface AgentRunner {
 }
 ```
 
-Nineteen runtime ids are registered (`RUNNER_SPECS` in [`orgrt/runner-specs.ts`](packages/@monomind/cli/src/orgrt/runner-specs.ts)): `claude`, `codex`, `kimicode`, `opencode`, `vercel`, `antigravity`, `grok`, `qwen`, `qwen-rpc`, `crush`, `copilot`, `pi`, `pi-rpc`, `hermes`, `cline`, `aider`, `dsh`, `kilo` and `freebuff`. `freebuff` is discovered but never runs: its CLI has no headless transport, so selecting it fails with `unsupported` before any process starts (`agent scan` reports `execution_supported: false`). `kilo` runs only with explicit full access (see [Coder Mode Security](./coder-mode-security.md)). The sections below describe the runners in detail one by one; the rest follow the same `AgentRunner` interface and are specified in [Agent Exec Protocol](../agent-exec-protocol.md) §6.
+Eighteen runtime ids are registered (`RUNNER_SPECS` in [`orgrt/runner-specs.ts`](packages/@monomind/cli/src/orgrt/runner-specs.ts)): `claude`, `codex`, `kimicode`, `opencode`, `vercel`, `antigravity`, `grok`, `qwen`, `qwen-rpc`, `crush`, `copilot`, `pi`, `pi-rpc`, `hermes`, `cline`, `aider`, `dsh`, and `kilo`. `kilo` runs only with explicit full access (see [Coder Mode Security](./coder-mode-security.md)). The sections below describe the runners in detail one by one; the rest follow the same `AgentRunner` interface and are specified in [Agent Exec Protocol](../agent-exec-protocol.md) §6.
 
 The first three are described first:
 
@@ -194,7 +194,7 @@ Source: [org-start.ts → startOrg](packages/@monomind/cli/src/orgrt/org-start.t
    ```
    An org def may set a top-level `"runtime"` — one of `"claude"`, `"kimicode"`, `"opencode"`,
    `"vercel"`, `"codex"`, `"antigravity"`, `"grok"`, `"qwen"`, `"crush"`, `"copilot"`, `"pi"`,
-   `"pi-rpc"`, `"qwen-rpc"`, `"hermes"`, `"cline"`, `"aider"`, `"dsh"`, `"freebuff"`, `"kilo"` (the `RuntimeKind` union in [`daemon.ts`](packages/@monomind/cli/src/orgrt/daemon.ts), dispatched by `resolveRunner()`) —
+   `"pi-rpc"`, `"qwen-rpc"`, `"hermes"`, `"cline"`, `"aider"`, `"dsh"`, `"kilo"` (the `RuntimeKind` union in [`daemon.ts`](packages/@monomind/cli/src/orgrt/daemon.ts), dispatched by `resolveRunner()`) —
    to pin its own runtime regardless of the env var (`"claude"` forces the default
    Claude path even when `MONOMIND_RUNTIME` selects another runner). Each role may
    additionally set its own `runtime` field, which overrides the org-level value
@@ -323,7 +323,7 @@ Any `context` key also changes three things for the whole org:
 | `type` | `'specialist'` | `'boss'` or `'specialist'` |
 | `reports_to` | _(required)_ | `null` → boss |
 | `adapter_config.model` | runtime/vendor default | Model string passed to runner. When unset, `resolveModel()` in [`session.ts`](packages/@monomind/cli/src/orgrt/session.ts) picks the vendor default, then the runtime default — the newest Sonnet (`defaultClaudeModel()` in [`vercel-providers.ts`](packages/@monomind/cli/src/orgrt/vercel-providers.ts)) for the `claude` runtime and when no runtime is set, the newest Terra for `codex` and the newest Flash for `antigravity`. These are never older than the newest known model of their family: [`latest-models.ts`](packages/@monomind/cli/src/latest-models.ts) takes the newer of the runtime's own model list (cached in `~/.monomind/latest-models.json`, refreshed at org start at most once a day and by `monomind agent models`; `MONOMIND_MODEL_REFRESH=0` turns the refresh off) and a floor of the newest ids known at the release, because a runtime's list can lag a usable model. The built-in cost tiers (`standard`, `economy`, `budget`) resolve the same way, and `org validate` warns about a pinned model older than the newest in its family. A role's reasoning effort comes from its cost tier; with none it runs at `medium` on the `claude` and `codex` runtimes (`defaultRoleEffort()` in [`cost-tier.ts`](packages/@monomind/cli/src/orgrt/cost-tier.ts)), so the default is Sonnet at medium on Claude and Terra at medium on Codex, and a role assigned the `exempt` tier gets no effort at all. `/mastermind:createorg` and `monomind org create` always write it explicitly (the latest model for the role's runtime) so a created org doesn't drift when the default changes |
-| `runtime` | _(unset)_ | Per-role runtime override: `'claude'` \| `'kimicode'` \| `'opencode'` \| `'vercel'` \| `'codex'` \| `'antigravity'` \| `'grok'` \| `'qwen'` \| `'crush'` \| `'copilot'` \| `'pi'` \| `'pi-rpc'` \| `'qwen-rpc'` \| `'hermes'` \| `'cline'` \| `'aider'` \| `'dsh'` \| `'kilo'` \| `'freebuff'` (never runs); beats the org-level `runtime` and `MONOMIND_RUNTIME` for this role's sessions |
+| `runtime` | _(unset)_ | Per-role runtime override: `'claude'` \| `'kimicode'` \| `'opencode'` \| `'vercel'` \| `'codex'` \| `'antigravity'` \| `'grok'` \| `'qwen'` \| `'crush'` \| `'copilot'` \| `'pi'` \| `'pi-rpc'` \| `'qwen-rpc'` \| `'hermes'` \| `'cline'` \| `'aider'` \| `'dsh'` \| `'kilo'`; beats the org-level `runtime` and `MONOMIND_RUNTIME` for this role's sessions |
 | `budget_tokens` | _(unset)_ | Per-role token budget override — replaces this role's even split of `run_config.budget_tokens`, so a token-hungry model (e.g. GLM via opencode) doesn't force an inflated org-wide budget. `policy.maxTokens`, when set, still wins. The coordinator is told once when the role passes 80% of its token cap |
 | `max_turns_per_message` | _(unset)_ | Per-role override of `run_config.max_turns_per_message` — a role doing long build/fix/verify cycles can get more turns without raising the cap for every other role |
 | `max_tool_rounds` | _(unset)_ | Per-role override of `run_config.max_tool_rounds`, for a role that makes many tool calls in reply to one message |
@@ -871,17 +871,16 @@ in no section is never treated as a cross-section case).
 native directories, probe state and verification status. `codex`, `pi`, `antigravity`, `opencode`
 and `crush` run with a private, masked home (`CODEX_HOME`, `PI_CODING_AGENT_HOME`, etc.); `claude`
 runs in-process with a per-role private copy of its native transcripts (the copy-inventory entry
-below). `kilo` and `freebuff` are `refused` in a sections org and report why:
+below). `kilo` is `refused` in a sections org and reports why:
 
 | Runtime | Sections support | Reason |
 |---|---|---|
 | `kilo` | refused | full-access only (§ Coder Mode), and a sections org refuses full access |
-| `freebuff` | refused | discovery stub only — its CLI has no headless transport |
 
 The registry (`orgrt/documents/runtime-isolation.ts`) has probed, verified entries for `claude`,
 `codex`, `antigravity`, `opencode`, `pi`, `pi-rpc`, `crush`, `grok`, `copilot` and `hermes`; `vercel`,
 `kimicode`, `qwen`, `qwen-rpc`, `cline`, `aider` and `dsh` use a generic strategy that is not yet probed
-(a warning, not a refusal); only `kilo` and `freebuff` are refused. A runtime with no entry at all is
+(a warning, not a refusal); only `kilo` is refused. A runtime with no entry at all is
 refused in a non-eval sections org. `agent scan` and `doctor -c agent-runtimes` report
 `execution_supported` and the refusal reason for each.
 

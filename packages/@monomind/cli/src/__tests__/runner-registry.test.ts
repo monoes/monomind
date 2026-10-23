@@ -116,7 +116,6 @@ describe('runner registry', () => {
       'cline',
       'aider',
       'dsh',
-      'freebuff',
       'kilo',
     ]) {
       expect(isKnownRuntime(id), id).toBe(true);

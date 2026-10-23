@@ -338,15 +338,12 @@ describe('Role editor patch', () => {
 });
 
 describe('adapters list', () => {
-  it('has one entry per registry runtime, each a valid role runtime, freebuff disabled', async () => {
+  it('has one entry per registry runtime, each a valid role runtime', async () => {
     const r = await call('GET', `/api/org/${ORG}/adapters?dir=${encodeURIComponent(root)}`);
     const types = r.json.adapters.map((a: any) => a.type);
     expect(types).toEqual(RUNNER_SPECS.map((s) => s.id));
     const probe = OrgDefSchema.shape.runtime;
     for (const t of types) expect(probe.safeParse(t).success, t).toBe(true);
-    const freebuff = r.json.adapters.find((a: any) => a.type === 'freebuff');
-    expect(freebuff.disabled).toBe(true);
-    expect(freebuff.disabledReason).toBeTruthy();
     expect(r.json.adapters.find((a: any) => a.type === 'claude').disabled).toBe(false);
   });
 });

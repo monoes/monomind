@@ -224,7 +224,7 @@ describe('#389 scan fields and the unsupported guard', () => {
     const { agents } = await scanInstalled({ skipVersionProbe: true, env: { PATH: '' } });
     expect(agents).toHaveLength(RUNNER_SPECS.length);
     for (const a of agents) {
-      expect(a.caller_tools, a.id).toBe(!['freebuff', 'kilo'].includes(a.id));
+      expect(a.caller_tools, a.id).toBe(a.id !== 'kilo');
       if (!a.execution_supported) {
         expect(a.execution_unsupported_reason, a.id).toEqual(expect.any(String));
         expect(a.access_modes, a.id).toEqual([]);

@@ -208,12 +208,6 @@ it('Kilo model listing honors the same override as discovery', async () => {
   expect(called).toEqual([process.execPath, 'models']);
   expect(result.models.map((m) => m.id)).toEqual(['anthropic/claude-sonnet-5', 'openai/gpt-6']);
 });
-it('Freebuff explains why model discovery is unavailable', async () => {
-  const result = await listRuntimeModels('freebuff');
-  expect(result.supported).toBe(false);
-  expect(result.reason).toMatch(/interactive/i);
-});
-
 it.each(['7.8.2', '', 'unknown'])(
   'Kilo model discovery refuses unverified version %j before requesting models',
   async (version) => {

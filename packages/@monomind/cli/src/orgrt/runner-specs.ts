@@ -11,7 +11,6 @@
  */
 
 import type { ProviderKind, RuntimeKind } from './daemon.js';
-import { FREEBUFF_UNSUPPORTED } from './freebuff-runner.js';
 import { kiloVersionRefusal } from './kilo-version.js';
 import type { RunnerAccess } from './runner-access.js';
 import type { RunnerFeatures } from './runner-features.js';
@@ -66,17 +65,6 @@ export interface RunnerSpec extends RunnerFeatures, RunnerAccess {
 }
 
 export const BASE_SPECS: Array<Omit<RunnerSpec, keyof RunnerFeatures | keyof RunnerAccess>> = [
-  {
-    id: 'freebuff',
-    binary: 'freebuff',
-    binEnv: 'FREEBUFF_CLI_BIN',
-    installHint: 'npm install -g freebuff',
-    loginHint: 'freebuff login',
-    streamsIncrementally: false,
-    supportsFullAccess: false,
-    toolActivityFidelity: 'none',
-    executionUnsupportedReason: FREEBUFF_UNSUPPORTED,
-  },
   {
     id: 'kilo',
     executionPrerequisite: kiloVersionRefusal,

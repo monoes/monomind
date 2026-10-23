@@ -115,8 +115,8 @@ describe('copyInventoryFindings', () => {
     expect(inEval.errors).toEqual([]);
     expect(inEval.warnings.join()).toMatch(/coder.*opencode.*refused.*OPENCODE_URL/);
   });
-  it('kilo (full access only, refused in a sections org) and freebuff (no transport) fail validate with the reason, a warning in eval', () => {
-    for (const [rt, why] of [['kilo', /full access/i], ['freebuff', /no headless/i]] as const) {
+  it('kilo (full access only, refused in a sections org) fails validate with the reason, a warning in eval', () => {
+    for (const [rt, why] of [['kilo', /full access/i]] as const) {
       const out = copyInventoryFindings(withRuntime(rt, false));
       expect(out.errors.join(), rt).toMatch(new RegExp(`coder.*${rt}.*refused`));
       expect(out.errors.join(), rt).toMatch(why);
