@@ -6,8 +6,10 @@ import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { callWithHub, MeshOfflineError } from '../mesh/client.js';
 import { defaultAlias, joinWithFreeAlias } from '../mesh/default-alias.js';
+import { meshDir } from '../mesh/hub.js';
 import { projectIdFor } from '../mesh/project-id.js';
 import { MAX_BODY, MESSAGE_KINDS, WhoFilterSchema } from '../mesh/protocol.js';
+import { claimSessionName, settleSessionName } from '../mesh/session-files.js';
 import { sessionPresence } from '../mesh/session-presence.js';
 import { getProjectCwd } from '../utils/paths.js';
 import type { MCPTool, MCPToolResult } from './types.js';
@@ -61,9 +63,11 @@ async function joinMesh(fields: JoinFields): Promise<{ addr: string; alias: stri
       alias: a,
     });
   };
-  const addr = fields.alias
-    ? await join(fields.alias)
-    : await joinWithFreeAlias(defaultAlias(cwd, STARTED), join);
+  if (fields.alias) return { addr: await join(fields.alias), alias };
+  // The SessionStart hook titles the Claude session with the same name, so it is claimed first.
+  const base = claimSessionName(meshDir(), () => defaultAlias(cwd, STARTED));
+  const addr = await joinWithFreeAlias(base, join);
+  if (alias !== base) settleSessionName(meshDir(), alias);
   return { addr, alias };
 }
 

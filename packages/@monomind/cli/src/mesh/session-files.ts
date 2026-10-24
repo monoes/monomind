@@ -78,7 +78,7 @@ export function createSessionFiles(dir: string): SessionFiles {
         mkdirSync(sessions, { recursive: true, mode: 0o700 });
         // Files of sessions that died without saying goodbye.
         for (const f of readdirSync(sessions)) {
-          const pid = Number(f.replace(/\.(json|shown)$/, ''));
+          const pid = Number(f.replace(/\.(json|shown|name)$/, ''));
           if (Number.isInteger(pid) && !alive(pid)) unlinkSync(join(sessions, f));
         }
         written = []; // the same files are overwritten below; a `.shown` marker must survive
@@ -95,4 +95,53 @@ export function createSessionFiles(dir: string): SessionFiles {
     },
     remove,
   };
+}
+
+const NAME = /^[A-Za-z0-9._-]{1,64}$/;
+
+/**
+ * The name of this Claude session, shared with the SessionStart hook that sets the session title:
+ * whichever of the two runs first writes it (`<pid>.name`, exclusive create), the other adopts it.
+ */
+export function claimSessionName(dir: string, make: () => string): string {
+  const sessions = join(dir, 'sessions');
+  const pids = ancestors();
+  const read = (): string | undefined => {
+    for (const pid of pids) {
+      try {
+        const n = readFileSync(join(sessions, `${pid}.name`), 'utf8').trim();
+        if (NAME.test(n)) return n;
+      } catch {
+        /* none for this pid */
+      }
+    }
+    return undefined;
+  };
+  const existing = read();
+  if (existing) return existing;
+  const name = make();
+  try {
+    mkdirSync(sessions, { recursive: true, mode: 0o700 });
+    for (const pid of pids) {
+      try {
+        writeFileSync(join(sessions, `${pid}.name`), name, { flag: 'wx', mode: 0o600 });
+      } catch {
+        /* another writer got there first */
+      }
+    }
+  } catch {
+    /* the name is a convenience; this session just keeps its own */
+  }
+  return read() ?? name;
+}
+
+/** The hub gave the session a different name than the one claimed (it was taken): keep them equal. */
+export function settleSessionName(dir: string, name: string): void {
+  for (const pid of ancestors()) {
+    try {
+      writeFileSync(join(dir, 'sessions', `${pid}.name`), name, { mode: 0o600 });
+    } catch {
+      /* no claim was written */
+    }
+  }
 }

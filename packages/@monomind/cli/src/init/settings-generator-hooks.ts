@@ -219,6 +219,11 @@ export function generateHooksConfig(config: HooksConfig, monograph = true): obje
         command: hookHandlerCmd('session-restore'),
         timeout: 15,
       },
+      {
+        type: 'command',
+        command: standaloneHelperCmd('mesh-title.cjs'),
+        timeout: 3,
+      },
     ];
 
     if (monograph) {
