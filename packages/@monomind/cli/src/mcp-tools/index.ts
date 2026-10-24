@@ -29,6 +29,7 @@ export { guidanceTools } from './guidance-tools.js';
 export { hooksTools } from './hooks-tools.js';
 export { knowledgeTools } from './knowledge-tools.js';
 export { memoryTools } from './memory-tools.js';
+export { meshTools } from './mesh-tools.js';
 export { monographTools } from './monograph-tools.js';
 export { monomindTools } from './monomind-tools.js';
 export { performanceTools } from './performance-tools.js';

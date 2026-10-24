@@ -54,6 +54,7 @@ export const CATEGORY_LOADERS: Record<string, CategoryLoader> = {
   monomind: async () => (await import('./mcp-tools/monomind-tools.js')).monomindTools,
   monodesign: async () => (await import('./mcp-tools/monodesign-tools.js')).monodesignTools,
   pick: async () => (await import('./mcp-tools/pick-tools.js')).pickTools,
+  mesh: async () => (await import('./mcp-tools/mesh-tools.js')).meshTools,
   org: async () => (await import('./mcp-tools/org-skill-tools.js')).orgSkillTools,
   // system-tools.ts also exports tools with mcp_ and config_ prefixes
   mcp: async () => (await import('./mcp-tools/system-tools.js')).systemTools,
