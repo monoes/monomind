@@ -347,9 +347,9 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 # → "find all callers of validateToken()"
 ```
 
-<!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
+<!-- doc-count:mcp-tools-default -->24<!-- /doc-count:mcp-tools-default --> default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
 
-The MCP server advertises a lean core of <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> tools by default to keep Claude's context small. Every other tool stays callable by name, and `monomind_tool_search` finds it. `MONOMIND_MCP_FULL=1` advertises all <!-- doc-count:mcp-tools-full -->202<!-- /doc-count:mcp-tools-full --> ([MCP server](doc/concepts/mcp-server.md)).
+The MCP server advertises a lean core of <!-- doc-count:mcp-tools-default -->24<!-- /doc-count:mcp-tools-default --> tools by default to keep Claude's context small. Every other tool stays callable by name, and `monomind_tool_search` finds it. `MONOMIND_MCP_FULL=1` advertises all <!-- doc-count:mcp-tools-full -->202<!-- /doc-count:mcp-tools-full --> ([MCP server](doc/concepts/mcp-server.md)).
 
 ---
 
