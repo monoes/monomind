@@ -8,6 +8,7 @@ import { OrgDaemon } from '../../src/orgrt/daemon.js';
 import { roleResetCap } from '../../src/orgrt/role-reset.js';
 import { buildOrgTools } from '../../src/orgrt/session.js';
 import { OrgDefSchema } from '../../src/orgrt/types.js';
+import { waitUntil } from './support/section-budget-org.js';
 
 /** The reply a session gives to a compaction request: the summary between the request's own markers. */
 export const markedReply = (request: string, body: string): string => {
@@ -44,6 +45,7 @@ describe('org_compact_role / org_clear_role', () => {
     runConfig: Record<string, unknown>,
     runner: unknown,
     name = 'reset-org',
+    idle = true,
   ) {
     const def = OrgDefSchema.parse({
       name,
@@ -59,7 +61,11 @@ describe('org_compact_role / org_clear_role', () => {
     });
     const running = await daemon.startOrg(name);
     await daemon.deliver(name, 'boss', 'worker', 'go', 'start working');
-    await new Promise((r) => setTimeout(r, 50));
+    // the worker took the message, and (unless the runner never ends a turn) finished its turn
+    await waitUntil(() => {
+      const m = running.agents.get('worker')?.mailbox;
+      return !!m && m.consumedRealCount >= 1 && (!idle || !m.turnActive);
+    });
     return { daemon, running, name, def };
   }
 
@@ -110,7 +116,7 @@ describe('org_compact_role / org_clear_role', () => {
     expect(slot.respawnCount).toBe(0);
     expect(slot.resetCount).toBe(1);
     expect(running.taskDag!.get(task.id)?.assignee).toBe('worker');
-    await new Promise((r2) => setTimeout(r2, 50));
+    await waitUntil(() => seen.some((c) => c.includes('compacted')));
     expect(seen.some((c) => c.includes('GOAL: ship it. OPEN: tests.') && c.includes('compacted'))).toBe(true);
     const audits: any[] = [];
     running.bus.subscribe((e) => e.type === 'audit' && audits.push(e));
@@ -127,7 +133,7 @@ describe('org_compact_role / org_clear_role', () => {
     const oldRuntime = slot.runtime;
     const r = await daemon.compactRole(name, 'boss', { roleId: 'worker', reason: 'r' });
     expect(r.success).toBe(false);
-    expect(r.error).toMatch(/no summary/);
+    expect(r.error).toMatch(/no usable summary/);
     expect(slot.runtime).toBe(oldRuntime);
     expect(slot.generation).toBe(0);
     expect(slot.resetCount ?? 0).toBe(0);
@@ -179,7 +185,7 @@ describe('org_compact_role / org_clear_role', () => {
     expect(r.success).toBe(true);
     expect(slot.queuedDuringSwap).toEqual([]);
     await daemon.deliver(name, 'boss', 'worker', 'next', 'after the clear');
-    await new Promise((r2) => setTimeout(r2, 50));
+    await waitUntil(() => seen.some((c) => c.includes('after the clear')));
     expect(seen.some((c) => c.includes('after the clear'))).toBe(true);
     await daemon.stopOrg(name);
   });
@@ -193,7 +199,7 @@ describe('org_compact_role / org_clear_role', () => {
         }
       },
     };
-    const { daemon, running, name } = await start({ max_role_resets: 10 }, runner);
+    const { daemon, running, name } = await start({ max_role_resets: 10 }, runner, 'reset-org', false);
     const slot = running.roleSlots.get('worker')!;
     expect(slot.runtime!.mailbox.turnActive).toBe(true);
     const r = await daemon.clearRole(name, 'boss', { roleId: 'worker', reason: 'r' });

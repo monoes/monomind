@@ -357,7 +357,7 @@ export function rolesOnDefTokenCaps(running: RunningOrg): Set<string> {
   const onDef = new Set<string>();
   for (const [roleId, rt] of running.agents) {
     const cap = defTokenCap(running, roleId);
-    if (cap !== undefined && rt.policy.policy.maxTokens === cap) onDef.add(roleId);
+    if (cap !== undefined && rt.policy.configuredTokenCap === cap) onDef.add(roleId);
   }
   return onDef;
 }
@@ -375,7 +375,7 @@ function reapplyDefTokenCaps(running: RunningOrg, onDef: Set<string>): void {
   for (const roleId of onDef) {
     const policy = running.agents.get(roleId)?.policy;
     const cap = defTokenCap(running, roleId);
-    if (!policy || cap === undefined || policy.policy.maxTokens === cap) continue;
+    if (!policy || cap === undefined || policy.configuredTokenCap === cap) continue;
     policy.setBudgetCaps({ maxTokens: cap, maxUsd: policy.policy.maxUsd });
   }
 }

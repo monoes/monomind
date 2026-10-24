@@ -5,7 +5,6 @@ import type { OrgDaemon } from './daemon.js';
 import type { AgentRuntime, RunningOrg } from './daemon-types.js';
 import { hostPreflight } from './documents/preflight.js';
 import { sectionsSurface } from './documents/surface.js';
-import { Mailbox } from './mailbox.js';
 import { resolveRoleProvider } from './provider.js';
 import {
   buildRespawnReceipt,
@@ -327,7 +326,9 @@ export async function replaceRole(
   };
   const oldRuntime = slot.runtime!;
   // The daemon's own summary request belongs to the old session; the replacement never gets it.
-  const sweptQueue = oldRuntime.mailbox.beginDrain().filter((m) => !Mailbox.isInternal(m));
+  const sweptQueue = oldRuntime.mailbox
+    .beginDrain()
+    .filter((m) => !oldRuntime.mailbox.isInternal(m));
   slot.queuedDuringSwap.push(...sweptQueue);
   const drainTimeoutMs = running.def.run_config.respawn_drain_timeout_ms ?? 30_000;
   const drained = await Promise.race([
@@ -366,7 +367,9 @@ export async function replaceRole(
   // entirely, keyed by role.id, which never changes). Reclaim any message
   // abandoned mid-yield by a forced stop for at-least-once redelivery.
   oldRuntime.mailbox.reclaimInFlight();
-  const reclaimedQueue = oldRuntime.mailbox.serialize().queue.filter((m) => !Mailbox.isInternal(m));
+  const reclaimedQueue = oldRuntime.mailbox
+    .serialize()
+    .queue.filter((m) => !oldRuntime.mailbox.isInternal(m));
   reclaimed = { start: slot.queuedDuringSwap.length, count: reclaimedQueue.length };
   slot.queuedDuringSwap.push(...reclaimedQueue);
   // Step 9: retire accounting BEFORE replacing the runtime.
