@@ -151,3 +151,42 @@ describe('codex argv carries the roots', () => {
     expect(roots(codexExecArgs({ ...base, env: {}, writableRoots: ['/x'] }, undefined))).toEqual([]);
   });
 });
+
+describe('hostile directory names stay data in the argv', () => {
+  const names = [
+    'q"uote',
+    'back\\slash',
+    'com,ma',
+    'close]bracket',
+    'ha#sh',
+    'eq=ual',
+    'new\nline',
+    '-leading-dash',
+    'with space',
+    'ünï-中文-😀',
+    'del\u007fchar',
+    'tab\tchar',
+  ];
+  const rootsOf = (argv: string[]) => {
+    const hits = argv.filter((a) => a.startsWith('sandbox_workspace_write.writable_roots='));
+    expect(hits).toHaveLength(1);
+    return hits[0];
+  };
+
+  it.each(names)('round-trips %j as exactly one string', (name) => {
+    const list = [`/r/${name}`, `/r/${name}/x`, '/r/plain'];
+    const value = rootsOf(codexSandboxArgs('commit', list));
+    const parsed = JSON.parse(value.slice(value.indexOf('=') + 1));
+    expect(parsed).toEqual(list);
+    // one -c value, TOML-safe: no raw control characters (TOML forbids them in strings)
+    expect(value).not.toMatch(/[\u0000-\u001f\u007f]/);
+  });
+
+  it('all of them together, in order, with no extra entries', () => {
+    const list = names.map((n) => `/r/${n}`);
+    const argv = codexSandboxArgs('read', list);
+    const value = rootsOf(argv);
+    expect(JSON.parse(value.slice(value.indexOf('=') + 1))).toEqual(list);
+    expect(argv.filter((a) => a === '-c')).toHaveLength(2);
+  });
+});

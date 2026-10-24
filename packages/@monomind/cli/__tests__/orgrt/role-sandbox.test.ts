@@ -466,6 +466,14 @@ describe('resolveRoleGitEnforcement', () => {
     expect(String((audit as any).msg)).toContain(`'${mode}'`);
   });
 
+  it('codex git-sandbox-cli audit says allowWrite is requested, not granted (filtering comes later)', () => {
+    const { opts, events } = setup({ sandbox: { allowWrite: ['/'] } });
+    resolveRoleGitEnforcement({ ...opts, claudeRuntime: false, runtime: 'codex', availability: available });
+    const msg = String((events.find((e) => e.reason === 'git-sandbox-cli') as any).msg);
+    expect(msg).toContain('requested');
+    expect(msg).not.toContain('granted');
+  });
+
   // #262: only the ephemeral server the opencode runner spawns itself can be
   // given the guard env. An attached one (OPENCODE_URL) is the operator's own
   // process — the role then has no enforcement at all, which must be audited.

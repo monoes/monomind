@@ -64,6 +64,10 @@ export const CLI_SANDBOX_MODES: Record<string, string> = {
   grok: 'workspace',
 };
 
+/** A TOML array of basic strings. JSON string syntax is valid TOML except that
+ *  TOML also forbids a raw U+007F, which JSON leaves unescaped. */
+const tomlStringArray = (xs: string[]): string => JSON.stringify(xs).replace(/\x7f/g, '\\u007f');
+
 /** `codex exec` sandbox flags for a role at `level`. `writableRoots` (already
  *  filtered, codex-write-roots.ts) are extra writable directories of the
  *  workspace-write sandbox; none at 'push' (danger-full-access). */
@@ -77,7 +81,7 @@ export function codexSandboxArgs(level: GitLevel, writableRoots: string[] = []):
     '-c',
     'sandbox_workspace_write.network_access=true',
     ...(writableRoots.length
-      ? ['-c', `sandbox_workspace_write.writable_roots=${JSON.stringify(writableRoots)}`]
+      ? ['-c', `sandbox_workspace_write.writable_roots=${tomlStringArray(writableRoots)}`]
       : []),
   ];
 }

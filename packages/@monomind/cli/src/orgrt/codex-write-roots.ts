@@ -16,6 +16,14 @@
  * and the role's own `denyWrite` entries. Unlike the claude path, a signed
  * allowWrite does not opt in to an operator-protected path here. Roots must be
  * real directories, not symlinks, and never `/` or the home.
+ *
+ * Known limit (parity with the claude path): roots are validated by realpath
+ * when the session starts and codex opens them by path when its sandbox starts.
+ * The claude layers have the same shape (authority-mask.ts binds the realpath'd
+ * path with `--bind d d`; the SDK sandbox takes paths), and neither holds an fd
+ * or inode. A process that can write a root's PARENT directory can swap the
+ * root for a symlink in that window, so keep allowWrite roots under directories
+ * no role can write.
  */
 import { statSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
