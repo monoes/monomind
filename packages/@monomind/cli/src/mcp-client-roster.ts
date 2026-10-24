@@ -48,11 +48,6 @@ export const CORE_ADVERTISED_TOOLS = new Set([
   'memory_kg_ingest',
   'memory_kg_search',
   'memory_kg_stats',
-  // mesh: finding other agents on this host. Three small tools (~2 KB of schema); without them in
-  // the default roster a session has no reason to look for the mesh at all.
-  'mesh_who',
-  'mesh_join',
-  'mesh_leave',
 ]);
 
 /** Categories that hold at least one advertised tool (loaded by ensureCoreLoaded). */
