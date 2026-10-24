@@ -59,7 +59,8 @@ export const skillsSubcommand: Command = {
 
 export const runSubcommand: Command = {
   name: 'run',
-  description: 'Start an org (foreground daemon)',
+  description:
+    'Start an org (foreground daemon). The first run of a Claude role downloads the pinned Claude Agent SDK (about 300 MB) from npm once; set MONOMIND_NO_AUTO_INSTALL=1 to refuse that download',
   options: [
     claudePathOption,
     { name: 'task', description: 'Override the org goal for this run', type: 'string' },
@@ -127,7 +128,8 @@ export const pauseSubcommand: Command = {
 
 export const resumeSubcommand: Command = {
   name: 'resume',
-  description: 'Resume a paused org',
+  description:
+    'Resume a paused org: only clears the pause file. The host sandbox preflight ("cannot resume on this host") runs on the next `org run`, not here',
   action: resumeAction,
 };
 

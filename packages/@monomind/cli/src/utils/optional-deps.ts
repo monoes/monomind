@@ -530,8 +530,8 @@ export async function ensureOptionalDependency<T = unknown>(
   if (readOnly) throw readOnlyError(name, readOnly, env, noBinary);
 
   log(
-    `${spec.feature} needs ${name}@${spec.version} (${size}). Installing it once into ${dir} ` +
-      `(set ${NO_AUTO_INSTALL_ENV}=1 to install by hand instead)...${opts.note ? ` ${opts.note}` : ''}`,
+    `${spec.feature} needs ${name}@${spec.version} (${size}). Installing it once from the npm registry into ${dir}; ` +
+      `set ${NO_AUTO_INSTALL_ENV}=1 to refuse this download and install by hand instead...${opts.note ? ` ${opts.note}` : ''}`,
   );
   const runNpm = opts.runNpm ?? defaultRunNpm;
   try {

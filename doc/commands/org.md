@@ -71,6 +71,8 @@ monomind org run <name> [--task "..."] [--resume] [--no-cross-process] [--dry-ru
 | `--claude-path <path\|bundled>` | The operator's choice of Claude Code binary for Claude roles: an absolute file, or `bundled` to use the SDK's own. It overrides `MONOMIND_CLAUDE_PATH` and `monomind config set claude.path`. An untrusted home or config directory that names no `claude.path` is no choice (one warning), not a failure |
 | `--auto-approve <tools>` | Comma-separated tools every role may call without human approval for this run only, e.g. `org_complete` for an unattended one-shot `--task` run. Adds to each role's `policy.autoApproveTools`; other gated tools still wait. A name no role gates (not `Bash`, `WebFetch`, `WebSearch`, `org_complete` or a role's `approvalTools`) is refused, so a typo can't leave the run waiting. Also refused when an `org serve` daemon owns the project |
 
+The first run of an org with a Claude role downloads the pinned Claude Agent SDK (about 300 MB, from npm, into `~/.monomind/deps`) once, after one notice line on stderr. Set `MONOMIND_NO_AUTO_INSTALL=1` to refuse the download: the run then stops with the command to install it by hand (`monomind deps install`).
+
 A definition with a `sections` block starts like any other org. Each section runs as its own sub-org with its own roles, budget and lifecycle, and the only channel between sections is the shared document store. An org that still sets `run_config.experimental: "eval"` keeps the old behavior: `org run` and `org serve` refuse it and only the eval harness starts it. The `sections` schema is described in [Org Runtime](../concepts/org-runtime.md).
 
 The org's definition must carry a valid operator signature (see [`sign`](#sign)). An org that has
@@ -118,7 +120,7 @@ monomind org pause <name>
 
 ## `resume`
 
-Clear the pause sentinel, resuming message delivery.
+Clear the pause sentinel, resuming message delivery. This is all it does: it does not run the host sandbox preflight. A host that can no longer sandbox (for example `bwrap` gone from `PATH`) is refused with "cannot resume on this host" on the next `org run` (or `org run --resume`), not by `org resume`.
 
 ```bash
 monomind org resume <name>
@@ -165,7 +167,7 @@ monomind org status [<name>]
 ```
 
 Shows: elapsed time, events, messages, tool calls, roles, tokens used, cost in USD.
-Detects stale PIDs (process no longer alive).
+Detects stale PIDs (process no longer alive). `--format json` adds the per-section `sections` rows (see `report`).
 
 **Source:** [`commands/org-lifecycle.ts → statusAction`](packages/@monomind/cli/src/commands/org-lifecycle.ts#statusAction)
 
@@ -325,6 +327,21 @@ monomind org report <name> [options]
 
 Each role's line shows its total tokens, split into input+output and cache tokens, and — when the org config is readable — how much of its token budget it has used. That percentage is computed on the basis `budget_tokens` is enforced on: input+output by default, or the full billable total (cache included) when `run_config.budget_tokens_basis` is `"billable"`. A role is marked `near limit` at 80% and `EXHAUSTED` at 100% of that basis.
 
+
+### Per-section spend in `--format json`
+
+For an org with sections and a section budget (or an org USD budget), the JSON of `org status <name>`, `org costs` and `org report` carries a `sections` array: the rows of the section table that the `org report` text output prints, computed by the same function from the run's usage events (`sectionBudgetReportRows` in `orgrt/documents/section-budget-report.ts`). Units are the table's: USD, and a whole percent.
+
+```json
+"sections": [
+  { "name": "development", "kind": "section", "spend_usd": 3, "budget": 30, "percent_used": 10, "state": "ok", "role_caps_usd": 30 },
+  { "name": "root reserve", "kind": "reserve", "spend_usd": 0, "budget": 40, "percent_used": 0, "state": "ok", "role_caps_usd": 20 },
+  { "name": "org", "kind": "org", "spend_usd": 3, "budget": 110, "percent_used": 3, "state": "ok", "role_caps_usd": 90 }
+]
+```
+
+One row per section with an allocation, then `root reserve` when allocated, then `org`. `kind` is `section`, `reserve` or `org`. `state` is `unallocated`, `ok`, `warn` (from 80%) or `closed`. `budget` and `percent_used` are omitted when there is no allocation, and `retired_usd` (spend of replaced incarnations, included in `spend_usd`) is omitted at zero. The `sections` key is omitted entirely when the org has no section budgets, the run has no usage events or the definition is unreadable, so the JSON of such orgs is unchanged. `org status` reports the latest run recorded in `runtime.json`.
+
 ---
 
 ## `memory`
@@ -375,7 +392,7 @@ The bundled set includes skills imported with `import` from `anthropics/knowledg
 
 ## `costs`
 
-Per-role cost tracking from `runtime.json`.
+Per-role cost tracking from `runtime.json`. `--format json` adds the per-section `sections` rows (see `report`).
 
 ```bash
 monomind org costs <name> [--run <run-id>]

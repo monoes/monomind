@@ -26,6 +26,7 @@ import {
   listOrgConfigFiles,
   validateOrgName,
 } from './org-control.js';
+import { sectionsJson } from './org-observe-shared.js';
 import { reconcileStaleRun, STALE_RUN_CLOSED_BY } from './org-stale-run.js';
 
 const log = (text: string): void => {
@@ -219,6 +220,7 @@ export const statusAction = async (ctx: CommandContext): Promise<CommandResult> 
           // #296: when the idle watchdog will stop a running org, or why it won't.
           ...(status === 'running' ? readIdleStatus(ctx.cwd, t, st.run) : {}),
           ...rolesAccess(t),
+          ...sectionsJson(ctx.cwd, t, st.run),
         };
       } catch {
         return { name: t, status: 'unreadable-runtime', ...rolesAccess(t) };

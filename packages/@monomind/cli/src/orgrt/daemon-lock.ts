@@ -51,6 +51,19 @@ const NETWORK_FS = new Set([
   'fuse.sshfs',
   'fuse.glusterfs',
   'fuse.nfs',
+  // Not NFS-backed but still not host-local: VM shares and FUSE network/cloud mounts.
+  '9p',
+  'virtiofs',
+  'coda',
+  'fuse.rclone',
+  'fuse.gcsfuse',
+  'fuse.s3fs',
+  'fuse.goofys',
+  'fuse.ceph-fuse',
+  'fuse.juicefs',
+  'fuse.davfs2',
+  'fuse.curlftpfs',
+  'fuse.smbnetfs',
 ]);
 
 const unescapeMount = (s: string): string =>

@@ -5,8 +5,9 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { listRunDirs } from '../orgrt/reporting.js';
-import { ORG_DIR } from '../orgrt/types.js';
+import { sectionBudgetReportRows } from '../orgrt/documents/section-budget-report.js';
+import { listRunDirs, readRunEvents, summarizeRun } from '../orgrt/reporting.js';
+import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
 import type { CommandContext, CommandResult } from '../types.js';
 
 // ─── Agent Exec Protocol JSON output (doc/agent-exec-protocol.md §7) ────────
@@ -71,6 +72,30 @@ export const endpointRoleIds = (cwd: string, name: string): Set<string> => {
     );
   } catch {
     return new Set();
+  }
+};
+
+/** The JSON `sections` field of a run: the rows of the `org report` section table, computed by the same function
+ *  from the run's usage events. Omitted (an empty object to spread) when the org has no section budgets, the run
+ *  has no events or the definition is unreadable, so such orgs' JSON is unchanged. */
+export const sectionsJson = (
+  cwd: string,
+  name: string,
+  run: string | undefined,
+): { sections?: ReturnType<typeof sectionBudgetReportRows> } => {
+  if (!run) return {};
+  try {
+    const def = OrgDefSchema.parse(
+      JSON.parse(readFileSync(join(cwd, ORG_DIR, `${name}.json`), 'utf8')),
+    );
+    const events = readRunEvents(cwd, name, run);
+    if (!events.length) return {};
+    const roles = summarizeRun(events).roles;
+    for (const id of endpointRoleIds(cwd, name)) delete roles[id];
+    const sections = sectionBudgetReportRows(def as never, roles);
+    return sections.length ? { sections } : {};
+  } catch {
+    return {};
   }
 };
 

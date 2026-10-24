@@ -151,7 +151,58 @@ describe('ensureOptionalDependency', () => {
     expect(args.some((a) => a.startsWith('--fetch-timeout='))).toBe(true);
     expect(cwd.startsWith(depsRoot(env))).toBe(true);
     expect(readdirSync(depsRoot(env)).sort()).toEqual([`${SDK.replace('/', '+')}@${VERSION}`]);
-    expect(log.mock.calls[0][0]).toMatch(/Installing it once into/);
+    expect(log.mock.calls[0][0]).toMatch(/Installing it once from the npm registry into/);
+  });
+
+  describe('(#707) the download notice', () => {
+    it('is one line, printed before the install, naming size, source and the opt-out', async () => {
+      const order: string[] = [];
+      const npm = fakeNpm('installed');
+      await ensureOptionalDependency(SDK, {
+        ...base(),
+        log: (l: string) => {
+          order.push('log');
+          log(l);
+        },
+        runNpm: async (a, c, e) => {
+          order.push('npm');
+          await npm.run(a, c, e);
+        },
+      });
+      const notices = log.mock.calls
+        .map((c) => String(c[0]))
+        .filter((l) => /Installing it once/.test(l));
+      expect(notices).toHaveLength(1);
+      expect(notices[0]).not.toContain('\n');
+      expect(notices[0]).toMatch(/about 300 MB/);
+      expect(notices[0]).toMatch(/npm registry/);
+      expect(notices[0]).toMatch(/MONOMIND_NO_AUTO_INSTALL=1 to refuse/);
+      expect(order.indexOf('log')).toBeLessThan(order.indexOf('npm'));
+    });
+
+    it('is not printed when the SDK is already present', async () => {
+      mkdirSync(depsRoot(env), { recursive: true, mode: 0o700 });
+      writeFakeSdk(dependencyDir(SDK, env), 'from-deps');
+      const npm = fakeNpm('unused');
+      await ensureOptionalDependency(SDK, { ...base(), runNpm: npm.run });
+      expect(log.mock.calls.flat().join('\n')).not.toMatch(
+        /Installing it once/,
+      );
+      expect(npm.calls).toHaveLength(0);
+    });
+
+    it('is not printed when MONOMIND_NO_AUTO_INSTALL is set', async () => {
+      const npm = fakeNpm('unused');
+      await ensureOptionalDependency(SDK, {
+        ...base(),
+        env: { ...env, MONOMIND_NO_AUTO_INSTALL: '1' },
+        runNpm: npm.run,
+      }).catch(() => undefined);
+      expect(log.mock.calls.flat().join('\n')).not.toMatch(
+        /Installing it once/,
+      );
+      expect(npm.calls).toHaveLength(0);
+    });
   });
 
   it('reinstalls over a version that does not match the pin', async () => {
@@ -236,7 +287,7 @@ describe('ensureOptionalDependency', () => {
         runNpm: fakeNpm('x').run,
         note: 'Set MONOMIND_CLAUDE_PATH.',
       });
-      expect(log.mock.calls[0][0]).toMatch(/instead\)\.\.\. Set MONOMIND_CLAUDE_PATH\.$/);
+      expect(log.mock.calls[0][0]).toMatch(/instead\.\.\. Set MONOMIND_CLAUDE_PATH\.$/);
     });
   });
 
