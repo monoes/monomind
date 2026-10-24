@@ -14,20 +14,31 @@ import type { InitResult } from './types.js';
  * executes on every hook). Without atomicity a half-written settings.json or
  * a zero-byte hook-handler.cjs disables Claude Code's protections silently.
  */
+let tmpSeq = 0;
+
 export function atomicWriteFile(
   target: string,
   content: string | Buffer,
   encoding?: BufferEncoding,
 ): void {
-  const tmp = `${target}.${process.pid}.tmp`;
-  if (encoding && typeof content === 'string') {
-    fs.writeFileSync(tmp, content, encoding);
-  } else if (typeof content === 'string') {
-    fs.writeFileSync(tmp, content, 'utf-8');
-  } else {
-    fs.writeFileSync(tmp, content);
+  const tmp = `${target}.${process.pid}.${tmpSeq++}.tmp`;
+  try {
+    if (encoding && typeof content === 'string') {
+      fs.writeFileSync(tmp, content, encoding);
+    } else if (typeof content === 'string') {
+      fs.writeFileSync(tmp, content, 'utf-8');
+    } else {
+      fs.writeFileSync(tmp, content);
+    }
+    fs.renameSync(tmp, target);
+  } catch (err) {
+    try {
+      fs.rmSync(tmp, { force: true });
+    } catch {
+      /* best effort: the original error is the one to report */
+    }
+    throw err;
   }
-  fs.renameSync(tmp, target);
 }
 
 /**
