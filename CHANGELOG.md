@@ -8,6 +8,11 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 - **The mesh tools are no longer in the default advertised MCP roster (back to 21 tools).** 2.28.0 advertised `mesh_who`, `mesh_join` and `mesh_leave` by default and raised the schema byte budget from 16,000 to 18,000 to fit them. The lean roster of #410 is restored (16,000-byte budget, 21 tools): until sessions join the mesh by themselves, three more tools in every session cost more than they give. The tools still work exactly as before and are found with `monomind_tool_search` or called by name.
 
+### Fixed
+
+- **Generated files no longer land in a user's real home directory (#712).** The helper scripts that build the agent and skill registries (`.claude/helpers/agent-registry.cjs`, `build-skill-registry.cjs`) walked up from the working directory to the first `.monomind`/`.claude` and excluded only `os.homedir()`, which follows `$HOME`. A process run with a different `HOME` (a sandboxed org role, a QA drill) anywhere under the real home treated the real home as a project and wrote `~/.monomind/registry.json` and `~/.claude/helpers/skill-registry.json` there. The walk now also stops at `$HOME` and the passwd home, compared by canonical path so a symlinked alias is covered too.
+- **A failed temp-file rename no longer leaves the temp file behind.** All six helper scripts that write a temp file and rename it (`agent-registry`, `build-skill-registry`, `event-logger`, `intelligence`, `pick-stats`, `token-tracker`) now remove it when the write or rename fails (for example `EBUSY` on a bind-mounted target in a sandbox). This was the source of the `registry.json.<pid>.tmp` files piling up in `~/.monomind`; existing ones can be deleted by hand.
+
 ## [2.28.0] — 2026-10-24
 
 ### Added
