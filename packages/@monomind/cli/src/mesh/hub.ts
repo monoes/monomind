@@ -8,6 +8,9 @@ import { buildAddr, type Request, RequestSchema } from './protocol.js';
 import { MeshStore, StoreError } from './store.js';
 
 const MAX_LINE_BYTES = 64 * 1024;
+/** A client that lets this much reply data pile up unread is dropped instead of buffered. */
+const MAX_PENDING_OUT_BYTES = 1024 * 1024;
+const MAX_CONNECTIONS = 256;
 
 export function meshDir(): string {
   return process.env.MONOMIND_MESH_DIR || join(homedir(), '.monomind', 'mesh');
@@ -25,6 +28,8 @@ export interface HubOptions {
   goneMs?: number;
   sweepMs?: number;
   idleExitMs?: number;
+  /** A connection that sends nothing for this long is closed (default 60 s). */
+  connIdleMs?: number;
   onIdle?: () => void;
 }
 
@@ -80,6 +85,7 @@ export class MeshHub {
         /* none */
       }
       const server = createServer();
+      server.maxConnections = MAX_CONNECTIONS;
       await new Promise<void>((resolve, reject) => {
         server.once('error', reject);
         server.listen(sock, () => {
@@ -87,6 +93,8 @@ export class MeshHub {
           resolve();
         });
       });
+      // An accept-time error after startup (e.g. EMFILE) must not take the hub down.
+      server.on('error', () => {});
       const hub = new MeshHub(sock, server, store, lock, o);
       server.on('connection', (s) => hub.onConnection(s));
       hub.timer = setInterval(() => hub.sweepNow(), o.sweepMs ?? 5_000);
@@ -104,16 +112,21 @@ export class MeshHub {
     this.sockets.add(s);
     s.on('close', () => this.sockets.delete(s));
     s.setEncoding('utf8');
+    s.setTimeout(this.o.connIdleMs ?? 60_000, () => s.destroy());
     s.on('error', () => s.destroy());
     s.on('data', (chunk: string) => {
       buf += chunk;
-      if (buf.length > MAX_LINE_BYTES) return void s.destroy();
       let nl: number;
       while ((nl = buf.indexOf('\n')) >= 0) {
         const line = buf.slice(0, nl);
         buf = buf.slice(nl + 1);
-        s.write(JSON.stringify(this.handle(line)) + '\n');
+        if (Buffer.byteLength(line) > MAX_LINE_BYTES) return void s.destroy();
+        s.write(`${JSON.stringify(this.handle(line))}\n`);
+        // A client that never reads would otherwise make the hub queue unbounded reply data.
+        if (s.writableLength > MAX_PENDING_OUT_BYTES) return void s.destroy();
       }
+      // Only the unfinished tail counts against the line limit, not a chunk of many short lines.
+      if (Buffer.byteLength(buf) > MAX_LINE_BYTES) s.destroy();
     });
   }
 
@@ -128,7 +141,12 @@ export class MeshHub {
     const id = typeof (raw as { id?: unknown })?.id === 'string' ? (raw as { id: string }).id : '';
     const parsed = RequestSchema.safeParse(raw);
     if (!parsed.success) return { id, ok: false, error: 'invalid' };
-    return { id, ...this.dispatch(parsed.data) };
+    try {
+      return { id, ...this.dispatch(parsed.data) };
+    } catch {
+      // A store failure (disk full, corrupt row) must cost one request, not the whole hub.
+      return { id, ok: false, error: 'internal' };
+    }
   }
 
   private authorized(addr: string, key: string): boolean {
@@ -141,10 +159,16 @@ export class MeshHub {
     switch (r.op) {
       case 'hello': {
         const addr = buildAddr(this.o.host, r.project, r.sessionId, r.agentId);
+        // A live address belongs to whoever holds its key: nobody else may take it over.
+        if (this.keys.has(addr) && !(r.key && this.authorized(addr, r.key))) {
+          return { ok: false, error: 'addr_in_use' };
+        }
         try {
           this.store.upsertAgent(addr, r, t);
         } catch (e) {
-          if (e instanceof StoreError) return { ok: false, error: 'alias_taken' };
+          if (e instanceof StoreError) {
+            return { ok: false, error: e.code === 'LIMIT' ? 'limit' : 'alias_taken' };
+          }
           throw e;
         }
         const key = issueKey();
@@ -182,12 +206,14 @@ export class MeshHub {
     if (this.timer) clearInterval(this.timer);
     for (const s of this.sockets) s.destroy();
     await new Promise<void>((resolve) => this.server.close(() => resolve()));
-    this.store.close();
-    this.lock.release();
+    // Remove the socket while the lock is still held: after release a successor may already be
+    // listening on this path and must not have its fresh socket deleted.
     try {
       unlinkSync(this.socketPath);
     } catch {
       /* already gone */
     }
+    this.store.close();
+    this.lock.release();
   }
 }

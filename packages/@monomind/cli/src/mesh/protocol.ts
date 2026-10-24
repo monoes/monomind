@@ -8,21 +8,47 @@ export type Presence = (typeof PRESENCE)[number];
 /** Ids become address segments, so the separator and whitespace are excluded. */
 const SAFE_ID = /^[A-Za-z0-9._-]+$/;
 const id = (max: number) => z.string().min(1).max(max).regex(SAFE_ID);
-const label = z.string().trim().min(1).max(64);
+/**
+ * Everything an agent supplies ends up in front of other agents (an LLM reads `mesh_who`), so
+ * short labels are restricted to a safe charset instead of being free text.
+ */
+const SAFE_LABEL = /^[A-Za-z0-9._:+-]+$/;
+const label = z.string().trim().min(1).max(64).regex(SAFE_LABEL);
+const SAFE_ADDR = /^[A-Za-z0-9._/-]+$/;
+
+function isControl(code: number): boolean {
+  return code < 32 || (code >= 127 && code <= 159);
+}
+function hasControl(s: string): boolean {
+  for (let i = 0; i < s.length; i++) if (isControl(s.charCodeAt(i))) return true;
+  return false;
+}
+/** Free text (the task line) keeps its words but loses newlines and escape sequences. */
+function stripControl(s: string): string {
+  let out = '';
+  for (let i = 0; i < s.length; i++) out += isControl(s.charCodeAt(i)) ? ' ' : s[i];
+  return out.replace(/\s+/g, ' ').trim();
+}
 
 const helloShape = {
   tier: z.enum(TIERS),
   runtime: label,
   pid: z.number().int().positive(),
   project: id(128),
-  projectPath: z.string().min(1).max(4096),
+  projectPath: z
+    .string()
+    .min(1)
+    .max(4096)
+    .refine((p) => !hasControl(p), 'control characters are not allowed'),
   sessionId: id(128),
   agentId: id(128).optional(),
   alias: id(64).optional(),
-  task: z.string().max(500).optional(),
+  task: z.string().max(500).transform(stripControl).optional(),
   capabilities: z.array(label).max(32).default([]),
   tags: z.array(label).max(32).default([]),
-  parent: z.string().max(512).optional(),
+  parent: z.string().max(512).regex(SAFE_ADDR).optional(),
+  /** Proof of ownership when re-registering an address that is still live. */
+  key: z.string().min(1).max(128).optional(),
 };
 
 export const WhoFilterSchema = z.object({
@@ -31,7 +57,7 @@ export const WhoFilterSchema = z.object({
   status: z.enum(PRESENCE).optional(),
   capability: label.optional(),
   tag: label.optional(),
-  parent: z.string().max(512).optional(),
+  parent: z.string().max(512).regex(SAFE_ADDR).optional(),
   includeGone: z.boolean().default(false),
 });
 export type WhoFilter = z.infer<typeof WhoFilterSchema>;

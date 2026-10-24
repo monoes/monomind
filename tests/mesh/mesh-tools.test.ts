@@ -37,7 +37,23 @@ describe('mesh tools', () => {
       project: 'p1',
       status: 'active',
     });
-    expect(out).toEqual({ agents: [{ addr: 'h/p/s' }] });
+    expect(out).toMatchObject({ agents: [{ addr: 'h/p/s' }] });
+    expect((out as { note: string }).note).toMatch(/untrusted/i);
+  });
+
+  it("mesh_who defaults to the caller's own project", async () => {
+    callWithHub.mockResolvedValue({ id: 'x', ok: true, agents: [] });
+    await tool('mesh_who').handler({});
+    expect(callWithHub.mock.calls[0][0].project).toMatch(/-[0-9a-f]{16}$/);
+  });
+
+  it('mesh_who honours an explicit project and an explicit allProjects flag', async () => {
+    callWithHub.mockResolvedValue({ id: 'x', ok: true, agents: [] });
+    await tool('mesh_who').handler({ project: 'other' });
+    expect(callWithHub.mock.calls[0][0].project).toBe('other');
+    await tool('mesh_who').handler({ allProjects: true });
+    expect(callWithHub.mock.calls[1][0].project).toBeUndefined();
+    expect(callWithHub.mock.calls[1][0].allProjects).toBeUndefined();
   });
 
   it('mesh_who degrades to offline instead of throwing', async () => {
@@ -66,7 +82,7 @@ describe('mesh tools', () => {
       capabilities: ['plan'],
       pid: process.pid,
     });
-    expect(arg.sessionId).toMatch(/^s\d+$/);
+    expect(arg.sessionId).toMatch(/^s\d+-[0-9a-f]{6}$/);
     expect(arg.project).toMatch(/-[0-9a-f]{16}$/);
     expect(out).toEqual({ addr: 'h/proj/s123' });
   });

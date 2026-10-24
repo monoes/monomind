@@ -1,8 +1,16 @@
 import type { AgentInfo, HelloFields, Presence, WhoFilter } from './protocol.js';
 
+/** Live registrations one process may hold, and across the whole host. */
+const MAX_LIVE_PER_PID = 64;
+const MAX_LIVE_TOTAL = 5000;
+/** Rows `list` returns when the caller gives no limit. */
+const DEFAULT_LIST_LIMIT = 500;
+/** How long a row stays in the table (and in `includeGone` listings) after the agent left. */
+const GONE_RETENTION_MS = 24 * 60 * 60 * 1000;
+
 export class StoreError extends Error {
   constructor(
-    readonly code: 'ALIAS_TAKEN',
+    readonly code: 'ALIAS_TAKEN' | 'LIMIT',
     message: string,
   ) {
     super(message);
@@ -97,6 +105,15 @@ export class MeshStore {
   }
 
   upsertAgent(addr: string, h: HelloFields, now: number): void {
+    const live = this.db
+      .prepare(
+        `SELECT COUNT(*) AS total, COALESCE(SUM(pid = ?), 0) AS mine FROM agents
+         WHERE status != 'gone' AND addr != ?`,
+      )
+      .get(h.pid, addr) as { total: number; mine: number };
+    if (live.mine >= MAX_LIVE_PER_PID || live.total >= MAX_LIVE_TOTAL) {
+      throw new StoreError('LIMIT', 'too many live registrations');
+    }
     if (h.alias) {
       const taken = this.db
         .prepare(
@@ -153,7 +170,11 @@ export class MeshStore {
     staleMs: number,
     goneMs: number,
     isAlive: (pid: number) => boolean,
+    pruneGoneMs = GONE_RETENTION_MS,
   ): { stale: string[]; gone: string[] } {
+    this.db
+      .prepare(`DELETE FROM agents WHERE status = 'gone' AND last_seen < ?`)
+      .run(now - pruneGoneMs);
     const rows = this.db
       .prepare(`SELECT addr, pid, status, last_seen FROM agents WHERE status != 'gone'`)
       .all() as Pick<Row, 'addr' | 'pid' | 'status' | 'last_seen'>[];
@@ -172,18 +193,30 @@ export class MeshStore {
     return out;
   }
 
-  list(filter: Partial<WhoFilter> = {}): AgentInfo[] {
-    const rows = this.db.prepare(`SELECT * FROM agents ORDER BY joined_at, addr`).all() as Row[];
-    return rows.map(toInfo).filter((a) => {
-      if (filter.project && a.project !== filter.project) return false;
-      if (filter.tier && a.tier !== filter.tier) return false;
-      if (filter.status ? a.status !== filter.status : !filter.includeGone && a.status === 'gone')
-        return false;
-      if (filter.capability && !a.capabilities.includes(filter.capability)) return false;
-      if (filter.tag && !a.tags.includes(filter.tag)) return false;
-      if (filter.parent && a.parent !== filter.parent) return false;
-      return true;
-    });
+  list(filter: Partial<WhoFilter> = {}, limit = DEFAULT_LIST_LIMIT): AgentInfo[] {
+    const where: string[] = [];
+    const args: unknown[] = [];
+    const eq = (column: string, value: string | undefined) => {
+      if (!value) return;
+      where.push(`${column} = ?`);
+      args.push(value);
+    };
+    eq('project', filter.project);
+    eq('tier', filter.tier);
+    eq('status', filter.status);
+    if (!filter.status && !filter.includeGone) where.push(`status != 'gone'`);
+    eq('parent', filter.parent);
+    if (filter.capability) {
+      where.push('EXISTS (SELECT 1 FROM json_each(capabilities) WHERE value = ?)');
+      args.push(filter.capability);
+    }
+    if (filter.tag) {
+      where.push('EXISTS (SELECT 1 FROM json_each(tags) WHERE value = ?)');
+      args.push(filter.tag);
+    }
+    const sql = `SELECT * FROM agents ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+                 ORDER BY joined_at, addr LIMIT ?`;
+    return (this.db.prepare(sql).all(...args, limit) as Row[]).map(toInfo);
   }
 
   liveCount(): number {
