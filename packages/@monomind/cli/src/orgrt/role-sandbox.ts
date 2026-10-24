@@ -180,7 +180,11 @@ export function resolveRoleGitEnforcement(args: {
         bus,
         role.id,
         'git-sandbox-cli',
-        `policy.git '${level}' on runtime ${runtime} runs the CLI's own sandbox ('${cliMode}'): writes confined to the role's cwd and temp dir, $HOME and the rest of the filesystem read-only. It has no per-tool gate and no .git deny rules, so git itself still rests on the guard hooks and withheld credentials.`,
+        `policy.git '${level}' on runtime ${runtime} runs the CLI's own sandbox ('${cliMode}'): writes confined to the role's cwd and temp dir${
+          runtime === 'codex' && role.policy?.sandbox?.allowWrite?.length
+            ? ' plus the policy.sandbox.allowWrite directories granted (audit codex-write-roots)'
+            : ''
+        }, $HOME and the rest of the filesystem read-only. It has no per-tool gate and no .git deny rules, so git itself still rests on the guard hooks and withheld credentials.`,
         data,
       );
     } else {

@@ -47,6 +47,10 @@ export interface AgentRunArgs {
    *  modes RUNNER_SANDBOX_MODES lists for it (#482 added `restricted` and
    *  copilot/antigravity/opencode/pi); agent-exec refuses the rest. */
   sandbox?: 'read-only' | 'restricted' | 'workspace-write' | 'full';
+  /** Extra writable directories for a CLI runner's own workspace-write sandbox,
+   *  from the role's `policy.sandbox.allowWrite` after safety filtering
+   *  (codex-write-roots.ts). Only CodexAgentRunner reads it. */
+  writableRoots?: string[];
   /** The mailbox prompt stream (or any async iterable of prompt messages). */
   prompt: AsyncIterable<any>;
   /** rev 32 (agent exec `--attach`): image files for the first prompt

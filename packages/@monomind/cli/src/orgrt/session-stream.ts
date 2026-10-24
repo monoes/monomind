@@ -62,6 +62,8 @@ export function sessionRunArgs(
     resolvedAccess?: ResolvedAccess;
     /** Sections orgs: the variables that point a non-Claude runner at its role's private directory (documents/runtime-isolation.ts). */
     runtimeEnv?: Record<string, string>;
+    /** codex only: filtered policy.sandbox.allowWrite (codex-write-roots.ts). */
+    writableRoots?: string[];
   },
 ): Parameters<AgentRunner['run']>[0] {
   const { org, role, policy, mailbox, cwd } = opts;
@@ -79,6 +81,7 @@ export function sessionRunArgs(
     abort,
     resolvedAccess,
     runtimeEnv,
+    writableRoots,
   } = s;
   const fullAccess = resolvedAccess?.access === 'full';
   return {
@@ -182,6 +185,7 @@ export function sessionRunArgs(
     resume,
     claudeRestrictions: gitEnforcement.claudeRestrictions,
     authorityMask,
+    ...(writableRoots ? { writableRoots } : {}),
     // ADR-O001 D2: tool results are 76% of a role's context mass and nothing
     // bounded them. Under the ORG STATE dir (never the workspace cwd, which
     // may be the repo), and under orgRoot — which file-roots.ts already

@@ -64,12 +64,22 @@ export const CLI_SANDBOX_MODES: Record<string, string> = {
   grok: 'workspace',
 };
 
-/** `codex exec` sandbox flags for a role at `level`. */
-export function codexSandboxArgs(level: GitLevel): string[] {
+/** `codex exec` sandbox flags for a role at `level`. `writableRoots` (already
+ *  filtered, codex-write-roots.ts) are extra writable directories of the
+ *  workspace-write sandbox; none at 'push' (danger-full-access). */
+export function codexSandboxArgs(level: GitLevel, writableRoots: string[] = []): string[] {
   if (level === 'push') return ['--sandbox', 'danger-full-access'];
   // Network stays on: installs, builds and `git fetch` are legitimate at every
   // level, and the barrier against publishing is the withheld credentials.
-  return ['--sandbox', 'workspace-write', '-c', 'sandbox_workspace_write.network_access=true'];
+  return [
+    '--sandbox',
+    'workspace-write',
+    '-c',
+    'sandbox_workspace_write.network_access=true',
+    ...(writableRoots.length
+      ? ['-c', `sandbox_workspace_write.writable_roots=${JSON.stringify(writableRoots)}`]
+      : []),
+  ];
 }
 
 /** `grok` sandbox flags for a role at `level` (none at 'push' — the profile

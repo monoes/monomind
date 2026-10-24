@@ -49,9 +49,18 @@ export function runDefectWarnings(def: OrgDef, agents: Role[]): string[] {
       out.push(
         `#24 role "${r.id}" runs on antigravity, which has no OS sandbox: its fileRead/fileWrite scopes are a request to the model, not enforced — it can read or write outside them`,
       );
-    if (runtime === 'codex' && (r.policy?.fileRead?.length || r.policy?.fileWrite?.length))
+    if (runtime === 'codex' && (r.policy?.fileRead?.length || r.policy?.fileWrite?.length)) {
+      const granted = r.policy?.sandbox?.allowWrite?.length
+        ? " plus the directories of policy.sandbox.allowWrite that pass the runtime's safety checks"
+        : '';
       out.push(
-        `#24 role "${r.id}" runs on codex, whose own sandbox confines writes to the working directory but does not restrict reads: its fileRead scope is not enforced (it can read files it does not list), and its fileWrite only as far as the working directory — do not rely on either to keep it blind or out of a folder`,
+        `#24 role "${r.id}" runs on codex, whose own sandbox confines writes to the working directory${granted} but does not restrict reads: its fileRead scope is not enforced (it can read files it does not list), and its fileWrite only as far as the writable directories — do not rely on either to keep it blind or out of a folder`,
+      );
+    }
+    // codex can add writable roots but cannot deny a path inside one.
+    if (runtime === 'codex' && r.policy?.sandbox?.denyWrite?.length)
+      out.push(
+        `#24 role "${r.id}" runs on codex, which cannot deny writes inside a writable directory: policy.sandbox.denyWrite is not enforced inside the working directory, and an allowWrite directory that holds or sits inside a denyWrite entry is not granted at all (the audit event codex-write-roots names it)`,
       );
   }
 
