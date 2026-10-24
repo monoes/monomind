@@ -52,9 +52,12 @@ function summaryRequest(nonce: string): string {
 /** Every character that ends a line for some reader (not only \n): normalised to \n so each
  *  line can be told apart and quoted. */
 const LINE_BREAKS = /\r\n|[\r\u000B\u000C\u0085\u2028\u2029]/g;
-/** C0/C1 controls (tab and newline kept), zero-width and bidi-control characters. */
+/** C0/C1 controls (tab and newline kept) and every invisible character: Unicode's default-ignorable
+ *  code points (zero-width, bidi marks, variation selectors, tags, the combining grapheme joiner,
+ *  Mongolian vowel separator...) and the format class (soft hyphen, Arabic letter mark...). A fixed
+ *  list always misses one, and a missed one can split a delimiter so it rebuilds after stripping. */
 const INVISIBLE =
-  /[\u0000-\u0008\u000E-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g;
+  /[\u0000-\u0008\u000E-\u001F\u007F-\u009F]|[\p{Default_Ignorable_Code_Point}\p{Cf}]/gu;
 const normalizeLines = (text: string): string =>
   text.replace(LINE_BREAKS, '\n').replace(INVISIBLE, '');
 
