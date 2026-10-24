@@ -7,6 +7,7 @@ import { FenceConfigSchema, type ProviderSchema, type RolePolicySchema } from '.
 import {
   DEFAULT_MAX_TURNS_PER_MESSAGE,
   MAX_BLOCK_RECHECK_MINUTES,
+  MAX_ROLE_RESETS,
   MAX_TOOL_ROUNDS_LIMIT,
   RoleSchema,
 } from './types-role.js';
@@ -213,8 +214,8 @@ export const OrgDefSchema = z
         max_role_respawns: z.number().int().nonnegative().default(0),
         /** Cap on accepted org_compact_role / org_clear_role calls per role per run — a
          *  context reset is not a crash recovery, so it never uses max_role_respawns.
-         *  Unset or 0: the tools are not offered (opt in; 10 is a sensible value). */
-        max_role_resets: z.number().int().nonnegative().optional(),
+         *  Unset or 0: the tools are not offered (opt in; 10 is a sensible value). At most MAX_ROLE_RESETS (100). */
+        max_role_resets: z.number().int().nonnegative().max(MAX_ROLE_RESETS).optional(),
         /** How long a draining role's mailbox gets to finish its in-flight message
          *  before a forced stop. */
         respawn_drain_timeout_ms: z.number().int().nonnegative().default(30_000),

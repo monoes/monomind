@@ -41,6 +41,12 @@ export class Mailbox {
    *  tell them apart from real deliveries and the restart loop can detect a role
    *  that is spinning on its own continuations without making progress. */
   static readonly CONTINUE_PREFIX = '[system:turn-continue]';
+  /** Prefix of the daemon's own request to a live session (the compaction summary request). It
+   *  belongs to the session it was sent to: a replacement never inherits it (see isInternal). */
+  static readonly INTERNAL_PREFIX = '[system: context compaction';
+  static isInternal(text: string): boolean {
+    return text.startsWith(Mailbox.INTERNAL_PREFIX);
+  }
   private queue: string[] = [];
   private wake: (() => void) | null = null;
   private closed = false;
@@ -77,6 +83,14 @@ export class Mailbox {
    *  a role waiting for work is not stalled on it. */
   get awaitingMail(): boolean {
     return this.parked && this.queue.length === 0;
+  }
+
+  /** Take one still-queued message back out (a request nobody consumed). True when it was queued. */
+  removeQueued(text: string): boolean {
+    const i = this.queue.indexOf(text);
+    if (i < 0) return false;
+    this.queue.splice(i, 1);
+    return true;
   }
 
   /** The runner is inside a turn (a message was yielded and its result has not arrived). */

@@ -9,6 +9,12 @@ import { roleResetCap } from '../../src/orgrt/role-reset.js';
 import { buildOrgTools } from '../../src/orgrt/session.js';
 import { OrgDefSchema } from '../../src/orgrt/types.js';
 
+/** The reply a session gives to a compaction request: the summary between the request's own markers. */
+export const markedReply = (request: string, body: string): string => {
+  const nonce = /<<<SUMMARY (\w+)>>>/.exec(request)?.[1] ?? 'missing';
+  return `<<<SUMMARY ${nonce}>>>\n${body}\n<<<END SUMMARY ${nonce}>>>`;
+};
+
 /** Replies to the compaction request with `summary()`; every other message is a turn that says nothing. */
 function summarizingRunner(summary: () => string | undefined) {
   return {
@@ -16,7 +22,7 @@ function summarizingRunner(summary: () => string | undefined) {
       for await (const m of args.prompt) {
         if (String(m.message.content).includes('[system: context compaction]')) {
           const s = summary();
-          if (s !== undefined) yield { type: 'assistant', text: s };
+          if (s !== undefined) yield { type: 'assistant', text: markedReply(String(m.message.content), s) };
         }
         yield { type: 'result', subtype: 'success' };
       }
@@ -88,7 +94,7 @@ describe('org_compact_role / org_clear_role', () => {
           const c = String(m.message.content);
           seen.push(c);
           if (c.includes('[system: context compaction]'))
-            yield { type: 'assistant', text: 'GOAL: ship it. OPEN: tests.' };
+            yield { type: 'assistant', text: markedReply(c, 'GOAL: ship it. OPEN: tests.') };
           yield { type: 'result', subtype: 'success' };
         }
       },

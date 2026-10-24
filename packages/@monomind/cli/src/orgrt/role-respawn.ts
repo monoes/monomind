@@ -5,6 +5,7 @@ import type { OrgDaemon } from './daemon.js';
 import type { AgentRuntime, RunningOrg } from './daemon-types.js';
 import { hostPreflight } from './documents/preflight.js';
 import { sectionsSurface } from './documents/surface.js';
+import { Mailbox } from './mailbox.js';
 import { resolveRoleProvider } from './provider.js';
 import {
   buildRespawnReceipt,
@@ -325,7 +326,8 @@ export async function replaceRole(
     });
   };
   const oldRuntime = slot.runtime!;
-  const sweptQueue = oldRuntime.mailbox.beginDrain();
+  // The daemon's own summary request belongs to the old session; the replacement never gets it.
+  const sweptQueue = oldRuntime.mailbox.beginDrain().filter((m) => !Mailbox.isInternal(m));
   slot.queuedDuringSwap.push(...sweptQueue);
   const drainTimeoutMs = running.def.run_config.respawn_drain_timeout_ms ?? 30_000;
   const drained = await Promise.race([
@@ -364,7 +366,7 @@ export async function replaceRole(
   // entirely, keyed by role.id, which never changes). Reclaim any message
   // abandoned mid-yield by a forced stop for at-least-once redelivery.
   oldRuntime.mailbox.reclaimInFlight();
-  const reclaimedQueue = oldRuntime.mailbox.serialize().queue;
+  const reclaimedQueue = oldRuntime.mailbox.serialize().queue.filter((m) => !Mailbox.isInternal(m));
   reclaimed = { start: slot.queuedDuringSwap.length, count: reclaimedQueue.length };
   slot.queuedDuringSwap.push(...reclaimedQueue);
   // Step 9: retire accounting BEFORE replacing the runtime.
@@ -405,6 +407,9 @@ export async function replaceRole(
   if (running.def.roles.find((r) => r.id === input.roleId)?.budget_usd !== undefined) {
     newRuntime.policy.setUsageUsd(slot.retiredUsage.costUsd);
   }
+  // A reset is not a fresh allowance: what the role spent before comes off its token ceiling, so
+  // clearing or compacting cannot be used to spend the cap again. (Respawn keeps its own rules.)
+  if (mode.kind === 'reset') newRuntime.policy.lowerTokenCap(slot.retiredUsage.tokens);
   // "Ready" here means "did not crash within the startup window" — a
   // silent-but-healthy runner (one that never emits a chat/tool/usage
   // event, e.g. because it hasn't finished its first turn yet) must not be
@@ -455,6 +460,7 @@ export async function replaceRole(
         {},
       );
       for (const queued of slot.queuedDuringSwap) rolledBack.mailbox.push(queued);
+      if (mode.kind === 'reset') rolledBack.policy.lowerTokenCap(slot.retiredUsage.tokens);
       running.agents.set(input.roleId, rolledBack);
       slot.runtime = rolledBack;
       slot.abort = rolledBackAbort;
