@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { callWithHub, meshCall, type Reply } from './client.js';
 import type { HelloFields } from './protocol.js';
 
@@ -38,7 +39,9 @@ export function createSessionPresence(
     hello: Record<string, unknown>,
     key?: string,
   ): Promise<{ addr: string; key: string }> {
-    const r = await call({ ...hello, ...(key ? { key } : {}), id: nextId() });
+    // The nonce is fixed for this attempt, so a retry of a lost reply is recognised by the hub.
+    const nonce = randomBytes(16).toString('hex');
+    const r = await call({ ...hello, ...(key ? { key } : {}), nonce, id: nextId() });
     if (!r.ok) throw new Error(String(r.error ?? 'hello failed'));
     return { addr: r.addr as string, key: r.key as string };
   }

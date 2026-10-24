@@ -230,3 +230,22 @@ describe('session presence: failure paths', () => {
     await p.leave();
   });
 });
+
+describe('session presence: retry safety', () => {
+  it('puts a fresh random nonce on every hello it sends', async () => {
+    const call = vi.fn(
+      async (req: Record<string, unknown>): Promise<Reply> =>
+        req.op === 'hello'
+          ? { id: 'x', ok: true, addr: 'h/p1/s1', key: 'k' }
+          : { id: 'x', ok: false, error: 'unauthorized' },
+    );
+    const p = createSessionPresence(call, 1000);
+    await p.join(input);
+    await vi.advanceTimersByTimeAsync(1100); // an unauthorized beat re-registers
+    const hellos = call.mock.calls.filter(([r]) => r.op === 'hello').map(([r]) => r.nonce);
+    expect(hellos).toHaveLength(2);
+    for (const n of hellos) expect(n).toMatch(/^[0-9a-f]{32}$/);
+    expect(hellos[0]).not.toBe(hellos[1]);
+    await p.leave();
+  });
+});

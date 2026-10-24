@@ -61,6 +61,14 @@ const helloShape = {
   parent: z.string().max(512).regex(SAFE_ADDR).optional(),
   /** Proof of ownership when re-registering an address that is still live. */
   key: z.string().min(1).max(128).optional(),
+  /**
+   * Random per attempt and repeated unchanged when a request is retried: it lets the hub recognise
+   * a `hello` whose reply was lost as the same originator, not a stranger asking for the address.
+   */
+  nonce: z
+    .string()
+    .regex(/^[A-Za-z0-9]{16,64}$/)
+    .optional(),
 };
 
 export const WhoFilterSchema = z.object({

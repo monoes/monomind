@@ -48,6 +48,7 @@ interface Row {
   last_seen: number;
   joined_at: number;
   key_hash: string | null;
+  nonce_hash: string | null;
 }
 
 const SCHEMA = `
@@ -66,7 +67,8 @@ CREATE TABLE IF NOT EXISTS agents (
   status TEXT NOT NULL,
   last_seen INTEGER NOT NULL,
   joined_at INTEGER NOT NULL,
-  key_hash TEXT
+  key_hash TEXT,
+  nonce_hash TEXT
 );
 CREATE INDEX IF NOT EXISTS agents_project_status ON agents(project, status);
 CREATE INDEX IF NOT EXISTS agents_status_seen ON agents(status, last_seen);
@@ -106,10 +108,13 @@ export class MeshStore {
     const db = new Database(file);
     db.pragma('journal_mode = WAL');
     db.exec(SCHEMA);
-    try {
-      db.exec('ALTER TABLE agents ADD COLUMN key_hash TEXT'); // a database made before key hashes
-    } catch {
-      /* the column already exists */
+    // Databases made before these columns existed.
+    for (const column of ['key_hash', 'nonce_hash']) {
+      try {
+        db.exec(`ALTER TABLE agents ADD COLUMN ${column} TEXT`);
+      } catch {
+        /* the column already exists */
+      }
     }
     return new MeshStore(db);
   }
@@ -161,8 +166,18 @@ export class MeshStore {
   }
 
   /** Remembers who owns a live address. Only a hash is stored, never the key itself. */
-  setKeyHash(addr: string, hash: string): void {
-    this.db.prepare(`UPDATE agents SET key_hash = ? WHERE addr = ?`).run(hash, addr);
+  setKeyHash(addr: string, hash: string, nonceHash?: string): void {
+    this.db
+      .prepare(`UPDATE agents SET key_hash = ?, nonce_hash = ? WHERE addr = ?`)
+      .run(hash, nonceHash ?? null, addr);
+  }
+
+  /** Hash of the nonce the current owner registered with, if it sent one. */
+  nonceHashOf(addr: string): string | undefined {
+    const r = this.db
+      .prepare(`SELECT nonce_hash FROM agents WHERE addr = ? AND status != 'gone'`)
+      .get(addr) as { nonce_hash: string | null } | undefined;
+    return r?.nonce_hash ?? undefined;
   }
 
   /** The owner's key hash, or undefined when the address is free (unknown, gone, or never keyed). */

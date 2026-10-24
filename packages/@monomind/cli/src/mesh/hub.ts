@@ -1,8 +1,9 @@
-import { chmodSync, lstatSync, mkdirSync, unlinkSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { chmodSync, lstatSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer, type Server, type Socket } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { acquireDaemonLock, type DaemonLockHandle } from '../orgrt/daemon-lock.js';
+import { acquireDaemonLock, DaemonLockError, type DaemonLockHandle } from '../orgrt/daemon-lock.js';
 import { hashKey, issueKey, keysMatch } from './identity.js';
 import { buildAddr, type Request, RequestSchema } from './protocol.js';
 import { DEFAULT_LIST_LIMIT, MeshStore, StoreError } from './store.js';
@@ -17,6 +18,30 @@ export function meshDir(): string {
 }
 export function socketPathFor(dir: string): string {
   return join(dir, 'hub.sock');
+}
+
+/**
+ * The name this host's hub lock is taken under. daemon-lock derives its (Linux abstract-socket)
+ * name from the directory path and this string, and anyone can bind such a name, so a lock named
+ * only after the path could be squatted by another user to keep the hub from ever starting.
+ * Mixing in a secret kept inside the 0700 directory makes the name unguessable to them.
+ */
+async function lockName(dir: string): Promise<string> {
+  const file = join(dir, 'lock-token');
+  try {
+    writeFileSync(file, randomBytes(32).toString('hex'), { flag: 'wx', mode: 0o600 });
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+  }
+  // Another hub starting at the same moment may still be writing the token.
+  for (let i = 0; i < 50; i++) {
+    const token = readFileSync(file, 'utf8').trim();
+    if (/^[0-9a-f]{64}$/.test(token)) return `mesh-${token}`;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  const fresh = randomBytes(32).toString('hex'); // an earlier hub died half-way through writing
+  writeFileSync(file, fresh, { mode: 0o600 });
+  return `mesh-${fresh}`;
 }
 
 /**
@@ -96,7 +121,15 @@ export class MeshHub {
     chmodSync(o.dir, 0o700);
     const problem = privateDirProblem(o.dir);
     if (problem) throw new Error(problem);
-    const lock = await acquireDaemonLock(o.dir, 'mesh');
+    let lock: DaemonLockHandle;
+    try {
+      lock = await acquireDaemonLock(o.dir, await lockName(o.dir));
+    } catch (e) {
+      // The library's message names the lock, which here embeds the secret token.
+      if (e instanceof DaemonLockError)
+        throw new DaemonLockError(e.code, 'mesh hub lock not available');
+      throw e;
+    }
     let store: MeshStore | undefined;
     try {
       store = await MeshStore.open(join(o.dir, 'mesh.db'));
@@ -185,6 +218,13 @@ export class MeshHub {
     return owner !== undefined && keysMatch(owner, hashKey(key));
   }
 
+  /** The caller proves it owns a live address by its key, or by repeating the nonce it registered with. */
+  private ownsAddress(addr: string, key?: string, nonce?: string): boolean {
+    if (key && this.authorized(addr, key)) return true;
+    const registered = this.store.nonceHashOf(addr);
+    return nonce !== undefined && registered !== undefined && keysMatch(registered, hashKey(nonce));
+  }
+
   private dispatch(r: Request): Reply {
     const t = this.now();
     switch (r.op) {
@@ -192,7 +232,7 @@ export class MeshHub {
         const addr = buildAddr(this.o.host, r.project, r.sessionId, r.agentId);
         // A live address belongs to whoever holds its key, also after a hub restart: nobody else
         // may take it over.
-        if (this.store.keyHashOf(addr) !== undefined && !(r.key && this.authorized(addr, r.key))) {
+        if (this.store.keyHashOf(addr) !== undefined && !this.ownsAddress(addr, r.key, r.nonce)) {
           return { ok: false, error: 'addr_in_use' };
         }
         try {
@@ -204,7 +244,7 @@ export class MeshHub {
           throw e;
         }
         const key = issueKey();
-        this.store.setKeyHash(addr, hashKey(key));
+        this.store.setKeyHash(addr, hashKey(key), r.nonce ? hashKey(r.nonce) : undefined);
         return { ok: true, addr, key };
       }
       case 'heartbeat':

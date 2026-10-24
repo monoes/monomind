@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, rmSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { connect } from 'node:net';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +6,7 @@ import { callWithHub, meshCall } from '../../packages/@monomind/cli/src/mesh/cli
 import { MeshHub, socketPathFor } from '../../packages/@monomind/cli/src/mesh/hub.js';
 import { RequestSchema } from '../../packages/@monomind/cli/src/mesh/protocol.js';
 import { MeshStore, StoreError } from '../../packages/@monomind/cli/src/mesh/store.js';
+import { acquireDaemonLock } from '../../packages/@monomind/cli/src/orgrt/daemon-lock.js';
 
 const cleanups: Array<() => Promise<void> | void> = [];
 afterEach(async () => {
@@ -433,5 +434,63 @@ describe('round 2: private directory', () => {
     await expect(meshCall({ op: 'who', id: '1' }, { dir, timeoutMs: 100 })).rejects.toThrow(
       /private/,
     );
+  });
+});
+
+describe('round 3: the hub lock cannot be squatted', () => {
+  it('starts even when someone already holds the old, guessable lock name', async () => {
+    const dir = tmpDir();
+    const squat = await acquireDaemonLock(dir, 'mesh'); // what another user could compute and bind
+    cleanups.push(() => squat.release());
+    await startHub(dir);
+    expect(await meshCall(hello(), { dir })).toMatchObject({ ok: true });
+  });
+
+  it('keeps its lock name in a private file inside the mesh directory', async () => {
+    const dir = tmpDir();
+    await startHub(dir);
+    expect(statSync(join(dir, 'lock-token')).mode & 0o777).toBe(0o600);
+  });
+});
+
+describe('round 3: a retried hello is not a stranger', () => {
+  const nonce = 'a'.repeat(32);
+
+  it('lets the same originator repeat a hello whose reply was lost, and nobody else', async () => {
+    const dir = tmpDir();
+    await startHub(dir);
+    const first = await meshCall(hello({ nonce }), { dir });
+    expect(first).toMatchObject({ ok: true });
+    const retry = await meshCall(hello({ nonce }), { dir });
+    expect(retry).toMatchObject({ ok: true, addr: first.addr });
+    expect(retry.key).not.toBe(first.key);
+    // the lost reply's key is dead, the new one works
+    expect(
+      await meshCall({ op: 'heartbeat', id: 'a', addr: first.addr, key: first.key }, { dir }),
+    ).toMatchObject({ ok: false, error: 'unauthorized' });
+    expect(
+      await meshCall({ op: 'heartbeat', id: 'b', addr: retry.addr, key: retry.key }, { dir }),
+    ).toMatchObject({ ok: true });
+    expect(await meshCall(hello({ nonce: 'b'.repeat(32) }), { dir })).toMatchObject({
+      ok: false,
+      error: 'addr_in_use',
+    });
+    expect(await meshCall(hello(), { dir })).toMatchObject({ ok: false, error: 'addr_in_use' });
+  });
+
+  it('only accepts a well-formed nonce', () => {
+    const base = {
+      op: 'hello',
+      id: '1',
+      tier: 'session',
+      runtime: 'claude-code',
+      pid: 5,
+      project: 'p',
+      projectPath: '/w',
+      sessionId: 's',
+    };
+    expect(RequestSchema.safeParse({ ...base, nonce: 'short' }).success).toBe(false);
+    expect(RequestSchema.safeParse({ ...base, nonce: `${'a'.repeat(31)}\n` }).success).toBe(false);
+    expect(RequestSchema.safeParse({ ...base, nonce: 'a'.repeat(32) }).success).toBe(true);
   });
 });
