@@ -497,10 +497,10 @@ describe('agent exec: canUseTool gate', () => {
       ).resolves.toMatchObject({ behavior: 'allow' });
     });
 
-    it('a trailing lone backslash does not throw', async () => {
+    it('a trailing lone backslash does not throw and is refused', async () => {
       const canUseTool = await capturedCanUseTool(['monomind foo']);
       await expect(canUseTool('Bash', { command: 'monomind foo \\' })).resolves.toMatchObject({
-        behavior: 'allow',
+        behavior: 'deny',
       });
     });
   });
