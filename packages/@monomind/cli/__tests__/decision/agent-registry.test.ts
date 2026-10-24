@@ -1,13 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  utimesSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -112,6 +103,25 @@ describe('findProjectRoot', () => {
     mkdirSync(join(home, 'proj', '.monomind'), { recursive: true });
     mkdirSync(join(home, 'proj', 'src'));
     expect(findProjectRoot(join(home, 'proj', 'src'))).toBe(join(home, 'proj'));
+  });
+
+  // A symlink that points at the passwd home is the same directory: walking up
+  // through the alias must not make it a project either.
+  it('never treats a symlinked alias of the passwd home as a project', () => {
+    const passwdHome = mkdtempSync(join(tmpdir(), 'agent-registry-passwd-'));
+    const aliasParent = mkdtempSync(join(tmpdir(), 'agent-registry-alias-'));
+    const alias = join(aliasParent, 'home-alias');
+    mkdirSync(join(passwdHome, '.monomind'));
+    mkdirSync(join(passwdHome, 'work'));
+    symlinkSync(passwdHome, alias);
+    const spy = vi.spyOn(userInfoOwner, 'userInfo').mockReturnValue({ homedir: passwdHome } as never);
+    try {
+      expect(findProjectRoot(join(alias, 'work'), home)).toBeNull();
+    } finally {
+      spy.mockRestore();
+      rmSync(aliasParent, { recursive: true, force: true });
+      rmSync(passwdHome, { recursive: true, force: true });
+    }
   });
 });
 

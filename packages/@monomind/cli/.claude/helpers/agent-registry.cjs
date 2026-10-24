@@ -399,7 +399,20 @@ function ensure(root, opts) {
 function homeDirs(home) {
   var out = [home || os.homedir(), process.env.HOME];
   try { out.push(os.userInfo().homedir); } catch (e) { /* no passwd entry */ }
-  return out.filter(Boolean).map(function (d) { return path.resolve(d); });
+  var dirs = [];
+  out.filter(Boolean).forEach(function (d) {
+    var resolved = path.resolve(d);
+    dirs.push(resolved);
+    // The canonical path too: a symlink to the home is the same directory.
+    try { dirs.push(fs.realpathSync.native(resolved)); } catch (e) { /* not on disk */ }
+  });
+  return dirs;
+}
+
+/** True when `dir` is one of the home directories, by name or by canonical path. */
+function isHomeDir(dir, stopAt) {
+  if (stopAt.indexOf(dir) !== -1) return true;
+  try { return stopAt.indexOf(fs.realpathSync.native(dir)) !== -1; } catch (e) { return false; }
 }
 
 /**
@@ -412,7 +425,7 @@ function findProjectRoot(cwd, home) {
   var stopAt = homeDirs(home);
   var dir = path.resolve(cwd);
   for (;;) {
-    if (stopAt.indexOf(dir) !== -1) return null;
+    if (isHomeDir(dir, stopAt)) return null;
     if (fs.existsSync(path.join(dir, '.claude', 'agents')) || fs.existsSync(path.join(dir, '.monomind'))) return dir;
     if (fs.existsSync(path.join(dir, '.git'))) return null;
     var parent = path.dirname(dir);
