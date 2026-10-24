@@ -6,7 +6,6 @@ import { randomBytes } from 'node:crypto';
 import type { OrgDaemon } from './daemon.js';
 import type { AgentRuntime, RunningOrg } from './daemon-types.js';
 
-import { Mailbox } from './mailbox.js';
 import { type ReplaceMode, replaceRole } from './role-respawn.js';
 import { boundedString, type RespawnInput } from './role-slot.js';
 import { isTerminalStatus } from './task-dag.js';
@@ -31,6 +30,8 @@ export function roleResetCap(rc: OrgDef['run_config']): number {
   return rc.max_role_resets ?? 0;
 }
 
+const REQUEST_TAG = '[system: context compaction]';
+
 const summaryMarkers = (nonce: string) => ({
   begin: `<<<SUMMARY ${nonce}>>>`,
   end: `<<<END SUMMARY ${nonce}>>>`,
@@ -41,20 +42,49 @@ const summaryMarkers = (nonce: string) => ({
 function summaryRequest(nonce: string): string {
   const { begin, end } = summaryMarkers(nonce);
   return (
-    `${Mailbox.INTERNAL_PREFIX}] Your session is about to be replaced by a fresh one that starts from your reply. ` +
+    `${REQUEST_TAG} Your session is about to be replaced by a fresh one that starts from your reply. ` +
     'Reply with no tool calls and nothing but the summary, between these two marker lines, written exactly as shown:\n' +
     `${begin}\n<your summary>\n${end}\n` +
     'The summary covers the goal you are working toward, decisions made, key facts and file paths, what is done, and what is still open or pending.'
   );
 }
 
-/** The text between this request's markers, or '' when the reply carries none. */
+/** Every character that ends a line for some reader (not only \n): normalised to \n so each
+ *  line can be told apart and quoted. */
+const LINE_BREAKS = /\r\n|[\r\u000B\u000C\u0085\u2028\u2029]/g;
+/** C0/C1 controls (tab and newline kept), zero-width and bidi-control characters. */
+const INVISIBLE =
+  /[\u0000-\u0008\u000E-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g;
+const normalizeLines = (text: string): string =>
+  text.replace(LINE_BREAKS, '\n').replace(INVISIBLE, '');
+
+/** The summary between this request's markers, or '' unless the reply holds exactly one begin
+ *  marker and, after it, exactly one end marker, each alone on its line. A request's nonce is
+ *  known to the session being asked, so anything looser lets the session pick what is read. */
 function extractSummary(replies: string, nonce: string): string {
   const { begin, end } = summaryMarkers(nonce);
-  const from = replies.lastIndexOf(begin);
-  if (from < 0) return '';
-  const to = replies.indexOf(end, from + begin.length);
-  return to < 0 ? '' : replies.slice(from + begin.length, to).trim();
+  const lines = normalizeLines(replies).split('\n');
+  let from = -1;
+  let to = -1;
+  for (const [i, line] of lines.entries()) {
+    const t = line.trim();
+    const hasBegin = line.includes(begin);
+    const hasEnd = line.includes(end);
+    if (!hasBegin && !hasEnd) continue;
+    if ((hasBegin && t !== begin) || (hasEnd && t !== end)) return ''; // text on a marker line
+    if (hasBegin) {
+      if (from >= 0) return ''; // a second begin (repeated or nested)
+      from = i;
+    } else {
+      if (to >= 0) return ''; // a second end
+      to = i;
+    }
+  }
+  if (from < 0 || to < from) return '';
+  return lines
+    .slice(from + 1, to)
+    .join('\n')
+    .trim();
 }
 
 /** The new session's opening message. The summary is model output: it goes in fenced, every
@@ -62,7 +92,7 @@ function extractSummary(replies: string, nonce: string): string {
  *  mail, coordinator, system or tool message. */
 function compactBriefing(roleId: string, reason: string, summary: string): string {
   const fence = randomBytes(8).toString('hex');
-  const quoted = summary
+  const quoted = normalizeLines(summary)
     .replaceAll('<<<', '<<\u200b<')
     .replaceAll('>>>', '>>\u200b>')
     .split('\n')
@@ -110,7 +140,7 @@ async function requestSummary(
     if (e.type === 'chat' && e.from === roleId && e.msg?.trim()) replies += `\n${e.msg}`;
   });
   try {
-    mailbox.push(request);
+    mailbox.pushInternal(request);
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (mailbox.isClosed || runtime.status !== 'running') break;
@@ -168,7 +198,7 @@ function resetMode(op: 'compact' | 'clear', onSummary: (chars: number) => void):
       if (!summary)
         return {
           ok: false,
-          error: `role "${input.roleId}" produced no summary; its session was left as it was`,
+          error: `role "${input.roleId}" produced no usable summary (expected exactly one marked block); its session was left as it was`,
         };
       onSummary(summary.length);
       if (summary.length > MAX_SUMMARY_CHARS)
