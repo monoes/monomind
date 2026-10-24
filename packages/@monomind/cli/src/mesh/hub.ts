@@ -256,6 +256,25 @@ export class MeshHub {
         if (!this.authorized(r.addr, r.key)) return { ok: false, error: 'unauthorized' };
         this.store.bye(r.addr);
         return { ok: true };
+      case 'send': {
+        if (!this.authorized(r.addr, r.key)) return { ok: false, error: 'unauthorized' };
+        const project = this.store.projectOf(r.addr);
+        const to = project ? this.store.resolve(project, r.to) : undefined;
+        if (!to) return { ok: false, error: 'unknown_recipient' };
+        try {
+          const seq = this.store.addMessage(r.addr, to, r.kind, r.body, t, r.replyTo);
+          return { ok: true, seq, to };
+        } catch (e) {
+          if (e instanceof StoreError && e.code === 'INBOX_FULL') {
+            return { ok: false, error: 'inbox_full' };
+          }
+          throw e;
+        }
+      }
+      case 'inbox': {
+        if (!this.authorized(r.addr, r.key)) return { ok: false, error: 'unauthorized' };
+        return { ok: true, ...this.store.takeInbox(r.addr, r.limit, r.peek) };
+      }
       case 'who': {
         // One extra row tells the caller the list was cut off instead of looking complete.
         const rows = this.store.list(r, DEFAULT_LIST_LIMIT + 1);

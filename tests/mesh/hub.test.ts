@@ -157,3 +157,87 @@ describe('client', () => {
     ).rejects.toBeInstanceOf(MeshOfflineError);
   });
 });
+
+describe('MeshHub messaging', () => {
+  async function two() {
+    const dir = tmpDir();
+    await startHub(dir);
+    const a = await meshCall(hello({ sessionId: 'sa', alias: 'alpha' }), { dir });
+    const b = await meshCall(hello({ sessionId: 'sb', alias: 'beta', runtime: 'codex' }), { dir });
+    return { dir, a, b };
+  }
+
+  it('delivers a message by alias, oldest first, once', async () => {
+    const { dir, a, b } = await two();
+    const sent = await meshCall(
+      {
+        op: 'send',
+        id: 's1',
+        addr: a.addr,
+        key: a.key,
+        to: 'beta',
+        body: 'hi\nthere',
+        kind: 'ask',
+      },
+      { dir },
+    );
+    expect(sent).toMatchObject({ ok: true, to: b.addr });
+    await meshCall(
+      { op: 'send', id: 's2', addr: a.addr, key: a.key, to: 'beta', body: 'second' },
+      { dir },
+    );
+    const got = await meshCall({ op: 'inbox', id: 'i1', addr: b.addr, key: b.key }, { dir });
+    expect(got.messages).toMatchObject([
+      { from: a.addr, fromAlias: 'alpha', kind: 'ask', body: 'hi\nthere' },
+      { kind: 'say', body: 'second' },
+    ]);
+    const again = await meshCall({ op: 'inbox', id: 'i2', addr: b.addr, key: b.key }, { dir });
+    expect(again.messages).toEqual([]);
+  });
+
+  it('peek leaves messages unread and limit reports the rest', async () => {
+    const { dir, a, b } = await two();
+    for (const body of ['1', '2', '3']) {
+      await meshCall(
+        { op: 'send', id: `s${body}`, addr: a.addr, key: a.key, to: 'beta', body },
+        { dir },
+      );
+    }
+    const peek = await meshCall(
+      { op: 'inbox', id: 'p', addr: b.addr, key: b.key, limit: 2, peek: true },
+      { dir },
+    );
+    expect(peek).toMatchObject({ more: 1 });
+    expect((peek.messages as unknown[]).length).toBe(2);
+    const all = await meshCall({ op: 'inbox', id: 'q', addr: b.addr, key: b.key }, { dir });
+    expect((all.messages as unknown[]).length).toBe(3);
+  });
+
+  it('refuses a bad key, an unknown recipient and control characters', async () => {
+    const { dir, a } = await two();
+    const base = { op: 'send', id: 'x', addr: a.addr, to: 'beta', body: 'hi' };
+    expect(await meshCall({ ...base, key: 'bad' }, { dir })).toMatchObject({
+      error: 'unauthorized',
+    });
+    expect(await meshCall({ ...base, key: a.key, to: 'nobody' }, { dir })).toMatchObject({
+      error: 'unknown_recipient',
+    });
+    expect(await meshCall({ ...base, key: a.key, body: 'a‮b' }, { dir })).toMatchObject({
+      error: 'invalid',
+    });
+    expect(
+      await meshCall({ op: 'inbox', id: 'y', addr: a.addr, key: 'bad' }, { dir }),
+    ).toMatchObject({ error: 'unauthorized' });
+  });
+
+  it('does not resolve an alias from another project', async () => {
+    const { dir, a } = await two();
+    await meshCall(hello({ project: 'p2', sessionId: 'sc', alias: 'gamma' }), { dir });
+    expect(
+      await meshCall(
+        { op: 'send', id: 'z', addr: a.addr, key: a.key, to: 'gamma', body: 'hi' },
+        { dir },
+      ),
+    ).toMatchObject({ error: 'unknown_recipient' });
+  });
+});

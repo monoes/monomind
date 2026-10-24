@@ -7,7 +7,7 @@ import { hasTool, listMCPTools, searchNonCoreTools } from '../mcp-client.js';
  * more tools in every session cost more than they give. They must stay callable by name and
  * discoverable, so this pins both halves of that decision.
  */
-const MESH = ['mesh_who', 'mesh_join', 'mesh_leave'];
+const MESH = ['mesh_who', 'mesh_join', 'mesh_leave', 'mesh_send', 'mesh_inbox'];
 
 describe('mesh tools in the default roster', () => {
   it('are not advertised by default', async () => {

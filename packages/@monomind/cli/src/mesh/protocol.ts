@@ -84,6 +84,17 @@ export type WhoFilter = z.infer<typeof WhoFilterSchema>;
 
 const reqId = z.string().min(1).max(64);
 
+export const MESSAGE_KINDS = ['say', 'ask', 'reply'] as const;
+export type MessageKind = (typeof MESSAGE_KINDS)[number];
+/** Longest message body, in characters. */
+export const MAX_BODY = 4096;
+/** A message body keeps its line breaks and tabs, but no other control or hidden characters. */
+const body = z
+  .string()
+  .min(1)
+  .max(MAX_BODY)
+  .refine((b) => !hasControl(b.replace(/[\n\t]/g, ' ')), 'control characters are not allowed');
+
 export const RequestSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('hello'), id: reqId, ...helloShape }),
   z.object({
@@ -100,6 +111,26 @@ export const RequestSchema = z.discriminatedUnion('op', [
     key: z.string().min(1).max(128),
   }),
   z.object({ op: z.literal('who'), id: reqId, ...WhoFilterSchema.shape }),
+  z.object({
+    op: z.literal('send'),
+    id: reqId,
+    addr: z.string().min(1).max(512),
+    key: z.string().min(1).max(128),
+    /** An alias in the sender's project, or a full address. */
+    to: z.string().min(1).max(512).regex(SAFE_ADDR),
+    kind: z.enum(MESSAGE_KINDS).default('say'),
+    body,
+    replyTo: z.number().int().positive().optional(),
+  }),
+  z.object({
+    op: z.literal('inbox'),
+    id: reqId,
+    addr: z.string().min(1).max(512),
+    key: z.string().min(1).max(128),
+    limit: z.number().int().min(1).max(100).default(20),
+    /** Read without marking the messages as read. */
+    peek: z.boolean().default(false),
+  }),
 ]);
 export type Request = z.infer<typeof RequestSchema>;
 
@@ -123,6 +154,16 @@ export interface AgentInfo extends HelloFields {
   status: Presence;
   lastSeen: number;
   joinedAt: number;
+}
+
+export interface MeshMessage {
+  seq: number;
+  from: string;
+  fromAlias?: string;
+  kind: MessageKind;
+  body: string;
+  replyTo?: number;
+  ts: number;
 }
 
 export function buildAddr(

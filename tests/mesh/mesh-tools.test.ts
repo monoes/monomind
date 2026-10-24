@@ -26,7 +26,13 @@ beforeEach(() => {
 
 describe('mesh tools', () => {
   it('exposes who, join and leave', () => {
-    expect(meshTools.map((t) => t.name).sort()).toEqual(['mesh_join', 'mesh_leave', 'mesh_who']);
+    expect(meshTools.map((t) => t.name).sort()).toEqual([
+      'mesh_inbox',
+      'mesh_join',
+      'mesh_leave',
+      'mesh_send',
+      'mesh_who',
+    ]);
   });
 
   it('mesh_who forwards filters and returns the agents', async () => {
@@ -84,7 +90,7 @@ describe('mesh tools', () => {
     });
     expect(arg.sessionId).toMatch(/^s\d+-[0-9a-f]{6}$/);
     expect(arg.project).toMatch(/-[0-9a-f]{16}$/);
-    expect(out).toEqual({ addr: 'h/proj/s123' });
+    expect(out).toEqual({ addr: 'h/proj/s123', alias: 'lead' });
   });
 
   it('mesh_join reports the hub refusal (alias taken) as an error result', async () => {

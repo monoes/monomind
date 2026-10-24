@@ -113,6 +113,8 @@ export function createSessionPresence(
         }
       }),
     addr: () => reg?.addr,
+    /** The address and key hub calls made on this session's behalf must carry. */
+    auth: () => (reg ? { addr: reg.addr, key: reg.key } : undefined),
   };
 }
 

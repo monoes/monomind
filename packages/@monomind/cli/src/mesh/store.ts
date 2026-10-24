@@ -1,4 +1,11 @@
-import type { AgentInfo, HelloFields, Presence, WhoFilter } from './protocol.js';
+import type {
+  AgentInfo,
+  HelloFields,
+  MeshMessage,
+  MessageKind,
+  Presence,
+  WhoFilter,
+} from './protocol.js';
 
 /** Live registrations one process may hold, and across the whole host. */
 const MAX_LIVE_PER_PID = 64;
@@ -9,10 +16,14 @@ export const DEFAULT_LIST_LIMIT = 200;
 const MAX_GONE_ROWS = 1000;
 /** How long a row stays in the table (and in `includeGone` listings) after the agent left. */
 const GONE_RETENTION_MS = 24 * 60 * 60 * 1000;
+/** Unread messages one agent may have waiting; further sends are refused until it reads. */
+const MAX_UNREAD_PER_AGENT = 500;
+/** How long a message is kept, read or not. */
+const MESSAGE_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 export class StoreError extends Error {
   constructor(
-    readonly code: 'ALIAS_TAKEN' | 'LIMIT',
+    readonly code: 'ALIAS_TAKEN' | 'LIMIT' | 'INBOX_FULL',
     message: string,
   ) {
     super(message);
@@ -72,6 +83,17 @@ CREATE TABLE IF NOT EXISTS agents (
 );
 CREATE INDEX IF NOT EXISTS agents_project_status ON agents(project, status);
 CREATE INDEX IF NOT EXISTS agents_status_seen ON agents(status, last_seen);
+CREATE TABLE IF NOT EXISTS messages (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_addr TEXT NOT NULL,
+  to_addr TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  body TEXT NOT NULL,
+  reply_to INTEGER,
+  ts INTEGER NOT NULL,
+  read INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS messages_inbox ON messages(to_addr, read, seq);
 PRAGMA user_version = 1;
 `;
 
@@ -213,6 +235,7 @@ export class MeshStore {
     this.db
       .prepare(`DELETE FROM agents WHERE status = 'gone' AND last_seen < ?`)
       .run(now - pruneGoneMs);
+    this.db.prepare(`DELETE FROM messages WHERE ts < ?`).run(now - MESSAGE_RETENTION_MS);
     const rows = this.db
       .prepare(`SELECT addr, pid, status, last_seen FROM agents WHERE status != 'gone'`)
       .all() as Pick<Row, 'addr' | 'pid' | 'status' | 'last_seen'>[];
@@ -262,6 +285,85 @@ export class MeshStore {
     const sql = `SELECT * FROM agents ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
                  ORDER BY joined_at, addr LIMIT ?`;
     return (this.db.prepare(sql).all(...args, limit) as Row[]).map(toInfo);
+  }
+
+  /** The live address `to` names: a full address, or an alias in `project`. */
+  resolve(project: string, to: string): string | undefined {
+    const row = (
+      to.includes('/')
+        ? this.db.prepare(`SELECT addr FROM agents WHERE addr = ? AND status != 'gone'`).get(to)
+        : this.db
+            .prepare(`SELECT addr FROM agents WHERE project = ? AND alias = ? AND status != 'gone'`)
+            .get(project, to)
+    ) as { addr: string } | undefined;
+    return row?.addr;
+  }
+
+  /** The project an address belongs to, or undefined when it is not registered. */
+  projectOf(addr: string): string | undefined {
+    const r = this.db.prepare(`SELECT project FROM agents WHERE addr = ?`).get(addr) as
+      | { project: string }
+      | undefined;
+    return r?.project;
+  }
+
+  addMessage(
+    from: string,
+    to: string,
+    kind: MessageKind,
+    body: string,
+    now: number,
+    replyTo?: number,
+  ): number {
+    const unread = this.db
+      .prepare(`SELECT COUNT(*) AS n FROM messages WHERE to_addr = ? AND read = 0`)
+      .get(to) as { n: number };
+    if (unread.n >= MAX_UNREAD_PER_AGENT) {
+      throw new StoreError('INBOX_FULL', 'recipient has too many unread messages');
+    }
+    this.db
+      .prepare(
+        `INSERT INTO messages (from_addr, to_addr, kind, body, reply_to, ts) VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(from, to, kind, body, replyTo ?? null, now);
+    const r = this.db.prepare(`SELECT last_insert_rowid() AS seq`).get() as { seq: number };
+    return r.seq;
+  }
+
+  /** Oldest unread first; marks them read unless `peek`. */
+  takeInbox(addr: string, limit: number, peek: boolean): { messages: MeshMessage[]; more: number } {
+    const rows = this.db
+      .prepare(
+        `SELECT m.seq, m.from_addr, m.kind, m.body, m.reply_to, m.ts, a.alias AS from_alias
+         FROM messages m LEFT JOIN agents a ON a.addr = m.from_addr
+         WHERE m.to_addr = ? AND m.read = 0 ORDER BY m.seq LIMIT ?`,
+      )
+      .all(addr, limit + 1) as Array<{
+      seq: number;
+      from_addr: string;
+      kind: MessageKind;
+      body: string;
+      reply_to: number | null;
+      ts: number;
+      from_alias: string | null;
+    }>;
+    const page = rows.slice(0, limit);
+    if (!peek && page.length > 0) {
+      const mark = this.db.prepare(`UPDATE messages SET read = 1 WHERE seq = ?`);
+      for (const m of page) mark.run(m.seq);
+    }
+    return {
+      messages: page.map((m) => ({
+        seq: m.seq,
+        from: m.from_addr,
+        ...(m.from_alias ? { fromAlias: m.from_alias } : {}),
+        kind: m.kind,
+        body: m.body,
+        ...(m.reply_to ? { replyTo: m.reply_to } : {}),
+        ts: m.ts,
+      })),
+      more: rows.length - page.length,
+    };
   }
 
   liveCount(): number {
