@@ -2,7 +2,7 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
-## [Unreleased]
+## [2.28.0] — 2026-10-24
 
 ### Added
 
@@ -12,7 +12,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ### Fixed
 
-- **`atomicWriteFile` no longer leaves `*.tmp` files behind.** Its temp name is now unique per call and removed when the write or rename fails (the cause of the `registry.json.<pid>.tmp` litter in `~/.monomind`; existing leftovers can be deleted by hand).
+- **`atomicWriteFile` no longer leaves `*.tmp` files behind.** Its temp name is now unique per call and removed when the write or rename fails (the cause of the `registry.json.<pid>.tmp` litter in `~/.monomind`; existing leftovers can be deleted by hand). With concurrent writers there are no more stale or colliding temp files (a2946ac0c).
+
+### Changed
+
+- **The default MCP roster grows from 21 to 24 tools** (`mesh_join`, `mesh_who`, `mesh_leave`, 76064e18f), adding about 1.7 KB of tool schema; the roster schema budget is raised to 18000 bytes (429353222).
+- Internal: mesh and atomic-write tests now create their directories under `os.tmpdir()` (957a86440).
 
 ## [2.27.0] — 2026-10-24
 
