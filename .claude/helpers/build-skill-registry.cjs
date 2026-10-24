@@ -408,8 +408,13 @@ function write(root, opts) {
   var outPath = indexPath(root);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   var tmp = outPath + '.' + process.pid + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(registry, null, 2) + '\n', 'utf-8');
-  fs.renameSync(tmp, outPath);
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(registry, null, 2) + '\n', 'utf-8');
+    fs.renameSync(tmp, outPath);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch (_) { /* nothing to clean */ }
+    throw e;
+  }
   return registry;
 }
 
@@ -460,15 +465,37 @@ function ensure(root, opts) {
   return readIndex(root) || write(root, opts);
 }
 
+/** Home directories a project root must never be: the given/os home, $HOME and
+ *  the passwd home. Under a sandbox/temp HOME the real home is a different path,
+ *  and a process running anywhere below it must not make it a project. */
+function homeDirs(home) {
+  var out = [home || os.homedir(), process.env.HOME];
+  try { out.push(os.userInfo().homedir); } catch (e) { /* no passwd entry */ }
+  var dirs = [];
+  out.filter(Boolean).forEach(function (d) {
+    var resolved = path.resolve(d);
+    dirs.push(resolved);
+    // The canonical path too: a symlink to the home is the same directory.
+    try { dirs.push(fs.realpathSync.native(resolved)); } catch (e) { /* not on disk */ }
+  });
+  return dirs;
+}
+
+/** True when `dir` is one of the home directories, by name or by canonical path. */
+function isHomeDir(dir, stopAt) {
+  if (stopAt.indexOf(dir) !== -1) return true;
+  try { return stopAt.indexOf(fs.realpathSync.native(dir)) !== -1; } catch (e) { return false; }
+}
+
 /** The nearest directory at or above `cwd` holding `.claude` or `.monomind`,
  *  never the home directory itself (its ~/.claude is user config) and never
  *  above the git root. Null when there is none — mirrors findProjectRoot in
  *  src/agents/registry-freshness.ts. */
 function findProjectRoot(cwd, home) {
-  var stopAt = path.resolve(home || os.homedir());
+  var stopAt = homeDirs(home);
   var dir = path.resolve(cwd);
   for (;;) {
-    if (dir === stopAt) return null;
+    if (isHomeDir(dir, stopAt)) return null;
     if (fs.existsSync(path.join(dir, '.claude')) || fs.existsSync(path.join(dir, '.monomind'))) return dir;
     if (fs.existsSync(path.join(dir, '.git'))) return null;
     var parent = path.dirname(dir);

@@ -97,8 +97,13 @@ function mergeAndWriteStore(updates, capTo) {
       result = result.slice(0, capTo);
     }
     var tmpPath = STORE_FILE + '.' + process.pid + '.tmp';
-    fs.writeFileSync(tmpPath, JSON.stringify(result, null, 2), 'utf-8');
-    fs.renameSync(tmpPath, STORE_FILE);
+    try {
+      fs.writeFileSync(tmpPath, JSON.stringify(result, null, 2), 'utf-8');
+      fs.renameSync(tmpPath, STORE_FILE);
+    } catch (e) {
+      try { fs.unlinkSync(tmpPath); } catch (_) { /* nothing to clean */ }
+      throw e;
+    }
     return result;
   } finally {
     if (acquired) releaseStoreLock();

@@ -605,8 +605,13 @@ function _readQuickCache() {
 function _writeQuickCache(totals) {
   try {
     var tmp = _quickCachePath() + '.' + process.pid + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify({ computedAt: Date.now(), totals: totals }));
-    fs.renameSync(tmp, _quickCachePath()); // atomic: never expose a half-written cache
+    try {
+      fs.writeFileSync(tmp, JSON.stringify({ computedAt: Date.now(), totals: totals }));
+      fs.renameSync(tmp, _quickCachePath()); // atomic: never expose a half-written cache
+    } catch (e) {
+      try { fs.unlinkSync(tmp); } catch (_) { /* nothing to clean */ }
+      throw e;
+    }
   } catch (_) { /* cache is best-effort */ }
 }
 

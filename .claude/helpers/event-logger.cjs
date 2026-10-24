@@ -179,8 +179,13 @@ async function main() {
           claudeSessions.push(sessionId);
           const updated = { ...cur, claude_sessions: claudeSessions };
           const tmp = `${currentFile}.${process.pid}.tmp`;
-          fs.writeFileSync(tmp, JSON.stringify(updated, null, 2), 'utf8');
-          fs.renameSync(tmp, currentFile);
+          try {
+            fs.writeFileSync(tmp, JSON.stringify(updated, null, 2), 'utf8');
+            fs.renameSync(tmp, currentFile);
+          } catch (e) {
+            try { fs.unlinkSync(tmp); } catch {}
+            throw e;
+          }
         }
       }
     } catch {}
