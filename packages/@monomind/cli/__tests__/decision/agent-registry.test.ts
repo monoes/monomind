@@ -12,7 +12,11 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildUnifiedRegistry, computeAgentRoots } from '../../src/agents/registry-builder.js';
+import {
+  agentRegistryModule,
+  buildUnifiedRegistry,
+  computeAgentRoots,
+} from '../../src/agents/registry-builder.js';
 import {
   ensureRegistry,
   findProjectRoot,
@@ -22,6 +26,8 @@ import {
 import { agentCatalog } from '../../src/decision/catalogs.js';
 
 const require = createRequire(import.meta.url);
+// The CommonJS `os` object the helpers see, so `userInfo` can be stubbed for them.
+const userInfoOwner = require('node:os') as typeof import('node:os');
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const jp: any = require('../../.claude/helpers/jev-picker.cjs');
 
@@ -78,6 +84,62 @@ describe('findProjectRoot', () => {
     mkdirSync(join(home, 'work'));
     expect(findProjectRoot(join(home, 'work'), home)).toBeNull();
     rmSync(home, { recursive: true, force: true });
+  });
+
+  // #712: under a sandbox/temp HOME the real (passwd) home differs from $HOME;
+  // a process running anywhere below it must not make it a project root.
+  it('never treats the passwd home as a project when HOME points elsewhere', () => {
+    const passwdHome = mkdtempSync(join(tmpdir(), 'agent-registry-passwd-'));
+    mkdirSync(join(passwdHome, '.monomind'));
+    mkdirSync(join(passwdHome, 'work'));
+    const spy = vi.spyOn(userInfoOwner, 'userInfo').mockReturnValue({ homedir: passwdHome } as never);
+    try {
+      expect(findProjectRoot(join(passwdHome, 'work'), home)).toBeNull();
+      expect(findProjectRoot(join(passwdHome, 'work'))).toBeNull();
+    } finally {
+      spy.mockRestore();
+      rmSync(passwdHome, { recursive: true, force: true });
+    }
+  });
+
+  it('never treats $HOME as a project when an explicit home is given', () => {
+    mkdirSync(join(home, '.monomind'));
+    mkdirSync(join(home, 'work'));
+    expect(findProjectRoot(join(home, 'work'), '/nonexistent-home')).toBeNull();
+  });
+
+  it('still finds a project with its own .monomind below the home', () => {
+    mkdirSync(join(home, 'proj', '.monomind'), { recursive: true });
+    mkdirSync(join(home, 'proj', 'src'));
+    expect(findProjectRoot(join(home, 'proj', 'src'))).toBe(join(home, 'proj'));
+  });
+});
+
+describe('writeRegistryFile / tmp cleanup (#712)', () => {
+  it('leaves no .tmp file behind when the rename fails', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agent-registry-rename-'));
+    try {
+      const target = join(dir, 'registry.json');
+      mkdirSync(join(target, 'keep'), { recursive: true }); // non-empty dir: rename must fail
+      const registry = { version: 1, generatedAt: '', totalAgents: 0, counts: {}, agents: [] };
+      expect(() => agentRegistryModule().writeRegistryFile(target, registry as never)).toThrow();
+      expect(readdirSync(dir).filter((f) => f.endsWith('.tmp'))).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('every tmp+rename writer in .claude/helpers removes its tmp file on failure', () => {
+    const helpers = join(__dirname, '..', '..', '.claude', 'helpers');
+    const offenders: string[] = [];
+    for (const f of readdirSync(helpers).filter((n) => n.endsWith('.cjs'))) {
+      const src = readFileSync(join(helpers, f), 'utf8');
+      for (const m of src.matchAll(/renameSync\((\w*[tT]mp\w*),/g)) {
+        const after = src.slice(m.index!, m.index! + 400);
+        if (!after.includes(`unlinkSync(${m[1]})`)) offenders.push(`${f}:${m[1]}`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });
 

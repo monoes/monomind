@@ -408,8 +408,13 @@ function write(root, opts) {
   var outPath = indexPath(root);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   var tmp = outPath + '.' + process.pid + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(registry, null, 2) + '\n', 'utf-8');
-  fs.renameSync(tmp, outPath);
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(registry, null, 2) + '\n', 'utf-8');
+    fs.renameSync(tmp, outPath);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch (_) { /* nothing to clean */ }
+    throw e;
+  }
   return registry;
 }
 
@@ -460,15 +465,24 @@ function ensure(root, opts) {
   return readIndex(root) || write(root, opts);
 }
 
+/** Home directories a project root must never be: the given/os home, $HOME and
+ *  the passwd home. Under a sandbox/temp HOME the real home is a different path,
+ *  and a process running anywhere below it must not make it a project. */
+function homeDirs(home) {
+  var out = [home || os.homedir(), process.env.HOME];
+  try { out.push(os.userInfo().homedir); } catch (e) { /* no passwd entry */ }
+  return out.filter(Boolean).map(function (d) { return path.resolve(d); });
+}
+
 /** The nearest directory at or above `cwd` holding `.claude` or `.monomind`,
  *  never the home directory itself (its ~/.claude is user config) and never
  *  above the git root. Null when there is none — mirrors findProjectRoot in
  *  src/agents/registry-freshness.ts. */
 function findProjectRoot(cwd, home) {
-  var stopAt = path.resolve(home || os.homedir());
+  var stopAt = homeDirs(home);
   var dir = path.resolve(cwd);
   for (;;) {
-    if (dir === stopAt) return null;
+    if (stopAt.indexOf(dir) !== -1) return null;
     if (fs.existsSync(path.join(dir, '.claude')) || fs.existsSync(path.join(dir, '.monomind'))) return dir;
     if (fs.existsSync(path.join(dir, '.git'))) return null;
     var parent = path.dirname(dir);

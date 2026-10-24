@@ -400,8 +400,13 @@ function update(root, opts) {
       fs.mkdirSync(dir, { recursive: true });
       var file = statsPath(root);
       var tmp = file + '.' + process.pid + '.' + Date.now() + '.tmp';
-      fs.writeFileSync(tmp, JSON.stringify(stats), 'utf-8');
-      fs.renameSync(tmp, file);
+      try {
+        fs.writeFileSync(tmp, JSON.stringify(stats), 'utf-8');
+        fs.renameSync(tmp, file);
+      } catch (e) {
+        try { fs.unlinkSync(tmp); } catch (_) { /* nothing to clean */ }
+        throw e;
+      }
     }
     return stats;
   } catch (e) {

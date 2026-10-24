@@ -331,8 +331,13 @@ function agentCountOnDisk(file) {
 function writeRegistryFile(file, registry) {
   if (registry.agents.length === 0 && agentCountOnDisk(file) > 0) return false;
   var tmp = file + '.' + process.pid + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(registry, null, 2), 'utf-8');
-  fs.renameSync(tmp, file);
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(registry, null, 2), 'utf-8');
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch (_) { /* nothing to clean */ }
+    throw e;
+  }
   return true;
 }
 
@@ -388,6 +393,15 @@ function ensure(root, opts) {
   }
 }
 
+/** Home directories a project root must never be: the given/os home, $HOME and
+ *  the passwd home. Under a sandbox/temp HOME the real home is a different path,
+ *  and a process running anywhere below it must not make it a project. */
+function homeDirs(home) {
+  var out = [home || os.homedir(), process.env.HOME];
+  try { out.push(os.userInfo().homedir); } catch (e) { /* no passwd entry */ }
+  return out.filter(Boolean).map(function (d) { return path.resolve(d); });
+}
+
 /**
  * The nearest directory at or above `cwd` holding `.claude/agents` or
  * `.monomind`. The walk stops at the git root (inclusive) and never returns
@@ -395,10 +409,10 @@ function ensure(root, opts) {
  * Null when no project is found.
  */
 function findProjectRoot(cwd, home) {
-  var stopAt = path.resolve(home || os.homedir());
+  var stopAt = homeDirs(home);
   var dir = path.resolve(cwd);
   for (;;) {
-    if (dir === stopAt) return null;
+    if (stopAt.indexOf(dir) !== -1) return null;
     if (fs.existsSync(path.join(dir, '.claude', 'agents')) || fs.existsSync(path.join(dir, '.monomind'))) return dir;
     if (fs.existsSync(path.join(dir, '.git'))) return null;
     var parent = path.dirname(dir);
