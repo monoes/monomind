@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { acquireDaemonLock, type DaemonLockHandle } from '../orgrt/daemon-lock.js';
 import { issueKey, keysMatch } from './identity.js';
-import { RequestSchema, buildAddr, type Request } from './protocol.js';
+import { buildAddr, type Request, RequestSchema } from './protocol.js';
 import { MeshStore, StoreError } from './store.js';
 
 const MAX_LINE_BYTES = 64 * 1024;
@@ -153,7 +153,9 @@ export class MeshHub {
       }
       case 'heartbeat':
         if (!this.authorized(r.addr, r.key)) return { ok: false, error: 'unauthorized' };
-        return this.store.heartbeat(r.addr, t, r.task) ? { ok: true } : { ok: false, error: 'gone' };
+        return this.store.heartbeat(r.addr, t, r.task)
+          ? { ok: true }
+          : { ok: false, error: 'gone' };
       case 'bye':
         if (!this.authorized(r.addr, r.key)) return { ok: false, error: 'unauthorized' };
         this.store.bye(r.addr);

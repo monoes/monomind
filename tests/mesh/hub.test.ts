@@ -1,9 +1,13 @@
 import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DaemonLockError } from '../../packages/@monomind/cli/src/orgrt/daemon-lock.js';
-import { MeshOfflineError, callWithHub, meshCall } from '../../packages/@monomind/cli/src/mesh/client.js';
+import {
+  callWithHub,
+  MeshOfflineError,
+  meshCall,
+} from '../../packages/@monomind/cli/src/mesh/client.js';
 import { MeshHub } from '../../packages/@monomind/cli/src/mesh/hub.js';
+import { DaemonLockError } from '../../packages/@monomind/cli/src/orgrt/daemon-lock.js';
 
 const cleanups: Array<() => Promise<void> | void> = [];
 afterEach(async () => {
@@ -48,9 +52,17 @@ describe('MeshHub', () => {
     const dir = tmpDir();
     await startHub(dir);
     const { addr, key } = await meshCall(hello(), { dir });
-    expect(await meshCall({ op: 'heartbeat', id: 'a', addr, key: 'bad' }, { dir })).toMatchObject({ ok: false, error: 'unauthorized' });
-    expect(await meshCall({ op: 'heartbeat', id: 'b', addr, key }, { dir })).toMatchObject({ ok: true });
-    expect(await meshCall({ op: 'bye', id: 'c', addr, key: 'bad' }, { dir })).toMatchObject({ ok: false, error: 'unauthorized' });
+    expect(await meshCall({ op: 'heartbeat', id: 'a', addr, key: 'bad' }, { dir })).toMatchObject({
+      ok: false,
+      error: 'unauthorized',
+    });
+    expect(await meshCall({ op: 'heartbeat', id: 'b', addr, key }, { dir })).toMatchObject({
+      ok: true,
+    });
+    expect(await meshCall({ op: 'bye', id: 'c', addr, key: 'bad' }, { dir })).toMatchObject({
+      ok: false,
+      error: 'unauthorized',
+    });
     expect(await meshCall({ op: 'bye', id: 'd', addr, key }, { dir })).toMatchObject({ ok: true });
     const w = await meshCall({ op: 'who', id: 'e' }, { dir });
     expect(w.agents).toEqual([]);
@@ -59,9 +71,15 @@ describe('MeshHub', () => {
   it('answers invalid requests and alias clashes without crashing', async () => {
     const dir = tmpDir();
     await startHub(dir);
-    expect(await meshCall({ op: 'nuke', id: 'x' }, { dir })).toMatchObject({ ok: false, error: 'invalid' });
+    expect(await meshCall({ op: 'nuke', id: 'x' }, { dir })).toMatchObject({
+      ok: false,
+      error: 'invalid',
+    });
     await meshCall(hello({ alias: 'rev' }), { dir });
-    expect(await meshCall(hello({ sessionId: 's2', alias: 'rev' }), { dir })).toMatchObject({ ok: false, error: 'alias_taken' });
+    expect(await meshCall(hello({ sessionId: 's2', alias: 'rev' }), { dir })).toMatchObject({
+      ok: false,
+      error: 'alias_taken',
+    });
   });
 
   it('marks agents stale then gone as time passes, and a gone agent must re-hello', async () => {
@@ -77,7 +95,10 @@ describe('MeshHub', () => {
     hub.sweepNow();
     w = await meshCall({ op: 'who', id: 'w2' }, { dir });
     expect(w.agents).toEqual([]);
-    expect(await meshCall({ op: 'heartbeat', id: 'h', addr, key }, { dir })).toMatchObject({ ok: false, error: 'unauthorized' });
+    expect(await meshCall({ op: 'heartbeat', id: 'h', addr, key }, { dir })).toMatchObject({
+      ok: false,
+      error: 'unauthorized',
+    });
   });
 
   it('refuses a second hub on the same directory', async () => {
@@ -101,19 +122,25 @@ describe('MeshHub', () => {
   it('drops a connection that sends an oversized line', async () => {
     const dir = tmpDir();
     await startHub(dir);
-    await expect(meshCall({ op: 'who', id: 'big', pad: 'x'.repeat(70_000) }, { dir })).rejects.toBeInstanceOf(MeshOfflineError);
+    await expect(
+      meshCall({ op: 'who', id: 'big', pad: 'x'.repeat(70_000) }, { dir }),
+    ).rejects.toBeInstanceOf(MeshOfflineError);
   });
 });
 
 describe('client', () => {
   it('reports offline when no hub is listening', async () => {
-    await expect(meshCall({ op: 'who', id: '1' }, { dir: tmpDir(), timeoutMs: 100 })).rejects.toBeInstanceOf(MeshOfflineError);
+    await expect(
+      meshCall({ op: 'who', id: '1' }, { dir: tmpDir(), timeoutMs: 100 }),
+    ).rejects.toBeInstanceOf(MeshOfflineError);
   });
 
   it('spawns the hub once on first use and then succeeds', async () => {
     const dir = tmpDir();
     const spawnHub = vi.fn((d: string) => {
-      void MeshHub.start({ dir: d, host: 'h', isAlive: () => true }).then((hub) => cleanups.push(() => hub.stop()));
+      void MeshHub.start({ dir: d, host: 'h', isAlive: () => true }).then((hub) =>
+        cleanups.push(() => hub.stop()),
+      );
     });
     const r = await callWithHub(hello(), { dir, spawnHub, retryDelayMs: 20, retries: 50 });
     expect(r).toMatchObject({ ok: true, addr: 'h/p1/s1' });
@@ -122,7 +149,10 @@ describe('client', () => {
 
   it('gives up with MeshOfflineError when the spawned hub never appears', async () => {
     await expect(
-      callWithHub({ op: 'who', id: '1' }, { dir: tmpDir(), spawnHub: () => {}, retries: 2, retryDelayMs: 10, timeoutMs: 50 }),
+      callWithHub(
+        { op: 'who', id: '1' },
+        { dir: tmpDir(), spawnHub: () => {}, retries: 2, retryDelayMs: 10, timeoutMs: 50 },
+      ),
     ).rejects.toBeInstanceOf(MeshOfflineError);
   });
 });

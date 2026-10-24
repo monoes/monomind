@@ -2,7 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MeshOfflineError } from '../../packages/@monomind/cli/src/mesh/client.js';
 import { createSessionPresence } from '../../packages/@monomind/cli/src/mesh/session-presence.js';
 
-const input = { runtime: 'claude-code', pid: 7, project: 'p1', projectPath: '/w/p1', sessionId: 's1' };
+const input = {
+  runtime: 'claude-code',
+  pid: 7,
+  project: 'p1',
+  projectPath: '/w/p1',
+  sessionId: 's1',
+};
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -10,7 +16,9 @@ afterEach(() => vi.useRealTimers());
 describe('session presence', () => {
   it('registers as a session and heartbeats on the interval', async () => {
     const call = vi.fn(async (req: Record<string, unknown>) =>
-      req.op === 'hello' ? { id: 'x', ok: true, addr: 'h/p1/s1', key: 'k1' } : { id: 'x', ok: true },
+      req.op === 'hello'
+        ? { id: 'x', ok: true, addr: 'h/p1/s1', key: 'k1' }
+        : { id: 'x', ok: true },
     );
     const p = createSessionPresence(call, 1000);
     expect(await p.join(input)).toBe('h/p1/s1');

@@ -22,7 +22,13 @@ describe('MeshStore', () => {
   it('registers an agent as active and lists it', () => {
     store.upsertAgent('h/p1/s1', { ...base, capabilities: ['review'] }, 1000);
     const [a] = store.list();
-    expect(a).toMatchObject({ addr: 'h/p1/s1', status: 'active', lastSeen: 1000, joinedAt: 1000, capabilities: ['review'] });
+    expect(a).toMatchObject({
+      addr: 'h/p1/s1',
+      status: 'active',
+      lastSeen: 1000,
+      joinedAt: 1000,
+      capabilities: ['review'],
+    });
   });
 
   it('keeps joinedAt on re-register and refreshes the rest', () => {
@@ -33,7 +39,9 @@ describe('MeshStore', () => {
 
   it('rejects an alias already used by a live agent in the same project', () => {
     store.upsertAgent('h/p1/s1', { ...base, alias: 'reviewer' }, 1);
-    expect(() => store.upsertAgent('h/p1/s2', { ...base, sessionId: 's2', alias: 'reviewer' }, 2)).toThrow(StoreError);
+    expect(() =>
+      store.upsertAgent('h/p1/s2', { ...base, sessionId: 's2', alias: 'reviewer' }, 2),
+    ).toThrow(StoreError);
     // same alias in another project is fine
     store.upsertAgent('h/p2/s3', { ...base, project: 'p2', sessionId: 's3', alias: 'reviewer' }, 3);
   });
@@ -71,10 +79,19 @@ describe('MeshStore', () => {
 
   it('filters by project, tier, status, capability, tag, parent and hides gone by default', () => {
     store.upsertAgent('h/p1/s1', { ...base, capabilities: ['test'], tags: ['x'] }, 1);
-    store.upsertAgent('h/p1/s2', { ...base, sessionId: 's2', tier: 'subagent', parent: 'h/p1/s1' }, 1);
+    store.upsertAgent(
+      'h/p1/s2',
+      { ...base, sessionId: 's2', tier: 'subagent', parent: 'h/p1/s1' },
+      1,
+    );
     store.upsertAgent('h/p2/s3', { ...base, project: 'p2', sessionId: 's3' }, 1);
     store.bye('h/p2/s3');
-    expect(store.list().map((a) => a.addr).sort()).toEqual(['h/p1/s1', 'h/p1/s2']);
+    expect(
+      store
+        .list()
+        .map((a) => a.addr)
+        .sort(),
+    ).toEqual(['h/p1/s1', 'h/p1/s2']);
     expect(store.list({ includeGone: true })).toHaveLength(3);
     expect(store.list({ tier: 'subagent' }).map((a) => a.addr)).toEqual(['h/p1/s2']);
     expect(store.list({ capability: 'test' }).map((a) => a.addr)).toEqual(['h/p1/s1']);

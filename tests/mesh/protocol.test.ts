@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { keysMatch, issueKey } from '../../packages/@monomind/cli/src/mesh/identity.js';
+import { issueKey, keysMatch } from '../../packages/@monomind/cli/src/mesh/identity.js';
 import { projectIdFor } from '../../packages/@monomind/cli/src/mesh/project-id.js';
 import {
-  RequestSchema,
   buildAddr,
   parseAddr,
+  RequestSchema,
 } from '../../packages/@monomind/cli/src/mesh/protocol.js';
 
 const hello = {
@@ -22,8 +22,17 @@ describe('protocol', () => {
   it('builds and parses addresses', () => {
     const a = buildAddr('host1', 'proj', 'sess', 'agent');
     expect(a).toBe('host1/proj/sess/agent');
-    expect(parseAddr(a)).toEqual({ host: 'host1', project: 'proj', sessionId: 'sess', agentId: 'agent' });
-    expect(parseAddr('host1/proj/sess')).toEqual({ host: 'host1', project: 'proj', sessionId: 'sess' });
+    expect(parseAddr(a)).toEqual({
+      host: 'host1',
+      project: 'proj',
+      sessionId: 'sess',
+      agentId: 'agent',
+    });
+    expect(parseAddr('host1/proj/sess')).toEqual({
+      host: 'host1',
+      project: 'proj',
+      sessionId: 'sess',
+    });
     expect(parseAddr('nope')).toBeNull();
   });
 

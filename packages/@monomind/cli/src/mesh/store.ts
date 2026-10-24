@@ -174,21 +174,22 @@ export class MeshStore {
 
   list(filter: Partial<WhoFilter> = {}): AgentInfo[] {
     const rows = this.db.prepare(`SELECT * FROM agents ORDER BY joined_at, addr`).all() as Row[];
-    return rows
-      .map(toInfo)
-      .filter((a) => {
-        if (filter.project && a.project !== filter.project) return false;
-        if (filter.tier && a.tier !== filter.tier) return false;
-        if (filter.status ? a.status !== filter.status : !filter.includeGone && a.status === 'gone') return false;
-        if (filter.capability && !a.capabilities.includes(filter.capability)) return false;
-        if (filter.tag && !a.tags.includes(filter.tag)) return false;
-        if (filter.parent && a.parent !== filter.parent) return false;
-        return true;
-      });
+    return rows.map(toInfo).filter((a) => {
+      if (filter.project && a.project !== filter.project) return false;
+      if (filter.tier && a.tier !== filter.tier) return false;
+      if (filter.status ? a.status !== filter.status : !filter.includeGone && a.status === 'gone')
+        return false;
+      if (filter.capability && !a.capabilities.includes(filter.capability)) return false;
+      if (filter.tag && !a.tags.includes(filter.tag)) return false;
+      if (filter.parent && a.parent !== filter.parent) return false;
+      return true;
+    });
   }
 
   liveCount(): number {
-    const r = this.db.prepare(`SELECT COUNT(*) AS n FROM agents WHERE status != 'gone'`).get() as { n: number };
+    const r = this.db.prepare(`SELECT COUNT(*) AS n FROM agents WHERE status != 'gone'`).get() as {
+      n: number;
+    };
     return r.n;
   }
 

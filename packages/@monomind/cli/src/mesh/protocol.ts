@@ -79,7 +79,12 @@ export interface AgentInfo extends HelloFields {
   joinedAt: number;
 }
 
-export function buildAddr(host: string, project: string, sessionId: string, agentId?: string): string {
+export function buildAddr(
+  host: string,
+  project: string,
+  sessionId: string,
+  agentId?: string,
+): string {
   return [host, project, sessionId, ...(agentId ? [agentId] : [])].join('/');
 }
 

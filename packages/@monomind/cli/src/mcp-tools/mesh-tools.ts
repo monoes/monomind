@@ -3,9 +3,9 @@
  * Step 1 of docs/mastermind/specs/2026-10-23-monomind-mesh-design.md.
  */
 import { z } from 'zod';
-import { MeshOfflineError, callWithHub } from '../mesh/client.js';
-import { WhoFilterSchema } from '../mesh/protocol.js';
+import { callWithHub, MeshOfflineError } from '../mesh/client.js';
 import { projectIdFor } from '../mesh/project-id.js';
+import { WhoFilterSchema } from '../mesh/protocol.js';
 import { sessionPresence } from '../mesh/session-presence.js';
 import { getProjectCwd } from '../utils/paths.js';
 import type { MCPTool, MCPToolResult } from './types.js';
@@ -18,7 +18,11 @@ function issues(e: z.ZodError): string {
 }
 
 const JoinInput = z.object({
-  alias: z.string().regex(/^[A-Za-z0-9._-]+$/).max(64).optional(),
+  alias: z
+    .string()
+    .regex(/^[A-Za-z0-9._-]+$/)
+    .max(64)
+    .optional(),
   task: z.string().max(500).optional(),
   capabilities: z.array(z.string().min(1).max(64)).max(32).optional(),
   tags: z.array(z.string().min(1).max(64)).max(32).optional(),
@@ -40,7 +44,10 @@ const whoTool: MCPTool = {
       capability: { type: 'string' },
       tag: { type: 'string' },
       parent: { type: 'string', description: 'Parent agent address' },
-      includeGone: { type: 'boolean', description: 'Include agents that have left (default false)' },
+      includeGone: {
+        type: 'boolean',
+        description: 'Include agents that have left (default false)',
+      },
     },
   },
   handler: async (input) => {
