@@ -34,6 +34,16 @@ function hubPids(dir: string): number[] {
     });
 }
 
+/** Polls until at most one hub process remains for `dir` (or ~20 s pass), then returns them. */
+async function settledHubPids(dir: string): Promise<number[]> {
+  let pids = hubPids(dir);
+  for (let i = 0; i < 100 && pids.length > 1; i++) {
+    await new Promise((r) => setTimeout(r, 200));
+    pids = hubPids(dir);
+  }
+  return pids;
+}
+
 afterEach(() => {
   for (const d of dirs.splice(0)) {
     for (const pid of hubPids(d)) {
@@ -70,13 +80,15 @@ describe.skipIf(!built)('hub as a real process', () => {
     const who = await meshCall({ op: 'who', id: 'w' }, { dir });
     expect(who.agents).toHaveLength(5);
 
-    const pids = hubPids(dir);
+    // The four spawns that lost the lock exit on their own, but on a loaded host they are
+    // still starting up when the replies arrive: wait until only the winning hub is left.
+    const pids = await settledHubPids(dir);
     expect(pids).toHaveLength(1);
     process.kill(pids[0], 'SIGKILL');
     await new Promise((r) => setTimeout(r, 200));
 
     const again = await callWithHub(hello(9), { dir, timeoutMs: 2000 });
     expect(again.ok).toBe(true);
-    expect(hubPids(dir)).toHaveLength(1);
-  }, 30_000);
+    expect(await settledHubPids(dir)).toHaveLength(1);
+  }, 60_000);
 });
