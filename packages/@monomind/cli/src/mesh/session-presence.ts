@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { callWithHub, meshCall, type Reply } from './client.js';
+import { meshDir } from './hub.js';
 import type { HelloFields } from './protocol.js';
+import { createSessionFiles } from './session-files.js';
 
 export type JoinInput = Omit<HelloFields, 'tier' | 'capabilities' | 'tags'> & {
   capabilities?: string[];
@@ -19,6 +21,8 @@ export function createSessionPresence(
   call: Call = (r) => callWithHub(r),
   intervalMs = 15_000,
   byeCall: Call = call,
+  /** Told the credentials whenever they change (join, re-registration) and when they go away. */
+  onAuth: (auth: { addr: string; key: string } | undefined) => void = () => {},
 ) {
   let reg: { addr: string; key: string; hello: Record<string, unknown> } | undefined;
   /** The key of a registration whose bye did not get through, so a later join can take it back. */
@@ -54,6 +58,7 @@ export function createSessionPresence(
       if (!r.ok && (r.error === 'unauthorized' || r.error === 'gone')) {
         const again = await register(cur.hello, cur.key);
         reg = { ...cur, ...again };
+        onAuth({ addr: reg.addr, key: reg.key });
       }
     } catch {
       /* hub unreachable, or it refused to give the address back: the next tick retries */
@@ -93,6 +98,7 @@ export function createSessionPresence(
         }
         resume = undefined;
         reg = { ...got, hello };
+        onAuth({ addr: got.addr, key: got.key });
         startTimer();
         return got.addr;
       }),
@@ -102,6 +108,7 @@ export function createSessionPresence(
         await beating; // so the bye carries the newest key and no hello can land after it
         const current = reg;
         reg = undefined;
+        onAuth(undefined);
         if (!current) return;
         try {
           await byeCall({ op: 'bye', id: nextId(), addr: current.addr, key: current.key });
@@ -118,8 +125,12 @@ export function createSessionPresence(
   };
 }
 
+const sessionFiles = createSessionFiles(meshDir());
+process.on('exit', () => sessionFiles.remove());
+
 export const sessionPresence = createSessionPresence(
   (r) => callWithHub(r),
   15_000,
   (r) => meshCall(r),
+  (auth) => (auth ? sessionFiles.write(auth) : sessionFiles.remove()),
 );

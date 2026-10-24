@@ -201,6 +201,11 @@ export function generateHooksConfig(config: HooksConfig, monograph = true): obje
             command: standaloneHelperCmd('monolean-tracker.cjs'),
             timeout: 3,
           },
+          {
+            type: 'command',
+            command: standaloneHelperCmd('mesh-inbox.cjs'),
+            timeout: 3,
+          },
         ],
       },
     ];

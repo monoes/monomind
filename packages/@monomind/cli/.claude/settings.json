@@ -190,6 +190,11 @@
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/monolean-tracker.cjs\"'",
             "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/mesh-inbox.cjs\"'",
+            "timeout": 3
           }
         ]
       },
