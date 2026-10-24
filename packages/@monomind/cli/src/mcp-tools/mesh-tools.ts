@@ -77,7 +77,9 @@ const whoTool: MCPTool = {
     if (!allProjects && !filter.project) filter.project = projectIdFor(getProjectCwd());
     try {
       const r = await callWithHub({ op: 'who', id: `who-${Date.now()}`, ...filter });
-      return r.ok ? { agents: r.agents, note: UNTRUSTED_NOTE } : toolError(String(r.error));
+      return r.ok
+        ? { agents: r.agents, truncated: r.truncated === true, note: UNTRUSTED_NOTE }
+        : toolError(String(r.error));
     } catch (e) {
       if (e instanceof MeshOfflineError) return { offline: true, agents: [] };
       throw e;

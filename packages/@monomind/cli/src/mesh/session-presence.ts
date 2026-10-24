@@ -1,4 +1,4 @@
-import { callWithHub, type Reply } from './client.js';
+import { callWithHub, meshCall, type Reply } from './client.js';
 import type { HelloFields } from './protocol.js';
 
 export type JoinInput = Omit<HelloFields, 'tier' | 'capabilities' | 'tags'> & {
@@ -10,8 +10,18 @@ type Call = (req: Record<string, unknown>) => Promise<Reply>;
 let seq = 0;
 const nextId = () => `p${process.pid}-${seq++}`;
 
-export function createSessionPresence(call: Call = (r) => callWithHub(r), intervalMs = 15_000) {
+/**
+ * `call` may start a hub (join, heartbeat re-registration); `byeCall` must not: saying goodbye to a
+ * hub that is already gone is not worth starting one.
+ */
+export function createSessionPresence(
+  call: Call = (r) => callWithHub(r),
+  intervalMs = 15_000,
+  byeCall: Call = call,
+) {
   let reg: { addr: string; key: string; hello: Record<string, unknown> } | undefined;
+  /** The key of a registration whose bye did not get through, so a later join can take it back. */
+  let resume: { addr: string; key: string } | undefined;
   let timer: NodeJS.Timeout | undefined;
   let beating: Promise<void> | undefined;
   let queue: Promise<unknown> = Promise.resolve();
@@ -60,16 +70,27 @@ export function createSessionPresence(call: Call = (r) => callWithHub(r), interv
     timer = undefined;
   }
 
+  function startTimer(): void {
+    timer = setInterval(tick, intervalMs);
+    timer.unref();
+  }
+
   return {
     join: (i: JoinInput): Promise<string> =>
       serial(async () => {
         stopTimer();
         await beating; // an old beat must not overwrite the registration made below
         const hello = { op: 'hello', tier: 'session', capabilities: [], tags: [], ...i };
-        const got = await register(hello, reg?.key);
+        let got: { addr: string; key: string };
+        try {
+          got = await register(hello, reg?.key ?? resume?.key);
+        } catch (e) {
+          if (reg) startTimer(); // a refused re-join must not stop the registration we still hold
+          throw e;
+        }
+        resume = undefined;
         reg = { ...got, hello };
-        timer = setInterval(tick, intervalMs);
-        timer.unref();
+        startTimer();
         return got.addr;
       }),
     leave: (): Promise<void> =>
@@ -80,13 +101,20 @@ export function createSessionPresence(call: Call = (r) => callWithHub(r), interv
         reg = undefined;
         if (!current) return;
         try {
-          await call({ op: 'bye', id: nextId(), addr: current.addr, key: current.key });
+          await byeCall({ op: 'bye', id: nextId(), addr: current.addr, key: current.key });
+          resume = undefined;
         } catch {
-          /* hub gone: presence expires on its own */
+          // Hub unreachable: presence expires on its own, but keep the key so a quick re-join can
+          // take the address back instead of being refused as taken until the sweep frees it.
+          resume = { addr: current.addr, key: current.key };
         }
       }),
     addr: () => reg?.addr,
   };
 }
 
-export const sessionPresence = createSessionPresence();
+export const sessionPresence = createSessionPresence(
+  (r) => callWithHub(r),
+  15_000,
+  (r) => meshCall(r),
+);

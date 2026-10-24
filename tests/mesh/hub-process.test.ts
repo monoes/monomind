@@ -73,8 +73,10 @@ describe.skipIf(!built)('hub as a real process', () => {
       sessionId: `s${n}`,
     });
 
+    // retries: 150 (~22 s) - this tests the processes, not the client's default budget; a host
+    // with load well above its core count can take seconds just to boot node.
     const replies = await Promise.all(
-      [1, 2, 3, 4, 5].map((n) => callWithHub(hello(n), { dir, timeoutMs: 2000 })),
+      [1, 2, 3, 4, 5].map((n) => callWithHub(hello(n), { dir, timeoutMs: 2000, retries: 150 })),
     );
     expect(replies.every((r: { ok: boolean }) => r.ok)).toBe(true);
     const who = await meshCall({ op: 'who', id: 'w' }, { dir });
@@ -87,7 +89,7 @@ describe.skipIf(!built)('hub as a real process', () => {
     process.kill(pids[0], 'SIGKILL');
     await new Promise((r) => setTimeout(r, 200));
 
-    const again = await callWithHub(hello(9), { dir, timeoutMs: 2000 });
+    const again = await callWithHub(hello(9), { dir, timeoutMs: 2000, retries: 150 });
     expect(again.ok).toBe(true);
     expect(await settledHubPids(dir)).toHaveLength(1);
   }, 60_000);

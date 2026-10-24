@@ -4,7 +4,9 @@ import type { AgentInfo, HelloFields, Presence, WhoFilter } from './protocol.js'
 const MAX_LIVE_PER_PID = 64;
 const MAX_LIVE_TOTAL = 5000;
 /** Rows `list` returns when the caller gives no limit. */
-const DEFAULT_LIST_LIMIT = 500;
+export const DEFAULT_LIST_LIMIT = 200;
+/** Rows kept for agents that left, whatever their age: a flood of hello/bye cannot grow the table. */
+const MAX_GONE_ROWS = 1000;
 /** How long a row stays in the table (and in `includeGone` listings) after the agent left. */
 const GONE_RETENTION_MS = 24 * 60 * 60 * 1000;
 
@@ -45,6 +47,7 @@ interface Row {
   status: Presence;
   last_seen: number;
   joined_at: number;
+  key_hash: string | null;
 }
 
 const SCHEMA = `
@@ -62,9 +65,11 @@ CREATE TABLE IF NOT EXISTS agents (
   parent TEXT,
   status TEXT NOT NULL,
   last_seen INTEGER NOT NULL,
-  joined_at INTEGER NOT NULL
+  joined_at INTEGER NOT NULL,
+  key_hash TEXT
 );
 CREATE INDEX IF NOT EXISTS agents_project_status ON agents(project, status);
+CREATE INDEX IF NOT EXISTS agents_status_seen ON agents(status, last_seen);
 PRAGMA user_version = 1;
 `;
 
@@ -101,6 +106,11 @@ export class MeshStore {
     const db = new Database(file);
     db.pragma('journal_mode = WAL');
     db.exec(SCHEMA);
+    try {
+      db.exec('ALTER TABLE agents ADD COLUMN key_hash TEXT'); // a database made before key hashes
+    } catch {
+      /* the column already exists */
+    }
     return new MeshStore(db);
   }
 
@@ -150,6 +160,19 @@ export class MeshStore {
       );
   }
 
+  /** Remembers who owns a live address. Only a hash is stored, never the key itself. */
+  setKeyHash(addr: string, hash: string): void {
+    this.db.prepare(`UPDATE agents SET key_hash = ? WHERE addr = ?`).run(hash, addr);
+  }
+
+  /** The owner's key hash, or undefined when the address is free (unknown, gone, or never keyed). */
+  keyHashOf(addr: string): string | undefined {
+    const r = this.db
+      .prepare(`SELECT key_hash FROM agents WHERE addr = ? AND status != 'gone'`)
+      .get(addr) as { key_hash: string | null } | undefined;
+    return r?.key_hash ?? undefined;
+  }
+
   /** False when the agent is unknown or already gone (the caller must re-register). */
   heartbeat(addr: string, now: number, task?: string): boolean {
     const r = this.db
@@ -190,6 +213,13 @@ export class MeshStore {
         out.stale.push(r.addr);
       }
     }
+    // However recent, only the newest MAX_GONE_ROWS departed agents are kept.
+    this.db
+      .prepare(
+        `DELETE FROM agents WHERE status = 'gone' AND addr NOT IN
+           (SELECT addr FROM agents WHERE status = 'gone' ORDER BY last_seen DESC, addr DESC LIMIT ?)`,
+      )
+      .run(MAX_GONE_ROWS);
     return out;
   }
 

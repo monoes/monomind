@@ -1,11 +1,11 @@
-import { chmodSync, mkdirSync, unlinkSync } from 'node:fs';
+import { chmodSync, lstatSync, mkdirSync, unlinkSync } from 'node:fs';
 import { createServer, type Server, type Socket } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { acquireDaemonLock, type DaemonLockHandle } from '../orgrt/daemon-lock.js';
-import { issueKey, keysMatch } from './identity.js';
+import { hashKey, issueKey, keysMatch } from './identity.js';
 import { buildAddr, type Request, RequestSchema } from './protocol.js';
-import { MeshStore, StoreError } from './store.js';
+import { DEFAULT_LIST_LIMIT, MeshStore, StoreError } from './store.js';
 
 const MAX_LINE_BYTES = 64 * 1024;
 /** A client that lets this much reply data pile up unread is dropped instead of buffered. */
@@ -19,6 +19,25 @@ export function socketPathFor(dir: string): string {
   return join(dir, 'hub.sock');
 }
 
+/**
+ * Why `dir` cannot be trusted to hold the hub socket, or undefined when it can: it must be a real
+ * directory (not a symlink) owned by this user that nobody else can enter. Both the hub and its
+ * clients check this, so a `MONOMIND_MESH_DIR` pointing somewhere shared or planted is refused.
+ */
+export function privateDirProblem(dir: string): string | undefined {
+  let st: ReturnType<typeof lstatSync>;
+  try {
+    st = lstatSync(dir);
+  } catch {
+    return 'mesh directory does not exist';
+  }
+  if (!st.isDirectory()) return 'mesh path is not a private directory';
+  if (process.getuid && st.uid !== process.getuid())
+    return 'mesh directory is not private (wrong owner)';
+  if ((st.mode & 0o077) !== 0) return 'mesh directory is not private (group/other access)';
+  return undefined;
+}
+
 export interface HubOptions {
   dir: string;
   host: string;
@@ -30,6 +49,8 @@ export interface HubOptions {
   idleExitMs?: number;
   /** A connection that sends nothing for this long is closed (default 60 s). */
   connIdleMs?: number;
+  /** A half-sent line must be finished within this long (default 5 s): defeats trickling bytes. */
+  partialLineMs?: number;
   onIdle?: () => void;
 }
 
@@ -45,7 +66,6 @@ function pidAlive(pid: number): boolean {
 type Reply = Record<string, unknown>;
 
 export class MeshHub {
-  private readonly keys = new Map<string, string>();
   private readonly now: () => number;
   private readonly isAlive: (pid: number) => boolean;
   private readonly staleMs: number;
@@ -74,6 +94,8 @@ export class MeshHub {
   static async start(o: HubOptions): Promise<MeshHub> {
     mkdirSync(o.dir, { recursive: true, mode: 0o700 });
     chmodSync(o.dir, 0o700);
+    const problem = privateDirProblem(o.dir);
+    if (problem) throw new Error(problem);
     const lock = await acquireDaemonLock(o.dir, 'mesh');
     let store: MeshStore | undefined;
     try {
@@ -109,15 +131,22 @@ export class MeshHub {
 
   private onConnection(s: Socket): void {
     let buf = '';
+    let partialSince = 0; // when the current unfinished line got its first byte
     this.sockets.add(s);
     s.on('close', () => this.sockets.delete(s));
     s.setEncoding('utf8');
     s.setTimeout(this.o.connIdleMs ?? 60_000, () => s.destroy());
     s.on('error', () => s.destroy());
     s.on('data', (chunk: string) => {
+      const continuing = buf.length > 0;
       buf += chunk;
+      if (continuing && Date.now() - partialSince > (this.o.partialLineMs ?? 5_000)) {
+        return void s.destroy();
+      }
+      let finishedLine = false;
       let nl: number;
       while ((nl = buf.indexOf('\n')) >= 0) {
+        finishedLine = true;
         const line = buf.slice(0, nl);
         buf = buf.slice(nl + 1);
         if (Buffer.byteLength(line) > MAX_LINE_BYTES) return void s.destroy();
@@ -126,7 +155,8 @@ export class MeshHub {
         if (s.writableLength > MAX_PENDING_OUT_BYTES) return void s.destroy();
       }
       // Only the unfinished tail counts against the line limit, not a chunk of many short lines.
-      if (Buffer.byteLength(buf) > MAX_LINE_BYTES) s.destroy();
+      if (Buffer.byteLength(buf) > MAX_LINE_BYTES) return void s.destroy();
+      if (buf.length > 0 && (!continuing || finishedLine)) partialSince = Date.now();
     });
   }
 
@@ -149,9 +179,10 @@ export class MeshHub {
     }
   }
 
+  /** True when `key` is the one issued for this live address (only its hash is stored). */
   private authorized(addr: string, key: string): boolean {
-    const k = this.keys.get(addr);
-    return k !== undefined && keysMatch(k, key);
+    const owner = this.store.keyHashOf(addr);
+    return owner !== undefined && keysMatch(owner, hashKey(key));
   }
 
   private dispatch(r: Request): Reply {
@@ -159,8 +190,9 @@ export class MeshHub {
     switch (r.op) {
       case 'hello': {
         const addr = buildAddr(this.o.host, r.project, r.sessionId, r.agentId);
-        // A live address belongs to whoever holds its key: nobody else may take it over.
-        if (this.keys.has(addr) && !(r.key && this.authorized(addr, r.key))) {
+        // A live address belongs to whoever holds its key, also after a hub restart: nobody else
+        // may take it over.
+        if (this.store.keyHashOf(addr) !== undefined && !(r.key && this.authorized(addr, r.key))) {
           return { ok: false, error: 'addr_in_use' };
         }
         try {
@@ -172,7 +204,7 @@ export class MeshHub {
           throw e;
         }
         const key = issueKey();
-        this.keys.set(addr, key);
+        this.store.setKeyHash(addr, hashKey(key));
         return { ok: true, addr, key };
       }
       case 'heartbeat':
@@ -183,18 +215,23 @@ export class MeshHub {
       case 'bye':
         if (!this.authorized(r.addr, r.key)) return { ok: false, error: 'unauthorized' };
         this.store.bye(r.addr);
-        this.keys.delete(r.addr);
         return { ok: true };
-      case 'who':
-        return { ok: true, agents: this.store.list(r) };
+      case 'who': {
+        // One extra row tells the caller the list was cut off instead of looking complete.
+        const rows = this.store.list(r, DEFAULT_LIST_LIMIT + 1);
+        return {
+          ok: true,
+          agents: rows.slice(0, DEFAULT_LIST_LIMIT),
+          truncated: rows.length > DEFAULT_LIST_LIMIT,
+        };
+      }
     }
   }
 
-  /** One presence pass: stale/gone transitions, key cleanup, idle-exit check. */
+  /** One presence pass: stale/gone transitions, idle-exit check. */
   sweepNow(): void {
     const t = this.now();
-    const { gone } = this.store.sweep(t, this.staleMs, this.goneMs, this.isAlive);
-    for (const addr of gone) this.keys.delete(addr);
+    this.store.sweep(t, this.staleMs, this.goneMs, this.isAlive);
     if (this.store.liveCount() > 0) this.lastBusy = t;
     if (!this.idleFired && t - this.lastBusy >= this.idleExitMs) {
       this.idleFired = true;

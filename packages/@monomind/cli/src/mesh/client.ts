@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 import { fileURLToPath } from 'node:url';
-import { meshDir, socketPathFor } from './hub.js';
+import { meshDir, privateDirProblem, socketPathFor } from './hub.js';
 
 export class MeshOfflineError extends Error {
   constructor(message = 'mesh hub unreachable') {
@@ -19,6 +19,9 @@ export interface CallOptions {
 /** One request/reply over the hub socket. Any transport failure is MeshOfflineError. */
 export function meshCall(req: Record<string, unknown>, o: CallOptions = {}): Promise<Reply> {
   const dir = o.dir ?? meshDir();
+  // Never hand a key to a socket in a directory somebody else could have made or entered.
+  const problem = privateDirProblem(dir);
+  if (problem) return Promise.reject(new MeshOfflineError(problem));
   return new Promise((resolve, reject) => {
     const s = connect(socketPathFor(dir));
     let buf = '';

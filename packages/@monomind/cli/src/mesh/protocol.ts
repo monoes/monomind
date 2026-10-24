@@ -16,8 +16,17 @@ const SAFE_LABEL = /^[A-Za-z0-9._:+-]+$/;
 const label = z.string().trim().min(1).max(64).regex(SAFE_LABEL);
 const SAFE_ADDR = /^[A-Za-z0-9._/-]+$/;
 
+/** C0/C1 controls plus characters that hide or reorder text (zero-width, bidi overrides, BOM). */
 function isControl(code: number): boolean {
-  return code < 32 || (code >= 127 && code <= 159);
+  return (
+    code < 32 ||
+    (code >= 127 && code <= 159) ||
+    (code >= 0x200b && code <= 0x200f) ||
+    (code >= 0x202a && code <= 0x202e) ||
+    code === 0x2060 ||
+    (code >= 0x2066 && code <= 0x2069) ||
+    code === 0xfeff
+  );
 }
 function hasControl(s: string): boolean {
   for (let i = 0; i < s.length; i++) if (isControl(s.charCodeAt(i))) return true;
@@ -30,6 +39,9 @@ function stripControl(s: string): string {
   return out.replace(/\s+/g, ' ').trim();
 }
 
+/** The one-line status other agents read; both `hello` and `heartbeat` carry it. */
+const taskText = z.string().max(500).transform(stripControl);
+
 const helloShape = {
   tier: z.enum(TIERS),
   runtime: label,
@@ -38,12 +50,12 @@ const helloShape = {
   projectPath: z
     .string()
     .min(1)
-    .max(4096)
+    .max(1024)
     .refine((p) => !hasControl(p), 'control characters are not allowed'),
   sessionId: id(128),
   agentId: id(128).optional(),
   alias: id(64).optional(),
-  task: z.string().max(500).transform(stripControl).optional(),
+  task: taskText.optional(),
   capabilities: z.array(label).max(32).default([]),
   tags: z.array(label).max(32).default([]),
   parent: z.string().max(512).regex(SAFE_ADDR).optional(),
@@ -71,7 +83,7 @@ export const RequestSchema = z.discriminatedUnion('op', [
     id: reqId,
     addr: z.string().min(1).max(512),
     key: z.string().min(1).max(128),
-    task: z.string().max(500).optional(),
+    task: taskText.optional(),
   }),
   z.object({
     op: z.literal('bye'),

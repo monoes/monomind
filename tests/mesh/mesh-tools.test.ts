@@ -109,3 +109,10 @@ describe('mesh tools', () => {
     expect(await tool('mesh_leave').handler({})).toEqual({ left: true });
   });
 });
+
+describe('mesh tools: truncated lists', () => {
+  it("mesh_who passes the hub's truncated flag on", async () => {
+    callWithHub.mockResolvedValue({ id: 'x', ok: true, agents: [], truncated: true });
+    expect(await tool('mesh_who').handler({})).toMatchObject({ truncated: true });
+  });
+});

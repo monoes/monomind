@@ -167,3 +167,66 @@ describe('session presence: races', () => {
     await p.leave();
   });
 });
+
+describe('session presence: failure paths', () => {
+  type Req = Record<string, unknown>;
+
+  it('keeps heartbeating the existing registration when a second join is refused', async () => {
+    let hellos = 0;
+    const call = vi.fn(async (req: Req): Promise<Reply> => {
+      if (req.op === 'hello') {
+        hellos++;
+        return hellos === 1
+          ? { id: 'x', ok: true, addr: 'h/p1/s1', key: 'k1' }
+          : { id: 'x', ok: false, error: 'alias_taken' };
+      }
+      return { id: 'x', ok: true };
+    });
+    const p = createSessionPresence(call, 1000);
+    await p.join(input);
+    await expect(p.join({ ...input, alias: 'taken' })).rejects.toThrow('alias_taken');
+    call.mockClear();
+    await vi.advanceTimersByTimeAsync(2100);
+    expect(call.mock.calls.filter(([r]) => r.op === 'heartbeat')).toHaveLength(2);
+    expect(p.addr()).toBe('h/p1/s1');
+    await p.leave();
+  });
+
+  it('sends bye without spawning a hub, and resumes with its key after a failed bye', async () => {
+    const calls: Req[] = [];
+    let byeFails = true;
+    const call = vi.fn(async (req: Req): Promise<Reply> => {
+      calls.push(req);
+      if (req.op === 'bye' && byeFails) throw new MeshOfflineError();
+      if (req.op === 'hello') return { id: 'x', ok: true, addr: 'h/p1/s1', key: 'k1' };
+      return { id: 'x', ok: true };
+    });
+    const bye = vi.fn(async (): Promise<Reply> => {
+      throw new MeshOfflineError();
+    });
+    const p = createSessionPresence(call, 1000, bye);
+    await p.join(input);
+    await p.leave();
+    expect(bye).toHaveBeenCalledTimes(1);
+    expect(calls.some((r) => r.op === 'bye')).toBe(false); // bye did not go through the spawning call
+    byeFails = false;
+    await p.join(input);
+    expect(calls.filter((r) => r.op === 'hello')[1]).toMatchObject({ key: 'k1' });
+    await p.leave();
+  });
+
+  it('keeps sending heartbeats on later ticks when the hub refuses to give the address back', async () => {
+    const call = vi.fn(async (req: Req): Promise<Reply> => {
+      if (req.op === 'hello' && req.key === undefined)
+        return { id: 'x', ok: true, addr: 'h/p1/s1', key: 'k1' };
+      if (req.op === 'hello') return { id: 'x', ok: false, error: 'addr_in_use' };
+      return { id: 'x', ok: false, error: 'unauthorized' };
+    });
+    const p = createSessionPresence(call, 1000);
+    await p.join(input);
+    await vi.advanceTimersByTimeAsync(3200);
+    expect(call.mock.calls.filter(([r]) => r.op === 'heartbeat').length).toBeGreaterThanOrEqual(3);
+    expect(p.addr()).toBe('h/p1/s1');
+    await p.leave();
+  });
+});
