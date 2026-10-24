@@ -12,7 +12,13 @@ import { readHistory, readRunEvents, summarizeRun } from '../orgrt/reporting.js'
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
 import { output } from '../output.js';
 import type { CommandContext, CommandResult } from '../types.js';
-import { endpointRoleIds, orgJson, printOrgJson, resolveRun } from './org-observe-shared.js';
+import {
+  endpointRoleIds,
+  orgJson,
+  printOrgJson,
+  resolveRun,
+  sectionsJson,
+} from './org-observe-shared.js';
 
 const log = (text: string): void => {
   console.log(text);
@@ -110,6 +116,7 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
       crashes: s.crashes,
       roles: s.roles,
       assets: s.assets,
+      ...sectionsJson(ctx.cwd, name, run),
     });
   }
 
@@ -423,7 +430,14 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
       // false: some role's cost is unknown, so cost_usd is a lower bound.
       cost_complete: [...roleData.values()].every((d) => d.costComplete && d.costUsd !== null),
     };
-    return printOrgJson({ v: 1, org: name, run, items, totals });
+    return printOrgJson({
+      v: 1,
+      org: name,
+      run,
+      items,
+      totals,
+      ...sectionsJson(ctx.cwd, name, run),
+    });
   }
 
   if (roleData.size === 0) {

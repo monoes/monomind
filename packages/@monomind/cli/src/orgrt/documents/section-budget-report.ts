@@ -15,6 +15,7 @@ import type { BudgetDef } from './section-budget.js';
 import {
   type AllocationStatus,
   allocationStatus,
+  type ClosureState,
   type GroupStatus,
   type SpendSnapshot,
 } from './section-budget-status.js';
@@ -50,32 +51,89 @@ export function liveSectionBudgetStatus(running: RunningOrg): AllocationStatus |
 
 const usd2 = (n: number | undefined): string => (n === undefined ? 'none' : `$${n.toFixed(2)}`);
 
-function row(label: string, g: GroupStatus): string {
-  const pct = g.fraction === undefined ? '' : ` (${Math.round(g.fraction * 100)}%, ${g.state})`;
-  const retired =
-    g.retiredUsd > 0 ? `, of which replaced incarnations $${g.retiredUsd.toFixed(4)}` : '';
-  return `    ${label}: spent $${g.spentUsd.toFixed(4)} of ${usd2(g.allocationUsd)}${pct}; role caps ${usd2(g.roleCapSumUsd)}${retired}`;
+/** One row of the section budget table, as `org report` prints it and as the `sections` array of the JSON of
+ *  `org status`, `org costs` and `org report --format json` carries it (`kind` section, root reserve or org). A
+ *  key is omitted when the text table omits it: `budget` and `percent_used` without an allocation,
+ *  `retired_usd` at zero. Units are the table's: USD, `percent_used` a whole percent. */
+export interface SectionBudgetRow {
+  name: string;
+  kind: 'section' | 'reserve' | 'org';
+  spend_usd: number;
+  budget?: number;
+  percent_used?: number;
+  state: ClosureState;
+  role_caps_usd: number;
+  retired_usd?: number;
 }
 
-/** The table `org report` prints: one line per allocated section, the root reserve and the org. Every limit is an
- *  individual soft stop (spec 6.9): nothing here stops a role by itself. */
-export function sectionBudgetLines(status: AllocationStatus): string[] {
-  const lines = ['  Section budgets (USD; individual soft stops):'];
+const rowOf = (name: string, kind: SectionBudgetRow['kind'], g: GroupStatus): SectionBudgetRow => ({
+  name,
+  kind,
+  spend_usd: Number(g.spentUsd.toFixed(4)),
+  ...(g.allocationUsd === undefined ? {} : { budget: g.allocationUsd }),
+  ...(g.fraction === undefined ? {} : { percent_used: Math.round(g.fraction * 100) }),
+  state: g.state,
+  role_caps_usd: g.roleCapSumUsd,
+  ...(g.retiredUsd > 0 ? { retired_usd: Number(g.retiredUsd.toFixed(4)) } : {}),
+});
+
+/** The rows of the table: one per allocated section, the root reserve when allocated, and the org. */
+export function sectionBudgetRows(status: AllocationStatus): SectionBudgetRow[] {
+  const rows: SectionBudgetRow[] = [];
   for (const s of status.sections)
-    if (s.allocationUsd !== undefined) lines.push(row(`section ${s.name}`, s));
-  if (status.reserve.allocationUsd !== undefined) lines.push(row('root reserve', status.reserve));
-  lines.push(row('org', status.org));
-  return lines;
+    if (s.allocationUsd !== undefined) rows.push(rowOf(s.name, 'section', s));
+  if (status.reserve.allocationUsd !== undefined)
+    rows.push(rowOf('root reserve', 'reserve', status.reserve));
+  rows.push(rowOf('org', 'org', status.org));
+  return rows;
 }
 
-/** The lines for a run summary: from the definition and each role's summed USD cost (null: unknown, counted 0). */
+function line(r: SectionBudgetRow): string {
+  const label = r.kind === 'section' ? `section ${r.name}` : r.name;
+  const pct = r.percent_used === undefined ? '' : ` (${r.percent_used}%, ${r.state})`;
+  const retired =
+    r.retired_usd === undefined
+      ? ''
+      : `, of which replaced incarnations $${r.retired_usd.toFixed(4)}`;
+  return `    ${label}: spent $${r.spend_usd.toFixed(4)} of ${usd2(r.budget)}${pct}; role caps ${usd2(r.role_caps_usd)}${retired}`;
+}
+
+/** The table `org report` prints: one line per row of `sectionBudgetRows`. Every limit is an individual soft
+ *  stop (spec 6.9): nothing here stops a role by itself. */
+export function sectionBudgetLines(status: AllocationStatus): string[] {
+  return [
+    '  Section budgets (USD; individual soft stops):',
+    ...sectionBudgetRows(status).map(line),
+  ];
+}
+
+/** The offline status of a run: each role's summed USD cost (null: unknown, counted 0), or undefined when section
+ *  budgets do not apply to the definition. */
+function offlineStatus(
+  def: BudgetDef,
+  roles: Record<string, { costUsd: number | null }>,
+): AllocationStatus | undefined {
+  if (!sectionBudgetReportApplies(def)) return undefined;
+  const snapshot: SpendSnapshot = {};
+  for (const [id, r] of Object.entries(roles))
+    snapshot[id] = { usd: r.costUsd ?? 0, retiredUsd: 0 };
+  return allocationStatus(def, snapshot);
+}
+
+/** The lines for a run summary. */
 export function sectionBudgetReportLines(
   def: BudgetDef,
   roles: Record<string, { costUsd: number | null }>,
 ): string[] {
-  if (!sectionBudgetReportApplies(def)) return [];
-  const snapshot: SpendSnapshot = {};
-  for (const [id, r] of Object.entries(roles))
-    snapshot[id] = { usd: r.costUsd ?? 0, retiredUsd: 0 };
-  return sectionBudgetLines(allocationStatus(def, snapshot));
+  const status = offlineStatus(def, roles);
+  return status ? sectionBudgetLines(status) : [];
+}
+
+/** The `sections` rows of a run's JSON: the same status as the lines, [] when section budgets do not apply. */
+export function sectionBudgetReportRows(
+  def: BudgetDef,
+  roles: Record<string, { costUsd: number | null }>,
+): SectionBudgetRow[] {
+  const status = offlineStatus(def, roles);
+  return status ? sectionBudgetRows(status) : [];
 }

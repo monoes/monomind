@@ -165,7 +165,7 @@ monomind org status [<name>]
 ```
 
 Shows: elapsed time, events, messages, tool calls, roles, tokens used, cost in USD.
-Detects stale PIDs (process no longer alive).
+Detects stale PIDs (process no longer alive). `--format json` adds the per-section `sections` rows (see `report`).
 
 **Source:** [`commands/org-lifecycle.ts → statusAction`](packages/@monomind/cli/src/commands/org-lifecycle.ts#statusAction)
 
@@ -325,6 +325,21 @@ monomind org report <name> [options]
 
 Each role's line shows its total tokens, split into input+output and cache tokens, and — when the org config is readable — how much of its token budget it has used. That percentage is computed on the basis `budget_tokens` is enforced on: input+output by default, or the full billable total (cache included) when `run_config.budget_tokens_basis` is `"billable"`. A role is marked `near limit` at 80% and `EXHAUSTED` at 100% of that basis.
 
+
+### Per-section spend in `--format json`
+
+For an org with sections and a section budget (or an org USD budget), the JSON of `org status <name>`, `org costs` and `org report` carries a `sections` array: the rows of the section table that the `org report` text output prints, computed by the same function from the run's usage events (`sectionBudgetReportRows` in `orgrt/documents/section-budget-report.ts`). Units are the table's: USD, and a whole percent.
+
+```json
+"sections": [
+  { "name": "development", "kind": "section", "spend_usd": 3, "budget": 30, "percent_used": 10, "state": "ok", "role_caps_usd": 30 },
+  { "name": "root reserve", "kind": "reserve", "spend_usd": 0, "budget": 40, "percent_used": 0, "state": "ok", "role_caps_usd": 20 },
+  { "name": "org", "kind": "org", "spend_usd": 3, "budget": 110, "percent_used": 3, "state": "ok", "role_caps_usd": 90 }
+]
+```
+
+One row per section with an allocation, then `root reserve` when allocated, then `org`. `kind` is `section`, `reserve` or `org`. `state` is `unallocated`, `ok`, `warn` (from 80%) or `closed`. `budget` and `percent_used` are omitted when there is no allocation, and `retired_usd` (spend of replaced incarnations, included in `spend_usd`) is omitted at zero. The `sections` key is omitted entirely when the org has no section budgets, the run has no usage events or the definition is unreadable, so the JSON of such orgs is unchanged. `org status` reports the latest run recorded in `runtime.json`.
+
 ---
 
 ## `memory`
@@ -375,7 +390,7 @@ The bundled set includes skills imported with `import` from `anthropics/knowledg
 
 ## `costs`
 
-Per-role cost tracking from `runtime.json`.
+Per-role cost tracking from `runtime.json`. `--format json` adds the per-section `sections` rows (see `report`).
 
 ```bash
 monomind org costs <name> [--run <run-id>]
