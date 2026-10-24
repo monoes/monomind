@@ -888,7 +888,7 @@ refused in a non-eval sections org. `agent scan` and `doctor -c agent-runtimes` 
 
 **Hardening (gate rows R1–R7):**
 
-- **R1 — single-daemon lock:** an OS-held lock per org root; a network filesystem is refused.
+- **R1 — single-daemon lock:** an OS-held lock per org root; a network or shared filesystem is refused (NFS, CIFS/SMB, AFS, Ceph, Lustre, GlusterFS, 9p, virtiofs and FUSE network or cloud mounts such as sshfs, rclone, s3fs and gcsfuse).
 - **R2 — authenticated routing envelopes:** cross-section/task-routing messages are signed and
   verified, not trusted by shape alone.
 - **R3 — mail digest read-denial:** per-recipient mail digests; a role cannot read another
