@@ -152,7 +152,7 @@ export function checkReadOnlyCommand(
     return {
       ok: false,
       message:
-        'read access allows one literal command: no pipes, redirects, ;, &&, ||, backticks, $(...) or subshells.',
+        'read access allows one literal command: only plain words, \'single-quoted\' text and simple "double-quoted" text (no pipes, redirects, chaining, substitution, globs or subshells). Wrap anything else, such as regexes, globs or non-ASCII text, in single quotes.',
     };
   }
   const bad = deniedArgument(shellWords(cmd));
@@ -182,8 +182,9 @@ export function readAccessCanUseTool(
         typeof input.command === 'string'
           ? checkReadOnlyCommand(input.command, extraPrefixes)
           : ({ ok: false, message: 'Bash call without a command' } as const);
+      // Return the scanned (trimmed) string: bash must run what was checked.
       return v.ok
-        ? { behavior: 'allow', updatedInput: input }
+        ? { behavior: 'allow', updatedInput: { ...input, command: String(input.command).trim() } }
         : { behavior: 'deny', message: v.message };
     }
     return {
