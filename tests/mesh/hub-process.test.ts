@@ -1,5 +1,6 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -64,7 +65,7 @@ type Client = typeof srcClient;
  * survives, and after kill -9 the next caller starts a new one.
  */
 async function scenario(client: Client, spawnHub?: (dir: string) => void): Promise<void> {
-  const dir = mkdtempSync(join('/var/tmp', 'mesh-'));
+  const dir = mkdtempSync(join(tmpdir(), 'mesh-'));
   dirs.push(dir);
   const hello = (n: number) => ({
     op: 'hello',

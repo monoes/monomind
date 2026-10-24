@@ -1,11 +1,12 @@
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { atomicWriteFile } from '../../packages/@monomind/cli/src/init/fs-helpers.js';
 
 const dirs: string[] = [];
 function tmp(): string {
-  const d = mkdtempSync(join('/var/tmp', 'awf-'));
+  const d = mkdtempSync(join(tmpdir(), 'awf-'));
   dirs.push(d);
   return d;
 }

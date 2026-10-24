@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -15,7 +16,7 @@ afterEach(async () => {
 });
 
 function tmpDir(): string {
-  const d = mkdtempSync(join('/var/tmp', 'mesh-'));
+  const d = mkdtempSync(join(tmpdir(), 'mesh-'));
   cleanups.push(() => rmSync(d, { recursive: true, force: true }));
   return d;
 }
