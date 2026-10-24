@@ -74,6 +74,15 @@ describe('mesh-inbox hook', () => {
     expect((await runHook(dir)).stdout).toBe('');
   });
 
+  it('tells the session its own name once, even with no messages', async () => {
+    const { dir, b } = await setup();
+    leaveCredentials(dir, { addr: b.addr, key: b.key, alias: 'beta' });
+    const first = (await runHook(dir)).stdout;
+    expect(first).toContain('This session is "beta"');
+    expect(first).toContain('mesh_send');
+    expect((await runHook(dir)).stdout).toBe('');
+  });
+
   it('prints nothing without credentials, with a wrong key, or without a hub', async () => {
     const { dir, b } = await setup();
     expect((await runHook(dir)).stdout).toBe('');

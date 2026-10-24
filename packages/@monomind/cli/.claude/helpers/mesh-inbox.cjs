@@ -31,7 +31,7 @@ function findSession() {
   for (let i = 0; pid > 1 && i < 8; i++, pid = parentOf(pid)) {
     try {
       const s = JSON.parse(fs.readFileSync(path.join(dir, 'sessions', pid + '.json'), 'utf8'));
-      if (s && typeof s.addr === 'string' && typeof s.key === 'string') return s;
+      if (s && typeof s.addr === 'string' && typeof s.key === 'string') { s.file = path.join(dir, 'sessions', pid + '.json'); return s; }
     } catch (_) { /* not this ancestor */ }
   }
   return null;
@@ -73,10 +73,23 @@ function render(r) {
   return lines.join('\n');
 }
 
+// Once per session: tell the agent its own mesh name and how to use it. The mesh tools are not
+// in the default tool list, so this line is how a session learns they exist.
+function identity(session) {
+  const marker = session.file.replace(/\.json$/, '.shown');
+  if (fs.existsSync(marker)) return;
+  try { fs.writeFileSync(marker, '', { mode: 0o600 }); } catch (_) { return; }
+  const name = String(session.alias || session.addr).replace(/[^A-Za-z0-9._\/-]/g, '');
+  console.log('[MESH] This session is "' + name + '" on the Monomind mesh. Other agents (Claude, Codex, Kimi...) on this host can message it by that name. ' +
+    'Tools, callable by name even if not listed: mesh_who (list agents and their names), mesh_send {to, body, kind: say|ask|reply}, mesh_inbox. ' +
+    'Messages for you appear here as [MESH] blocks.');
+}
+
 try {
   const session = findSession();
   if (!session) process.exit(0);
   inbox(session, (r) => {
+    if (r && r.ok) identity(session);
     if (r && r.ok && Array.isArray(r.messages) && r.messages.length > 0) console.log(render(r));
     process.exit(0);
   });

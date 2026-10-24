@@ -53,7 +53,7 @@ function alive(pid: number): boolean {
 }
 
 export interface SessionFiles {
-  write(auth: { addr: string; key: string }): void;
+  write(auth: { addr: string; key: string; alias?: string }): void;
   remove(): void;
 }
 
@@ -62,10 +62,12 @@ export function createSessionFiles(dir: string): SessionFiles {
   let written: string[] = [];
   const remove = () => {
     for (const f of written) {
-      try {
-        unlinkSync(f);
-      } catch {
-        /* already gone */
+      for (const g of [f, f.replace(/\.json$/, '.shown')]) {
+        try {
+          unlinkSync(g);
+        } catch {
+          /* already gone */
+        }
       }
     }
     written = [];
@@ -76,10 +78,10 @@ export function createSessionFiles(dir: string): SessionFiles {
         mkdirSync(sessions, { recursive: true, mode: 0o700 });
         // Files of sessions that died without saying goodbye.
         for (const f of readdirSync(sessions)) {
-          const pid = Number(f.replace(/\.json$/, ''));
+          const pid = Number(f.replace(/\.(json|shown)$/, ''));
           if (Number.isInteger(pid) && !alive(pid)) unlinkSync(join(sessions, f));
         }
-        remove();
+        written = []; // the same files are overwritten below; a `.shown` marker must survive
         for (const pid of ancestors()) {
           const file = join(sessions, `${pid}.json`);
           const tmp = `${file}.${process.pid}.tmp`;

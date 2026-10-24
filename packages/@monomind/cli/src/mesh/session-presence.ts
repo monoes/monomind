@@ -10,6 +10,9 @@ export type JoinInput = Omit<HelloFields, 'tier' | 'capabilities' | 'tags'> & {
 };
 type Call = (req: Record<string, unknown>) => Promise<Reply>;
 
+const aliasOf = (hello: Record<string, unknown>) =>
+  typeof hello.alias === 'string' ? hello.alias : undefined;
+
 let seq = 0;
 const nextId = () => `p${process.pid}-${seq++}`;
 
@@ -22,7 +25,7 @@ export function createSessionPresence(
   intervalMs = 15_000,
   byeCall: Call = call,
   /** Told the credentials whenever they change (join, re-registration) and when they go away. */
-  onAuth: (auth: { addr: string; key: string } | undefined) => void = () => {},
+  onAuth: (auth: { addr: string; key: string; alias?: string } | undefined) => void = () => {},
 ) {
   let reg: { addr: string; key: string; hello: Record<string, unknown> } | undefined;
   /** The key of a registration whose bye did not get through, so a later join can take it back. */
@@ -58,7 +61,7 @@ export function createSessionPresence(
       if (!r.ok && (r.error === 'unauthorized' || r.error === 'gone')) {
         const again = await register(cur.hello, cur.key);
         reg = { ...cur, ...again };
-        onAuth({ addr: reg.addr, key: reg.key });
+        onAuth({ addr: reg.addr, key: reg.key, alias: aliasOf(cur.hello) });
       }
     } catch {
       /* hub unreachable, or it refused to give the address back: the next tick retries */
@@ -98,7 +101,7 @@ export function createSessionPresence(
         }
         resume = undefined;
         reg = { ...got, hello };
-        onAuth({ addr: got.addr, key: got.key });
+        onAuth({ addr: got.addr, key: got.key, alias: aliasOf(hello) });
         startTimer();
         return got.addr;
       }),
