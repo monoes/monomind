@@ -287,7 +287,7 @@ describe('ensureOptionalDependency', () => {
         runNpm: fakeNpm('x').run,
         note: 'Set MONOMIND_CLAUDE_PATH.',
       });
-      expect(log.mock.calls[0][0]).toMatch(/instead\)\.\.\. Set MONOMIND_CLAUDE_PATH\.$/);
+      expect(log.mock.calls[0][0]).toMatch(/instead\.\.\. Set MONOMIND_CLAUDE_PATH\.$/);
     });
   });
 
