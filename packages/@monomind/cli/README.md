@@ -316,7 +316,7 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 # → "find all callers of validateToken()"
 ```
 
-<!-- doc-count:mcp-tools-default -->24<!-- /doc-count:mcp-tools-default --> default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
+<!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
 
 ---
 

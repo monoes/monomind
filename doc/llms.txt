@@ -17,7 +17,7 @@
 ### Model Context Protocol (MCP) Server
 - Core protocol engine is `@monoes/mcp` (`packages/@monomind/mcp/`).
 - CLI integration exposing `monomind mcp` commands.
-- `tools/list` advertises a core of <!-- doc-count:mcp-tools-default -->24<!-- /doc-count:mcp-tools-default --> tools by default (`monograph_*`, `pick`, `knowledge_*`, `monodesign_*`, `memory_*`); `MONOMIND_MCP_FULL=1` advertises all <!-- doc-count:mcp-tools-full -->202<!-- /doc-count:mcp-tools-full -->. Every other tool (`guidance_*`, `hooks_*`, `agent_*` and more) stays callable by name and is found with `monomind_tool_search`.
+- `tools/list` advertises a core of <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> tools by default (`monograph_*`, `pick`, `knowledge_*`, `monodesign_*`, `memory_*`); `MONOMIND_MCP_FULL=1` advertises all <!-- doc-count:mcp-tools-full -->202<!-- /doc-count:mcp-tools-full -->. Every other tool (`guidance_*`, `hooks_*`, `agent_*` and more) stays callable by name and is found with `monomind_tool_search`.
 - Concept Doc: [`doc/concepts/mcp-server.md`](doc/concepts/mcp-server.md)
 
 ### Memory Subsystem

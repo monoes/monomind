@@ -2,6 +2,12 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Changed
+
+- **The mesh tools are no longer in the default advertised MCP roster (back to 21 tools).** 2.28.0 advertised `mesh_who`, `mesh_join` and `mesh_leave` by default and raised the schema byte budget from 16,000 to 18,000 to fit them. The lean roster of #410 is restored (16,000-byte budget, 21 tools): until sessions join the mesh by themselves, three more tools in every session cost more than they give. The tools still work exactly as before and are found with `monomind_tool_search` or called by name.
+
 ## [2.28.0] — 2026-10-24
 
 ### Added

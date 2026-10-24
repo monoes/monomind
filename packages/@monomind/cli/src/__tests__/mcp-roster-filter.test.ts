@@ -62,9 +62,7 @@ describe('MCP core-roster filter', () => {
       })),
     });
     expect(tools.length).toBeLessThanOrEqual(25);
-    // Budget raised 16_000 -> 18_000 in 2.28.0: Monomind Mesh step 1 adds mesh_join/mesh_who/mesh_leave
-    // to the default roster (24 tools, ~+1.7 KB schema payload).
-    expect(Buffer.byteLength(payload)).toBeLessThan(18_000);
+    expect(Buffer.byteLength(payload)).toBeLessThan(16_000);
   });
 
   it('keeps hidden tools callable by name', async () => {
