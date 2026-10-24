@@ -443,7 +443,8 @@ describe('round 3: the hub lock cannot be squatted', () => {
     const squat = await acquireDaemonLock(dir, 'mesh'); // what another user could compute and bind
     cleanups.push(() => squat.release());
     await startHub(dir);
-    expect(await meshCall(hello(), { dir })).toMatchObject({ ok: true });
+    // 5 s, not the 500 ms default: under a loaded full-suite run the first answer can be slow
+    expect(await meshCall(hello(), { dir, timeoutMs: 5000 })).toMatchObject({ ok: true });
   });
 
   it('keeps its lock name in a private file inside the mesh directory', async () => {
