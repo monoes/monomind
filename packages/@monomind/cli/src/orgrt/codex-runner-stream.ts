@@ -165,7 +165,7 @@ export function codexExecArgs(
   } else {
     // #263: codex's own sandbox follows the role's policy.git level — only a
     // 'push' role still gets danger-full-access. See cli-sandbox.ts.
-    cliArgs.push(...codexSandboxArgs(roleGitLevel(args.env)));
+    cliArgs.push(...codexSandboxArgs(roleGitLevel(args.env), args.writableRoots));
   }
   if (threadId) {
     cliArgs.push('resume', threadId);
