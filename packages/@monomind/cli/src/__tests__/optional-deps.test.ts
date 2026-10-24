@@ -185,9 +185,7 @@ describe('ensureOptionalDependency', () => {
       writeFakeSdk(dependencyDir(SDK, env), 'from-deps');
       const npm = fakeNpm('unused');
       await ensureOptionalDependency(SDK, { ...base(), runNpm: npm.run });
-      expect(log.mock.calls.flat().join('\n')).not.toMatch(
-        /Installing it once/,
-      );
+      expect(log.mock.calls.flat().join('\n')).not.toMatch(/Installing it once/);
       expect(npm.calls).toHaveLength(0);
     });
 
@@ -198,9 +196,7 @@ describe('ensureOptionalDependency', () => {
         env: { ...env, MONOMIND_NO_AUTO_INSTALL: '1' },
         runNpm: npm.run,
       }).catch(() => undefined);
-      expect(log.mock.calls.flat().join('\n')).not.toMatch(
-        /Installing it once/,
-      );
+      expect(log.mock.calls.flat().join('\n')).not.toMatch(/Installing it once/);
       expect(npm.calls).toHaveLength(0);
     });
   });
