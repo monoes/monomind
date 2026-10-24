@@ -257,7 +257,7 @@ allow-everything `fullAccessCanUseTool` to a turn only when `access === 'full'` 
   `ToolSearch`, the caller's own stdio tools, and `Bash` only for an allowlisted prefix (`git
   status|diff|log|show|blame`, `ls`, `cat`, `head`, `tail`, `wc`, `rg`, `grep`, `find`, plus
   `--allow-bash-prefix` entries). A shell command must be one literal invocation (the scoped
-  mode's metacharacter scanner plus no unquoted parentheses) and carry no argument that makes an
+  mode's metacharacter scanner plus no unquoted parentheses; for confined turns the scanner is a strict allow-list, see "Confined-turn shell scanner" at the end) and carry no argument that makes an
   allowed command run or write something: `find -exec|-execdir|-ok|-okdir|-delete|-fprint|
   -fprint0|-fprintf|-fls`, `rg --pre`, `git --output`/`--ext-diff` (checked on the words bash
   would see, quotes removed). Everything else — `Edit`, `Write`, `MultiEdit`, `NotebookEdit`,
@@ -523,3 +523,13 @@ security lens for injection, escalation, path handling, and env leaks:
   §2.1 — see that section's table for exactly what was checked and how.
 - **Nothing required a code fix** during this review; the residual risks in §4 are by-design
   trade-offs of "full access," not defects.
+
+## Confined-turn shell scanner: a strict allow-list (2.27.0, #702-#704)
+
+The shell commands a confined turn may run are read by an allow-list tokenizer, not a block-list. Only three kinds of text are accepted: plain words, single-quoted text and simple double-quoted text. Anything else is refused, so a few commands that were handled differently before now need quoting:
+
+- `ls *.ts` is refused (unquoted glob); write `ls '*.ts'`.
+- `cat 'a'$HOME` is refused (expansion glued to a quoted word); quote the whole argument.
+- A lone trailing backslash, and a word that starts with `=`, are refused.
+
+When in doubt, single-quote the argument.

@@ -2,11 +2,35 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
-## [Unreleased]
+## [2.27.0] — 2026-10-24
+
+### Changed
+
+- **The confined-turn shell scanner is now a strict allow-list (#705; #702/#703: 3e19172af, #704: 99853a041).** A confined org turn may only run commands made of plain words, single-quoted text and simple double-quoted text. Anything else is refused, and some inputs that were handled differently before are now refused:
+  - `ls *.ts` is refused (globs). Single-quote the argument: `ls '*.ts'`.
+  - `cat 'a'$HOME` is refused (an expansion glued to quoted text).
+  - A lone trailing backslash is refused.
+  - A word starting with `=` is refused.
+  - Also refused: `$'..'`, `$".."`, expansions, braces, tildes, redirections and anything else the scanner does not recognise. (`git diff HEAD^` is accepted, as before.)
+  This closes the ANSI-C quoting hole (`$'\''`) that hid a trailing `; command` from the old quote-toggle scanner.
+- **Drill signing is off by default (#699; ce15b597a, 8945f04e7).** A role-run QA drill can sign a throwaway org with its own key only when the operator sets `org.allowDrillSigning` to `true` in `~/.monomind/operator-settings.json`.
+- **`org resume` help says it only clears the pause (#709; 6e17c3c7b).**
+- **The SDK download notice names the opt-out and reads more clearly (#707; 6e17c3c7b, 27749d46a).**
+
+### Added
+
+- **Per-section spend in `org status`, `org costs` and `org report` JSON (#708; 48c889376).**
 
 ### Fixed
 
-- **The confined-turn shell scanner is now an allow-list tokenizer (#702).** `hasUnsafeShellSyntax` treated `'` as a plain quote toggle, so ANSI-C quoting (`$'\''`) hid a trailing `; command` from it and let a confined turn run anything after an allow-listed prefix. It now accepts only plain words, `'...'` and a restricted `"..."`, and refuses `$'..'`, `$".."`, expansions, globs, braces, tildes, redirections and anything else it does not recognise.
+- **The daemon lock refuses more network filesystems (#706; 28c416c51).** 9p, virtiofs and FUSE mounts are now refused.
+- **Docs-scope search matches words from the document body (#698; 7ed06188c).** `@monoes/monograph` 2.25.1.
+- **Registry tests no longer touch the real home when tmp sits under it (#696/#697; 67a0cf129).**
+- **The memory-browser API test has a 120s `beforeAll` timeout (#700; f62857d87).**
+
+### Docs
+
+- Docs and site updated for 2.27.0 (675d5e150, 4963efdfa).
 
 ## [2.26.0] — 2026-10-23
 
