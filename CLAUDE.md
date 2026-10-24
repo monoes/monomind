@@ -75,14 +75,19 @@
 # Build
 pnpm run build
 
-# Test
+# Test: the root project only (tests/), about a minute
 pnpm test
+
+# Test: what CI runs (the vitest workspace: every package's own tests too), about five minutes
+pnpm run test:all:run
 
 # Lint
 pnpm run lint
 ```
 
 - ALWAYS run tests after making code changes
+- `pnpm test` does NOT run `packages/*/src/__tests__` or `packages/*/__tests__`: a change can pass it and still fail CI. Run `pnpm run test:all:run` (CI's command) before calling a change green
+- If `/tmp` has a per-user quota (EDQUOT, "Disk quota exceeded" in tests or doc-count scripts), point `TMPDIR` at a directory with room, e.g. `TMPDIR=/var/tmp/<dir>`
 - ALWAYS verify build succeeds before committing
 - NEVER run an experiment, probe, `mv` or `bwrap` against the real `$HOME`, and never move, rename or delete anything under it. Use a temp HOME (`mktemp -d`) and point `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CONFIG_HOME`, `XDG_CACHE_HOME` and `XDG_RUNTIME_DIR` into it, with `CARGO_HOME`, `RUSTUP_HOME`, `MISE_*`, `PNPM_HOME`, `CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `MONOMIND_HOME` and similar unset, as `tests/setup/isolated-home.global.ts` does for the test suites (#544). `MONOMIND_TEST_HOME_GUARD=strict` fails a test run that changed the real home's top level.
 
