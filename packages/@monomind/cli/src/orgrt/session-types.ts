@@ -90,6 +90,10 @@ export interface SessionOpts {
       briefing: string;
     },
   ) => Promise<unknown>;
+  /** Present only for the selected coordinator, on an org whose role-reset cap is above 0
+   *  (role-reset.ts → roleResetCap). Return the JSON-shaped ResetReceipt. */
+  onCompactRole?: (callerId: string, args: { roleId: string; reason: string }) => Promise<unknown>;
+  onClearRole?: (callerId: string, args: { roleId: string; reason: string }) => Promise<unknown>;
   /** Present only for the selected coordinator. Returns the JSON-shaped
    *  runtime/named-provider listing (see runtime-options.ts). */
   onListRuntimeOptions?: () => Promise<unknown>;

@@ -51,6 +51,8 @@ export const MAX_TOOL_ROUNDS_LIMIT = 200;
  *  recheckAfterMinutes. A block may last hours; its assignee may not go
  *  unasked for longer than this. */
 export const MAX_BLOCK_RECHECK_MINUTES = 60;
+/** Upper bound of run_config.max_role_resets (resets per role per run). */
+export const MAX_ROLE_RESETS = 100;
 
 export const RoleSchema = z
   .object({

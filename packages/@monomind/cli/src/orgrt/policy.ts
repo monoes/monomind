@@ -157,6 +157,15 @@ export class PolicyEngine {
     this.policy = { ...this.policy, maxTokens: caps.maxTokens, maxUsd: caps.maxUsd };
   }
 
+  /** Lower the token ceiling by `by` tokens already spent by earlier incarnations of the role,
+   *  keeping the configured total cap (a context reset starts this counter at zero). No-op
+   *  without a token ceiling. */
+  lowerTokenCap(by: number): void {
+    const cap = this.policy?.maxTokens;
+    if (cap == null || by <= 0) return;
+    this.policy = { ...this.policy, maxTokens: Math.max(0, cap - by) };
+  }
+
   /** Legacy scalar accumulator. A caller with no breakdown to give (a
    *  pre-ADR-O001 checkpoint, a runner that reports one number) lands on the
    *  uncached `input` bucket — the basis such a number has always been on —
