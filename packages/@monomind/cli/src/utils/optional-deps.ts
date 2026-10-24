@@ -43,8 +43,8 @@
  *     where a later run would find it. A lock directory next to it keeps two
  *     processes from downloading the same thing at once.
  */
-import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import {
   accessSync,
   chmodSync,
@@ -60,19 +60,23 @@ import {
   type Stats,
   statSync,
   writeFileSync,
-} from 'node:fs';
-import { createRequire } from 'node:module';
-import { homedir } from 'node:os';
-import { basename, dirname, join, relative, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { defaultIdentity } from '../orgrt/sandbox-stubs-ledger.js';
-import { npmInvocation } from './npm-command.js';
+} from "node:fs";
+import { createRequire } from "node:module";
+import { homedir } from "node:os";
+import { basename, dirname, join, relative, sep } from "node:path";
+import { pathToFileURL } from "node:url";
+import { defaultIdentity } from "../orgrt/sandbox-stubs-ledger.js";
+import { npmInvocation } from "./npm-command.js";
 import {
   type CodePins,
   OPTIONAL_DEPENDENCY_CODE_PINS,
   OPTIONAL_DEPENDENCY_LOCKS,
-} from './optional-deps-locks.js';
-import { assertNoSymlinkAncestor, type PinHost, verifyPinnedCode } from './optional-deps-verify.js';
+} from "./optional-deps-locks.js";
+import {
+  assertNoSymlinkAncestor,
+  type PinHost,
+  verifyPinnedCode,
+} from "./optional-deps-verify.js";
 
 interface OptionalDependencySpec {
   /** Exact version; keep in step with the CLI's devDependencies. */
@@ -84,38 +88,44 @@ interface OptionalDependencySpec {
 }
 
 export const OPTIONAL_DEPENDENCIES = {
-  '@anthropic-ai/claude-agent-sdk': {
-    version: '0.3.303',
-    size: 'about 300 MB, nearly all of it the native Claude binary',
-    feature: 'The Claude runtime (Claude org roles, `agent exec --runtime claude`)',
+  "@anthropic-ai/claude-agent-sdk": {
+    version: "0.3.303",
+    size: "about 300 MB, nearly all of it the native Claude binary",
+    feature:
+      "The Claude runtime (Claude org roles, `agent exec --runtime claude`)",
   },
-  '@puppeteer/browsers': {
-    version: '3.0.6',
-    size: 'about 2 MB',
-    feature: 'The Chrome download for `monomind browse`',
+  "@puppeteer/browsers": {
+    version: "3.0.6",
+    size: "about 2 MB",
+    feature: "The Chrome download for `monomind browse`",
   },
-  'monofence-ai': {
-    version: '2.24.0',
-    size: 'under 1 MB',
-    feature: 'MonoFence (the monofence_* MCP tools, `security defend`, org role fences)',
+  "monofence-ai": {
+    version: "2.24.0",
+    size: "under 1 MB",
+    feature:
+      "MonoFence (the monofence_* MCP tools, `security defend`, org role fences)",
   },
 } as const satisfies Record<string, OptionalDependencySpec>;
 
 export type OptionalDependencyName = keyof typeof OPTIONAL_DEPENDENCIES;
 
-export const NO_AUTO_INSTALL_ENV = 'MONOMIND_NO_AUTO_INSTALL';
+export const NO_AUTO_INSTALL_ENV = "MONOMIND_NO_AUTO_INSTALL";
 /** The operator's command that installs the Claude Agent SDK outside any org
  *  role (commands/deps.ts, #559). */
-export const DEPS_INSTALL_COMMAND = 'monomind deps install';
+export const DEPS_INSTALL_COMMAND = "monomind deps install";
 
 /** A missing dependency that was not (or could not be) installed. */
 export class OptionalDependencyError extends Error {
-  override name = 'OptionalDependencyError';
+  override name = "OptionalDependencyError";
 }
 
 type Env = NodeJS.ProcessEnv;
 type Log = (line: string) => void;
-export type NpmRunner = (args: string[], cwd: string, env: Env) => Promise<void>;
+export type NpmRunner = (
+  args: string[],
+  cwd: string,
+  env: Env,
+) => Promise<void>;
 type Host = PinHost;
 
 export interface EnsureOptions {
@@ -146,50 +156,62 @@ export interface EnsureOptions {
 
 /** Flags for the printed manual command (plain `npm install`, no lockfile). */
 const NPM_MANUAL_FLAGS = [
-  '--global=false',
-  '--ignore-scripts',
-  '--legacy-peer-deps',
-  '--no-audit',
-  '--no-fund',
-  '--save-exact',
+  "--global=false",
+  "--ignore-scripts",
+  "--legacy-peer-deps",
+  "--no-audit",
+  "--no-fund",
+  "--save-exact",
 ];
 /** Flags for the automatic install: `npm ci` against the shipped lockfile.
  *  One fetch attempt with a short timeout, so an offline machine fails in
  *  seconds instead of sitting in npm's retry backoff. */
 const NPM_CI_FLAGS = [
-  '--global=false',
-  '--ignore-scripts',
-  '--legacy-peer-deps',
-  '--no-audit',
-  '--no-fund',
-  '--fetch-retries=0',
-  '--fetch-timeout=15000',
+  "--global=false",
+  "--ignore-scripts",
+  "--legacy-peer-deps",
+  "--no-audit",
+  "--no-fund",
+  "--fetch-retries=0",
+  "--fetch-timeout=15000",
 ];
 const LOCK_STALE_MS = 60 * 60 * 1000;
 const LOCK_POLL_MS = 500;
 /** Errors that mean "this process may not write here" (an org role's
  *  sandbox mounts the deps directory read-only). */
-const READ_ONLY_CODES = new Set(['EROFS', 'EACCES', 'EPERM']);
+const READ_ONLY_CODES = new Set(["EROFS", "EACCES", "EPERM"]);
 
 const defaultLog: Log = (line) => process.stderr.write(`[monomind] ${line}\n`);
-const thisHost = (): Host => ({ platform: process.platform, arch: process.arch });
+const thisHost = (): Host => ({
+  platform: process.platform,
+  arch: process.arch,
+});
 
 export function autoInstallDisabled(env: Env = process.env): boolean {
   const v = env[NO_AUTO_INSTALL_ENV]?.trim().toLowerCase();
-  return !!v && v !== '0' && v !== 'false';
+  return !!v && v !== "0" && v !== "false";
 }
 
-export function monomindHome(env: Env = process.env, home: string = homedir()): string {
-  return env.MONOMIND_HOME || join(home, '.monomind');
+export function monomindHome(
+  env: Env = process.env,
+  home: string = homedir(),
+): string {
+  return env.MONOMIND_HOME || join(home, ".monomind");
 }
 
-export function depsRoot(env: Env = process.env, home: string = homedir()): string {
-  return join(monomindHome(env, home), 'deps');
+export function depsRoot(
+  env: Env = process.env,
+  home: string = homedir(),
+): string {
+  return join(monomindHome(env, home), "deps");
 }
 
 /** Creates the deps root (owner-only) if missing. The authority mask and the
  *  SDK sandbox bind it read-only, which needs it to exist. */
-export function ensureDepsRoot(env: Env = process.env, home: string = homedir()): string {
+export function ensureDepsRoot(
+  env: Env = process.env,
+  home: string = homedir(),
+): string {
   const root = depsRoot(env, home);
   mkdirSync(root, { recursive: true, mode: 0o700 });
   return root;
@@ -198,7 +220,10 @@ export function ensureDepsRoot(env: Env = process.env, home: string = homedir())
 /** The deps root for a sandbox to protect, created if possible. When this
  *  process cannot create it, a role running as the same user cannot either,
  *  so there is nothing to protect yet. */
-export function protectableDepsRoot(env: Env, home: string): string | undefined {
+export function protectableDepsRoot(
+  env: Env,
+  home: string,
+): string | undefined {
   try {
     return ensureDepsRoot(env, home);
   } catch {
@@ -206,12 +231,19 @@ export function protectableDepsRoot(env: Env, home: string): string | undefined 
   }
 }
 
-export function dependencyDir(name: OptionalDependencyName, env: Env = process.env): string {
-  return join(depsRoot(env), `${name.replace('/', '+')}@${OPTIONAL_DEPENDENCIES[name].version}`);
+export function dependencyDir(
+  name: OptionalDependencyName,
+  env: Env = process.env,
+): string {
+  return join(
+    depsRoot(env),
+    `${name.replace("/", "+")}@${OPTIONAL_DEPENDENCIES[name].version}`,
+  );
 }
 
 /** Single-quotes `s` for a POSIX shell. */
-export const shellQuote = (s: string): string => `'${s.replaceAll("'", `'\\''`)}'`;
+export const shellQuote = (s: string): string =>
+  `'${s.replaceAll("'", `'\\''`)}'`;
 
 /** The command that performs the same install by hand. */
 export function manualInstallCommand(
@@ -221,17 +253,22 @@ export function manualInstallCommand(
 ): string {
   const { version } = OPTIONAL_DEPENDENCIES[name];
   const flags = [...NPM_MANUAL_FLAGS, ...omitFlags(name, withoutSdkBinary)];
-  return `npm install --prefix ${shellQuote(dependencyDir(name, env))} ${flags.join(' ')} ${name}@${version}`;
+  return `npm install --prefix ${shellQuote(dependencyDir(name, env))} ${flags.join(" ")} ${name}@${version}`;
 }
 
 /** `--omit=optional` skips the SDK's platform packages (the native binary);
  *  the shipped lockfile still pins and checks everything else. */
-const omitFlags = (name: OptionalDependencyName, withoutSdkBinary: boolean): string[] =>
-  withoutSdkBinary && name === '@anthropic-ai/claude-agent-sdk' ? ['--omit=optional'] : [];
+const omitFlags = (
+  name: OptionalDependencyName,
+  withoutSdkBinary: boolean,
+): string[] =>
+  withoutSdkBinary && name === "@anthropic-ai/claude-agent-sdk"
+    ? ["--omit=optional"]
+    : [];
 
 function readVersion(pkgJson: string): string | undefined {
   try {
-    return JSON.parse(readFileSync(pkgJson, 'utf8')).version;
+    return JSON.parse(readFileSync(pkgJson, "utf8")).version;
   } catch {
     return undefined;
   }
@@ -241,8 +278,9 @@ function readVersion(pkgJson: string): string | undefined {
  *  install without the one for this machine (interrupted, or copied from
  *  another OS) cannot run Claude, so it does not count as installed. */
 function hasSdkPlatformPackage(dir: string, host: Host): boolean {
-  const scope = join(dir, 'node_modules', '@anthropic-ai');
-  const version = OPTIONAL_DEPENDENCIES['@anthropic-ai/claude-agent-sdk'].version;
+  const scope = join(dir, "node_modules", "@anthropic-ai");
+  const version =
+    OPTIONAL_DEPENDENCIES["@anthropic-ai/claude-agent-sdk"].version;
   let entries: string[];
   try {
     entries = readdirSync(scope);
@@ -250,10 +288,12 @@ function hasSdkPlatformPackage(dir: string, host: Host): boolean {
     return false;
   }
   return entries.some((e) => {
-    if (!e.startsWith('claude-agent-sdk-')) return false;
+    if (!e.startsWith("claude-agent-sdk-")) return false;
     try {
-      const pkg = JSON.parse(readFileSync(join(scope, e, 'package.json'), 'utf8'));
-      const bin = host.platform === 'win32' ? 'claude.exe' : 'claude';
+      const pkg = JSON.parse(
+        readFileSync(join(scope, e, "package.json"), "utf8"),
+      );
+      const bin = host.platform === "win32" ? "claude.exe" : "claude";
       return (
         pkg.version === version &&
         (pkg.os ?? []).includes(host.platform) &&
@@ -272,10 +312,10 @@ export function isInstalled(
   host: Host = thisHost(),
   withoutSdkBinary = false,
 ): boolean {
-  const pj = join(dir, 'node_modules', name, 'package.json');
+  const pj = join(dir, "node_modules", name, "package.json");
   if (readVersion(pj) !== OPTIONAL_DEPENDENCIES[name].version) return false;
   return (
-    name !== '@anthropic-ai/claude-agent-sdk' ||
+    name !== "@anthropic-ai/claude-agent-sdk" ||
     withoutSdkBinary ||
     hasSdkPlatformPackage(dir, host)
   );
@@ -286,7 +326,10 @@ export function isInstalled(
  *  checked when it loads. */
 export function optionalDependencyPresent(
   name: OptionalDependencyName,
-  opts: Pick<EnsureOptions, 'env' | 'resolveOwn' | 'host' | 'withoutSdkBinary'> = {},
+  opts: Pick<
+    EnsureOptions,
+    "env" | "resolveOwn" | "host" | "withoutSdkBinary"
+  > = {},
 ): boolean {
   try {
     if (ownEntry(name, opts.resolveOwn ?? defaultResolveOwn)) return true;
@@ -294,7 +337,12 @@ export function optionalDependencyPresent(
     // not resolvable from here: the deps dir decides
   }
   const dir = dependencyDir(name, opts.env ?? process.env);
-  return isInstalled(name, dir, opts.host ?? thisHost(), !!opts.withoutSdkBinary);
+  return isInstalled(
+    name,
+    dir,
+    opts.host ?? thisHost(),
+    !!opts.withoutSdkBinary,
+  );
 }
 
 /** The errno code when this process cannot write the deps root (an org
@@ -312,8 +360,13 @@ function depsRootReadOnly(env: Env): string | undefined {
 /** Why `p` may not be trusted as monomind's own file, or undefined. */
 function untrustedReason(p: string, st: Stats): string | undefined {
   const uid = process.getuid?.();
-  if (uid !== undefined && st.uid !== uid) return `${p} is owned by uid ${st.uid}, not ${uid}`;
-  if (process.platform !== 'win32' && !st.isSymbolicLink() && (Number(st.mode) & 0o022) !== 0)
+  if (uid !== undefined && st.uid !== uid)
+    return `${p} is owned by uid ${st.uid}, not ${uid}`;
+  if (
+    process.platform !== "win32" &&
+    !st.isSymbolicLink() &&
+    (Number(st.mode) & 0o022) !== 0
+  )
     return `${p} is writable by group or others (mode ${(Number(st.mode) & 0o777).toString(8)})`;
   return undefined;
 }
@@ -333,9 +386,10 @@ export function assertTrustedTree(root: string, entry: string): void {
     );
   };
   const rel = relative(root, entry);
-  if (rel === '..' || rel.startsWith(`..${sep}`)) refuse(`it is not under ${root}`);
+  if (rel === ".." || rel.startsWith(`..${sep}`))
+    refuse(`it is not under ${root}`);
   let cur = root;
-  for (const part of ['', ...(rel ? rel.split(sep) : [])]) {
+  for (const part of ["", ...(rel ? rel.split(sep) : [])]) {
     if (part) cur = join(cur, part);
     const st = lstatSync(cur);
     if (st.isSymbolicLink()) refuse(`${cur} is a symlink`);
@@ -372,16 +426,17 @@ export function hardenTree(p: string): void {
   const st = lstatSync(p);
   if (st.isSymbolicLink()) return;
   if (st.mode & 0o022) chmodSync(p, st.mode & 0o7755);
-  if (st.isDirectory()) for (const name of readdirSync(p)) hardenTree(join(p, name));
+  if (st.isDirectory())
+    for (const name of readdirSync(p)) hardenTree(join(p, name));
 }
 
 /** The installed package.json for `name` above its resolved entry file. */
 function packageJsonAbove(entryFile: string, name: string): string | undefined {
   let dir = dirname(entryFile);
   for (;;) {
-    const pj = join(dir, 'package.json');
+    const pj = join(dir, "package.json");
     try {
-      if (JSON.parse(readFileSync(pj, 'utf8')).name === name) return pj;
+      if (JSON.parse(readFileSync(pj, "utf8")).name === name) return pj;
     } catch {
       // not here
     }
@@ -391,12 +446,13 @@ function packageJsonAbove(entryFile: string, name: string): string | undefined {
   }
 }
 
-const importFile = async (file: string): Promise<unknown> => import(pathToFileURL(file).href);
+const importFile = async (file: string): Promise<unknown> =>
+  import(pathToFileURL(file).href);
 
 function isModuleNotFound(err: unknown, name: string): boolean {
   const e = err as { code?: string; message?: string };
   return (
-    (e?.code === 'ERR_MODULE_NOT_FOUND' || e?.code === 'MODULE_NOT_FOUND') &&
+    (e?.code === "ERR_MODULE_NOT_FOUND" || e?.code === "MODULE_NOT_FOUND") &&
     String(e.message).includes(name)
   );
 }
@@ -425,17 +481,24 @@ const refuseLoad = (message: string): never => {
 };
 
 /** The "import" entry of a package's exports (or its main), relative to it. */
-function esmEntry(pkg: { exports?: unknown; main?: string }): string | undefined {
+function esmEntry(pkg: {
+  exports?: unknown;
+  main?: string;
+}): string | undefined {
   let target = pkg.exports;
-  if (target && typeof target === 'object' && Object.keys(target).some((k) => k.startsWith('.'))) {
-    target = (target as Record<string, unknown>)['.'];
+  if (
+    target &&
+    typeof target === "object" &&
+    Object.keys(target).some((k) => k.startsWith("."))
+  ) {
+    target = (target as Record<string, unknown>)["."];
   }
-  while (target && typeof target === 'object' && !Array.isArray(target)) {
+  while (target && typeof target === "object" && !Array.isArray(target)) {
     const c = target as Record<string, unknown>;
     target = c.import ?? c.node ?? c.default;
   }
-  if (typeof target === 'string') return target;
-  return pkg.exports === undefined ? (pkg.main ?? 'index.js') : undefined;
+  if (typeof target === "string") return target;
+  return pkg.exports === undefined ? (pkg.main ?? "index.js") : undefined;
 }
 
 /**
@@ -450,12 +513,13 @@ function resolveEntry(name: string, from: string): string {
   try {
     return req.resolve(name);
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ERR_PACKAGE_PATH_NOT_EXPORTED') throw err;
+    if ((err as NodeJS.ErrnoException).code !== "ERR_PACKAGE_PATH_NOT_EXPORTED")
+      throw err;
     for (const base of req.resolve.paths(name) ?? []) {
       const pkgDir = join(base, name);
       let pkg: { exports?: unknown; main?: string };
       try {
-        pkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
+        pkg = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8"));
       } catch {
         continue;
       }
@@ -467,7 +531,8 @@ function resolveEntry(name: string, from: string): string {
   }
 }
 
-const defaultResolveOwn = (name: string): string => resolveEntry(name, import.meta.url);
+const defaultResolveOwn = (name: string): string =>
+  resolveEntry(name, import.meta.url);
 
 /**
  * Loads one of OPTIONAL_DEPENDENCIES, installing it into monomind's deps
@@ -478,20 +543,27 @@ export async function ensureOptionalDependency<T = unknown>(
   opts: EnsureOptions = {},
 ): Promise<T> {
   if (!Object.hasOwn(OPTIONAL_DEPENDENCIES, name)) {
-    throw new OptionalDependencyError(`${String(name)} is not a dependency monomind installs`);
+    throw new OptionalDependencyError(
+      `${String(name)} is not a dependency monomind installs`,
+    );
   }
   const env = opts.env ?? process.env;
   const log = opts.log ?? defaultLog;
   const host = opts.host ?? thisHost();
   const spec: OptionalDependencySpec = OPTIONAL_DEPENDENCIES[name];
-  const noBinary = !!opts.withoutSdkBinary && name === '@anthropic-ai/claude-agent-sdk';
-  const size = noBinary ? 'about 4 MB without its bundled Claude binary' : spec.size;
+  const noBinary =
+    !!opts.withoutSdkBinary && name === "@anthropic-ai/claude-agent-sdk";
+  const size = noBinary
+    ? "about 4 MB without its bundled Claude binary"
+    : spec.size;
 
   const pins = (opts.pins ?? OPTIONAL_DEPENDENCY_CODE_PINS)[name];
 
   // #526: a copy found up the module path (~/node_modules, say) is held to
   // the same pins as one in the deps dir.
-  const own = opts.intoCache ? undefined : ownEntry(name, opts.resolveOwn ?? defaultResolveOwn);
+  const own = opts.intoCache
+    ? undefined
+    : ownEntry(name, opts.resolveOwn ?? defaultResolveOwn);
   if (own) {
     if (pins) {
       const where = { ...own, remove: own.pkgDir, checkBinary: !noBinary };
@@ -507,9 +579,9 @@ export async function ensureOptionalDependency<T = unknown>(
       refuseLoad(`Refusing to load code from ${root}: ${why}.`),
     );
     assertTrustedTree(root, dir);
-    const entry = resolveEntry(name, join(dir, 'package.json'));
+    const entry = resolveEntry(name, join(dir, "package.json"));
     if (pins) {
-      const pkgDir = join(dir, 'node_modules', name);
+      const pkgDir = join(dir, "node_modules", name);
       const where = { entry, pkgDir, remove: dir, checkBinary: !noBinary };
       await verifyPinnedCode(name, pins, where, host, refuseLoad);
     }
@@ -530,8 +602,8 @@ export async function ensureOptionalDependency<T = unknown>(
   if (readOnly) throw readOnlyError(name, readOnly, env, noBinary);
 
   log(
-    `${spec.feature} needs ${name}@${spec.version} (${size}). Installing it once into ${dir} ` +
-      `(set ${NO_AUTO_INSTALL_ENV}=1 to install by hand instead)...${opts.note ? ` ${opts.note}` : ''}`,
+    `${spec.feature} needs ${name}@${spec.version} (${size}). Installing it once from the npm registry into ${dir}; ` +
+      `set ${NO_AUTO_INSTALL_ENV}=1 to refuse this download and install by hand instead...${opts.note ? ` ${opts.note}` : ""}`,
   );
   const runNpm = opts.runNpm ?? defaultRunNpm;
   try {
@@ -542,13 +614,26 @@ export async function ensureOptionalDependency<T = unknown>(
       (d) => isInstalled(name, d, host, noBinary),
       async (staging) => {
         const lock = OPTIONAL_DEPENDENCY_LOCKS[name];
-        const manifest = { ...lock.packages[''], private: true };
-        writeFileSync(join(staging, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-        writeFileSync(join(staging, 'package-lock.json'), `${JSON.stringify(lock, null, 2)}\n`);
-        const args = ['ci', `--prefix=${staging}`, ...NPM_CI_FLAGS, ...omitFlags(name, noBinary)];
+        const manifest = { ...lock.packages[""], private: true };
+        writeFileSync(
+          join(staging, "package.json"),
+          `${JSON.stringify(manifest, null, 2)}\n`,
+        );
+        writeFileSync(
+          join(staging, "package-lock.json"),
+          `${JSON.stringify(lock, null, 2)}\n`,
+        );
+        const args = [
+          "ci",
+          `--prefix=${staging}`,
+          ...NPM_CI_FLAGS,
+          ...omitFlags(name, noBinary),
+        ];
         await runNpm(args, staging, env);
         if (!isInstalled(name, staging, host, noBinary)) {
-          throw new Error(`npm finished but ${name}@${spec.version} is not complete in ${staging}`);
+          throw new Error(
+            `npm finished but ${name}@${spec.version} is not complete in ${staging}`,
+          );
         }
       },
       log,
@@ -569,7 +654,8 @@ function installError(
   if (err instanceof OptionalDependencyError) return err;
   const spec = OPTIONAL_DEPENDENCIES[name];
   const code = (err as NodeJS.ErrnoException).code;
-  if (code && READ_ONLY_CODES.has(code)) return readOnlyError(name, code, env, noBinary);
+  if (code && READ_ONLY_CODES.has(code))
+    return readOnlyError(name, code, env, noBinary);
   return new OptionalDependencyError(
     `Could not install ${name}@${spec.version}: ${(err as Error).message}\n` +
       `Install it by hand with:\n  ${manualInstallCommand(name, env, noBinary)}`,
@@ -584,7 +670,9 @@ function readOnlyError(
 ): OptionalDependencyError {
   const spec = OPTIONAL_DEPENDENCIES[name];
   const operator =
-    name === '@anthropic-ai/claude-agent-sdk' ? `  ${DEPS_INSTALL_COMMAND}\nor by hand:\n` : '';
+    name === "@anthropic-ai/claude-agent-sdk"
+      ? `  ${DEPS_INSTALL_COMMAND}\nor by hand:\n`
+      : "";
   return new OptionalDependencyError(
     `${spec.feature} needs ${name}@${spec.version}, which is not installed, and ` +
       `${depsRoot(env)} is not writable here (${code}). Org roles cannot install into it; ` +
@@ -634,7 +722,7 @@ function moveAsideAndRemove(p: string): void {
   try {
     renameSync(p, aside);
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return;
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return;
     throw e;
   }
   rmSync(aside, { recursive: true, force: true });
@@ -647,12 +735,18 @@ interface LockOwner {
   boot?: string;
 }
 
-export type LockIdentity = Pick<typeof defaultIdentity, 'pidNamespace' | 'bootId'>;
+export type LockIdentity = Pick<
+  typeof defaultIdentity,
+  "pidNamespace" | "bootId"
+>;
 
 /** Whether the owner recorded in `lockDir` is gone. A pid is judged only in
  *  our own pid namespace and boot: an org role's sandbox has its own pid
  *  namespace, where the daemon's pid always looks dead, and the reverse. */
-export function lockIsStale(lockDir: string, id: LockIdentity = defaultIdentity): boolean {
+export function lockIsStale(
+  lockDir: string,
+  id: LockIdentity = defaultIdentity,
+): boolean {
   let age: number;
   try {
     age = Date.now() - statSync(lockDir).mtimeMs;
@@ -662,7 +756,7 @@ export function lockIsStale(lockDir: string, id: LockIdentity = defaultIdentity)
   if (age > LOCK_STALE_MS) return true;
   let owner: LockOwner;
   try {
-    owner = JSON.parse(readFileSync(join(lockDir, 'owner.json'), 'utf8'));
+    owner = JSON.parse(readFileSync(join(lockDir, "owner.json"), "utf8"));
   } catch {
     return age > 10_000; // owner not written yet, or never will be
   }
@@ -673,11 +767,15 @@ export function lockIsStale(lockDir: string, id: LockIdentity = defaultIdentity)
     process.kill(owner.pid, 0);
     return false;
   } catch (e) {
-    return (e as NodeJS.ErrnoException).code === 'ESRCH';
+    return (e as NodeJS.ErrnoException).code === "ESRCH";
   }
 }
 
-async function withLock<T>(lockDir: string, log: Log, fn: () => Promise<T>): Promise<T> {
+async function withLock<T>(
+  lockDir: string,
+  log: Log,
+  fn: () => Promise<T>,
+): Promise<T> {
   let announced = false;
   const me: LockOwner = {
     pid: process.pid,
@@ -685,10 +783,10 @@ async function withLock<T>(lockDir: string, log: Log, fn: () => Promise<T>): Pro
     ns: defaultIdentity.pidNamespace(),
     boot: defaultIdentity.bootId(),
   };
-  const ownerFile = join(lockDir, 'owner.json');
+  const ownerFile = join(lockDir, "owner.json");
   const ours = (): boolean => {
     try {
-      return JSON.parse(readFileSync(ownerFile, 'utf8')).token === me.token;
+      return JSON.parse(readFileSync(ownerFile, "utf8")).token === me.token;
     } catch {
       return false;
     }
@@ -699,7 +797,7 @@ async function withLock<T>(lockDir: string, log: Log, fn: () => Promise<T>): Pro
       mkdirSync(lockDir);
       made = true;
     } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
     }
     if (made) {
       writeFileSync(ownerFile, JSON.stringify(me));
@@ -734,18 +832,20 @@ const defaultRunNpm: NpmRunner = (args, cwd, env) =>
       cwd,
       env,
       shell: false,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });
-    let tail = '';
+    let tail = "";
     const forward = (chunk: Buffer) => {
       process.stderr.write(chunk);
       tail = (tail + chunk.toString()).slice(-2000);
     };
-    child.stdout?.on('data', forward);
-    child.stderr?.on('data', forward);
-    child.on('error', reject);
-    child.on('close', (code) =>
-      code === 0 ? resolve() : reject(new Error(`npm exited ${code}: ${tail.trim()}`)),
+    child.stdout?.on("data", forward);
+    child.stderr?.on("data", forward);
+    child.on("error", reject);
+    child.on("close", (code) =>
+      code === 0
+        ? resolve()
+        : reject(new Error(`npm exited ${code}: ${tail.trim()}`)),
     );
   });

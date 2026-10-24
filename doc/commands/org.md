@@ -71,6 +71,8 @@ monomind org run <name> [--task "..."] [--resume] [--no-cross-process] [--dry-ru
 | `--claude-path <path\|bundled>` | The operator's choice of Claude Code binary for Claude roles: an absolute file, or `bundled` to use the SDK's own. It overrides `MONOMIND_CLAUDE_PATH` and `monomind config set claude.path`. An untrusted home or config directory that names no `claude.path` is no choice (one warning), not a failure |
 | `--auto-approve <tools>` | Comma-separated tools every role may call without human approval for this run only, e.g. `org_complete` for an unattended one-shot `--task` run. Adds to each role's `policy.autoApproveTools`; other gated tools still wait. A name no role gates (not `Bash`, `WebFetch`, `WebSearch`, `org_complete` or a role's `approvalTools`) is refused, so a typo can't leave the run waiting. Also refused when an `org serve` daemon owns the project |
 
+The first run of an org with a Claude role downloads the pinned Claude Agent SDK (about 300 MB, from npm, into `~/.monomind/deps`) once, after one notice line on stderr. Set `MONOMIND_NO_AUTO_INSTALL=1` to refuse the download: the run then stops with the command to install it by hand (`monomind deps install`).
+
 A definition with a `sections` block starts like any other org. Each section runs as its own sub-org with its own roles, budget and lifecycle, and the only channel between sections is the shared document store. An org that still sets `run_config.experimental: "eval"` keeps the old behavior: `org run` and `org serve` refuse it and only the eval harness starts it. The `sections` schema is described in [Org Runtime](../concepts/org-runtime.md).
 
 The org's definition must carry a valid operator signature (see [`sign`](#sign)). An org that has
@@ -118,7 +120,7 @@ monomind org pause <name>
 
 ## `resume`
 
-Clear the pause sentinel, resuming message delivery.
+Clear the pause sentinel, resuming message delivery. This is all it does: it does not run the host sandbox preflight. A host that can no longer sandbox (for example `bwrap` gone from `PATH`) is refused with "cannot resume on this host" on the next `org run` (or `org run --resume`), not by `org resume`.
 
 ```bash
 monomind org resume <name>
