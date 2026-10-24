@@ -530,7 +530,6 @@ The shell commands a confined turn may run are read by an allow-list tokenizer, 
 
 - `ls *.ts` is refused (unquoted glob); write `ls '*.ts'`.
 - `cat 'a'$HOME` is refused (expansion glued to a quoted word); quote the whole argument.
-- `git diff HEAD^` is refused; write `git diff 'HEAD^'`.
 - A lone trailing backslash, and a word that starts with `=`, are refused.
 
 When in doubt, single-quote the argument.
