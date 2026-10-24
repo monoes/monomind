@@ -47,6 +47,20 @@ describe('mountFsTypeOf', () => {
 });
 
 describe('assertSupportedFilesystem', () => {
+  const mi = (type: string): string => `40 24 0:50 / /mnt/x rw,relatime - ${type} src rw`;
+  it.each([
+    '9p', 'virtiofs', 'cifs', 'smb3', 'ceph', 'glusterfs', 'afs', 'lustre', 'ncpfs', 'coda',
+    'fuse.sshfs', 'fuse.rclone', 'fuse.gcsfuse', 'fuse.s3fs', 'fuse.goofys', 'fuse.ceph-fuse',
+    'fuse.glusterfs', 'fuse.juicefs', 'fuse.davfs2', 'fuse.curlftpfs', 'fuse.smbnetfs',
+  ])('refuses %s as a network filesystem', (type) => {
+    expect(() => assertSupportedFilesystem('/mnt/x/org', { mountinfo: mi(type) })).toThrow(/network filesystem/);
+  });
+  it.each(['ext4', 'btrfs', 'xfs', 'tmpfs', 'overlay', 'fuseblk', 'fuse.gvfsd-fuse', 'fuse.portal'])(
+    'accepts local filesystem %s',
+    (type) => {
+      expect(() => assertSupportedFilesystem('/mnt/x/org', { mountinfo: mi(type) })).not.toThrow();
+    },
+  );
   it('refuses a network filesystem with a named error', () => {
     for (const where of ['/mnt/share/org', '/mnt/win/org']) {
       expect(() => assertSupportedFilesystem(where, { mountinfo: MOUNTINFO })).toThrow(DaemonLockError);
