@@ -617,6 +617,9 @@ export class MCPServerManager extends EventEmitter {
     try {
       switch (message.method) {
         case 'initialize':
+          void import('./mcp-tools/mesh-tools.js').then((m) =>
+            m.joinMeshAtStart((params.clientInfo as { name?: unknown } | undefined)?.name),
+          );
           return {
             jsonrpc: '2.0',
             id: message.id,

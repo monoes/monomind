@@ -5,6 +5,7 @@
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { callWithHub, MeshOfflineError } from '../mesh/client.js';
+import { defaultAlias, joinWithFreeAlias } from '../mesh/default-alias.js';
 import { projectIdFor } from '../mesh/project-id.js';
 import { WhoFilterSchema } from '../mesh/protocol.js';
 import { sessionPresence } from '../mesh/session-presence.js';
@@ -41,6 +42,46 @@ const WhoInput = WhoFilterSchema.extend({ allProjects: z.boolean().default(false
 
 /** One random token per MCP server process, so two sandboxed processes with equal pids differ. */
 const SESSION_ID = `s${process.pid}-${randomBytes(3).toString('hex')}`;
+const STARTED = new Date();
+
+type JoinFields = z.infer<typeof JoinInput> & { runtime: string };
+
+/** Joins the mesh; a name the caller chose is used as is, else <project>-<start time>, made unique. */
+async function joinMesh(fields: JoinFields): Promise<{ addr: string; alias: string }> {
+  const cwd = getProjectCwd();
+  let alias = '';
+  const join = (a: string) => {
+    alias = a;
+    return sessionPresence.join({
+      pid: process.pid,
+      project: projectIdFor(cwd),
+      projectPath: cwd,
+      sessionId: SESSION_ID,
+      ...fields,
+      alias: a,
+    });
+  };
+  const addr = fields.alias
+    ? await join(fields.alias)
+    : await joinWithFreeAlias(defaultAlias(cwd, STARTED), join);
+  return { addr, alias };
+}
+
+/**
+ * Named session at start: called once the MCP client has said hello, so every session is
+ * discoverable without the agent having to ask. Never throws, never starts for our own probes.
+ */
+export async function joinMeshAtStart(clientName: unknown): Promise<void> {
+  if (process.env.VITEST || process.env.MONOMIND_MESH_AUTOJOIN === '0') return;
+  const name = typeof clientName === 'string' ? clientName : '';
+  if (name.startsWith('monomind-')) return;
+  const runtime = name.replace(/[^A-Za-z0-9._:+-]/g, '-').slice(0, 64) || 'claude-code';
+  try {
+    await joinMesh({ runtime });
+  } catch {
+    /* mesh offline or refused: discovery is best effort */
+  }
+}
 
 const whoTool: MCPTool = {
   name: 'mesh_who',
@@ -91,12 +132,12 @@ const joinTool: MCPTool = {
   name: 'mesh_join',
   description:
     'Announce this session on the Monomind Mesh so other agents can discover it, and keep its ' +
-    'presence alive while the session runs. Optionally set an alias, current task, capabilities and tags.',
+    'presence alive while the session runs. Without an alias the session is named <project>-<YYYYMMDD>-<HHMMSS> (start time, `-2`… if taken). Optionally set an alias, current task, capabilities and tags.',
   category: 'mesh',
   inputSchema: {
     type: 'object',
     properties: {
-      alias: { type: 'string', description: 'Short unique name within the project, e.g. "lead"' },
+      alias: { type: 'string', description: 'Short unique name within the project, e.g. "lead" (default: project + start time)' },
       task: { type: 'string', description: 'What this session is working on' },
       capabilities: { type: 'array', items: { type: 'string' } },
       tags: { type: 'array', items: { type: 'string' } },
@@ -105,17 +146,9 @@ const joinTool: MCPTool = {
   handler: async (input) => {
     const parsed = JoinInput.safeParse(input);
     if (!parsed.success) return toolError(issues(parsed.error));
-    const cwd = getProjectCwd();
     try {
-      const addr = await sessionPresence.join({
-        runtime: 'claude-code',
-        pid: process.pid,
-        project: projectIdFor(cwd),
-        projectPath: cwd,
-        sessionId: SESSION_ID,
-        ...parsed.data,
-      });
-      return { addr };
+      return await joinMesh({ ...parsed.data, runtime: 'claude-code' });
+
     } catch (e) {
       if (e instanceof MeshOfflineError) return { offline: true };
       return toolError(e instanceof Error ? e.message : String(e));
