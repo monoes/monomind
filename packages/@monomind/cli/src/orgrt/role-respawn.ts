@@ -2,7 +2,7 @@
 // Extracted from daemon.ts — org_respawn_role: mid-run replacement of one role.
 import { holdReplacedRoleForBudget, orgCeilingDetail } from './budget-closure.js';
 import type { OrgDaemon } from './daemon.js';
-import type { AgentRuntime } from './daemon-types.js';
+import type { AgentRuntime, RunningOrg } from './daemon-types.js';
 import { hostPreflight } from './documents/preflight.js';
 import { sectionsSurface } from './documents/surface.js';
 import { resolveRoleProvider } from './provider.js';
@@ -10,19 +10,71 @@ import {
   buildRespawnReceipt,
   computeReplacementBudget,
   mergeEffectiveRoleConfig,
+  type RespawnInput,
   type RespawnReceipt,
+  type RoleSlot,
   redactRoleConfig,
   validateRespawnInput,
 } from './role-slot.js';
 import { resolveRoleRunner } from './runner-resolve.js';
+import type { OrgDef } from './types.js';
 
-/** org_respawn_role's daemon-owned implementation. See the design doc's
- *  "Replacement algorithm" (13 steps) — this method's body follows those
- *  steps in order, numbered in comments. */
-export async function respawnRole(
+/** What differs between the tools that replace a role's session: org_respawn_role
+ *  (crash recovery, counted by max_role_respawns) and org_compact_role / org_clear_role
+ *  (context resets, counted by their own per-role cap — role-reset.ts). */
+export interface ReplaceMode {
+  tool: string;
+  /** Audit reasons are `role-<kind>-started|cancelled|failed|rollback-failed`. */
+  kind: 'respawn' | 'reset';
+  validate: (raw: unknown) => ReturnType<typeof validateRespawnInput>;
+  cap: (def: OrgDef) => number;
+  used: (slot: RoleSlot) => number;
+  /** Add (or, with a negative delta, give back) attempts on the mode's own counter. */
+  bump: (slot: RoleSlot, delta: number) => void;
+  limitError: (roleId: string, used: number, cap: number) => string;
+  /** Runs after every synchronous check and before an attempt is consumed, holding the
+   *  role's replacement lock. Refuses with an error, or supplies the new session's briefing
+   *  (empty: none is sent). */
+  prepare?: (ctx: {
+    daemon: OrgDaemon;
+    running: RunningOrg;
+    slot: RoleSlot;
+    input: RespawnInput;
+    callerId: string;
+  }) => Promise<{ ok: true; briefing: string } | { ok: false; error: string }>;
+}
+
+export const RESPAWN_MODE: ReplaceMode = {
+  tool: 'org_respawn_role',
+  kind: 'respawn',
+  validate: validateRespawnInput,
+  cap: (def) => def.run_config.max_role_respawns ?? 0,
+  used: (slot) => slot.respawnCount,
+  bump: (slot, delta) => {
+    slot.respawnCount = Math.max(0, slot.respawnCount + delta);
+  },
+  limitError: (roleId, used, cap) =>
+    `role "${roleId}" has reached its respawn limit (${used}/${cap}) for this run`,
+};
+
+/** org_respawn_role's daemon-owned implementation. */
+export function respawnRole(
   daemon: OrgDaemon,
   name: string,
   callerId: string,
+  rawInput: unknown,
+): Promise<RespawnReceipt> {
+  return replaceRole(daemon, name, callerId, RESPAWN_MODE, rawInput);
+}
+
+/** The shared replacement algorithm. See the design doc's "Replacement
+ *  algorithm" (13 steps) — this function's body follows those steps in
+ *  order, numbered in comments. */
+export async function replaceRole(
+  daemon: OrgDaemon,
+  name: string,
+  callerId: string,
+  mode: ReplaceMode,
   rawInput: unknown,
 ): Promise<RespawnReceipt> {
   const running = daemon.orgs.get(name);
@@ -45,7 +97,7 @@ export async function respawnRole(
       generation: 0,
       respawnCount: 0,
       respawnsRemaining: 0,
-      error: 'only the selected coordinator may call org_respawn_role',
+      error: `only the selected coordinator may call ${mode.tool}`,
     };
   }
   if (daemon.stopping.has(name)) {
@@ -58,7 +110,7 @@ export async function respawnRole(
       error: `org "${name}" is stopping`,
     };
   }
-  const validated = validateRespawnInput(rawInput);
+  const validated = mode.validate(rawInput);
   if (!validated.ok) {
     return {
       success: false,
@@ -91,7 +143,7 @@ export async function respawnRole(
       error: `unknown or not-yet-started role "${input.roleId}"`,
     };
   }
-  const maxRespawns = running.def.run_config.max_role_respawns ?? 0;
+  const maxRespawns = mode.cap(running.def);
   if (slot.phase === 'removed') {
     return buildRespawnReceipt(slot, maxRespawns, false, {
       roleId: input.roleId,
@@ -105,10 +157,10 @@ export async function respawnRole(
       error: `role "${input.roleId}" is already undergoing replacement`,
     });
   }
-  if (slot.respawnCount >= maxRespawns) {
+  if (mode.used(slot) >= maxRespawns) {
     return buildRespawnReceipt(slot, maxRespawns, false, {
       roleId: input.roleId,
-      error: `role "${input.roleId}" has reached its respawn limit (${slot.respawnCount}/${maxRespawns}) for this run`,
+      error: mode.limitError(input.roleId, mode.used(slot), maxRespawns),
     });
   }
   // Step 3: resolve the candidate configuration.
@@ -163,13 +215,40 @@ export async function respawnRole(
     candidateRole.provider,
   );
 
+  // A mode that has to talk to the old session first (a summary) holds the replacement lock
+  // while it does, so a concurrent replacement of the same role is refused.
+  let briefing = input.briefing;
+  if (mode.prepare) {
+    running.respawning.add(input.roleId);
+    let prepared: Awaited<ReturnType<NonNullable<ReplaceMode['prepare']>>>;
+    try {
+      prepared = await mode.prepare({ daemon, running, slot, input, callerId });
+    } catch (err) {
+      prepared = { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+    if (!prepared.ok) {
+      running.respawning.delete(input.roleId);
+      return buildRespawnReceipt(slot, maxRespawns, false, {
+        roleId: input.roleId,
+        error: prepared.error,
+      });
+    }
+    if (daemon.orgs.get(name) !== running || running.roleSlots.get(input.roleId) !== slot) {
+      running.respawning.delete(input.roleId);
+      return buildRespawnReceipt(slot, maxRespawns, false, {
+        roleId: input.roleId,
+        error: `org "${name}" stopped or restarted during replacement`,
+      });
+    }
+    briefing = prepared.briefing;
+  }
   // Step 5: consume one attempt — only after validation/preflight succeed.
   running.respawning.add(input.roleId);
-  slot.respawnCount++;
+  mode.bump(slot, 1);
   running.bus.emit({
     type: 'audit',
     from: callerId,
-    reason: 'role-respawn-started',
+    reason: `role-${mode.kind}-started`,
     msg: `replacing role "${input.roleId}": ${input.reason}`,
     data: {
       roleId: input.roleId,
@@ -177,6 +256,7 @@ export async function respawnRole(
       to: redactRoleConfig(candidateRole),
       generation: slot.generation,
       caller: callerId,
+      ...(mode.kind === 'reset' ? { op: mode.tool, reason: input.reason } : {}),
     },
   });
 
@@ -228,14 +308,14 @@ export async function respawnRole(
     // the rest (budget-closure.ts respawnFromCheckpoint).
     slot.queuedDuringSwap.splice(reclaimed.start, reclaimed.count);
     // Not a replacement: give back the max_role_respawns attempt.
-    slot.respawnCount = Math.max(0, slot.respawnCount - 1);
+    mode.bump(slot, -1);
     slot.phase = 'running';
     running.respawning.delete(input.roleId);
     holdReplacedRoleForBudget(running, input.roleId, detail);
     running.bus.emit({
       type: 'audit',
       from: callerId,
-      reason: 'role-respawn-cancelled',
+      reason: `role-${mode.kind}-cancelled`,
       msg: `role "${input.roleId}" not replaced: ${detail}`,
       data: { roleId: input.roleId },
     });
@@ -270,7 +350,7 @@ export async function respawnRole(
       running.bus.emit({
         type: 'audit',
         from: callerId,
-        reason: 'role-respawn-failed',
+        reason: `role-${mode.kind}-failed`,
         msg: `role "${input.roleId}" forced stop did not confirm termination — refusing to spawn a replacement`,
       });
       return buildRespawnReceipt(slot, maxRespawns, false, {
@@ -314,9 +394,12 @@ export async function respawnRole(
   // FIFO, plus a delimited coordinator briefing appended last so it reads
   // as the newest context once the replacement starts its first turn.
   for (const queued of slot.queuedDuringSwap) newRuntime.mailbox.push(queued);
-  newRuntime.mailbox.push(
-    `[system: role replacement briefing — not a system prompt] You are a fresh session replacing the previous incarnation of role "${input.roleId}". Reason: ${input.reason}\n\n${input.briefing}`,
-  );
+  if (briefing)
+    newRuntime.mailbox.push(
+      mode.kind === 'respawn'
+        ? `[system: role replacement briefing — not a system prompt] You are a fresh session replacing the previous incarnation of role "${input.roleId}". Reason: ${input.reason}\n\n${briefing}`
+        : briefing,
+    );
   // Seed USD accounting from retained totals so a respawn cannot reset
   // role.budget_usd.
   if (running.def.roles.find((r) => r.id === input.roleId)?.budget_usd !== undefined) {
@@ -360,7 +443,7 @@ export async function respawnRole(
     running.bus.emit({
       type: 'audit',
       from: callerId,
-      reason: 'role-respawn-failed',
+      reason: `role-${mode.kind}-failed`,
       msg: `role "${input.roleId}" replacement did not become ready within ${startTimeoutMs}ms — attempting rollback`,
     });
     try {
@@ -382,7 +465,7 @@ export async function respawnRole(
       running.bus.emit({
         type: 'audit',
         from: callerId,
-        reason: 'role-respawn-failed',
+        reason: `role-${mode.kind}-failed`,
         msg: `role "${input.roleId}" replacement failed; rolled back to prior config`,
       });
       return buildRespawnReceipt(slot, maxRespawns, false, {
@@ -396,7 +479,7 @@ export async function respawnRole(
       running.bus.emit({
         type: 'audit',
         from: callerId,
-        reason: 'role-respawn-rollback-failed',
+        reason: `role-${mode.kind}-rollback-failed`,
         msg: `role "${input.roleId}" replacement AND rollback both failed: ${rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr)}`,
       });
       return buildRespawnReceipt(slot, maxRespawns, false, {
@@ -420,13 +503,16 @@ export async function respawnRole(
   running.bus.emit({
     type: 'audit',
     from: callerId,
-    reason: 'role-respawned',
-    msg: `role "${input.roleId}" replaced (generation ${newGeneration})`,
+    reason: mode.kind === 'respawn' ? 'role-respawned' : 'role-reset',
+    msg: `role "${input.roleId}" ${mode.kind === 'respawn' ? 'replaced' : `reset by ${mode.tool}`} (generation ${newGeneration})`,
     data: {
       roleId: input.roleId,
       generation: newGeneration,
       respawnCount: slot.respawnCount,
       drainTimedOut,
+      ...(mode.kind === 'reset'
+        ? { op: mode.tool, reason: input.reason, resetCount: slot.resetCount ?? 0 }
+        : {}),
     },
   });
   daemon.persistState(name, 'running', running.run);

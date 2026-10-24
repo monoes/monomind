@@ -48,6 +48,8 @@ export interface RoleSlot {
    *  org-definition role once at least one replacement has happened. */
   effectiveRole: OrgRole;
   respawnCount: number;
+  /** Accepted org_compact_role / org_clear_role calls for this role this run. */
+  resetCount?: number;
   respawnPromise?: Promise<RespawnReceipt>;
   /** Messages that arrived while this slot was draining, not yet delivered
    *  to a live mailbox. */
@@ -130,7 +132,7 @@ export interface RespawnInput {
   briefing: string;
 }
 
-function boundedString(value: unknown, max: number): string | null {
+export function boundedString(value: unknown, max: number): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   if (!trimmed || trimmed.length > max) return null;

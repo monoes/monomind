@@ -211,6 +211,10 @@ export const OrgDefSchema = z
         /** Non-negative cap on accepted org_respawn_role calls per run; 0 disables
          *  the tool entirely (initial default — see rollout plan in the design doc). */
         max_role_respawns: z.number().int().nonnegative().default(0),
+        /** Cap on accepted org_compact_role / org_clear_role calls per role per run — a
+         *  context reset is not a crash recovery, so it never uses max_role_respawns.
+         *  Unset or 0: the tools are not offered (opt in; 10 is a sensible value). */
+        max_role_resets: z.number().int().nonnegative().optional(),
         /** How long a draining role's mailbox gets to finish its in-flight message
          *  before a forced stop. */
         respawn_drain_timeout_ms: z.number().int().nonnegative().default(30_000),

@@ -79,6 +79,16 @@ export class Mailbox {
     return this.parked && this.queue.length === 0;
   }
 
+  /** The runner is inside a turn (a message was yielded and its result has not arrived). */
+  get turnActive(): boolean {
+    return this.turnLive;
+  }
+
+  /** Number of messages waiting to be yielded. */
+  get queuedCount(): number {
+    return this.queue.length;
+  }
+
   /** Number of real (non-continuation) messages consumed so far across all sessions. */
   get consumedRealCount(): number {
     return this.consumedReal;

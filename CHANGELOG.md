@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Added
+
+- **`org_compact_role` and `org_clear_role`: the coordinator can release a worker's context (#717).** `org_compact_role { roleId, reason }` asks the role's session for a summary (goal, decisions, key facts and paths, what is still open), then replaces it with a fresh session that opens with that summary. `org_clear_role { roleId, reason }` replaces a role whose work is done with a fresh, empty session, and is rejected with the task ids while the role still owns open tasks. Both keep the role id, workspace, task ownership and queued messages, and are refused for the coordinator itself, for a role with a turn running, and when the call does not come from the coordinator. A failed or empty summary returns `success: false` and leaves the old session as it was. A reset does not use `max_role_respawns` and does not raise the org-wide token budget; its own cap is the new `run_config.max_role_resets` (per role per run). It is off unless set above 0, so existing orgs keep their tool lists byte for byte. Both are audit-logged as `role-reset` with the reason and the new generation.
+
 ### Changed
 
 - **The mesh tools are no longer in the default advertised MCP roster (back to 21 tools).** 2.28.0 advertised `mesh_who`, `mesh_join` and `mesh_leave` by default and raised the schema byte budget from 16,000 to 18,000 to fit them. The lean roster of #410 is restored (16,000-byte budget, 21 tools): until sessions join the mesh by themselves, three more tools in every session cost more than they give. The tools still work exactly as before and are found with `monomind_tool_search` or called by name.
