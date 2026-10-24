@@ -2,6 +2,18 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Added
+
+- **Monomind Mesh, step 1: agents on one host can find each other.** A per-host hub (a Unix socket in `~/.monomind/mesh`, started on first use and gone again when idle) tracks which agents are running right now, in which project, doing what. Three MCP tools — `mesh_join` (announce this session and keep its presence alive), `mesh_who` (list agents; defaults to this session's own project, `allProjects: true` or a `project` id looks further, `truncated` says when a page was cut) and `mesh_leave`. They are not in the default advertised set; find them with `monomind_tool_search`. Messaging, comments and the master report are later steps.
+  - Presence goes active → stale (30 s) → gone (90 s); a session whose process died is dropped within seconds. Ownership of an address is by a key the hub hands out and stores only as a hash, so another process cannot take over a live agent, also after a hub restart.
+  - Bounds and safety: the mesh directory must be private to your user (hub and clients refuse anything else); the single-hub lock is named after a secret in that directory; agent-supplied text is sanitised and returned marked as untrusted; connections, line length, unread replies, rows per process and rows kept are all capped. Project isolation is advisory until authenticated identities exist (see the design's "Known limits of step 1").
+
+### Fixed
+
+- **`atomicWriteFile` no longer leaves `*.tmp` files behind.** Its temp name is now unique per call and removed when the write or rename fails (the cause of the `registry.json.<pid>.tmp` litter in `~/.monomind`; existing leftovers can be deleted by hand).
+
 ## [2.27.0] — 2026-10-24
 
 ### Changed
