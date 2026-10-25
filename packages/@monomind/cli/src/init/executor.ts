@@ -63,6 +63,7 @@ import { writeClaudeMd, writeHelpers, writeMCPConfig, writeStatusline } from './
 import { writeClineFiles } from './write-cline.js';
 import { writeCodexFiles } from './write-codex.js';
 import { writeCopilotMeshHooks } from './write-copilot.js';
+import { writeKiloMeshPlugin } from './write-kilo.js';
 import { writeKimiFiles } from './write-kimicode.js';
 import { writeMeshCoderHooks } from './write-mesh-coder-hooks.js';
 import { writeOpencodeFiles } from './write-opencode.js';
@@ -301,6 +302,8 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       writeCopilotMeshHooks(targetDir, options, result);
       // Pi has no MCP: its mesh extension talks to the hub socket itself.
       writePiMeshExtension(targetDir, options, result);
+      // Kilo (an opencode fork) loads .kilo/plugin/: inbox injection + session title.
+      writeKiloMeshPlugin(targetDir, options, result);
     }
 
     // Generate statusline

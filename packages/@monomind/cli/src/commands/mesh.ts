@@ -230,10 +230,22 @@ const inboxCommand: Command = {
   action: (ctx: CommandContext) => meshInbox(ctx.flags, defaultDeps()),
 };
 
+/** Hidden: runs the mesh hub in the foreground, for hosts where only a non-MCP agent (Pi) is running. */
+export const hubCommand: Command = {
+  name: 'hub',
+  description: 'Run the mesh hub in the foreground (started by agents that cannot spawn it)',
+  hidden: true,
+  action: async (): Promise<CommandResult> => {
+    // hub-main starts the hub at import and exits the process itself when idle.
+    await import('../mesh/hub-main.js');
+    return new Promise<CommandResult>(() => {});
+  },
+};
+
 export const meshCommand: Command = {
   name: 'mesh',
   description: 'Monomind Mesh: see and message the other agents running on this host',
-  subcommands: [whoCommand, sendCommand, inboxCommand],
+  subcommands: [whoCommand, sendCommand, inboxCommand, hubCommand],
   examples: [{ command: 'monomind mesh who', description: 'Agents of this project' }],
   action: async (): Promise<CommandResult> => {
     output.writeln('Usage: monomind mesh <who|send|inbox> [options]');
