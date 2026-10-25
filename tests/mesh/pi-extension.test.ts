@@ -175,6 +175,7 @@ describe('pi extension factory', () => {
 
   it('is silent when the hub is down', async () => {
     vi.stubEnv('MONOMIND_MESH_DIR', join(tmpDir(), 'nothing-here'));
+    vi.stubEnv('MONOMIND_MESH_HUB_START', '0');
     const pi = fakePi();
     monomindMesh(pi);
     await expect(pi.handlers.get('session_start')?.({}, {})).resolves.toBeUndefined();

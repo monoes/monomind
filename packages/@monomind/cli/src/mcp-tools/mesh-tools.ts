@@ -81,6 +81,8 @@ export function meshRuntimeFor(clientName: string): string {
   if (/^copilot(-cli)?$/i.test(clientName)) return 'copilot';
   if (clientName === 'mcp') return 'hermes';
   if (/^qwen-(code|cli)-mcp-client/i.test(clientName)) return 'qwen';
+  // DeepSeek Harness's MCP client (@deepseek-ai/dsh-mcp-client) says "dsh-mcp-client".
+  if (/^dsh-mcp-client/i.test(clientName)) return 'dsh';
   return clientName.replace(/[^A-Za-z0-9._:+-]/g, '-').slice(0, 64) || 'claude-code';
 }
 
