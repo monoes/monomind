@@ -48,32 +48,34 @@ const REAP_CONNECT_TIMEOUT_MS = 3000;
  * the process is gone, on both paths (#395). In a fresh process the dir and
  * its ownership come from the persisted session record.
  */
-export async function closeBrowser(client: CdpClient, port: number): Promise<void> {
+export async function closeBrowser(client: CdpClient | null, port: number): Promise<void> {
   let gracefullyClosed = false;
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([
-      client.send('Browser.close', {}),
-      // Deliberately NOT unref'd, for the same reason waitForProcessExit()'s
-      // poll below is not. This timer is the only thing that settles the race
-      // when Chrome's socket dies without ever acknowledging the close, and
-      // closeBrowser() is actively awaited by callers. An unref'd timer does
-      // not hold the event loop open, so Node would consider the loop drained
-      // and exit — status 0, before the caller's verdict was ever printed.
-      // Cleared in the finally so a close that IS acknowledged does not pin
-      // the loop for the rest of BROWSER_CLOSE_TIMEOUT_MS.
-      new Promise<never>((_, reject) => {
-        closeTimer = setTimeout(
-          () => reject(new Error('Browser.close timed out')),
-          BROWSER_CLOSE_TIMEOUT_MS,
-        );
-      }),
-    ]);
-    gracefullyClosed = true;
-  } catch {
-    // fall through to PID-kill fallback below
-  } finally {
-    clearTimeout(closeTimer);
+  if (client) {
+    try {
+      await Promise.race([
+        client.send('Browser.close', {}),
+        // Deliberately NOT unref'd, for the same reason waitForProcessExit()'s
+        // poll below is not. This timer is the only thing that settles the race
+        // when Chrome's socket dies without ever acknowledging the close, and
+        // closeBrowser() is actively awaited by callers. An unref'd timer does
+        // not hold the event loop open, so Node would consider the loop drained
+        // and exit — status 0, before the caller's verdict was ever printed.
+        // Cleared in the finally so a close that IS acknowledged does not pin
+        // the loop for the rest of BROWSER_CLOSE_TIMEOUT_MS.
+        new Promise<never>((_, reject) => {
+          closeTimer = setTimeout(
+            () => reject(new Error('Browser.close timed out')),
+            BROWSER_CLOSE_TIMEOUT_MS,
+          );
+        }),
+      ]);
+      gracefullyClosed = true;
+    } catch {
+      // fall through to PID-kill fallback below
+    } finally {
+      clearTimeout(closeTimer);
+    }
   }
 
   let pid = launchedPids.get(port);

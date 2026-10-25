@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { CdpClient } from '../index.js';
+import { sessionProfileDirPath } from '../browser/profile-dir.js';
 import { output } from './output.js';
 import { getBrowser, session } from './session.js';
 
@@ -110,10 +111,8 @@ export async function switchToHeaded(url: string, port: number): Promise<void> {
     headedPort = await browser.launchBrowser({
       port: 0,
       headless: false,
-      userDataDir: join(
-        tmpdir(),
-        `monomind-browse-headed-${process.pid}-${randomUUID().slice(0, 8)}`,
-      ),
+      userDataDir: sessionProfileDirPath(randomUUID().slice(0, 8), tmpdir(), true),
+      ownsUserDataDir: true,
     });
   } catch (err) {
     // Headed launch failed (no display, locked down env). Restore headless and rethrow.
@@ -127,51 +126,60 @@ export async function switchToHeaded(url: string, port: number): Promise<void> {
       `Cannot open headed browser: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
-  const conn = await browser.connectToTarget(headedPort);
-  session.client = conn.client;
-  session.sessionId = conn.sessionId;
-  session.targetId = conn.target.id;
-  session.refs = new Map();
 
-  if (savedCookies.length) {
-    try {
-      await browser.setCookies(
-        session.client,
-        session.sessionId,
-        savedCookies as Parameters<typeof browser.setCookies>[2],
-      );
-    } catch {
-      /* ignore */
+  let authCookies: unknown[] = [];
+  let authLocalStorage: Record<string, string> = {};
+  try {
+    const conn = await browser.connectToTarget(headedPort);
+    session.client = conn.client;
+    session.sessionId = conn.sessionId;
+    session.targetId = conn.target.id;
+    session.refs = new Map();
+
+    if (savedCookies.length) {
+      try {
+        await browser.setCookies(
+          session.client,
+          session.sessionId,
+          savedCookies as Parameters<typeof browser.setCookies>[2],
+        );
+      } catch {
+        /* ignore */
+      }
     }
+    await browser.openUrl(session.client, session.sessionId, url);
+
+    output.printInfo(
+      'Browser window opened. Complete the required action (login / CAPTCHA), then press Enter to continue in headless mode...',
+    );
+    await waitForEnter();
+
+    // Capture post-auth cookies
+    authCookies = await browser
+      .getCookies(session.client, session.sessionId)
+      .catch(() => [] as unknown[]);
+    authLocalStorage = await browser
+      .getLocalStorage(session.client, session.sessionId)
+      .catch(() => ({}) as Record<string, string>);
+  } finally {
+    // Close headed session — actually terminate the underlying Chrome process
+    // (Browser.close CDP command, PID-kill fallback), not just our CDP client
+    // connection, so the visible authenticated window doesn't linger forever.
+    if (session.sessionId) {
+      browser.teardownRouteInterception(session.sessionId);
+      browser.stopRequestCapture(session.sessionId);
+      browser.teardownDialogHandling(session.sessionId);
+      browser.teardownConsoleCapture(session.sessionId);
+    }
+    await browser.closeBrowser(session.client, headedPort);
+    if (session.client) {
+      session.client.close();
+      session.client = null;
+    }
+    session.sessionId = '';
+    session.parentSessionId = '';
+    session.targetId = '';
   }
-  await browser.openUrl(session.client, session.sessionId, url);
-
-  output.printInfo(
-    'Browser window opened. Complete the required action (login / CAPTCHA), then press Enter to continue in headless mode...',
-  );
-  await waitForEnter();
-
-  // Capture post-auth cookies
-  const authCookies = await browser
-    .getCookies(session.client, session.sessionId)
-    .catch(() => [] as unknown[]);
-  const authLocalStorage = await browser
-    .getLocalStorage(session.client, session.sessionId)
-    .catch(() => ({}) as Record<string, string>);
-
-  // Close headed session — actually terminate the underlying Chrome process
-  // (Browser.close CDP command, PID-kill fallback), not just our CDP client
-  // connection, so the visible authenticated window doesn't linger forever.
-  browser.teardownRouteInterception(session.sessionId);
-  browser.stopRequestCapture(session.sessionId);
-  browser.teardownDialogHandling(session.sessionId);
-  browser.teardownConsoleCapture(session.sessionId);
-  await browser.closeBrowser(session.client, headedPort);
-  session.client.close();
-  session.client = null;
-  session.sessionId = '';
-  session.parentSessionId = '';
-  session.targetId = '';
 
   // Relaunch headless and restore session
   session.port = await browser.launchBrowser({ port, headless: true });

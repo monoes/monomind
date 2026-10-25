@@ -25,8 +25,8 @@ import { basename, dirname, join } from 'node:path';
 
 /** `monomind-browser-<port>-<pid>-<uuid8>` (launchBrowser's default profile). */
 const LAUNCH_PROFILE_RE = /^monomind-browser-\d+-(\d+)-[0-9a-f]{8}$/;
-/** `monomind-browse-<pid>-<uuid8>` (a CLI browse session's profile). */
-const SESSION_PROFILE_RE = /^monomind-browse-(\d+)-[0-9a-f]{8}$/;
+/** `monomind-browse-<pid>-<uuid8>` or `monomind-browse-headed-<pid>-<uuid8>` (a CLI browse session's profile). */
+const SESSION_PROFILE_RE = /^monomind-browse(?:-headed)?-(\d+)-[0-9a-f]{8}$/;
 
 /** A directory younger than this is never swept: its launch may still be
  *  starting (Chrome has not yet put its pid anywhere we can see). */
@@ -63,8 +63,9 @@ export function launchProfileDirPath(port: number, id: string, root = tmpdir()):
 }
 
 /** Name for a new CLI session profile, directly under `root`. */
-export function sessionProfileDirPath(id: string, root = tmpdir()): string {
-  return join(root, `monomind-browse-${process.pid}-${id}`);
+export function sessionProfileDirPath(id: string, root = tmpdir(), headed = false): string {
+  const prefix = headed ? 'monomind-browse-headed' : 'monomind-browse';
+  return join(root, `${prefix}-${process.pid}-${id}`);
 }
 
 /** The pid encoded in a profile directory name we create, or null when

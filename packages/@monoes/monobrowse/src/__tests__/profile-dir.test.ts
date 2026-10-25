@@ -68,13 +68,15 @@ async function profile(name: string, opts: { young?: boolean } = {}): Promise<st
 }
 
 describe('#395 profileDirOwnerPid', () => {
-  it('reads the pid from exactly our two name patterns', () => {
+  it('reads the pid from exactly our name patterns', () => {
     expect(profileDirOwnerPid('monomind-browser-9222-1234-0a1b2c3d')).toBe(1234);
     expect(profileDirOwnerPid('monomind-browse-4321-0a1b2c3d')).toBe(4321);
+    expect(profileDirOwnerPid('monomind-browse-headed-4321-0a1b2c3d')).toBe(4321);
     for (const name of [
       'monomind-browse-4321-0A1B2C3D',
       'monomind-browse-4321-0a1b2c3d0',
       'monomind-browse-x-0a1b2c3d',
+      'monomind-browse-headed-x-0a1b2c3d',
       'monomind-browser-4321-0a1b2c3d',
       'xmonomind-browse-4321-0a1b2c3d',
       'org.chromium.Chromium.abc123',
@@ -89,12 +91,14 @@ describe('#395 sweepStaleProfileDirs', () => {
     const pid = await deadPid();
     const a = await profile(`monomind-browser-9222-${pid}-aaaaaaaa`);
     const b = await profile(`monomind-browse-${pid}-bbbbbbbb`);
+    const c = await profile(`monomind-browse-headed-${pid}-cccccccc`);
 
     const removed = await sweepStaleProfileDirs({ root });
 
-    expect(removed.sort()).toEqual([a, b].sort());
+    expect(removed.sort()).toEqual([a, b, c].sort());
     expect(existsSync(a)).toBe(false);
     expect(existsSync(b)).toBe(false);
+    expect(existsSync(c)).toBe(false);
   });
 
   it('keeps young dirs, dirs whose pid is alive, non-matching names, symlinks and files', async () => {
