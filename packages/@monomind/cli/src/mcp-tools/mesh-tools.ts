@@ -71,6 +71,12 @@ async function joinMesh(fields: JoinFields): Promise<{ addr: string; alias: stri
   return { addr, alias };
 }
 
+/** Runtime label from MCP clientInfo.name. Kimi's name is undocumented, so any name mentioning kimi is 'kimi'. */
+export function meshRuntimeFor(clientName: string): string {
+  if (/kimi/i.test(clientName)) return 'kimi';
+  return clientName.replace(/[^A-Za-z0-9._:+-]/g, '-').slice(0, 64) || 'claude-code';
+}
+
 /**
  * Named session at start: called once the MCP client has said hello, so every session is
  * discoverable without the agent having to ask. Never throws, never starts for our own probes.
@@ -79,7 +85,7 @@ export async function joinMeshAtStart(clientName: unknown): Promise<void> {
   if (process.env.VITEST || process.env.MONOMIND_MESH_AUTOJOIN === '0') return;
   const name = typeof clientName === 'string' ? clientName : '';
   if (name.startsWith('monomind-')) return;
-  const runtime = name.replace(/[^A-Za-z0-9._:+-]/g, '-').slice(0, 64) || 'claude-code';
+  const runtime = meshRuntimeFor(name);
   try {
     await joinMesh({ runtime });
   } catch {
