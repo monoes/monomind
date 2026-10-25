@@ -1,0 +1,11 @@
+{
+  "monomind-mesh": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node ../.gemini/helpers/mesh-inbox.cjs --host agy",
+        "timeout": 5
+      }
+    ]
+  }
+}

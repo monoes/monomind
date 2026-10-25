@@ -4,6 +4,11 @@
 // block. The MCP server leaves the session's hub credentials in <mesh dir>/sessions/<pid>.json
 // under its parent and grandparent pid; this walks the hook's own ancestors to find them.
 // Silent whenever there is nothing to show or anything fails: it must never slow a prompt.
+//
+// Other CLIs run this same file; each takes its context as JSON on stdout, in its own shape.
+// `--host <name>` picks it (codex, cursor, grok, agy); cursor and grok, which also run the
+// hooks of .claude/settings.json, are told apart by their environment. Claude, and any
+// unknown host, get plain text.
 
 const fs = require('fs');
 const net = require('net');
@@ -12,8 +17,25 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const dir = process.env.MONOMIND_MESH_DIR || path.join(os.homedir(), '.monomind', 'mesh');
+const HOSTS = {
+  claude: (text) => text,
+  codex: (text) => JSON.stringify({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: text } }),
+  cursor: (text) => JSON.stringify({ continue: true, additional_context: text }),
+  // grok drops the output of a UserPromptSubmit hook; PreToolUse is the event whose context it keeps.
+  grok: (text) => JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: text } }),
+  agy: (text) => JSON.stringify({ injectSteps: [{ ephemeralMessage: text }] }),
+};
 const MAX_SHOWN = 10;
 const BODY_CHARS = 600;
+
+function hostName() {
+  const i = process.argv.indexOf('--host');
+  const named = i >= 0 ? process.argv[i + 1] : '';
+  if (HOSTS[named]) return named;
+  if (process.env.GROK_HOOK_EVENT) return 'grok';
+  if (process.env.CURSOR_VERSION || process.env.CURSOR_PROJECT_DIR) return 'cursor';
+  return 'claude';
+}
 
 function parentOf(pid) {
   try {
@@ -77,20 +99,26 @@ function render(r) {
 // in the default tool list, so this line is how a session learns they exist.
 function identity(session) {
   const marker = session.file.replace(/\.json$/, '.shown');
-  if (fs.existsSync(marker)) return;
-  try { fs.writeFileSync(marker, '', { mode: 0o600 }); } catch (_) { return; }
+  if (fs.existsSync(marker)) return null;
+  try { fs.writeFileSync(marker, '', { mode: 0o600 }); } catch (_) { return null; }
   const name = String(session.alias || session.addr).replace(/[^A-Za-z0-9._\/-]/g, '');
-  console.log('[MESH] This session is "' + name + '" on the Monomind mesh. Other agents (Claude, Codex, Kimi...) on this host can message it by that name. ' +
+  return ('[MESH] This session is "' + name + '" on the Monomind mesh. Other agents (Claude, Codex, Kimi...) on this host can message it by that name. ' +
     'Tools, callable by name even if not listed: mesh_who (list agents and their names), mesh_send {to, body, kind: say|ask|reply}, mesh_inbox. ' +
     'Messages for you appear here as [MESH] blocks.');
 }
 
 try {
+  const host = hostName();
+  // grok runs .claude/settings.json hooks too, but throws away what a prompt hook prints.
+  if (host === 'grok' && process.env.GROK_HOOK_EVENT && process.env.GROK_HOOK_EVENT !== 'pre_tool_use') process.exit(0);
   const session = findSession();
   if (!session) process.exit(0);
   inbox(session, (r) => {
-    if (r && r.ok) identity(session);
-    if (r && r.ok && Array.isArray(r.messages) && r.messages.length > 0) console.log(render(r));
+    const out = [];
+    if (r && r.ok) out.push(identity(session));
+    if (r && r.ok && Array.isArray(r.messages) && r.messages.length > 0) out.push(render(r));
+    const text = out.filter(Boolean).join('\n');
+    if (text) console.log(HOSTS[host](text));
     process.exit(0);
   });
   setTimeout(() => process.exit(0), 2000).unref();

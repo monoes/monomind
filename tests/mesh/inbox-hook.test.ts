@@ -35,12 +35,12 @@ async function setup() {
   return { dir, a, b };
 }
 /** Async: the hub runs in this process, so a blocking spawn would starve it of the hook's call. */
-const runHook = (dir: string) =>
+const runHook = (dir: string, args: string[] = [], env: Record<string, string> = {}) =>
   new Promise<{ stdout: string; code: number | null }>((resolve) => {
     const child = execFile(
       process.execPath,
-      [HOOK],
-      { env: { ...process.env, MONOMIND_MESH_DIR: dir } },
+      [HOOK, ...args],
+      { env: { ...process.env, MONOMIND_MESH_DIR: dir, ...env } },
       (_err, stdout) => resolve({ stdout, code: child.exitCode }),
     );
   });
@@ -91,6 +91,63 @@ describe('mesh-inbox hook', () => {
     const empty = mkdtempSync(join(tmpdir(), 'mesh-'));
     cleanups.push(() => rmSync(empty, { recursive: true, force: true }));
     expect(await runHook(empty)).toEqual({ stdout: '', code: 0 });
+  });
+});
+
+/** One message from alpha to beta, with beta's credentials where the hook finds them. */
+async function oneMessage(body = 'hi') {
+  const { dir, a, b } = await setup();
+  leaveCredentials(dir, { addr: b.addr, key: b.key, alias: 'beta' });
+  await meshCall(
+    { op: 'send', id: 's', addr: a.addr, key: a.key, to: 'beta', kind: 'say', body },
+    { dir },
+  );
+  return dir;
+}
+
+describe('mesh-inbox hook for other CLIs', () => {
+  const text = (o: string) => (JSON.parse(o) as Record<string, any>) ?? {};
+
+  it('hands Codex the block as JSON additionalContext', async () => {
+    const dir = await oneMessage();
+    const out = text((await runHook(dir, ['--host', 'codex'])).stdout);
+    expect(out.hookSpecificOutput.hookEventName).toBe('UserPromptSubmit');
+    expect(out.hookSpecificOutput.additionalContext).toContain('This session is "beta"');
+    expect(out.hookSpecificOutput.additionalContext).toContain(
+      '<peer-message seq="1" from="alpha"',
+    );
+  });
+
+  it('hands Cursor the block as additional_context, found by its environment', async () => {
+    const dir = await oneMessage();
+    const out = text((await runHook(dir, [], { CURSOR_VERSION: '2026.10' })).stdout);
+    expect(out.continue).toBe(true);
+    expect(out.additional_context).toContain('<peer-message seq="1" from="alpha"');
+  });
+
+  it('hands agy an ephemeral message to inject before the model call', async () => {
+    const dir = await oneMessage();
+    const out = text((await runHook(dir, ['--host', 'agy'])).stdout);
+    expect(out.injectSteps).toHaveLength(1);
+    expect(out.injectSteps[0].ephemeralMessage).toContain('<peer-message seq="1" from="alpha"');
+  });
+
+  it('delivers to grok on PreToolUse only, and leaves the message unread on its prompt hook', async () => {
+    const dir = await oneMessage();
+    const prompt = await runHook(dir, [], { GROK_HOOK_EVENT: 'user_prompt_submit' });
+    expect(prompt).toEqual({ stdout: '', code: 0 });
+    const tool = text(
+      (await runHook(dir, ['--host', 'grok'], { GROK_HOOK_EVENT: 'pre_tool_use' })).stdout,
+    );
+    expect(tool.hookSpecificOutput.hookEventName).toBe('PreToolUse');
+    expect(tool.hookSpecificOutput.additionalContext).toContain('from="alpha"');
+  });
+
+  it('keeps plain text for Claude and for an unknown host', async () => {
+    const dir = await oneMessage();
+    const out = (await runHook(dir, ['--host', 'nonsense'])).stdout;
+    expect(out).toMatch(/^\[MESH\] This session is "beta"/);
+    expect(() => JSON.parse(out)).toThrow();
   });
 });
 

@@ -16,6 +16,7 @@
  */
 
 import { mcpCommand } from '../platform-adapters/renderers/mcp.js';
+import { MESH_PLUGIN_HELPERS, MESH_PLUGIN_HOOKS } from './opencode-mesh-plugin.js';
 import type { InitOptions } from './types.js';
 
 const OPENCODE_SCHEMA = 'https://opencode.ai/config.json';
@@ -366,7 +367,7 @@ export function generateAgentsMd(): string {
  * without template-literal escaping.
  */
 export function generateHooksPlugin(): string {
-  return `import { spawnSync } from "node:child_process";
+  return `import { execFile, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -383,6 +384,7 @@ function findHandler(worktree, directory) {
   return null;
 }
 
+${MESH_PLUGIN_HELPERS}
 // Run one monomind gate event and translate its exit code into a decision.
 // Claude Code protocol: exit 2 = block, JSON {decision,reason} on stderr.
 // sessionId comes from opencode's tool.execute.before input (input.sessionID)
@@ -426,7 +428,7 @@ export const MonomindHooks = async (ctx) => {
   const worktree = (ctx && ctx.worktree) || directory;
   const handler = findHandler(worktree, directory);
 
-  return {
+  return {${MESH_PLUGIN_HOOKS}
     "tool.execute.before": async (input, output) => {
       if (!handler) return; // handlers not installed -> nothing to enforce
       const tool = input && input.tool;
