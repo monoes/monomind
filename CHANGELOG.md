@@ -4,6 +4,8 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.29.0] — 2026-10-26
+
 ### Added
 
 - **`org_compact_role` and `org_clear_role`: the coordinator can release a worker's context (#717).** `org_compact_role { roleId, reason }` asks the role's session for a summary (goal, decisions, key facts and paths, what is still open), then replaces it with a fresh session that opens with that summary. `org_clear_role { roleId, reason }` replaces a role whose work is done with a fresh, empty session, and is rejected with the task ids while the role still owns open tasks. Both keep the role id, workspace, task ownership and queued messages, and are refused for the coordinator itself, for a role with a turn running, and when the call does not come from the coordinator. A failed or empty summary returns `success: false` and leaves the old session as it was. A reset does not use `max_role_respawns` and does not raise the org-wide token budget; its own cap is the new `run_config.max_role_resets` (per role per run). It is an integer from 0 to 100 and off unless set above 0, so existing orgs keep their tool lists byte for byte. What a role spent before a reset comes off its token ceiling. The summary is matched to its own request (exactly one begin and one end marker, each alone on its line), never inherited by a replacement if it times out, and handed to the new session as fenced, untrusted notes with every Unicode line separator normalised and control and zero-width characters removed. `org reload` keeps the token-cap reduction: a changed cap becomes the new cap minus what the role already spent. Both are audit-logged as `role-reset` with the reason and the new generation.
@@ -20,6 +22,11 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 - **Generated files no longer land in a user's real home directory (#712).** The helper scripts that build the agent and skill registries (`.claude/helpers/agent-registry.cjs`, `build-skill-registry.cjs`) walked up from the working directory to the first `.monomind`/`.claude` and excluded only `os.homedir()`, which follows `$HOME`. A process run with a different `HOME` (a sandboxed org role, a QA drill) anywhere under the real home treated the real home as a project and wrote `~/.monomind/registry.json` and `~/.claude/helpers/skill-registry.json` there. The walk now also stops at `$HOME` and the passwd home, compared by canonical path so a symlinked alias is covered too.
 - **A failed temp-file rename no longer leaves the temp file behind.** All six helper scripts that write a temp file and rename it (`agent-registry`, `build-skill-registry`, `event-logger`, `intelligence`, `pick-stats`, `token-tracker`) now remove it when the write or rename fails (for example `EBUSY` on a bind-mounted target in a sandbox). This was the source of the `registry.json.<pid>.tmp` files piling up in `~/.monomind`; existing ones can be deleted by hand.
 - **Test runs no longer fail a whole file with `ENOTEMPTY: directory not empty, rmdir '/tmp/mm-test-run-home-…'`.** The teardown that removes a file's temp home made one attempt, so a timer or daemon that was still writing into it failed the file (twice on `main` in one afternoon). It now retries for about 2.7 s, which is how long a stray last write takes to finish. `CLAUDE.md` also says that `pnpm test` covers only the root project and that CI runs `pnpm run test:all:run`.
+- **`monobrowse` headed switch closes Chrome on error and its profile dir is sweepable** (3bd247abe). A failed headed switch no longer leaks a Chrome process or its profile directory. `@monoes/monobrowse` bumped to 2.24.3.
+
+### Security
+
+- **`vite` is required at `>=8.1.6`** (dfaea27b2) so the Dependabot-flagged range cannot resolve.
 
 ## [2.28.0] — 2026-10-24
 
