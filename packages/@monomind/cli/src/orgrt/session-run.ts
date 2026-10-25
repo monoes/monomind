@@ -20,6 +20,7 @@ import type { TokenUsage } from './policy.js';
 import { summarizeToolOutput } from './policy.js';
 import { resolveRoleProvider } from './provider.js';
 import { ensureRoleDeps, roleDepsAudit, waitRoleDeps } from './role-deps.js';
+import { joinRoleMesh } from './role-mesh.js';
 import { resolveRoleGitEnforcement, roleAuthorityMask } from './role-sandbox.js';
 import { effectiveRoleRuntime } from './runner-resolve.js';
 import { BUDGET_STOP_SUBTYPE, INTERRUPTED_SUBTYPE, USD_STOP_SUBTYPE } from './runner-usage.js'; // #550: a runner's budget stop
@@ -174,6 +175,13 @@ export async function runOneSession(
   // full-access session run regardless of how it ends — set from every exit
   // path (the try block's return, or a caught error rethrown after).
   let sessionExitCode = 1;
+  // Mesh presence (best effort, never rejects): started now so it overlaps the setup below.
+  const meshJoin = joinRoleMesh({
+    org,
+    roleId: role.id,
+    runtime: runtimeKey,
+    cwd: opts.orgRoot ?? opts.cwd,
+  });
   try {
     // #258: policy.git enforced where git runs, not only by Bash text
     // classification — guard env for every runtime, OS sandbox + file-tool
@@ -280,6 +288,7 @@ export async function runOneSession(
           });
     const stream = runner.run(
       sessionRunArgs(opts, {
+        meshNote: (await meshJoin)?.note,
         runner,
         tools,
         streamOpts,
@@ -604,6 +613,7 @@ export async function runOneSession(
     unlinkCancelled();
     abort.abort();
     providerSet?.close();
+    await (await meshJoin)?.presence.leave();
     endFullAccessSession(fullAccessSession, {
       org,
       role: role.id,

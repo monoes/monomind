@@ -62,6 +62,8 @@ export function sessionRunArgs(
     resolvedAccess?: ResolvedAccess;
     /** Sections orgs: the variables that point a non-Claude runner at its role's private directory (documents/runtime-isolation.ts). */
     runtimeEnv?: Record<string, string>;
+    /** The role's Monomind Mesh name and unread mail (mesh/managed-presence.ts), appended to its system prompt. */
+    meshNote?: string;
   },
 ): Parameters<AgentRunner['run']>[0] {
   const { org, role, policy, mailbox, cwd } = opts;
@@ -79,6 +81,7 @@ export function sessionRunArgs(
     abort,
     resolvedAccess,
     runtimeEnv,
+    meshNote,
   } = s;
   const fullAccess = resolvedAccess?.access === 'full';
   return {
@@ -124,9 +127,13 @@ export function sessionRunArgs(
         return text === original ? m : withMessageText(m, text);
       });
     })() as never,
-    systemPrompt: gitEnforcement.claudeRestrictions?.sandbox
-      ? `${rolePromptFor(opts)}\n\n${claudeSandboxCwdNote(cwd)}`
-      : rolePromptFor(opts),
+    systemPrompt: [
+      rolePromptFor(opts),
+      gitEnforcement.claudeRestrictions?.sandbox ? claudeSandboxCwdNote(cwd) : '',
+      meshNote ?? '',
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
     model,
     cwd,
     effort,

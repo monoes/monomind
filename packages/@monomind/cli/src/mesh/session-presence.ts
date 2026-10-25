@@ -1,10 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import { callWithHub, meshCall, type Reply } from './client.js';
 import { meshDir } from './hub.js';
-import type { HelloFields } from './protocol.js';
+import type { HelloFields, Tier } from './protocol.js';
 import { createSessionFiles } from './session-files.js';
 
 export type JoinInput = Omit<HelloFields, 'tier' | 'capabilities' | 'tags'> & {
+  /** Defaults to `session`; processes Monomind launches register as `external` / `org-role`. */
+  tier?: Tier;
   capabilities?: string[];
   tags?: string[];
 };
