@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "node .github/hooks/monomind-mesh.cjs",
+        "timeoutSec": 5
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "node .github/hooks/monomind-mesh.cjs",
+        "timeoutSec": 5
+      }
+    ]
+  }
+}

@@ -62,6 +62,7 @@ import { writeGeminiFiles } from './write-antigravity.js';
 import { writeClaudeMd, writeHelpers, writeMCPConfig, writeStatusline } from './write-claude.js';
 import { writeClineFiles } from './write-cline.js';
 import { writeCodexFiles } from './write-codex.js';
+import { writeCopilotMeshHooks } from './write-copilot.js';
 import { writeKimiFiles } from './write-kimicode.js';
 import { writeOpencodeFiles } from './write-opencode.js';
 import { writeInitialMetrics, writeRuntimeConfig } from './write-runtime-config.js';
@@ -294,6 +295,8 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // Generate helpers
     if (options.components.helpers) {
       await writeHelpers(targetDir, options, result);
+      // Copilot CLI / Hermes bridge to the helpers just written.
+      writeCopilotMeshHooks(targetDir, options, result);
     }
 
     // Generate statusline
