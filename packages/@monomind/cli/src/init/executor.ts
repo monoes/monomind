@@ -66,6 +66,7 @@ import { writeCopilotMeshHooks } from './write-copilot.js';
 import { writeKimiFiles } from './write-kimicode.js';
 import { writeMeshCoderHooks } from './write-mesh-coder-hooks.js';
 import { writeOpencodeFiles } from './write-opencode.js';
+import { writePiMeshExtension } from './write-pi.js';
 import { writeInitialMetrics, writeRuntimeConfig } from './write-runtime-config.js';
 import { writeSettings } from './write-settings.js';
 
@@ -298,6 +299,8 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       await writeHelpers(targetDir, options, result);
       // Copilot CLI / Hermes bridge to the helpers just written.
       writeCopilotMeshHooks(targetDir, options, result);
+      // Pi has no MCP: its mesh extension talks to the hub socket itself.
+      writePiMeshExtension(targetDir, options, result);
     }
 
     // Generate statusline
