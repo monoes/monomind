@@ -64,6 +64,7 @@ import { writeClineFiles } from './write-cline.js';
 import { writeCodexFiles } from './write-codex.js';
 import { writeCopilotMeshHooks } from './write-copilot.js';
 import { writeKimiFiles } from './write-kimicode.js';
+import { writeMeshCoderHooks } from './write-mesh-coder-hooks.js';
 import { writeOpencodeFiles } from './write-opencode.js';
 import { writeInitialMetrics, writeRuntimeConfig } from './write-runtime-config.js';
 import { writeSettings } from './write-settings.js';
@@ -379,6 +380,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     if (options.components.cline) {
       await writeClineFiles(targetDir, options, result);
     }
+    await writeMeshCoderHooks(targetDir, options, result);
 
     // Generate .agents/shared_instructions.md; its memory seeds are stored
     // once the database exists (below). #372: a Claude-only init writes no

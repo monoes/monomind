@@ -143,6 +143,8 @@ export const initCommand: Command = {
         'codex',
         'cline',
         'aider',
+        'qwen',
+        'crush',
         'agents',
       ],
     },

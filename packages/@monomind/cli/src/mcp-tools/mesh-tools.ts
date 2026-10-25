@@ -71,12 +71,16 @@ async function joinMesh(fields: JoinFields): Promise<{ addr: string; alias: stri
   return { addr, alias };
 }
 
-/** Runtime label from MCP clientInfo.name. Kimi's name is undocumented, so any name mentioning kimi is 'kimi'. */
+/**
+ * Runtime label from MCP clientInfo.name. Kimi's name is undocumented, so any name mentioning kimi is
+ * 'kimi'. Qwen Code sends `qwen-code-mcp-client` or `qwen-cli-mcp-client-<server>`; Crush sends `crush`.
+ */
 export function meshRuntimeFor(clientName: string): string {
   if (/kimi/i.test(clientName)) return 'kimi';
   // Copilot CLI sends "copilot-cli"; Hermes uses the Python MCP SDK's default clientInfo, "mcp".
   if (/^copilot(-cli)?$/i.test(clientName)) return 'copilot';
   if (clientName === 'mcp') return 'hermes';
+  if (/^qwen-(code|cli)-mcp-client/i.test(clientName)) return 'qwen';
   return clientName.replace(/[^A-Za-z0-9._:+-]/g, '-').slice(0, 64) || 'claude-code';
 }
 

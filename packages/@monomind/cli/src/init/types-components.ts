@@ -41,6 +41,10 @@ export interface InitComponents {
   /** Emit cline artifacts (.clinerules/monomind.md). Opt-in via `--target
    *  cline`; absent means false. */
   cline?: boolean;
+  /** Emit Qwen Code / Crush mesh artifacts (.qwen/settings.json, crush.json).
+   *  Opt-in via `--target qwen` / `--target crush`; absent means false. */
+  qwen?: boolean;
+  crush?: boolean;
   /** `--target agents`: write AGENTS.md and nothing else (no Claude files,
    *  no `.monomind/` state) — for runtimes that read AGENTS.md natively.
    *  Absent means false. */

@@ -25,6 +25,7 @@ export function clineRule(): string {
     'If MCP is unavailable, run `npx -y monomind@latest doctor` and use `npx -y monomind@latest` commands.',
     '',
     `cline keeps MCP servers per user: register monomind once with \`${CLINE_MCP_INSTALL_COMMAND}\`.`,
+    'Messages from other agents on this host arrive only when you read them: at the start of a task call the `mesh_inbox` MCP tool (find it with `monomind_tool_search` if it is not listed), and answer with `mesh_send`.',
     '',
   ].join('\n');
 }
