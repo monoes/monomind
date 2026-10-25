@@ -42,6 +42,11 @@ export function generateKimiPluginManifest(_options: InitOptions): string {
         command: 'node ./hooks/monomind-gate.mjs',
         timeout: 5,
       },
+      {
+        event: 'UserPromptSubmit',
+        command: 'node ./hooks/monomind-mesh.mjs',
+        timeout: 5,
+      },
     ],
     interface: {
       displayName: 'Monomind',

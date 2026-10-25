@@ -55,7 +55,7 @@ export {
   isCatalogStyleRouterCommand,
   kimiCommandFilename,
 } from './kimi-generator-frontmatter.js';
-export { generateKimiGateScript } from './kimi-generator-hooks.js';
+export { generateKimiGateScript, generateKimiMeshScript } from './kimi-generator-hooks.js';
 export {
   generateKimiMcpConfig,
   generateKimiMcpJson,

@@ -21,6 +21,7 @@ import {
   generateKimiAgentsMd,
   generateKimiGateScript,
   generateKimiMcpJson,
+  generateKimiMeshScript,
   generateKimiPluginManifest,
   isCatalogStyleRouterCommand,
   kimiCommandFilename,
@@ -95,6 +96,16 @@ export async function writeKimiFiles(
     result.created.files.push('.kimi-code/plugin/hooks/monomind-gate.mjs');
   } else {
     result.skipped.push('.kimi-code/plugin/hooks/monomind-gate.mjs');
+  }
+
+  // Mesh inbox bridge (UserPromptSubmit).
+  const meshPath = path.join(hooksDir, 'monomind-mesh.mjs');
+  if (!fs.existsSync(meshPath) || options.force) {
+    fs.mkdirSync(hooksDir, { recursive: true });
+    atomicWriteFile(meshPath, generateKimiMeshScript());
+    result.created.files.push('.kimi-code/plugin/hooks/monomind-mesh.mjs');
+  } else {
+    result.skipped.push('.kimi-code/plugin/hooks/monomind-mesh.mjs');
   }
 
   // Tier 3: plugin manifest.
