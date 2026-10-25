@@ -16,6 +16,7 @@ import {
 import { taskAssignmentRefusal } from './documents/lead-rules.js';
 import { documentTools } from './documents/tools-core.js';
 import { appendNote, NOTE_APPEND_HELP, readNotes } from './notes.js';
+import { resetRoleTools } from './org-tools-reset.js';
 import { checkPacket, REFERENCES_HELP, referencesArg, type TaskReferences } from './packet.js';
 import { approvalGateOutcome } from './session-gate.js';
 import { resolveSessionScope } from './session-ledger.js';
@@ -153,6 +154,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       },
     });
   }
+  tools.push(...resetRoleTools(opts));
   const onListRuntimeOptions = opts.onListRuntimeOptions;
   if (onListRuntimeOptions) {
     tools.push({

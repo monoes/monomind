@@ -334,6 +334,7 @@ async function startOrgInner(
           ? mergeEffectiveRoleConfig(role, roleCheckpoint.effectiveRoleOverrides as RoleOverrides)
           : role,
       respawnCount: roleCheckpoint?.respawnCount ?? 0,
+      resetCount: roleCheckpoint?.resetCount ?? 0,
       queuedDuringSwap: roleCheckpoint?.queuedDuringSwap ?? [],
       retiredUsage: roleCheckpoint?.retiredUsage ?? { tokens: 0, costUsd: 0 },
     });

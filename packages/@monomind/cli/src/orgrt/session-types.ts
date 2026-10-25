@@ -90,6 +90,10 @@ export interface SessionOpts {
       briefing: string;
     },
   ) => Promise<unknown>;
+  /** Present only for the selected coordinator: org_compact_role / org_clear_role.
+   *  Return the JSON-shaped ResetReceipt (see role-slot.ts). */
+  onCompactRole?: (callerId: string, args: { roleId: string; reason: string }) => Promise<unknown>;
+  onClearRole?: (callerId: string, args: { roleId: string; reason: string }) => Promise<unknown>;
   /** Present only for the selected coordinator. Returns the JSON-shaped
    *  runtime/named-provider listing (see runtime-options.ts). */
   onListRuntimeOptions?: () => Promise<unknown>;

@@ -22,8 +22,9 @@ import * as orgStop from './org-stop.js';
 import * as questionOps from './questions.js';
 import type { RunSummary } from './reporting.js';
 import * as roleIncarnation from './role-incarnation.js';
+import * as roleReset from './role-reset.js';
 import * as roleRespawn from './role-respawn.js';
-import type { RespawnReceipt } from './role-slot.js';
+import type { ResetReceipt, RespawnReceipt } from './role-slot.js';
 import { currentRoleTrace, type RoleTrace } from './role-trace.js';
 import { buildRuntimeOptions, type RuntimeOptionsReceipt } from './runtime-options.js';
 import * as scheduler from './scheduler-integration.js';
@@ -207,6 +208,16 @@ export class OrgDaemon {
    *  steps in order, numbered in comments. */
   async respawnRole(name: string, callerId: string, rawInput: unknown): Promise<RespawnReceipt> {
     return roleRespawn.respawnRole(this, name, callerId, rawInput);
+  }
+
+  /** org_compact_role: summarize the role's session, then continue in a fresh one. */
+  async compactRole(name: string, callerId: string, rawInput: unknown): Promise<ResetReceipt> {
+    return roleReset.resetRole(this, name, callerId, rawInput, 'compact');
+  }
+
+  /** org_clear_role: continue the role in a fresh session (no summary). */
+  async clearRole(name: string, callerId: string, rawInput: unknown): Promise<ResetReceipt> {
+    return roleReset.resetRole(this, name, callerId, rawInput, 'clear');
   }
 
   /** @internal */

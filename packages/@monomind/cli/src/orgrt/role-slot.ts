@@ -39,6 +39,21 @@ export interface RespawnReceipt {
   error?: string;
 }
 
+/** The tools are listed for the coordinator only when run_config.max_role_resets is set above 0,
+ *  and that value is the per-role cap for the run. Any other org keeps its coordinator tool list
+ *  byte-identical (the sections-off goldens). */
+export function roleResetsEnabled(rc: { max_role_resets?: number }): boolean {
+  return (rc.max_role_resets ?? 0) > 0;
+}
+
+export interface ResetReceipt {
+  success: boolean;
+  roleId: string;
+  generation: number;
+  summaryChars: number;
+  error?: string;
+}
+
 export interface RoleSlot {
   generation: number;
   phase: RoleSlotPhase;
@@ -48,6 +63,8 @@ export interface RoleSlot {
    *  org-definition role once at least one replacement has happened. */
   effectiveRole: OrgRole;
   respawnCount: number;
+  /** Accepted org_compact_role / org_clear_role calls for this role this run. */
+  resetCount?: number;
   respawnPromise?: Promise<RespawnReceipt>;
   /** Messages that arrived while this slot was draining, not yet delivered
    *  to a live mailbox. */
@@ -217,4 +234,21 @@ export function buildRespawnReceipt(
     respawnsRemaining: Math.max(0, maxRespawns - slot.respawnCount),
     ...extra,
   };
+}
+
+export interface ResetInput {
+  roleId: string;
+  reason: string;
+}
+
+/** Validate an org_compact_role / org_clear_role call: roleId 1-128, reason 1-1000. */
+export function validateResetInput(
+  input: unknown,
+): { ok: true; value: ResetInput } | { ok: false; error: string } {
+  const raw = (input ?? {}) as Record<string, unknown>;
+  const roleId = boundedString(raw.roleId, 128);
+  if (!roleId) return { ok: false, error: 'roleId is required (1-128 characters)' };
+  const reason = boundedString(raw.reason, 1000);
+  if (!reason) return { ok: false, error: 'reason is required (1-1000 characters)' };
+  return { ok: true, value: { roleId, reason } };
 }

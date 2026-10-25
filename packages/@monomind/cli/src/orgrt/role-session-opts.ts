@@ -15,6 +15,7 @@ import type { Mailbox } from './mailbox.js';
 import type { TaskReferences } from './packet.js';
 import type { PolicyEngine } from './policy.js';
 import * as questionOps from './questions.js';
+import { roleResetsEnabled } from './role-slot.js';
 import { endTurn, withTrace } from './role-trace.js';
 import { resolveRoleRunner } from './runner-resolve.js';
 import { effectiveToolProviders } from './skill-library.js';
@@ -256,6 +257,14 @@ export function buildRoleSessionOpts(
     onRespawnRole:
       role.id === running.bossRoleId && (def.run_config.max_role_respawns ?? 0) > 0
         ? (callerId: string, args: any) => daemon.respawnRole(name, callerId, args)
+        : undefined,
+    onCompactRole:
+      role.id === running.bossRoleId && roleResetsEnabled(def.run_config)
+        ? (callerId: string, args: any) => daemon.compactRole(name, callerId, args)
+        : undefined,
+    onClearRole:
+      role.id === running.bossRoleId && roleResetsEnabled(def.run_config)
+        ? (callerId: string, args: any) => daemon.clearRole(name, callerId, args)
         : undefined,
     recall: async (r: string, q: string) => {
       const answer = await daemon.recallOrgMemory(name, def, q, r);

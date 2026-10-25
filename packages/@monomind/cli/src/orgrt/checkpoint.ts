@@ -46,6 +46,8 @@ export interface RoleCheckpoint {
   generation: number;
   /** Accepted org_respawn_role attempts for this role so far this run. */
   respawnCount: number;
+  /** Accepted org_compact_role / org_clear_role calls for this role so far this run. */
+  resetCount?: number;
   /** Currently-applied overrides on top of the org definition's role config —
    *  omitted fields mean "keep the org-definition value", not "unset it". */
   effectiveRoleOverrides: { runtime?: string; model?: string; providerName?: string };
@@ -154,6 +156,7 @@ export function captureCheckpoint(
       scrollback: runtime.scrollback?.snapshot(),
       generation: slot?.generation ?? 0,
       respawnCount: slot?.respawnCount ?? 0,
+      ...(slot?.resetCount ? { resetCount: slot.resetCount } : {}),
       effectiveRoleOverrides: slot
         ? diffRoleOverrides(
             org.def.roles.find((r) => r.id === roleId),

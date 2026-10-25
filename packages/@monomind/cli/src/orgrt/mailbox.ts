@@ -79,6 +79,25 @@ export class Mailbox {
     return this.parked && this.queue.length === 0;
   }
 
+  /** The runner is inside a turn (see observeTurn). */
+  get turnInProgress(): boolean {
+    return this.turnLive;
+  }
+
+  /** Number of messages waiting in the queue (not yet yielded). */
+  get queuedCount(): number {
+    return this.queue.length;
+  }
+
+  /** Remove one still-queued message (an unanswered request that gave up).
+   *  Returns false when it was already consumed. */
+  withdraw(text: string): boolean {
+    const i = this.queue.indexOf(text);
+    if (i < 0) return false;
+    this.queue.splice(i, 1);
+    return true;
+  }
+
   /** Number of real (non-continuation) messages consumed so far across all sessions. */
   get consumedRealCount(): number {
     return this.consumedReal;
