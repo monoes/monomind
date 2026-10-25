@@ -26,7 +26,8 @@ jobs:
         with:
           version: 10
       - run: pnpm install --no-frozen-lockfile
-      - run: pnpm --filter "@monoes/monomindcli^..." run build
+      # the CLI itself too ("..." not "^..."): the next steps run its bin, which needs its dist
+      - run: pnpm --filter "@monoes/monomindcli..." run build
 
       - name: Cache embedding models
         uses: actions/cache@v4
