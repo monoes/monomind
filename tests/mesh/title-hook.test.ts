@@ -1,8 +1,11 @@
 import { execFile } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { meshCall } from '../../packages/@monomind/cli/src/mesh/client.js';
+import { MeshHub } from '../../packages/@monomind/cli/src/mesh/hub.js';
+import { projectIdFor } from '../../packages/@monomind/cli/src/mesh/project-id.js';
 import {
   claimSessionName,
   settleSessionName,
@@ -18,11 +21,11 @@ const meshDir = () => {
   dirs.push(d);
   return d;
 };
-const runHook = (dir: string, input: object) =>
+const runHook = (dir: string, input: object, preload: string[] = []) =>
   new Promise<string>((resolve) => {
     const child = execFile(
       process.execPath,
-      [HOOK],
+      [...preload, HOOK],
       { env: { ...process.env, MONOMIND_MESH_DIR: dir } },
       (_e, stdout) => resolve(stdout),
     );
@@ -57,5 +60,39 @@ describe('mesh-title hook', () => {
     const dir = meshDir();
     expect(claimSessionName(dir, () => 'p-20261024-143005')).toBe('p-20261024-143005');
     expect(claimSessionName(dir, () => 'p-20261024-999999')).toBe('p-20261024-143005');
+  });
+
+  it('skips names that are already live in the project', async () => {
+    const dir = meshDir();
+    const clock = join(dir, 'clock.cjs');
+    writeFileSync(
+      clock,
+      `const R = Date; const T = [2026, 9, 24, 14, 30, 5];
+       global.Date = class extends R { constructor(...a) { super(...(a.length ? a : T)); } };`,
+    );
+    const hub = await MeshHub.start({ dir, host: 'h', isAlive: () => true });
+    try {
+      const project = projectIdFor('/w/p');
+      for (const [i, alias] of ['p-20261024-143005', 'p-20261024-143005-2'].entries()) {
+        await meshCall(
+          {
+            op: 'hello',
+            id: `h${i}`,
+            tier: 'session',
+            runtime: 'claude-code',
+            pid: 4242,
+            project,
+            projectPath: '/w/p',
+            sessionId: `s${i}`,
+            alias,
+          },
+          { dir },
+        );
+      }
+      const out = await runHook(dir, { cwd: '/w/p' }, ['-r', clock]);
+      expect(titleOf(out)).toBe('p-20261024-143005-3');
+    } finally {
+      await hub.stop();
+    }
   });
 });
