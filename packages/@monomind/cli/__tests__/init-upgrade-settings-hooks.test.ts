@@ -77,13 +77,19 @@ describe('mergeMonomindHooks on 2.16.2 settings', () => {
     const old = oldSettings();
     expect(missingMonomindHooks(old.hooks, reference())).toEqual([
       'PreToolUse: hook-handler.cjs pre-agent',
+      'UserPromptSubmit: mesh-inbox.cjs',
+      'SessionStart: mesh-title.cjs',
     ]);
     expect(msTimeoutHooks(old.hooks).length).toBeGreaterThan(20);
   });
 
   it('adds the pre-agent hook and converts ms timeouts to seconds', () => {
     const { hooks, added, timeoutsFixed } = mergeMonomindHooks(oldSettings().hooks, reference());
-    expect(added).toEqual(['PreToolUse: hook-handler.cjs pre-agent']);
+    expect(added).toEqual([
+      'PreToolUse: hook-handler.cjs pre-agent',
+      'UserPromptSubmit: mesh-inbox.cjs',
+      'SessionStart: mesh-title.cjs',
+    ]);
     const agentGroup = hooks.PreToolUse.find((g) => g.matcher === 'Task|Agent');
     expect(agentGroup?.hooks?.map((h) => monomindHookId(h.command))).toEqual([
       'hook-handler.cjs pre-agent',
