@@ -56,10 +56,21 @@ process.stdin.on("end", () => {
   let payload = {};
   try { payload = JSON.parse(input || "{}"); } catch (_) { process.exit(0); }
   const cwd = payload.cwd || process.cwd();
+  const eventName = payload.hook_event_name || "";
+  // Mesh inbox: Codex takes a JSON additionalContext on stdout as developer context for the turn.
+  if (eventName === "UserPromptSubmit") {
+    const inbox = path.join(cwd, ".claude", "helpers", "mesh-inbox.cjs");
+    let out = "";
+    try {
+      if (fs.existsSync(inbox)) out = spawnSync(process.execPath, [inbox, "--host", "codex"], { encoding: "utf8", timeout: 2500, cwd }).stdout || "";
+    } catch (_) {}
+    if (out) process.stdout.write(out, () => process.exit(0));
+    else process.exit(0);
+    return;
+  }
   const handler = path.join(cwd, ".claude", "helpers", "hook-handler.cjs");
   if (!fs.existsSync(handler)) process.exit(0);
 
-  const eventName = payload.hook_event_name || "";
   const tool = payload.tool_name || "";
   const toolInput = payload.tool_input || {};
   const shellTools = new Set(["shell_command", "exec_command", "command_execution", "Bash"]);
@@ -135,6 +146,14 @@ export function generateCodexHooksConfig(): string {
     `command_windows = ${tomlString(commandWindows)}`,
     'statusMessage = "Monomind post-tool learning"',
     'timeout = 10',
+    '',
+    '[[hooks.UserPromptSubmit]]',
+    '[[hooks.UserPromptSubmit.hooks]]',
+    'type = "command"',
+    `command = ${tomlString(command)}`,
+    `command_windows = ${tomlString(commandWindows)}`,
+    'statusMessage = "Monomind mesh inbox"',
+    'timeout = 3',
     '',
     '[[hooks.SessionStart]]',
     '[[hooks.SessionStart.hooks]]',
@@ -214,6 +233,10 @@ export function generateCodexAgentsMd(): string {
     '',
     'Store durable project insights in Monomind memory and recall prior decisions',
     'before repeating investigation or implementation work.',
+    '',
+    '## Mesh',
+    '',
+    'Mesh: other agents on this host can message this one. Call `mesh_inbox` at the start of each task to read them; `mesh_who` lists them and `mesh_send` answers.',
     '',
     '## Security',
     '',

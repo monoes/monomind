@@ -79,6 +79,10 @@ export function generateGeminiRulesMd(_options: InitOptions): string {
 - After a helpful search: call \`mcp__monomind__memory_feedback\` with result IDs.
 - At session end: distill insights via \`mcp__monomind__memory_kg_ingest\`.
 
+## Mesh
+
+- Other agents on this host can message this one: call \`mesh_inbox\` at the start of each task; \`mesh_who\` lists them, \`mesh_send\` answers.
+
 ## Documents (Second Brain)
 
 - User specs, handbooks, and notes are indexed locally.

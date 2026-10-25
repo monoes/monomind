@@ -21,6 +21,7 @@ import type { InitOptions, InitResult } from './types.js';
  *   .gemini/helpers/statusline.sh   — shell wrapper for the agy status bar
  *   .gemini/helpers/*               — helper tree it runs, if writeHelpers did not copy it
  *   .gemini/settings.json           — wires the statusline command into agy
+ *   .agents/hooks.json              — mesh inbox hook (agy's PreInvocation), when the helper is there
  */
 export async function writeGeminiFiles(
   targetDir: string,
@@ -117,9 +118,47 @@ export async function writeGeminiFiles(
     );
   }
 
+  writeAgyMeshHook(targetDir, result);
+
   // Project init is project-scoped. User-level Antigravity settings belong to
   // the explicit `platforms install --scope user --yes` lifecycle, where the
   // requested scope and consent are both recorded. In particular, do not
   // mutate an existing ~/.gemini/antigravity-cli installation merely because
   // this project selected Antigravity.
+}
+
+/**
+ * agy runs `.agents/hooks.json` hooks from that directory, before every model call; a hook's
+ * `injectSteps` ephemeral message reaches the model for that turn. Merged into any existing file
+ * under its own name; skipped when the mesh helper was not installed.
+ */
+function writeAgyMeshHook(targetDir: string, result: InitResult): void {
+  if (!fs.existsSync(path.join(targetDir, '.gemini', 'helpers', 'mesh-inbox.cjs'))) return;
+  const hooksPath = path.join(targetDir, '.agents', 'hooks.json');
+  try {
+    const existing: Record<string, unknown> =
+      fs.existsSync(hooksPath) && fs.statSync(hooksPath).size <= MAX_EXEC_FILE_BYTES
+        ? JSON.parse(fs.readFileSync(hooksPath, 'utf-8'))
+        : {};
+    if (existing['monomind-mesh']) {
+      result.skipped.push('.agents/hooks.json (mesh hook already configured)');
+      return;
+    }
+    existing['monomind-mesh'] = {
+      PreInvocation: [
+        {
+          type: 'command',
+          command: 'node ../.gemini/helpers/mesh-inbox.cjs --host agy',
+          timeout: 5,
+        },
+      ],
+    };
+    fs.mkdirSync(path.dirname(hooksPath), { recursive: true });
+    atomicWriteFile(hooksPath, `${JSON.stringify(existing, null, 2)}\n`);
+    result.created.files.push('.agents/hooks.json (mesh inbox hook)');
+  } catch (e) {
+    result.errors.push(
+      `writeGeminiFiles: failed to write .agents/hooks.json: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
 }
