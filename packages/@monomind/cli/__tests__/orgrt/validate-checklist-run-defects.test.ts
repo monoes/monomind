@@ -95,3 +95,34 @@ describe('#24 a codex role has a sandbox that confines writes, not reads', () =>
     expect(tagged(org([worker('s', { runtime: 'codex' })]), '#24')).toEqual([]);
   });
 });
+
+describe('#24 codex allowWrite directories and denyWrite', () => {
+  it('names the allowWrite directories as writable, and still warns about reads', () => {
+    const w = tagged(
+      org([
+        worker('qa', {
+          runtime: 'codex',
+          policy: { fileRead: ['in'], sandbox: { allowWrite: ['/var/tmp/x'] } },
+        }),
+      ]),
+      '#24',
+    );
+    expect(w.filter((x) => /policy\.sandbox\.allowWrite/.test(x))).toHaveLength(1);
+    expect(w.join('\n')).toMatch(/fileRead scope is not enforced/);
+  });
+
+  it('says codex cannot deny inside a writable directory', () => {
+    const w = tagged(
+      org([worker('qa', { runtime: 'codex', policy: { sandbox: { denyWrite: ['src'] } } })]),
+      '#24',
+    );
+    // the schema defaults fileRead/fileWrite, so the scope warning fires too
+    expect(w.filter((x) => /cannot deny writes/.test(x))).toHaveLength(1);
+  });
+
+  it('stays quiet for a claude role with denyWrite', () => {
+    expect(
+      tagged(org([worker('c', { policy: { sandbox: { denyWrite: ['src'] } } })]), '#24'),
+    ).toEqual([]);
+  });
+});

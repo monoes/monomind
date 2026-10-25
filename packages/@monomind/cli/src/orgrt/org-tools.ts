@@ -153,6 +153,26 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       },
     });
   }
+  const onCompactRole = opts.onCompactRole;
+  if (onCompactRole) {
+    tools.push({
+      name: 'org_compact_role',
+      description:
+        'Release the context of one WORKER role without losing its thread: its current session is asked for a summary (goal, decisions, key facts and paths, what is still open), then replaced by a fresh session that opens with that summary — keeping its role id, workspace, task ownership, and queued messages. Cannot target the coordinator (yourself) or an unknown/removed/not-yet-started role. Rejected while the role has a turn running or messages waiting (wait for it or stop it). If the summary fails or is empty, success is false and the old session is left as it was. Does not use the respawn budget; each role has its own per-run cap (run_config.max_role_resets). reason is a short operational reason for the audit log.',
+      schema: { roleId: z.string(), reason: z.string() },
+      handler: async (args) => text(JSON.stringify(await onCompactRole(role.id, args as any))),
+    });
+  }
+  const onClearRole = opts.onClearRole;
+  if (onClearRole) {
+    tools.push({
+      name: 'org_clear_role',
+      description:
+        'Replace one WORKER role whose work is finished with a fresh, empty session — keeping its role id, workspace, task ownership, and queued messages, and carrying nothing of the old conversation. Check org_tasks first: a role that still owns open tasks is rejected with their ids, so a clear never drops live work. Cannot target the coordinator (yourself) or an unknown/removed/not-yet-started role; rejected while the role has a turn running. Does not use the respawn budget; each role has its own per-run cap (run_config.max_role_resets). reason is a short operational reason for the audit log.',
+      schema: { roleId: z.string(), reason: z.string() },
+      handler: async (args) => text(JSON.stringify(await onClearRole(role.id, args as any))),
+    });
+  }
   const onListRuntimeOptions = opts.onListRuntimeOptions;
   if (onListRuntimeOptions) {
     tools.push({

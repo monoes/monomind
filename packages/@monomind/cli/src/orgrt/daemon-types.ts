@@ -224,6 +224,8 @@ export interface DaemonOpts {
    *  After this many retries a crash is terminal and triggers worker→boss notification /
    *  boss auto-restart. */
   crashBackoffsMs?: number[];
+  /** How long org_compact_role waits for the old session's summary (default 120000ms). */
+  roleSummaryTimeoutMs?: number;
   /** Override the whole-org restart backoff after the boss terminally crashes (tests only;
    *  default [10000,30000]ms). */
   bossRestartBackoffMs?: number[];

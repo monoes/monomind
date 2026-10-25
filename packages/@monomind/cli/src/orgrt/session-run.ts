@@ -5,6 +5,7 @@ import { homedir, tmpdir } from 'node:os';
 import type { AgentRunner } from './agent-runner.js';
 import { ClaudeAgentRunner, defaultClaudeRunner } from './agent-runner.js';
 import { ensureAuthorityDirs } from './authority-mask.js';
+import { codexSessionWriteRoots } from './codex-write-roots.js';
 import { appendContextCall } from './context-log.js';
 import { defaultRoleEffort, isRoleExempt, resolveRoleCostTier } from './cost-tier.js';
 import type { CumulativeMeter } from './cumulative-meter.js';
@@ -286,6 +287,21 @@ export async function runOneSession(
               allowWrite: role.policy?.sandbox?.allowWrite,
             }),
           });
+    // codex: policy.sandbox.allowWrite as extra roots of its own sandbox.
+    // A 'push' role runs unsandboxed and a full-access session bypasses it.
+    const writableRoots =
+      runtimeKey === 'codex' &&
+      resolvedAccess.access !== 'full' &&
+      gitEnforcement.env.MONOMIND_GIT_LEVEL
+        ? codexSessionWriteRoots(bus, role.id, {
+            allowWrite: role.policy?.sandbox?.allowWrite,
+            denyWrite: role.policy?.sandbox?.denyWrite,
+            cwd,
+            orgRoot: opts.orgRoot,
+            home: homedir(),
+            env: process.env,
+          })
+        : undefined;
     const stream = runner.run(
       sessionRunArgs(opts, {
         meshNote: (await meshJoin)?.note,
@@ -302,6 +318,7 @@ export async function runOneSession(
         abort,
         resolvedAccess,
         runtimeEnv: protection.runtimeEnv,
+        writableRoots,
       }),
     );
 

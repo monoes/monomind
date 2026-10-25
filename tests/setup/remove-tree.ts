@@ -22,11 +22,19 @@ function makeWritable(dir: string): void {
   }
 }
 
+/**
+ * Node retries ENOTEMPTY/EBUSY/EPERM itself with a linear backoff (50 ms, 100 ms, ... 500 ms: about
+ * 2.7 s in all). A test run's temp home can still be written to when the file's afterAll runs (a
+ * timer or a daemon's last write that outlives the test), and without a retry that shows up as a
+ * file-level "ENOTEMPTY: directory not empty, rmdir" failure that has nothing to do with the test.
+ */
+const REMOVE = { recursive: true, force: true, maxRetries: 10, retryDelay: 50 } as const;
+
 export function removeTree(dir: string): void {
   try {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, REMOVE);
   } catch {
     makeWritable(dir);
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, REMOVE);
   }
 }

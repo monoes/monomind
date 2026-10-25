@@ -154,7 +154,35 @@ export class PolicyEngine {
   /** #343 hot reload of budget_tokens / budget_usd: replace the ceilings and
    *  keep what has been spent — the new cap applies to total spend. */
   setBudgetCaps(caps: { maxTokens?: number; maxUsd?: number }): void {
-    this.policy = { ...this.policy, maxTokens: caps.maxTokens, maxUsd: caps.maxUsd };
+    // `caps.maxTokens` is the configured ceiling; what earlier incarnations spent (a context
+    // reset) still comes off it, once.
+    if (this.capReduction > 0) this.configuredCap = caps.maxTokens;
+    const maxTokens =
+      caps.maxTokens !== undefined && this.capReduction > 0
+        ? Math.max(0, caps.maxTokens - this.capReduction)
+        : caps.maxTokens;
+    this.policy = { ...this.policy, maxTokens, maxUsd: caps.maxUsd };
+  }
+
+  /** Set by lowerTokenCap: the ceiling before the reduction, and the reduction itself. */
+  private configuredCap?: number;
+  private capReduction = 0;
+
+  /** Lower the token ceiling by `by` tokens already spent by earlier incarnations of the role,
+   *  keeping the configured total cap (a context reset starts this counter at zero). No-op
+   *  without a token ceiling. */
+  lowerTokenCap(by: number): void {
+    const cap = this.policy?.maxTokens;
+    if (cap == null || by <= 0) return;
+    this.configuredCap = cap;
+    this.capReduction = by;
+    this.policy = { ...this.policy, maxTokens: Math.max(0, cap - by) };
+  }
+
+  /** The token ceiling as configured, before any reset reduction (= `policy.maxTokens` otherwise).
+   *  Reload compares and re-derives caps against this, never against the reduced ceiling. */
+  get configuredTokenCap(): number | undefined {
+    return this.configuredCap ?? this.policy?.maxTokens;
   }
 
   /** Legacy scalar accumulator. A caller with no breakdown to give (a
