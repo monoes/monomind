@@ -447,7 +447,7 @@ For a comprehensive overview of all Monomind features, agents, commands, and int
 It includes:
 
 - Agent type definitions with recommendations
-- All <!-- doc-count:cli-commands -->38<!-- /doc-count:cli-commands --> CLI commands
+- All <!-- doc-count:cli-commands -->39<!-- /doc-count:cli-commands --> CLI commands
 - All <!-- doc-count:hooks-subcommands -->28<!-- /doc-count:hooks-subcommands --> hook subcommands + <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers (@monoes/hooks)
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Integration ecosystem (agentic-flow, agentic-jujutsu)

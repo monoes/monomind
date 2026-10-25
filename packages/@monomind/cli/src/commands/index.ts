@@ -50,6 +50,7 @@ const COMMAND_LOADERS: Record<string, CommandLoader> = {
   ui: async () => (await import('./ui.js')).uiCommand,
   events: async () => (await import('./events.js')).eventsCommand,
   deps: async () => (await import('./deps.js')).depsCommand,
+  mesh: async () => (await import('./mesh.js')).meshCommand,
   'download-embeddings': async () =>
     (await import('./download-embeddings.js')).downloadEmbeddingsCommand,
 };
@@ -87,7 +88,7 @@ const CATEGORY_NAMES = {
     'mcp',
     'hooks',
   ],
-  advanced: ['security', 'performance', 'guidance', 'design'],
+  advanced: ['security', 'performance', 'guidance', 'design', 'mesh'],
   utility: ['config', 'doctor', 'completions', 'report-crash', 'crash-reporting', 'events'],
   analysis: ['analyze', 'route', 'pick', 'monograph', 'tokens', 'search'],
   management: [

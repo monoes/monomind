@@ -13,6 +13,12 @@ import { applyClaudePathFlag, claudePathOption } from '../orgrt/claude-selection
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  externalPreamble,
+  joinManaged,
+  type ManagedPresence,
+  meshAutojoinEnabled,
+} from '../mesh/managed-presence.js';
 import { runAgentExec, type ToolSpec } from '../orgrt/agent-exec.js';
 import { parseAttachFlags } from '../orgrt/agent-exec-attach.js';
 import { parseSettingsFlag } from '../orgrt/agent-exec-settings.js';
@@ -22,6 +28,7 @@ import { resolveRuntimeAlias, scanInstalled } from '../orgrt/runner-registry.js'
 import { SANDBOX_FALLBACKS, SANDBOX_MODES, type SandboxMode } from '../orgrt/runner-sandbox.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
+import { getProjectCwd } from '../utils/paths.js';
 
 const errOut = (text: string): void => {
   process.stderr.write(`${text}\n`);
@@ -138,10 +145,32 @@ function toolNamesSpecs(raw: unknown): ToolSpec[] {
     }));
 }
 
+/**
+ * Puts the run on the mesh (tier external) for its duration. Best effort: undefined when the mesh
+ * is off or unreachable, and never throws. Tests inject `join`; under vitest it is otherwise off.
+ */
+async function joinMeshForRun(
+  runtime: string,
+  cwd: string | undefined,
+  join: typeof joinManaged | undefined,
+): Promise<ManagedPresence | undefined> {
+  if (!meshAutojoinEnabled() || (!join && process.env.VITEST)) return undefined;
+  try {
+    return await (join ?? joinManaged)({
+      tier: 'external',
+      runtime,
+      cwd: cwd ?? getProjectCwd(),
+    });
+  } catch {
+    return undefined;
+  }
+}
+
 /** Exported for unit tests (returns the exit code; no process.exit here — see execCommand.action). */
 export async function runExec(
   ctx: CommandContext,
   overrides: Partial<Parameters<typeof runAgentExec>[0]>,
+  mesh?: { join?: typeof joinManaged },
 ): Promise<number> {
   applyClaudePathFlag(ctx.flags);
   const runtime = resolveRuntimeAlias(String(ctx.flags.runtime ?? ''));
@@ -253,33 +282,50 @@ export async function runExec(
 
   for (const d of diagnostics) errOut(output.warning(d));
 
-  const exitCode = await runAgentExec({
-    runtime,
-    access: access as 'scoped' | 'read' | 'full',
-    ...(sandboxFlag !== undefined ? { sandbox: sandboxFlag as SandboxMode } : {}),
-    sandboxFallback: sandboxFallback as (typeof SANDBOX_FALLBACKS)[number] | undefined, // #482
-    prompt,
-    ...(attach.paths.length ? { attachments: attach.paths } : {}),
-    systemPrompt,
-    model: ctx.flags.model ? String(ctx.flags.model) : undefined,
-    effort: effortFlag as OrgEffortLevel | undefined,
-    cwd: ctx.flags.cwd ? resolve(String(ctx.flags.cwd)) : undefined,
-    resume: ctx.flags.resume ? String(ctx.flags.resume) : undefined,
-    maxTurns: Number(ctx.flags['max-turns'] ?? 25) || 25,
-    timeoutMs,
-    toolTimeoutMs,
-    budgetUsd: ctx.flags['budget-usd'] !== undefined ? Number(ctx.flags['budget-usd']) : undefined,
-    env,
-    toolSpecs: toolSpecs.length ? toolSpecs : null,
-    stdioFrames: toolsMode === 'stdio',
-    allowBashPrefixes: parseBashPrefixesFlag(ctx.flags['allow-bash-prefix']),
-    settings: parsedSettings.sources,
-    startupTimeoutMs,
-    emit: (ev) => {
-      process.stdout.write(`${JSON.stringify(ev)}\n`);
-    },
-    ...overrides,
-  });
+  // The mesh name, the way to message others and any unread mail go in front of the prompt; the
+  // child gets its identity in the environment so `monomind mesh send` acts as it. `agent test`
+  // (a fixed prompt) stays off the mesh.
+  const cwdFlag = ctx.flags.cwd ? resolve(String(ctx.flags.cwd)) : undefined;
+  const presence =
+    overrides.prompt === undefined ? await joinMeshForRun(runtime, cwdFlag, mesh?.join) : undefined;
+  const meshPrompt = presence
+    ? `${externalPreamble(presence.alias, await presence.unreadBlock())}\n\n${prompt}`
+    : prompt;
+  if (presence) env = { ...env, ...presence.env };
+
+  let exitCode: number;
+  try {
+    exitCode = await runAgentExec({
+      runtime,
+      access: access as 'scoped' | 'read' | 'full',
+      ...(sandboxFlag !== undefined ? { sandbox: sandboxFlag as SandboxMode } : {}),
+      sandboxFallback: sandboxFallback as (typeof SANDBOX_FALLBACKS)[number] | undefined, // #482
+      prompt: meshPrompt,
+      ...(attach.paths.length ? { attachments: attach.paths } : {}),
+      systemPrompt,
+      model: ctx.flags.model ? String(ctx.flags.model) : undefined,
+      effort: effortFlag as OrgEffortLevel | undefined,
+      cwd: ctx.flags.cwd ? resolve(String(ctx.flags.cwd)) : undefined,
+      resume: ctx.flags.resume ? String(ctx.flags.resume) : undefined,
+      maxTurns: Number(ctx.flags['max-turns'] ?? 25) || 25,
+      timeoutMs,
+      toolTimeoutMs,
+      budgetUsd:
+        ctx.flags['budget-usd'] !== undefined ? Number(ctx.flags['budget-usd']) : undefined,
+      env,
+      toolSpecs: toolSpecs.length ? toolSpecs : null,
+      stdioFrames: toolsMode === 'stdio',
+      allowBashPrefixes: parseBashPrefixesFlag(ctx.flags['allow-bash-prefix']),
+      settings: parsedSettings.sources,
+      startupTimeoutMs,
+      emit: (ev) => {
+        process.stdout.write(`${JSON.stringify(ev)}\n`);
+      },
+      ...overrides,
+    });
+  } finally {
+    await presence?.leave(); // bye, even when the run threw
+  }
 
   return exitCode;
 }

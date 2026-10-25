@@ -1,12 +1,12 @@
 # CLI Command Reference
 
-> All <!-- doc-count:cli-commands -->38<!-- /doc-count:cli-commands --> top-level `monomind` commands, verified against the `COMMAND_LOADERS` map in `packages/@monomind/cli/src/commands/index.ts` and against a live `monomind --help` and `monomind <command> --help` run on the built CLI (2.24.5). The category grouping is defined statically in `CATEGORY_NAMES` in the same file; real `Command` objects are attached on demand by `getCommandsByCategory()` and `loadAllCommands()`, with `getCommand`/`getCommandAsync` as the single-command entry points. Subcommand counts come from each command's own `subcommands:` array, not estimates.
+> All <!-- doc-count:cli-commands -->39<!-- /doc-count:cli-commands --> top-level `monomind` commands, verified against the `COMMAND_LOADERS` map in `packages/@monomind/cli/src/commands/index.ts` and against a live `monomind --help` and `monomind <command> --help` run on the built CLI (2.24.5). The category grouping is defined statically in `CATEGORY_NAMES` in the same file; real `Command` objects are attached on demand by `getCommandsByCategory()` and `loadAllCommands()`, with `getCommand`/`getCommandAsync` as the single-command entry points. Subcommand counts come from each command's own `subcommands:` array, not estimates.
 
 **Note on `--help` coverage:** `monomind --help` lists every command in the table below except `report-crash`. That one is intentional: it is the only command with `hidden: true` (`report-crash.ts`), an internal command shelled out to by monotask/mono-clip crash handlers, not meant for interactive use. The table lists it anyway.
 
 **Removed commands:** `monoswarm` and `autopilot` were removed in 2.22.0. Neither started an agent; both only recorded state files. Running either one prints what to use instead: Claude Code's Task tool, or `monomind org run <org>`. `monomind start` no longer takes `--topology`.
 
-## Full command list (<!-- doc-count:cli-commands -->38<!-- /doc-count:cli-commands -->)
+## Full command list (<!-- doc-count:cli-commands -->39<!-- /doc-count:cli-commands -->)
 
 | Command | Purpose | Subcommands |
 |---|---|---|
@@ -44,6 +44,7 @@
 | `mastermind` | List or print portable Mastermind workflows for platforms without native skills | 2 — list, print |
 | `ui` | Start the Monomind Neural Control Room (web UI dashboard). Alias: `dashboard`. | 1 — open. `monomind dashboard open` logs a browser in to the running dashboard with a **one-time login link** (the browser then stays logged in for up to 400 days, so re-run it only after clearing cookies or removing `~/.monomind/dashboard-auth/secret`); since 2.15.0 the dashboard's pages and human-decision routes require that login, so a bare `http://localhost:4242` visit is no longer enough. `--print` emits the link instead of opening a browser, for use over SSH. |
 | `events` | Stream events from the running dashboard to stdout as JSONL (pipe into `jq` to filter) | 0 — flat command, flags only |
+| `mesh` | See and message the other agents running on this host (Monomind Mesh). `agent exec` runtimes get their mesh name and `mesh send` in the prompt preamble. | 3 — who, send, inbox |
 | `download-embeddings` | Download the semantic-routing embedding model (opt-in, ~88 MB) | 0 — flat command, flags only |
 | `deps` | Install the pinned Claude Agent SDK into `~/.monomind/deps`, for the operator to run outside any org role, where that directory is read-only (#559). Runs even with `MONOMIND_NO_AUTO_INSTALL` set, which only turns off automatic installs | 1 — install |
 | `report-crash` | File a GitHub issue for a crash (internal; used by panic handlers) | – |

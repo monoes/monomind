@@ -12,7 +12,7 @@
 ### CLI Subsystem
 - The core CLI engine is `@monoes/monomindcli` (`packages/@monomind/cli/`).
 - Entrypoint: [`packages/@monomind/cli/src/commands/index.ts`](packages/@monomind/cli/src/commands/index.ts)
-- Exposes <!-- doc-count:cli-commands -->38<!-- /doc-count:cli-commands --> top-level commands (e.g. `monomind monograph`, `monomind pick`, `monomind org`). `monoswarm` and `autopilot` were removed in 2.22.0: spawn subagents with Claude Code's Task tool or run an org with `monomind org run`.
+- Exposes <!-- doc-count:cli-commands -->39<!-- /doc-count:cli-commands --> top-level commands (e.g. `monomind monograph`, `monomind pick`, `monomind org`). `monoswarm` and `autopilot` were removed in 2.22.0: spawn subagents with Claude Code's Task tool or run an org with `monomind org run`.
 
 ### Model Context Protocol (MCP) Server
 - Core protocol engine is `@monoes/mcp` (`packages/@monomind/mcp/`).

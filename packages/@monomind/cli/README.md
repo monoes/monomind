@@ -399,7 +399,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | Package | npm | Purpose |
 |---|---|---|
 | `monomind` | [![npm](https://img.shields.io/npm/v/monomind?style=flat-square&color=00D2AA)](https://www.npmjs.com/package/monomind) | Umbrella shim — **install this one** |
-| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (<!-- doc-count:cli-commands -->38<!-- /doc-count:cli-commands --> commands, MCP server) |
+| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (<!-- doc-count:cli-commands -->39<!-- /doc-count:cli-commands --> commands, MCP server) |
 | `@monoes/monograph` | [![npm](https://img.shields.io/npm/v/@monoes/monograph?style=flat-square&color=F59E0B)](https://www.npmjs.com/package/@monoes/monograph) | Code knowledge graph (tree-sitter + SQLite) |
 | `@monoes/memory` | [![npm](https://img.shields.io/npm/v/@monoes/memory?style=flat-square&color=8B5CF6)](https://www.npmjs.com/package/@monoes/memory) | Persistent memory backends (SQLite + vectors) |
 | `@monoes/hooks` | [![npm](https://img.shields.io/npm/v/@monoes/hooks?style=flat-square&color=10B981)](https://www.npmjs.com/package/@monoes/hooks) | Hook registry + 9 on-demand workers |
@@ -409,7 +409,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `@monoes/monodesign` | [![npm](https://img.shields.io/npm/v/@monoes/monodesign?style=flat-square&color=EC4899)](https://www.npmjs.com/package/@monoes/monodesign) | Frontend design intelligence |
 | `monofence-ai` | [![npm](https://img.shields.io/npm/v/monofence-ai?style=flat-square&color=EF4444)](https://www.npmjs.com/package/monofence-ai) | AI manipulation defence |
 
-See [CLI Reference](./doc/commands/cli-reference.md) for the full <!-- doc-count:cli-commands -->38<!-- /doc-count:cli-commands -->-command index.
+See [CLI Reference](./doc/commands/cli-reference.md) for the full <!-- doc-count:cli-commands -->39<!-- /doc-count:cli-commands -->-command index.
 
 ---
 

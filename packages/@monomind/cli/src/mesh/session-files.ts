@@ -145,3 +145,25 @@ export function settleSessionName(dir: string, name: string): void {
     }
   }
 }
+
+/**
+ * The address of the Claude session this process runs under, if any: the session's MCP server left
+ * its credentials under the pid of one of the ancestors. Never throws.
+ */
+export function findAncestorSessionAddr(
+  dir: string,
+  from: number = process.pid,
+): string | undefined {
+  let pid: number | undefined = from;
+  for (let i = 0; pid && pid > 1 && i < 8; i++, pid = parentOf(pid)) {
+    try {
+      const s = JSON.parse(readFileSync(join(dir, 'sessions', `${pid}.json`), 'utf8')) as {
+        addr?: unknown;
+      };
+      if (typeof s.addr === 'string' && s.addr) return s.addr;
+    } catch {
+      /* not this ancestor */
+    }
+  }
+  return undefined;
+}
