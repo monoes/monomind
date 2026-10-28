@@ -233,6 +233,26 @@ describe('buildClaudeRestrictions', () => {
     expect(r.disallowedTools).not.toContain(`Edit(/${gitDir}/**)`);
   });
 
+  it('commit: a submodule git dir and config.worktree are as read-only as the common config and hooks', () => {
+    const { base, repo, gitDir } = scratchRepo();
+    for (const f of ['modules/lib/HEAD', 'modules/lib/config', 'modules/lib/hooks/pre-commit', 'config.worktree'])
+      (mkdirSync(join(gitDir, f, '..'), { recursive: true }), writeFileSync(join(gitDir, f), 'x'));
+    const guard = prepareGitGuard({ level: 'commit', stateDir: join(base, 'guard'), protectedGitDirs: [gitDir] })!;
+    const r = buildClaudeRestrictions(guard, undefined, ctx(repo, base), true);
+    const fs = (r.sandbox as any).filesystem;
+    expect(fs.denyWrite).toEqual(
+      expect.arrayContaining([
+        join(gitDir, 'config.worktree'),
+        join(gitDir, 'modules/lib/config'),
+        join(gitDir, 'modules/lib/hooks'),
+      ]),
+    );
+    expect(fs.denyWrite).not.toContain(join(gitDir, 'modules/lib/HEAD'));
+    expect(r.disallowedTools).toEqual(
+      expect.arrayContaining([`Edit(/${join(gitDir, 'modules/lib/config')})`, `Edit(/${join(gitDir, 'modules/lib/hooks')}/**)`]),
+    );
+  });
+
   // A QA role once ran a destructive command from the org root and deleted a
   // thousand tracked files. denyWrite lets the org make the checkout read-only
   // for such a role's shell and file tools, while its scratch stays writable.

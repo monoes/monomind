@@ -109,6 +109,28 @@ function agentSocketPaths(home: string, env: NodeJS.ProcessEnv, tmp: string): st
   return paths.filter((p): p is string => !!p);
 }
 
+/** The execution-triggering entries of a git common dir beyond its own
+ *  `config` and `hooks` (denied separately): `config.worktree`, and the
+ *  `config`, `config.worktree` and `hooks` of every submodule
+ *  (`modules/<name>/`) and linked worktree (`worktrees/<name>/`) git dir that
+ *  exists now. Git runs them like the common dir's. Existing paths only. */
+export function gitExecExtras(gitDir: string): string[] {
+  const out = [join(gitDir, 'config.worktree')];
+  const walk = (dir: string, depth: number): void => {
+    let entries: string[];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
+    }
+    if (entries.includes('HEAD'))
+      out.push(...['config', 'config.worktree', 'hooks'].map((e) => join(dir, e)));
+    if (depth > 0) for (const e of entries) walk(join(dir, e), depth - 1);
+  };
+  for (const sub of ['modules', 'worktrees']) walk(join(gitDir, sub), 4);
+  return out.filter((p) => existsSync(p));
+}
+
 export const uniq = (xs: Array<string | undefined>): string[] => [
   ...new Set(xs.filter((x): x is string => !!x)),
 ];
@@ -202,7 +224,11 @@ export function buildClaudeRestrictions(
     ...gitDirs.flatMap((d) =>
       lockedRepo
         ? [rule('Edit', `${d}/**`)]
-        : [rule('Edit', join(d, 'config')), rule('Edit', `${join(d, 'hooks')}/**`)],
+        : [
+            rule('Edit', join(d, 'config')),
+            rule('Edit', `${join(d, 'hooks')}/**`),
+            ...gitExecExtras(d).flatMap((x) => [rule('Edit', x), rule('Edit', `${x}/**`)]),
+          ],
     ),
     ...(guard.level === 'none' ? gitDirs.map((d) => rule('Read', `${d}/**`)) : []),
     // Human-authority credentials: the dashboard token in the project's
@@ -253,7 +279,9 @@ export function buildClaudeRestrictions(
   const expanded = expandDenyWrite(
     uniq([
       guard.dir,
-      ...(lockedRepo ? gitDirs : gitDirs.flatMap((d) => [join(d, 'config'), join(d, 'hooks')])),
+      ...(lockedRepo
+        ? gitDirs
+        : gitDirs.flatMap((d) => [join(d, 'config'), join(d, 'hooks'), ...gitExecExtras(d)])),
       ...gitDirs.flatMap(gitLocalRemotePaths),
       ...HOME_DENY_WRITE.map((p) => join(home, p)),
       ...(deps ? [deps] : []),
