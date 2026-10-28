@@ -1,0 +1,290 @@
+{
+  "sample": {
+    "commit": "3a3b67e35",
+    "paths": ["packages/@monomind/routing/src", "packages/@monomind/hooks/src"]
+  },
+  "k": 5,
+  "questions": [
+    {
+      "id": "L01",
+      "kind": "lookup",
+      "question": "Where is cosineSimilarity defined?",
+      "query": "cosineSimilarity",
+      "expect": ["routing/src/cosine.ts"]
+    },
+    {
+      "id": "L02",
+      "kind": "lookup",
+      "question": "Where is the HookRegistry class?",
+      "query": "HookRegistry",
+      "expect": ["hooks/src/registry/index.ts"]
+    },
+    {
+      "id": "L03",
+      "kind": "lookup",
+      "question": "Where is the WorkerManager class?",
+      "query": "WorkerManager",
+      "expect": ["workers/worker-manager.ts"]
+    },
+    {
+      "id": "L04",
+      "kind": "lookup",
+      "question": "Where is LLMFallbackRouter defined?",
+      "query": "LLMFallbackRouter",
+      "expect": ["routing/src/llm-fallback.ts"]
+    },
+    {
+      "id": "L05",
+      "kind": "lookup",
+      "question": "Where is safePathAsync defined?",
+      "query": "safePathAsync",
+      "expect": ["workers/worker-utils.ts"]
+    },
+    {
+      "id": "L06",
+      "kind": "lookup",
+      "question": "Where is createReflexionWorker defined?",
+      "query": "createReflexionWorker",
+      "expect": ["workers/worker-reflexion.ts"]
+    },
+    {
+      "id": "L07",
+      "kind": "lookup",
+      "question": "Where is the HookExecutor class?",
+      "query": "HookExecutor",
+      "expect": ["hooks/src/executor/index.ts"]
+    },
+    {
+      "id": "L08",
+      "kind": "lookup",
+      "question": "Where is buildCandidateHints defined?",
+      "query": "buildCandidateHints",
+      "expect": ["routing/src/capability-index.ts"]
+    },
+    {
+      "id": "L09",
+      "kind": "lookup",
+      "question": "Where is toSecurityStatus defined?",
+      "query": "toSecurityStatus",
+      "expect": ["workers/worker-manager-types.ts"]
+    },
+    {
+      "id": "L10",
+      "kind": "lookup",
+      "question": "Where is DEFAULT_KEYWORD_ROUTES defined?",
+      "query": "DEFAULT_KEYWORD_ROUTES",
+      "expect": ["routing/src/keyword-pre-filter.ts"]
+    },
+
+    {
+      "id": "N01",
+      "kind": "natural",
+      "question": "Where do we cache file reads with a size limit?",
+      "query": "where do we cache file reads with a size limit",
+      "expect": ["workers/worker-utils.ts"],
+      "acceptable": ["workers/worker-cache.ts"]
+    },
+    {
+      "id": "N02",
+      "kind": "natural",
+      "question": "Which module converts text into embedding vectors?",
+      "query": "convert text into embedding vectors",
+      "expect": ["routing/src/encoder.ts"]
+    },
+    {
+      "id": "N03",
+      "kind": "natural",
+      "question": "What builds the prompt that asks an LLM to classify a user request?",
+      "query": "build the prompt that asks an LLM to classify a user request",
+      "expect": ["routing/src/prompts/classify.ts"],
+      "acceptable": ["routing/src/llm-fallback.ts"]
+    },
+    {
+      "id": "N04",
+      "kind": "natural",
+      "question": "Where are the game development agent routes?",
+      "query": "game development agent routes",
+      "expect": ["routes/game-dev.route.ts"]
+    },
+    {
+      "id": "N05",
+      "kind": "natural",
+      "question": "Which worker scans source files for hardcoded secrets?",
+      "query": "scan source files for hardcoded secrets",
+      "expect": ["workers/worker-security.ts"],
+      "acceptable": ["workers/worker-utils.ts"]
+    },
+    {
+      "id": "N06",
+      "kind": "natural",
+      "question": "Where are alert severity thresholds for worker metrics?",
+      "query": "alert severity thresholds for worker metrics",
+      "expect": ["workers/worker-manager-types.ts"],
+      "acceptable": ["workers/worker-manager-state.ts"]
+    },
+    {
+      "id": "N07",
+      "kind": "natural",
+      "question": "What persists worker state to disk and exports the statusline?",
+      "query": "persist worker state to disk and export statusline",
+      "expect": ["workers/worker-manager-state.ts"]
+    },
+    {
+      "id": "N08",
+      "kind": "natural",
+      "question": "How does the audit worker detect barrel re-export files?",
+      "query": "detect barrel re-export files in the audit worker",
+      "expect": ["workers/worker-audit.ts"]
+    },
+
+    {
+      "id": "C01",
+      "kind": "callers",
+      "question": "Who calls cosineSimilarity?",
+      "query": "cosineSimilarity",
+      "symbol": "cosineSimilarity",
+      "filePath": "routing/src/cosine.ts",
+      "tools": ["context-callers", "impact-callers"],
+      "expect": ["routing/src/route-layer.ts", "__tests__/cosine.test.ts"]
+    },
+    {
+      "id": "C02",
+      "kind": "callers",
+      "question": "Who calls computeCentroid?",
+      "query": "computeCentroid",
+      "symbol": "computeCentroid",
+      "filePath": "routing/src/cosine.ts",
+      "tools": ["context-callers", "impact-callers"],
+      "expect": ["routing/src/route-layer.ts", "__tests__/cosine.test.ts"]
+    },
+    {
+      "id": "C03",
+      "kind": "callers",
+      "question": "Who calls buildClassificationPrompt?",
+      "query": "buildClassificationPrompt",
+      "symbol": "buildClassificationPrompt",
+      "filePath": "routing/src/prompts/classify.ts",
+      "tools": ["context-callers", "impact-callers"],
+      "expect": ["routing/src/llm-fallback.ts", "__tests__/classify-prompt.test.ts"]
+    },
+    {
+      "id": "C04",
+      "kind": "callers",
+      "question": "Who calls scanDirectoryForPatterns?",
+      "query": "scanDirectoryForPatterns",
+      "symbol": "scanDirectoryForPatterns",
+      "filePath": "workers/worker-utils.ts",
+      "tools": ["context-callers", "impact-callers"],
+      "expect": ["workers/worker-security.ts"]
+    },
+    {
+      "id": "C05",
+      "kind": "callers",
+      "question": "Who calls recordExecution?",
+      "query": "recordExecution",
+      "symbol": "recordExecution",
+      "filePath": "registry/index.ts",
+      "tools": ["context-callers", "impact-callers"],
+      "expect": ["executor/index.ts"]
+    },
+    {
+      "id": "C06",
+      "kind": "callers",
+      "question": "Who calls countFilesRecursive?",
+      "query": "countFilesRecursive",
+      "symbol": "countFilesRecursive",
+      "filePath": "workers/worker-utils.ts",
+      "tools": ["context-callers", "impact-callers"],
+      "expect": ["workers/worker-progress.ts"]
+    },
+
+    {
+      "id": "T01",
+      "kind": "tests",
+      "question": "What tests cover cosineSimilarity?",
+      "query": "cosineSimilarity",
+      "symbol": "cosineSimilarity",
+      "filePath": "routing/src/cosine.ts",
+      "tools": ["context-tests", "impact-tests"],
+      "expect": ["__tests__/cosine.test.ts"],
+      "acceptable": ["__tests__/route-layer.test.ts"]
+    },
+    {
+      "id": "T02",
+      "kind": "tests",
+      "question": "What tests cover KeywordPreFilter?",
+      "query": "KeywordPreFilter",
+      "symbol": "KeywordPreFilter",
+      "filePath": "routing/src/keyword-pre-filter.ts",
+      "tools": ["context-tests", "impact-tests"],
+      "expect": ["__tests__/keyword-pre-filter.test.ts"],
+      "acceptable": ["__tests__/agent-slugs.test.ts", "__tests__/route-layer.test.ts"]
+    },
+    {
+      "id": "T03",
+      "kind": "tests",
+      "question": "What tests cover LLMFallbackRouter?",
+      "query": "LLMFallbackRouter",
+      "symbol": "LLMFallbackRouter",
+      "filePath": "routing/src/llm-fallback.ts",
+      "tools": ["context-tests", "impact-tests"],
+      "expect": ["__tests__/llm-fallback.test.ts"],
+      "acceptable": ["__tests__/route-layer.test.ts"]
+    },
+    {
+      "id": "T04",
+      "kind": "tests",
+      "question": "What tests cover buildCapabilityIndex?",
+      "query": "buildCapabilityIndex",
+      "symbol": "buildCapabilityIndex",
+      "filePath": "routing/src/capability-index.ts",
+      "tools": ["context-tests", "impact-tests"],
+      "expect": ["__tests__/capability-index.test.ts"],
+      "acceptable": ["__tests__/llm-fallback.test.ts"]
+    },
+    {
+      "id": "T05",
+      "kind": "tests",
+      "question": "What tests cover HNSWEncoder?",
+      "query": "HNSWEncoder",
+      "symbol": "HNSWEncoder",
+      "filePath": "routing/src/encoder.ts",
+      "tools": ["context-tests", "impact-tests"],
+      "expect": ["__tests__/encoder.test.ts", "__tests__/route-layer.test.ts"]
+    },
+    {
+      "id": "T06",
+      "kind": "tests",
+      "question": "What tests cover buildClassificationPrompt?",
+      "query": "buildClassificationPrompt",
+      "symbol": "buildClassificationPrompt",
+      "filePath": "routing/src/prompts/classify.ts",
+      "tools": ["context-tests", "impact-tests"],
+      "expect": ["__tests__/classify-prompt.test.ts"],
+      "acceptable": ["__tests__/llm-fallback.test.ts"]
+    },
+
+    {
+      "id": "D01",
+      "kind": "callees",
+      "question": "Which modules does createWorkerManager call into?",
+      "query": "createWorkerManager",
+      "symbol": "createWorkerManager",
+      "filePath": "workers/index.ts",
+      "tools": ["context-callees"],
+      "k": 10,
+      "expect": [
+        "workers/worker-manager.ts",
+        "worker-health.ts",
+        "worker-ddd.ts",
+        "worker-security.ts",
+        "worker-cache.ts",
+        "worker-progress.ts",
+        "worker-map.ts",
+        "worker-audit.ts",
+        "worker-consolidate.ts",
+        "worker-reflexion.ts"
+      ]
+    }
+  ]
+}
