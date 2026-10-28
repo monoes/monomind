@@ -38,6 +38,8 @@ const DEFAULT_IGNORE = new Set([
   '.codex',
   '.monograph',
   '.mail',
+  // pi's extension dir, written by `monomind init` — tool-managed, not user source.
+  '.pi',
 ]);
 
 const BINARY_EXTENSIONS = new Set([
@@ -118,6 +120,7 @@ export const scanPhase: PipelinePhase<ScanOutput> = {
     const filePaths: string[] = [];
     let totalBytes = 0;
     const ignoreDirs = new Set([...DEFAULT_IGNORE, ...ctx.options.ignore]);
+    if (ctx.options.includeToolAssets) ignoreDirs.delete('.pi');
 
     // Read .monographignore patterns
     const ignorePatterns: string[] = [];

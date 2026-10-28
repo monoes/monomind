@@ -240,7 +240,9 @@ export const monographSuggestTool: MCPTool = {
       return text(
         `Monograph index not built yet. Run monograph_build first.${stalenessAnnotation}`,
       );
-    const { openDb, closeDb, searchGraphFused } = await import('@monoes/monograph');
+    const { openDb, closeDb, searchGraphFused, assessRelevance } = await import(
+      '@monoes/monograph'
+    );
     const db = openDb(dbPath);
     try {
       // "Run monograph_build" is only true when the graph has no nodes; a
@@ -296,6 +298,14 @@ export const monographSuggestTool: MCPTool = {
           embedder: await semanticEmbedder(db, dbPath),
         });
         hitIds = [...new Set(relevantHits.map((h) => h.id))];
+        // Ranked search always returns its best N; judge them against the task's own words.
+        if (hitIds.length > 0 && !assessRelevance(db, task, relevantHits).relevant) {
+          return text(
+            `No relevant match for this task in the built graph (${nodeCount} nodes): the closest nodes share too few of its words. ` +
+              'Try identifiers (camelCase/PascalCase) or filenames, or the concept may not exist in the code yet.' +
+              stalenessAnnotation,
+          );
+        }
         if (hitIds.length === 0) {
           return text(
             `No nodes match this task in the built graph (${nodeCount} nodes). ` +

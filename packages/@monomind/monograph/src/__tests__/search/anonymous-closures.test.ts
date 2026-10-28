@@ -21,7 +21,10 @@ describe('anonymous closures are kept off search surfaces (#404)', () => {
 export function processRequests(requests: string[]) {
   requests.map((request) => record(request));
   requests.forEach(async (request) => { await record(request); });
+  const innerHelper = (r: string) => record(r);
+  innerHelper('x');
 }
+export const topLevelHandler = (r: string) => record(r);
 `,
     );
     writeFileSync(join(tmpDir, 'record.ts'), 'export function record(r: string) { return r; }\n');
@@ -34,19 +37,33 @@ export function processRequests(requests: string[]) {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('still stores the closure nodes and attributes calls to them', () => {
+  it('does not store closure nodes and folds their calls into the enclosing named symbol', () => {
     const rows = db.prepare("SELECT id, label, name FROM nodes WHERE label = 'Function'").all() as {
       id: string;
       label: string;
       name: string;
     }[];
-    const closures = rows.filter((r) => isAnonymousClosure(r));
-    expect(closures.length).toBeGreaterThan(0);
-    const calls = db.prepare("SELECT source_id FROM edges WHERE relation = 'CALLS'").all() as {
-      source_id: string;
-    }[];
-    const closureIds = new Set(closures.map((c) => c.id));
-    expect(calls.some((c) => closureIds.has(c.source_id))).toBe(true);
+    expect(rows.filter((r) => isAnonymousClosure(r))).toEqual([]);
+    const caller = rows.find((r) => r.name === 'processRequests');
+    const record = rows.find((r) => r.name === 'record');
+    const calls = db
+      .prepare("SELECT source_id, target_id FROM edges WHERE relation = 'CALLS'")
+      .all() as { source_id: string; target_id: string }[];
+    expect(calls).toContainEqual({ source_id: caller?.id, target_id: record?.id });
+  });
+
+  it('keeps a file-level closure bound to a const as a named function', () => {
+    const rows = db
+      .prepare(
+        "SELECT id, start_line, end_line FROM nodes WHERE name = 'topLevelHandler' AND label = 'Function'",
+      )
+      .all() as { id: string; start_line: number | null; end_line: number | null }[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.end_line).not.toBeNull();
+    const calls = db
+      .prepare("SELECT 1 FROM edges WHERE relation = 'CALLS' AND source_id = ?")
+      .all(rows[0]?.id);
+    expect(calls.length).toBeGreaterThan(0);
   });
 
   it('ftsSearch does not return anonymous closures', () => {

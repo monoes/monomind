@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import type { Embedder } from '../embeddings/store.js';
 import { searchGraphFused } from '../search/fused-search.js';
+import { assessRelevance } from '../search/relevance.js';
 import { rowToNode } from '../storage/node-store.js';
 import type { MonographNode } from '../types.js';
 import { monographImpact, type RiskLevel } from './impact.js';
@@ -16,6 +17,8 @@ export interface BriefSymbol {
 
 export interface MonographBrief {
   task: string;
+  /** False when nothing in the graph is about the task — the lists below are then empty. */
+  relevant: boolean;
   /** Best-matching code symbols/files, each with its immediate surroundings. */
   entryPoints: BriefSymbol[];
   /** Documentation sections about the task. */
@@ -72,8 +75,10 @@ export async function getMonographBrief(
   const nEntry = options.entryPoints ?? 5;
   const nDocs = options.docs ?? 3;
   const { embedder } = options;
-  const code = await searchGraphFused(db, task, { limit: nEntry, scope: 'code', embedder });
-  const docHits = await searchGraphFused(db, task, { limit: nDocs, scope: 'docs', embedder });
+  const rawCode = await searchGraphFused(db, task, { limit: nEntry, scope: 'code', embedder });
+  const rawDocs = await searchGraphFused(db, task, { limit: nDocs, scope: 'docs', embedder });
+  const code = assessRelevance(db, task, rawCode).relevant ? rawCode : [];
+  const docHits = assessRelevance(db, task, rawDocs).relevant ? rawDocs : [];
 
   const entryPoints: BriefSymbol[] = [];
   for (const hit of code) {
@@ -111,5 +116,5 @@ export async function getMonographBrief(
       affectedTests: result.affectedTests,
     };
   }
-  return { task, entryPoints, docs, impact };
+  return { task, relevant: entryPoints.length + docs.length > 0, entryPoints, docs, impact };
 }

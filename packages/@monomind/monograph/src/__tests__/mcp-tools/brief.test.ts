@@ -55,4 +55,17 @@ describe('getMonographBrief', () => {
     expect(brief.entryPoints).toEqual([]);
     expect(brief.impact).toBeNull();
   });
+
+  it('says nothing is relevant for a concept the code does not have', async () => {
+    const brief = await getMonographBrief(db, 'customer loyalty points scheduler');
+    expect(brief.relevant).toBe(false);
+    expect(brief.entryPoints).toEqual([]);
+    expect(brief.docs).toEqual([]);
+    expect(brief.impact).toBeNull();
+  });
+
+  it('marks a matching task relevant', async () => {
+    const brief = await getMonographBrief(db, 'charge a customer card for an invoice');
+    expect(brief.relevant).toBe(true);
+  });
 });

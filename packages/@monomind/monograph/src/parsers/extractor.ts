@@ -1,4 +1,5 @@
 import type Parser from 'web-tree-sitter';
+import { isAnonymousClosure } from '../storage/anonymous-closure.js';
 import type { MonographEdge, MonographNode } from '../types.js';
 import { CONFIDENCE_SCORE, fileId, makeId, symbolId, toNormLabel } from '../types.js';
 import type { LanguageConfig } from './language-config.js';
@@ -118,7 +119,23 @@ export function extractSymbols(
     if (isClass || isStruct || isEnum || isFunction || isMethod || isInterface || isConstructor) {
       const nameNode = node.childForFieldName(config.nameField);
       const rawName = nameNode?.text ?? node.text.split('\n')[0].slice(0, 40);
-      const name = config.nameRefiner ? config.nameRefiner(node, rawName) : rawName;
+      let name = config.nameRefiner ? config.nameRefiner(node, rawName) : rawName;
+      if (
+        !nameNode &&
+        (isFunction || isMethod) &&
+        isAnonymousClosure({ label: 'Function', name })
+      ) {
+        // An anonymous closure is not a symbol: its calls fold into the enclosing named
+        // callable (the scope-resolution index only holds nodes that exist). A closure bound
+        // to a file-level const is the one exception — it is that const's function.
+        const binding = node.parent?.type === 'variable_declarator' ? node.parent : null;
+        const bound = binding?.childForFieldName('name');
+        if (scope.length > 0 || bound?.type !== 'identifier') {
+          for (let i = 0; i < node.childCount; i++) walk(node.child(i)!, parentId, scope);
+          return;
+        }
+        name = bound.text;
+      }
       // When a node type is in BOTH functionNodeTypes and methodNodeTypes (e.g. Python
       // `function_definition`), check parent chain to disambiguate: a function_definition
       // whose grandparent is a class_definition is a method, otherwise it's a function.

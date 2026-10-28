@@ -47,7 +47,7 @@ describe('agent registry in the graph', () => {
       join(tmpDir, '.claude', 'skills', 'invoicing', 'SKILL.md'),
       '---\nname: invoicing\ndescription: Create and send invoices\n---\nSteps.\n',
     );
-    await buildAsync(tmpDir);
+    await buildAsync(tmpDir, { includeToolAssets: true });
     db = new Database(join(tmpDir, '.monomind', 'monograph.db'), { readonly: true });
   }, 60_000);
 
@@ -86,7 +86,7 @@ describe('agent registry in the graph', () => {
   });
 
   it('survives a rebuild without duplicating definitions', async () => {
-    await buildAsync(tmpDir, { force: true });
+    await buildAsync(tmpDir, { force: true, includeToolAssets: true });
     const check = new Database(join(tmpDir, '.monomind', 'monograph.db'), { readonly: true });
     const n = (
       check.prepare("SELECT COUNT(*) AS n FROM nodes WHERE label IN ('Agent','Skill')").get() as {
@@ -95,5 +95,44 @@ describe('agent registry in the graph', () => {
     ).n;
     check.close();
     expect(n).toBe(2);
+  }, 60_000);
+});
+
+describe('tool-managed assets are left out of the index by default', () => {
+  let tmpDir: string;
+
+  const nodeFiles = async (opts: { includeToolAssets?: boolean }): Promise<string[]> => {
+    await buildAsync(tmpDir, { force: true, ...opts });
+    const db = new Database(join(tmpDir, '.monomind', 'monograph.db'), { readonly: true });
+    const rows = db.prepare('SELECT DISTINCT file_path AS p FROM nodes').all() as { p: string }[];
+    db.close();
+    return rows.map((r) => r.p);
+  };
+
+  beforeAll(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'tool-assets-'));
+    mkdirSync(join(tmpDir, '.claude', 'agents'), { recursive: true });
+    mkdirSync(join(tmpDir, '.pi', 'extensions'), { recursive: true });
+    mkdirSync(join(tmpDir, 'src'));
+    writeFileSync(join(tmpDir, 'src', 'app.ts'), 'export function run() { return 1; }\n');
+    writeFileSync(join(tmpDir, '.pi', 'extensions', 'mesh.ts'), 'export function meshHook() {}\n');
+    writeFileSync(
+      join(tmpDir, '.claude', 'agents', 'coder.md'),
+      '---\nname: coder\ndescription: Writes code\n---\nBody.\n',
+    );
+  });
+
+  afterAll(() => rmSync(tmpDir, { recursive: true, force: true }));
+
+  it('skips .pi/ and .claude/ definitions by default', async () => {
+    const files = await nodeFiles({});
+    expect(files).toContain('src/app.ts');
+    expect(files.filter((f) => f.startsWith('.pi/') || f.startsWith('.claude/'))).toEqual([]);
+  }, 60_000);
+
+  it('indexes them when includeToolAssets is set', async () => {
+    const files = await nodeFiles({ includeToolAssets: true });
+    expect(files).toContain('.pi/extensions/mesh.ts');
+    expect(files).toContain('.claude/agents/coder.md');
   }, 60_000);
 });
