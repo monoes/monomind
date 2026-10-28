@@ -212,7 +212,30 @@ if (isMCPMode) {
 
     const params = message.params || {};
 
+    // Only a request that declares a modern version (via _meta) needs the check;
+    // every legacy request skips loading the helper entirely.
+    if (params._meta !== undefined) {
+      const { checkRequestedVersion } = await import('../dist/src/mcp-tools/mcp-modern.js');
+      const versionError = checkRequestedVersion(params);
+      if (versionError) return { jsonrpc: '2.0', id: message.id, error: versionError };
+    }
+
     switch (message.method) {
+      case 'server/discover': {
+        const { buildDiscoverResult } = await import('../dist/src/mcp-tools/mcp-modern.js');
+        return {
+          jsonrpc: '2.0',
+          id: message.id,
+          result: buildDiscoverResult(
+            { name: 'monomind', version: VERSION },
+            {
+              tools: { listChanged: true },
+              resources: { subscribe: false, listChanged: false },
+            },
+          ),
+        };
+      }
+
       case 'initialize':
         return {
           jsonrpc: '2.0',
@@ -231,16 +254,18 @@ if (isMCPMode) {
 
       case 'tools/list': {
         const tools = await listMCPTools();
+        const { withCacheHints } = await import('../dist/src/mcp-tools/mcp-modern.js');
         return {
           jsonrpc: '2.0',
           id: message.id,
-          result: {
+          result: withCacheHints({
+            resultType: 'complete',
             tools: tools.map(tool => ({
               name: tool.name,
               description: tool.description,
               inputSchema: tool.inputSchema,
             })),
-          },
+          }),
         };
       }
 

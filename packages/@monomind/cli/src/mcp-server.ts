@@ -615,7 +615,26 @@ export class MCPServerManager extends EventEmitter {
     const params = (message.params || {}) as Record<string, unknown>;
 
     try {
+      const { checkRequestedVersion, buildDiscoverResult, withCacheHints } = await import(
+        './mcp-tools/mcp-modern.js'
+      );
+      const versionError = checkRequestedVersion(params);
+      if (versionError) return { jsonrpc: '2.0', id: message.id, error: versionError };
+
       switch (message.method) {
+        case 'server/discover':
+          return {
+            jsonrpc: '2.0',
+            id: message.id,
+            result: buildDiscoverResult(
+              { name: 'monomind', version: '3.0.0' },
+              {
+                tools: { listChanged: true },
+                resources: { subscribe: false, listChanged: false },
+              },
+            ),
+          };
+
         case 'initialize':
           void import('./mcp-tools/mesh-tools.js').then((m) =>
             m.joinMeshAtStart((params.clientInfo as { name?: unknown } | undefined)?.name),
@@ -638,13 +657,14 @@ export class MCPServerManager extends EventEmitter {
           return {
             jsonrpc: '2.0',
             id: message.id,
-            result: {
+            result: withCacheHints({
+              resultType: 'complete',
               tools: tools.map((tool) => ({
                 name: tool.name,
                 description: tool.description,
                 inputSchema: tool.inputSchema,
               })),
-            },
+            }),
           };
         }
 

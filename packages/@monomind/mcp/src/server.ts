@@ -4,6 +4,7 @@
  * High-performance MCP server implementation
  */
 
+import { buildDiscoverResult, checkRequestedVersion, isModernRequest } from './modern.js';
 import { MCPServerRouting } from './server-routing.js';
 import { createTransport } from './transport/index.js';
 import type {
@@ -190,9 +191,30 @@ export class MCPServer extends MCPServerRouting implements IMCPServer {
         return await this.handleInitialize(request, connectionId);
       }
 
+      const versionError = checkRequestedVersion(request.params);
+      if (versionError) {
+        this.requestStats.failed++;
+        return { jsonrpc: '2.0', id: request.id, error: versionError };
+      }
+
+      if (request.method === 'server/discover') {
+        this.requestStats.successful++;
+        return {
+          jsonrpc: '2.0',
+          id: request.id,
+          result: buildDiscoverResult(this.serverInfo, this.capabilities),
+        };
+      }
+
       const session = this.getOrCreateSession(connectionId);
 
-      if (!session.isInitialized && request.method !== 'initialized') {
+      // A modern (2026-07-28) request is stateless: it declares its own
+      // version and needs no prior `initialize`.
+      if (
+        !session.isInitialized &&
+        request.method !== 'initialized' &&
+        !isModernRequest(request.params)
+      ) {
         return this.createErrorResponse(
           request.id,
           ErrorCodes.SERVER_NOT_INITIALIZED,
