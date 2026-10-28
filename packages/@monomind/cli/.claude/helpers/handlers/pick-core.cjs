@@ -43,7 +43,7 @@ var ROUTE_FILE_TTL_MS = 7 * 24 * 3600 * 1000;
 // joins and rotation all run under one lock file so a rewrite never drops a
 // line another session appended meanwhile. Held for milliseconds; a lock
 // older than LOCK_STALE_MS belongs to a dead process and is broken.
-var LOCK_WAIT_MS = 1000;
+var LOCK_WAIT_MS = 5000;
 var LOCK_STALE_MS = 10000;
 
 /** Prompts Claude Code (not the user) submits: notifications, reminder-only
