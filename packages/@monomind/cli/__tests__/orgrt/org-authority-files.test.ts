@@ -148,7 +148,26 @@ describe('case-insensitive and Windows spellings (comparator by platform)', () =
     );
     expect(gitWriteViolation('/r/.git/objects/ab', 'commit', 'linux')).toBeNull();
     expect(gitWriteViolation('/r/.git/objects/ab', 'read', 'linux')).toBe('.git/objects/ab');
-    expect(gitWriteViolation('/r/.git/config', 'push', 'darwin')).toBeNull();
+    // What git executes is refused at push too (an operator's git runs it).
+    expect(gitWriteViolation('/r/.git/config', 'push', 'darwin')).toBe('.git/config');
+    expect(gitWriteViolation('/r/.git/hooks/pre-commit', 'push', 'linux')).toBe('.git/hooks/pre-commit');
+    expect(gitWriteViolation('/r/.git/objects/ab', 'push', 'linux')).toBeNull();
+    expect(gitWriteViolation('/r/.git/refs/heads/x', 'push', 'linux')).toBeNull();
+  });
+
+  it.each(['commit', 'push'])('refuses the rest of what git executes at %s', (level) => {
+    expect(gitWriteViolation('/r/.git/config.worktree', level, 'linux')).toBe('.git/config.worktree');
+    expect(gitWriteViolation('/r/.git/modules/lib/hooks/pre-push', level, 'linux')).toBe(
+      '.git/modules/lib/hooks/pre-push',
+    );
+    expect(gitWriteViolation('/r/.git/modules/lib/config', level, 'linux')).toBe('.git/modules/lib/config');
+    expect(gitWriteViolation('/r/.git/worktrees/w/config.worktree', level, 'linux')).toBe(
+      '.git/worktrees/w/config.worktree',
+    );
+    // the gitdir pointer of a linked worktree
+    expect(gitWriteViolation('/r/.git', level, 'linux')).toBe('.git');
+    expect(gitWriteViolation('/r/.git/modules/lib/objects/ab', level, 'linux')).toBeNull();
+    expect(gitWriteViolation('/r/.git/info/exclude', level, 'linux')).toBeNull();
   });
 });
 

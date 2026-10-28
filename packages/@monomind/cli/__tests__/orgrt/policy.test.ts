@@ -182,9 +182,11 @@ describe('PolicyEngine — file tools may not write into a git dir (#258)', () =
     expect(await write('commit', '/work/src/a.ts')).toBe('allow');
   });
 
-  it("'push' writes anywhere the file scopes allow", async () => {
-    expect(await write('push', '/work/.git/config')).toBe('allow');
+  it("'push' writes anywhere the file scopes allow, except what git executes", async () => {
     expect(await write('push', '/work/.git/refs/heads/main')).toBe('allow');
+    // what git executes stays refused even at push (an operator's git would run it)
+    expect(await write('push', '/work/.git/config')).toBe('deny');
+    expect(await write('push', '/work/.git/hooks/pre-commit')).toBe('deny');
   });
 });
 

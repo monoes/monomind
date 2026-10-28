@@ -68,6 +68,19 @@ const PLANTS: Record<string, string> = {
   '.vscode/mcp.json': '.vscode/mcp.json',
   '.kiro': '.kiro/mcp.json',
   '.factory': '.factory/mcp.json',
+  // Host tools that run what the project says (not coding agents).
+  '.github/hooks': '.github/hooks/monomind-mesh.cjs',
+  '.githooks': '.githooks/pre-commit',
+  ...Object.fromEntries(
+    PROJECT_RUNTIME_CONFIG.filter((p) => p.startsWith('.husky/')).map((p) => [p, p]),
+  ),
+  '.vscode/tasks.json': '.vscode/tasks.json',
+  '.vscode/settings.json': '.vscode/settings.json',
+  '.vscode/launch.json': '.vscode/launch.json',
+  '.devcontainer': '.devcontainer/devcontainer.json',
+  '.devcontainer.json': '.devcontainer.json',
+  '.zed/tasks.json': '.zed/tasks.json',
+  '.zed/settings.json': '.zed/settings.json',
 };
 
 // Stays writable: instructions (like CLAUDE.md) and runtime state.
@@ -78,7 +91,11 @@ const WRITABLE = [
   '.agents/shared_instructions.md',
   '.agents/rules/monomind.md',
   '.crush/crush.db',
-  '.vscode/settings.json',
+  // husky's own install output, and the rest of what editors keep here.
+  '.husky/_/h',
+  '.husky/README.md',
+  '.vscode/extensions.json',
+  '.github/workflows/ci.yml',
   // #582 review: what the runtimes write into their own project dirs.
   '.opencode/.gitignore',
   '.pi/settings.json.lock/pid',
@@ -137,6 +154,16 @@ describe('#580 review: other runtimes’ project config is operator-protected', 
     }
     for (const f of WRITABLE)
       expect((await p.decide('Write', { file_path: join(root, f), content: 'x' })).behavior, f).toBe('allow');
+  });
+
+  it('a push role’s file tools still cannot write what git executes (.git/config, hooks, a pointer)', async () => {
+    const root = scratch('rcp-gitpush-');
+    for (const f of ['.git/config', '.git/hooks/pre-commit', '.git/modules/lib/config', '.git/objects/ab'])
+      write(root, f);
+    const p = new PolicyEngine('dev', { git: 'push' } as never, new OrgBus('o', 'r', scratch('rcp-bus-')), root, [root], root);
+    for (const f of ['.git/config', '.git/hooks/pre-commit', '.git/modules/lib/config'])
+      expect((await p.decide('Write', { file_path: join(root, f), content: 'x' })).behavior, f).toBe('deny');
+    expect((await p.decide('Write', { file_path: join(root, '.git/objects/ab'), content: 'x' })).behavior).toBe('allow');
   });
 
   it('a signed policy.sandbox.allowWrite entry is the opt-in', async () => {

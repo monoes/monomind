@@ -21,6 +21,7 @@ import { PLATFORM_REGISTRY } from '../platform-adapters/registry.js';
 import type { ArtifactIntent, InstallRequest, PlatformId } from '../platform-adapters/types.js';
 import { verifyEntry } from './digest.js';
 import { frontmatterViolations } from './frontmatter.js';
+import { recordPins, verifyPins } from './pins.js';
 import { shellExecSyntax } from './scan.js';
 import { buildSnapshot, type CatalogAsset, eligible } from './snapshot.js';
 import { CatalogIdSchema } from './types.js';
@@ -169,6 +170,14 @@ function markedFiles(dir: string, name: string): string[] {
   }
 }
 
+function resolveSkillRoot(root: string, surface: ProjectionSurface): string {
+  const location = resolveArtifactLocation(PLATFORM_REGISTRY[ADAPTER[surface]], 'skill', 'project', {
+    root,
+  });
+  if (!location) throw new Error(`no project skill location for ${surface}`);
+  return location.path;
+}
+
 function buildPlan(
   root: string,
   surface: ProjectionSurface,
@@ -314,13 +323,15 @@ export async function applyProjection(
   const request = requestFor(root, surface, opts.dryRun);
   const adapter = PLATFORM_REGISTRY[request.platform];
   const run = (plan: ProjectionPlan): ProjectionResult => {
+    // A copy changed since it was projected is about to be replaced: say so.
+    const tampered = opts.dryRun ? [] : verifyPins(root).map((p) => `${p.message} (replaced now)`);
     const applied = applyIntents(adapter, plan.intents, request);
     const result: ProjectionResult = {
       ...plan,
       dryRun: opts.dryRun,
       changed: applied.changed,
       skipped: applied.skipped,
-      diagnostics: [...plan.diagnostics, ...applied.diagnostics],
+      diagnostics: [...plan.diagnostics, ...tampered, ...applied.diagnostics],
       backupDir: '.monomind/backups/',
     };
     for (const r of plan.removals) {
@@ -328,6 +339,15 @@ export async function applyProjection(
       result.changed.push(...removed.changed);
       result.skipped.push(...removed.skipped);
       result.diagnostics.push(...removed.diagnostics.map((d) => `${r.id}: ${d}`));
+    }
+    if (!opts.dryRun) {
+      const skillDir = (dir: string) => `${relative(root, resolveSkillRoot(root, surface))}/${dir}`;
+      recordPins(
+        root,
+        result.changed,
+        plan.packages.flatMap((p) => p.paths),
+        plan.removals.map((r) => skillDir(r.dir)),
+      );
     }
     if (!opts.dryRun && surface === 'platform:claude' && result.changed.length)
       result.registry = rebuildSkillRegistry(root);

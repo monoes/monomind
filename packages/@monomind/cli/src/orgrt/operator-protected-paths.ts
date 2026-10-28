@@ -176,6 +176,16 @@ export const CLAUDE_HOME_EXEC = [
  *  - Qwen Code writes `.qwen/worktrees/`, `batch/`, `PROJECT_SUMMARY.md`;
  *  - agy writes `.agents/teamwork/`; Crush keeps its data dir in `.crush/`. */
 const under = (dir: string, entries: string[]): string[] => entries.map((e) => `${dir}/${e}`);
+/** Client-side git hook names. A `.husky/<name>` file runs when git fires
+ *  that hook (husky points core.hooksPath at `.husky/_`, whose shims call
+ *  it). Only these are listed, not `.husky`: `husky` itself writes
+ *  `.husky/_` on every `pnpm install` (the prepare script). */
+const GIT_HOOK_NAMES = [
+  ...['applypatch-msg', 'pre-applypatch', 'post-applypatch', 'pre-commit', 'pre-merge-commit'],
+  ...['prepare-commit-msg', 'commit-msg', 'post-commit', 'pre-rebase', 'post-checkout'],
+  ...['post-merge', 'pre-push', 'post-rewrite', 'reference-transaction', 'pre-auto-gc'],
+  ...['post-index-change', 'fsmonitor-watchman', 'sendemail-validate'],
+];
 export const PROJECT_RUNTIME_CONFIG = [
   // The catalog's other projection surface (Codex, Gemini, Cursor, OpenCode,
   // Kimi… skills).
@@ -219,6 +229,20 @@ export const PROJECT_RUNTIME_CONFIG = [
   '.vscode/mcp.json',
   '.kiro',
   '.factory',
+  // Host tools other than coding agents that run what a project says: the
+  // editor's tasks (`runOn: folderOpen`), its launch configs and the
+  // executable-path settings; Copilot's `.github/hooks`; a repo's own
+  // core.hooksPath dir and husky hooks; devcontainer lifecycle commands; Zed
+  // tasks. A role that wrote one would get code run, outside every role
+  // sandbox, when the operator opens or commits in the project (the July 2026
+  // "week of sandbox escapes" class: a workspace file a trusted tool executes).
+  '.github/hooks',
+  '.githooks',
+  ...under('.husky', GIT_HOOK_NAMES),
+  ...under('.vscode', ['tasks.json', 'settings.json', 'launch.json']),
+  '.devcontainer',
+  '.devcontainer.json',
+  ...under('.zed', ['tasks.json', 'settings.json']),
 ];
 
 /** #582 review: at a root that is $HOME these PROJECT_RUNTIME_CONFIG dirs are

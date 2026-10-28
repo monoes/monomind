@@ -252,12 +252,27 @@ export function segmentsBelow(
   return t.slice(b.length);
 }
 
+/** Entries git runs or obeys: `config` (core.fsmonitor, core.hooksPath,
+ *  core.sshCommand, aliases and filter drivers all execute), `hooks`, and the
+ *  per-worktree `config.worktree`. */
+const GIT_EXEC_ENTRIES = new Set(['config', 'hooks', 'config.worktree']);
+
 /**
  * #258: a file-tool write into a `.git` dir that `policy.git` forbids, as the
  * `.git/...` path to name in the denial, or null when it is allowed. `real`
  * is the resolved target; segments compare case-insensitively where the
  * filesystem does (#498, #496: pass `pathFolds(real).deny`), so
  * `.GIT/Config` is `.git/config` on darwin.
+ *
+ * What git itself executes is refused at EVERY level, `push` included: the
+ * operator's own git (an IDE's background `git status`, a commit in their
+ * terminal) runs `core.fsmonitor`, a hook or a filter driver written there
+ * outside every role sandbox. That is `config`, `hooks` and `config.worktree`
+ * in the common dir, the same in a submodule's (`modules/<name>/…`) or a
+ * linked worktree's (`worktrees/<name>/…`) git dir, and the `.git` entry
+ * itself (a worktree's `gitdir:` pointer, which could name a git dir the role
+ * wrote). A `push` role's `git config` and `git remote add` run in git, not
+ * here, and are unaffected.
  */
 export function gitWriteViolation(
   real: string,
@@ -265,12 +280,18 @@ export function gitWriteViolation(
   platform: NodeJS.Platform = process.platform,
   fold?: SegmentFold,
 ): string | null {
-  if (gitLevel === 'push') return null;
   const segments = pathSegments(real, platform, fold);
   const at = segments.lastIndexOf('.git');
   if (at === -1) return null;
-  const inGit = segments[at + 1];
-  if (gitLevel === 'commit' && inGit !== 'config' && inGit !== 'hooks') return null;
+  const rest = segments.slice(at + 1);
+  const executes =
+    rest.length === 0 ||
+    GIT_EXEC_ENTRIES.has(rest[0]) ||
+    ((rest[0] === 'modules' || rest[0] === 'worktrees') &&
+      rest.slice(1).some((s) => GIT_EXEC_ENTRIES.has(s)));
+  if (gitLevel === 'push' || gitLevel === 'commit') {
+    if (!executes) return null;
+  }
   return segments.slice(at).join('/');
 }
 

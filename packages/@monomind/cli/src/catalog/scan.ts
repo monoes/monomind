@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { createFenceForRole, type FenceInstance, loadGlobalFenceConfig } from '../orgrt/fence.js';
 import { parseFrontmatter } from '../orgrt/skill-library.js';
 import { BlueprintSchema } from './blueprints.js';
+import { dangerSummary } from './danger-scan.js';
 import { frontmatterViolations } from './frontmatter.js';
 import { CATALOG_NAME_RE, type CatalogEntry } from './types.js';
 
@@ -225,6 +226,19 @@ export async function inspectPackage(
     full.slice(0, SCAN_CHAR_CAP),
     opts.fence ?? defaultFence(opts.root),
   );
+  // Obvious hook/exec registration, exfil and config-edit instructions
+  // (danger-scan.ts, a tripwire with stated limits): quarantine for a human.
+  const danger = dangerSummary(
+    scanned.map((f) => ({ path: f, text: readFileSync(join(dir, f), 'utf8') })),
+  );
+  if (danger.length) {
+    scanner.ok = true;
+    scanner.blocked = true;
+    scanner.summary = `blocked: danger-scan ${danger.join('; ')}; ${scanner.summary}`.slice(
+      0,
+      SUMMARY_CAP,
+    );
+  }
   // Content past the cap was never scanned: it must not pass as clean.
   const truncated = full.length > SCAN_CHAR_CAP;
   if (truncated)

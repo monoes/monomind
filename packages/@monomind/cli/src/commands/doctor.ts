@@ -10,6 +10,7 @@ import { output } from '../output.js';
 import { runPlatformsDoctor } from '../platform-adapters/platform-doctor.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { checkCatalog, checkOrgSkills } from './doctor-catalog-checks.js';
+import { checkSupplyChain } from './doctor-supply-chain-checks.js';
 import { checkTokenCostSettings } from './doctor-cost-checks.js';
 import { checkDecisionModel, checkDecisionModelIfConfigured } from './doctor-decision-checks.js';
 import type { HealthCheck } from './doctor-env-checks.js';
@@ -251,6 +252,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     ['crash-reporting', checkCrashReporting],
     ['cost-settings', () => checkTokenCostSettings(ctx.cwd || process.cwd())],
     ['org-skills', () => checkOrgSkills(ctx.cwd || process.cwd(), mode.readOnly)],
+    ['supply-chain', () => checkSupplyChain(ctx.cwd || process.cwd())],
   ];
   const codeOnlyChecks: [string, CheckFn][] = [
     ['git-repo', checkGitRepo],
@@ -330,6 +332,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     'crash-reporting': checkCrashReporting,
     catalog: () => checkCatalog(ctx.cwd || process.cwd()),
     'org-skills': () => checkOrgSkills(ctx.cwd || process.cwd(), mode.readOnly),
+    'supply-chain': () => checkSupplyChain(ctx.cwd || process.cwd()),
     // Opt-in: rebuilds stale indexes and scores the eval set, so it stays out
     // of the default run.
     pick: () => checkPick(ctx.cwd || process.cwd()),
