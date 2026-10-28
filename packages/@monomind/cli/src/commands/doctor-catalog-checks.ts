@@ -138,7 +138,14 @@ export async function checkCatalog(
     return {
       name: NAME,
       status: 'fail',
-      message: failures.map((e) => `${e.id}: ${e.problems.join(', ')}`).join('; '),
+      message: failures
+        .map((e) => {
+          const p = e.problems.join(', ');
+          return e.problems.some((x) => x.includes('digest-mismatch'))
+            ? `${e.id}: ${p} (the stored package no longer matches the digest recorded when it was approved: changed after approval, so it is no longer loaded)`
+            : `${e.id}: ${p}`;
+        })
+        .join('; '),
       fix: failures.map((e) => `monomind catalog disable ${e.id} --actor <you>`).join('; '),
     };
 
