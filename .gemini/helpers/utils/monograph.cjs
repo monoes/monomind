@@ -153,7 +153,21 @@ function getMonographSuggestions(taskText, limit) {
         'AND n.name NOT LIKE \'(%\' AND n.name NOT LIKE \'%=>%\' AND n.name != \'function\' ' +
         'AND length(n.name) >= 3 ' +
         'ORDER BY label_rank DESC, bm25_score ASC, deg DESC LIMIT ?'
-      ).all(ftsQuery, lim);
+      ).all(ftsQuery, lim * 5);
+      // Relevance floor: the OR query matches a single stray term, so a PTO
+      // question "found" a mesh extension through one shared word. Keep a row
+      // only when it covers at least 30% of the prompt's terms (name + path).
+      var needKeys = Math.ceil(keys.length * 0.3);
+      rows = rows.filter(function(r) {
+        var hay = (String(r.name) + ' ' + String(r.file)).toLowerCase();
+        var hit = 0;
+        for (var ki = 0; ki < keys.length; ki++) {
+          var kw = keys[ki];
+          var stem = kw.length > 5 ? kw.replace(/(ing|ed|es|s)$/, '') : kw;
+          if (hay.indexOf(kw) !== -1 || (stem.length >= 4 && hay.indexOf(stem) !== -1)) hit++;
+        }
+        return hit >= needKeys;
+      }).slice(0, lim);
     } catch (e) {
       var likeFrag = keys.map(function(){ return 'lower(n.name) LIKE ?'; }).join(' OR ');
       var likeArgs = keys.map(function(k){ return '%' + k + '%'; });

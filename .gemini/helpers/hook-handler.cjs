@@ -460,7 +460,8 @@ const handlers = {
     var isFind = /\b(?:find|fd)\b/.test(cmd) && !isGrep;
     if (isGrep || isFind) {
       var sessIdGate = String((hCtx.hookInput && (hCtx.hookInput.sessionId || hCtx.hookInput.session_id)) || '');
-      if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1' && _isSourceSearchCommand(cmd) && _graphGateShouldNudge(sessIdGate)) {
+      // QUIET silences terminal output; the nudge is model-visible additionalContext, shown once per session.
+      if (_isSourceSearchCommand(cmd) && _graphGateShouldNudge(sessIdGate)) {
         _hookContext.push(_graphNudgeText());
       }
       var graphAssisted = false;
@@ -719,7 +720,7 @@ const handlers = {
     var sessIdGate = String((hCtx.hookInput && (hCtx.hookInput.sessionId || hCtx.hookInput.session_id)) || '');
     var searchIn = (typeof toolInput === 'object' && toolInput !== null) ? toolInput : {};
     var searchPaths = [searchIn.path, searchIn.glob, tool === 'Glob' ? searchIn.pattern : ''];
-    if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1' && _isSourceSearchPaths(searchPaths) && _graphGateShouldNudge(sessIdGate)) {
+    if (_isSourceSearchPaths(searchPaths) && _graphGateShouldNudge(sessIdGate)) {
       _hookContext.push(_graphNudgeText());
     }
     var graphResolved = false;

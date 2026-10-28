@@ -26,6 +26,21 @@ function advisoryLog() {
   console.log.apply(console, arguments);
 }
 
+// An advisory that says "nothing to do here" is worth one line per session, not
+// one per prompt. The marker is a file under .monomind/notices/ keyed by the
+// session id (created exclusively, so the first caller wins). No session id, no
+// notice: it could not be deduplicated.
+function noticeOncePerSession(CWD, sessionId, key) {
+  var sid = pickCore.safeSessionId(sessionId);
+  if (!sid) return false;
+  try {
+    var dir = path.join(CWD, '.monomind', 'notices');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, sid + '.' + key), '', { flag: 'wx' });
+    return true;
+  } catch (e) { return false; }
+}
+
 // ── Loopback guard for the Second Brain POST ────────────────────────────────
 // The per-prompt lookup sends the user's prompt to the URL in
 // .monomind/control.json. A tampered or committed control.json must not be
@@ -582,16 +597,20 @@ module.exports = {
               sbLines.push('  (deeper lookup: mcp__monomind__knowledge_search or `monomind doc search -q "..."`)');
               advisoryLog(sbLines.join('\n'));
             } else {
-              // Ran but found nothing: distinguishable from "never looked".
-              advisoryLog('[SECOND_BRAIN] no match for this prompt (searched ' + (sbCorpus === 'second-brain'
-                ? 'the Second Brain document store'
-                : 'project instructions only — Second Brain store unreachable') + ')');
+              // Ran but found nothing: distinguishable from "never looked" — but
+              // only when the real document store was searched. A miss over the
+              // project-instructions fallback says nothing about the user's
+              // documents and would print on nearly every prompt.
+              if (sbCorpus === 'second-brain') {
+                advisoryLog('[SECOND_BRAIN] no match for this prompt (searched the Second Brain document store)');
+              }
             }
-          } else {
-            advisoryLog('[SECOND_BRAIN] skipped: no knowledge store in this project');
+          } else if (noticeOncePerSession(CWD, hookInput.session_id || hookInput.sessionId, 'sb-no-store')) {
+            advisoryLog('[SECOND_BRAIN] skipped: no knowledge store in this project (shown once per session)');
           }
-        } else if (sbPrompt.charAt(0) !== '/') {
-          advisoryLog('[SECOND_BRAIN] skipped: low-content prompt');
+        } else if (sbPrompt.charAt(0) !== '/'
+            && noticeOncePerSession(CWD, hookInput.session_id || hookInput.sessionId, 'sb-low-content')) {
+          advisoryLog('[SECOND_BRAIN] skipped: low-content prompt (shown once per session)');
         }
       } catch (e) { /* non-fatal — knowledge injection must never block a prompt */ }
 
@@ -873,7 +892,8 @@ module.exports = {
             advisoryLog('[MONOGRAPH] ' + nodeCount + ' nodes. Top files: ' + hintParts.join(' · '));
             hCtx._recordGraphTelemetry('preresolve_hit');
           } else {
-            advisoryLog('[MONOGRAPH] ' + nodeCount + ' nodes. Call mcp__monomind__monograph_suggest to find relevant files.');
+            // Nothing relevant: say nothing (a generic "call monograph_suggest"
+            // line on every prompt carries no information).
             hCtx._recordGraphTelemetry('preresolve_miss');
           }
         } else if (!hintDb || nodeCount > 100) {

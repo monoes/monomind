@@ -64,7 +64,20 @@ function isSystemPrompt(prompt) {
 function isTrivialPrompt(prompt) {
   if (!pickRank || typeof prompt !== 'string') return false;
   var text = prompt.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/gi, ' ').slice(0, 2000);
+  if (isAcknowledgement(text)) return true;
   return pickRank.queryTokens(text).length < MIN_PICK_TOKENS;
+}
+
+// Words that make up a bare acknowledgement ("yes, go ahead", "ok sounds good").
+// "yes, go ahead" has three content words, so the token count alone would pick
+// an agent for it (and pay a Jev round trip).
+var ACK_WORDS = new Set(('yes yeah yep yup ok okay sure no nope nah go ahead proceed continue please thanks thank you ' +
+  'do it that this sounds good great perfect fine cool nice agreed right correct exactly lgtm done and then now ' +
+  'lets let us for with the is are looks').split(' '));
+function isAcknowledgement(text) {
+  var words = text.toLowerCase().split(/[^a-z']+/).filter(Boolean);
+  if (words.length === 0 || words.length > 8 || text.indexOf('?') !== -1) return false;
+  return words.every(function (w) { return ACK_WORDS.has(w); });
 }
 
 function promptHash(prompt) {
