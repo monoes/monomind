@@ -21,8 +21,7 @@ export const monographBuildTool: MCPTool = {
       force: { type: 'boolean', description: 'Force full rebuild even if index is fresh' },
       toolAssets: {
         type: 'boolean',
-        description:
-          'Index tool-managed assets (.pi/, .claude agents and skills). Off by default; remembered per project, so omit it on later builds to keep the current choice.',
+        description: 'Index .pi/.claude assets (opt-in)',
       },
       incremental: {
         type: 'boolean',
