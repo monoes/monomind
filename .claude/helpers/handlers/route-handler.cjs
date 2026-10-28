@@ -581,8 +581,17 @@ module.exports = {
               }
               sbLines.push('  (deeper lookup: mcp__monomind__knowledge_search or `monomind doc search -q "..."`)');
               advisoryLog(sbLines.join('\n'));
+            } else {
+              // Ran but found nothing: distinguishable from "never looked".
+              advisoryLog('[SECOND_BRAIN] no match for this prompt (searched ' + (sbCorpus === 'second-brain'
+                ? 'the Second Brain document store'
+                : 'project instructions only — Second Brain store unreachable') + ')');
             }
+          } else {
+            advisoryLog('[SECOND_BRAIN] skipped: no knowledge store in this project');
           }
+        } else if (sbPrompt.charAt(0) !== '/') {
+          advisoryLog('[SECOND_BRAIN] skipped: low-content prompt');
         }
       } catch (e) { /* non-fatal — knowledge injection must never block a prompt */ }
 

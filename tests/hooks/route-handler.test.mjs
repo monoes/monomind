@@ -559,8 +559,14 @@ describe('route-handler second-brain gate', () => {
     writeControl(tmpDir, { url: 'http://127.0.0.1:4242', pid: process.pid });
     writeKnowledge(tmpDir, 'doc-metadata.jsonl');
     const out = await runCaptured(serve([hit('a', 0.6), hit('b', 0.55), hit('c', 0.5)]));
-    expect(out).not.toContain('[SECOND_BRAIN]');
+    expect(out).not.toContain('relevant excerpt(s)');
+    expect(out).toContain('[SECOND_BRAIN] no match for this prompt');
     expect(lastTelemetry(tmpDir)).toMatchObject({ injected: false, hits: 0 });
+  });
+
+  it('says so when the project has no knowledge store', async () => {
+    const out = await runCaptured(serve([hit('a', 0.9)]));
+    expect(out).toContain('[SECOND_BRAIN] skipped: no knowledge store');
   });
 
   it('injects exactly one excerpt when only the top result is strong', async () => {
