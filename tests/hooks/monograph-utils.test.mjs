@@ -311,6 +311,33 @@ describe.skipIf(DB_SKIP)('monograph.getMonographSuggestions — with DB', () => 
     expect(results[0]).toHaveProperty('name');
   });
 
+  it('drops weak matches that share only one term with a long prompt (relevance floor)', () => {
+    const { db } = makeFixtureDb(tmpDir);
+    _mgLib.insertNode(db, {
+      id: 'pi_ext',
+      label: 'File',
+      name: 'timer-extension.ts',
+      filePath: '.pi/extensions/timer-extension.ts',
+    });
+    _mgLib.insertNode(db, {
+      id: 'src_pto',
+      label: 'File',
+      name: 'paid-time-off.ts',
+      filePath: 'src/hr/paid-time-off.ts',
+    });
+    const mg = loadMonograph(tmpDir);
+    // Five terms (many days paid time employees); the extension file is
+    // reachable through one stray term only ("time" in "timer"), so it must
+    // not be suggested while the file covering "paid" and "time" is.
+    const results = mg.getMonographSuggestions(
+      'how many days of paid time off do employees get',
+      5,
+    );
+    const files = results.map((r) => r.file);
+    expect(files).toContain('src/hr/paid-time-off.ts');
+    expect(files).not.toContain('.pi/extensions/timer-extension.ts');
+  });
+
   it('returns [] when no node matches the keywords', () => {
     makeFixtureDb(tmpDir); // empty DB
     const mg = loadMonograph(tmpDir);

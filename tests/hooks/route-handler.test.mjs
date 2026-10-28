@@ -564,9 +564,33 @@ describe('route-handler second-brain gate', () => {
     expect(lastTelemetry(tmpDir)).toMatchObject({ injected: false, hits: 0 });
   });
 
-  it('says so when the project has no knowledge store', async () => {
-    const out = await runCaptured(serve([hit('a', 0.9)]));
-    expect(out).toContain('[SECOND_BRAIN] skipped: no knowledge store');
+  it('says so once per session when the project has no knowledge store', async () => {
+    const run = async (sessionId) => {
+      const lines = [];
+      vi.spyOn(console, 'log').mockImplementation((...a) => lines.push(a.join(' ')));
+      await loadRH().handle(
+        makeHCtx({
+          prompt: PROMPT,
+          hookInput: { session_id: sessionId },
+          router: router(),
+          _buildKnowledgeSearchFn: searchFn(),
+        }),
+      );
+      return lines.join('\n');
+    };
+    expect(await run('sess-a')).toContain('[SECOND_BRAIN] skipped: no knowledge store');
+    expect(await run('sess-a')).not.toContain('[SECOND_BRAIN]');
+    expect(await run('sess-b')).toContain('[SECOND_BRAIN] skipped: no knowledge store');
+  });
+
+  it('prints no [SECOND_BRAIN] line for a no-match over the project-instructions fallback', async () => {
+    // chunks.jsonl only (no doc-metadata.jsonl) and no reachable server: the
+    // keyword fallback over CLAUDE.md-style chunks ran and found nothing.
+    deadServer(tmpDir);
+    writeKnowledge(tmpDir, 'chunks.jsonl');
+    const out = await runCaptured(serve([]));
+    expect(out).not.toContain('[SECOND_BRAIN]');
+    expect(fs.existsSync(telemetry(tmpDir))).toBe(true);
   });
 
   it('injects exactly one excerpt when only the top result is strong', async () => {
