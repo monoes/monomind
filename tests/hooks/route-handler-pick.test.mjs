@@ -252,6 +252,8 @@ describe('route-handler [PICK] delivery', () => {
     'looks good',
     'anything else pending rather than release',
     'is there anything pending?',
+    'yes, go ahead',
+    'ok sounds good, proceed',
   ])(
     'makes no pick and no record for the trivial prompt %j, keeping the earlier route',
     async (prompt) => {
