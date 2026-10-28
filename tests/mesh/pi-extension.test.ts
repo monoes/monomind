@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -210,8 +210,22 @@ describe('pi extension shipping', () => {
   it('writes the file, keeps an existing one, and rewrites it with --force', () => {
     const root = tmpDir();
     const mk = () => ({ created: { files: [] as string[] }, skipped: [] as string[] });
-    const first = mk();
-    writePiMeshExtension(root, {} as never, first as never);
+    // No `.pi` directory (project or home): nothing is written.
+    const home = process.env.HOME;
+    process.env.HOME = tmpDir();
+    try {
+      const none = mk();
+      writePiMeshExtension(root, {} as never, none as never);
+      expect(none.created.files).toEqual([]);
+      expect(existsSync(join(root, '.pi'))).toBe(false);
+      mkdirSync(join(root, '.pi'));
+      const first = mk();
+      writePiMeshExtension(root, {} as never, first as never);
+      expect(first.created.files).toEqual([PI_MESH_EXTENSION_FILE]);
+    } finally {
+      process.env.HOME = home;
+    }
+    const first = { created: { files: [PI_MESH_EXTENSION_FILE] } };
     expect(first.created.files).toEqual([PI_MESH_EXTENSION_FILE]);
     expect(readFileSync(join(root, PI_MESH_EXTENSION_FILE), 'utf8')).toBe(
       generatePiMeshExtension(),

@@ -8,10 +8,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describePlatformChoice } from '../init/detect-platforms.js';
-import { formatKeptFiles } from '../init/file-guard.js';
+import { formatKeptFiles, rehashGuard } from '../init/file-guard.js';
 import { DEFAULT_INIT_OPTIONS, executeInit } from '../init/index.js';
 import { reportProjectMemory } from '../init/init-memory.js';
 import { runDoctorFix } from '../init/init-post-steps.js';
+import { listingBudgetWarning } from '../init/listing-size.js';
 import { wantsAgentsDirs, wantsGeminiDirs } from '../init/platform-dirs.js';
 import { formatIndexSummary } from '../init/project-indexes.js';
 import { resolveInitOptions } from '../init/resolve-options.js';
@@ -271,6 +272,8 @@ export const initAction = async (ctx: CommandContext): Promise<CommandResult> =>
 
     const keptFiles = formatKeptFiles(result.kept);
     if (keptFiles) output.printWarning(keptFiles);
+    const listingWarning = listingBudgetWarning(path.join(cwd, '.claude'));
+    if (listingWarning) output.printWarning(listingWarning);
     // Non-fatal problems (a skill with no source, an entry that could not be
     // retired) land in result.errors; a successful run must still show them.
     const warnings = [...(result.warnings ?? []), ...result.errors];
@@ -502,6 +505,7 @@ export const initAction = async (ctx: CommandContext): Promise<CommandResult> =>
       options.installClaudeCode !== false,
       options.selectedPlatforms?.includes('claude') ?? true,
     );
+    rehashGuard(result); // doctor --fix may have created the .gitignore
 
     if (!startAll) {
       output.writeln(output.bold('Next steps:'));

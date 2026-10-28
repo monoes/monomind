@@ -1,9 +1,11 @@
 /**
- * Pi mesh extension: `.pi/extensions/monomind-mesh.ts`. An existing file is kept unless --force.
+ * Pi mesh extension: `.pi/extensions/monomind-mesh.ts`. Written only for a user of Pi (a `.pi`
+ * directory in the project or in the home directory). An existing file is kept unless --force.
  * Pi loads project extensions from `.pi/extensions/` after the user trusts the project.
  */
 
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { atomicWriteFile } from './fs-helpers.js';
 import { generatePiMeshExtension, PI_MESH_EXTENSION_FILE } from './pi-generator.js';
@@ -14,6 +16,8 @@ export function writePiMeshExtension(
   options: InitOptions,
   result: InitResult,
 ): void {
+  const usesPi = [targetDir, os.homedir()].some((dir) => fs.existsSync(path.join(dir, '.pi')));
+  if (!usesPi) return;
   const file = path.join(targetDir, PI_MESH_EXTENSION_FILE);
   if (fs.existsSync(file) && !options.force) {
     result.skipped.push(PI_MESH_EXTENSION_FILE);

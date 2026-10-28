@@ -142,3 +142,10 @@ export function packListingChars(
   }
   return { skillsAndCommands, agents };
 }
+
+/** One-line warning when the skills and commands in `claudeDir` exceed the listing budget, else null. */
+export function listingBudgetWarning(claudeDir: string): string | null {
+  const chars = measureListing(claudeDir).skillsAndCommandsChars;
+  if (chars <= LISTING_BUDGET_CHARS) return null;
+  return `Skills and commands take ${chars} chars of Claude Code's listing, over the ~${LISTING_BUDGET_CHARS} it shows before dropping descriptions. \`monomind packs remove <pack>\` to trim.`;
+}

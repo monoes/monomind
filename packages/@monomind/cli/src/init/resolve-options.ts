@@ -149,7 +149,7 @@ export function resolveInitOptions(
 
   // #420: with no flag naming platforms, write the installed ones plus the
   // ones this project already has (so `init --force` refreshes them).
-  // `--all-platforms`, `--full`, `--skip-claude` (all minus Claude) and an
+  // `--minimal` writes Claude Code alone. `--all-platforms`, `--full`, `--skip-claude` (all minus Claude) and an
   // explicit `--target all` keep all five.
   let platformChoice: PlatformChoice | undefined;
   if (
@@ -161,8 +161,9 @@ export function resolveInitOptions(
     !allPlatforms &&
     !full
   ) {
+    // `--minimal` is the primary platform (Claude Code) plus core: no detection.
     platformChoice = chooseDefaultPlatforms(
-      withProjectPlatforms(detect(), platformsInProject(targetDir)),
+      minimal ? [] : withProjectPlatforms(detect(), platformsInProject(targetDir)),
     );
     requestedPlatforms = platformChoice.platforms.join(',');
   }

@@ -28,7 +28,15 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  rmdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { readInitManifest } from '../init/init-manifest.js';
 import { safeJsonRemove } from '../platform-adapters/merge.js';
@@ -70,7 +78,17 @@ export type CleanupPlanResult =
 /** Directories whose every untracked, non-data entry is monomind's own state. */
 const NAMESPACE_DIRS = ['.monomind', '.swarm', '.hive-mind'];
 /** Agent-tool directories shared with the user and other tools. */
-const SHARED_DIRS = ['.claude', '.agents', '.gemini', '.opencode', '.codex', '.kimi-code'];
+const SHARED_DIRS = [
+  '.claude',
+  '.agents',
+  '.gemini',
+  '.opencode',
+  '.codex',
+  '.kimi-code',
+  '.pi',
+  '.kilo',
+  '.github/hooks',
+];
 /** Root instruction files that may carry a monomind marker block. */
 const MARKED_FILES = ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md'];
 /** Root JSON files where monomind registers one named entry. */
@@ -78,11 +96,12 @@ const JSON_ENTRY_FILES: { path: string; entry: string[] }[] = [
   { path: '.mcp.json', entry: ['mcpServers', 'monomind'] },
   { path: 'opencode.json', entry: ['mcp', 'monomind'] },
   { path: '.kimi-code/mcp.json', entry: ['mcpServers', 'monomind'] },
+  { path: '.agents/hooks.json', entry: ['monomind-mesh'] },
 ];
 /** Settings files whose hooks/statusLine may run monomind helpers. */
 const SETTINGS_FILES = ['.claude/settings.json', '.gemini/settings.json'];
 /** Files inside walked dirs that are planned after the walk, not by it. */
-const DEFERRED_FILES = new Set([...SETTINGS_FILES, '.kimi-code/mcp.json']);
+const DEFERRED_FILES = new Set([...SETTINGS_FILES, '.kimi-code/mcp.json', '.agents/hooks.json']);
 /** Data paths (relative to the project root), kept unless --purge-data. */
 const DATA_PATHS = [
   'data/memory',
@@ -108,6 +127,8 @@ const DATA_PATHS = [
 const DATA_FILE_RE = /\.(db|sqlite|sqlite3)(-wal|-shm|-journal)?$/;
 /** Generator title init writes as GEMINI.md's first line. */
 const GEMINI_SIGNATURE_RE = /^# Monomind for Antigravity \(agy\) — v\S+\n/;
+/** The block `doctor --fix` appends to a .gitignore: a header and the lines below it up to a blank line. */
+const GITIGNORE_SECTION_RE = /^# monomind runtime state\r?\n(?:[^\r\n]+(?:\r?\n|$))*/m;
 const MAX_MARKER_SCAN_BYTES = 2 * 1024 * 1024;
 
 const NAMED_BLOCK_RE =
@@ -399,6 +420,10 @@ class Planner {
       this.add(rel, 'file', 'skip', 'tracked by git');
       return;
     }
+    if (this.isUneditedInstall(rel)) {
+      this.add(rel, 'file', 'remove', 'listed in init manifest');
+      return;
+    }
     const text = readFileSync(this.abs(rel), 'utf8');
     const res = safeJsonRemove(text, entryPath.slice(0, -1), entryPath[entryPath.length - 1]!);
     if (res.diagnostics.length > 0) {
@@ -413,10 +438,12 @@ class Planner {
     const rest = JSON.parse(res.content) as Record<string, unknown>;
     const parent = rest[entryPath[0]!];
     const empty =
-      Object.keys(rest).length === 1 &&
-      !!parent &&
-      typeof parent === 'object' &&
-      Object.keys(parent).length === 0;
+      entryPath.length === 1
+        ? Object.keys(rest).length === 0
+        : Object.keys(rest).length === 1 &&
+          !!parent &&
+          typeof parent === 'object' &&
+          Object.keys(parent).length === 0;
     if (empty) this.add(rel, 'file', 'remove', 'contains only the monomind entry');
     else
       this.add(rel, 'file', 'strip', 'remove the monomind entry, keep the rest', {
@@ -446,6 +473,10 @@ class Planner {
       this.add(rel, 'file', 'skip', 'tracked by git', keep ? { notice: keep.notice } : {});
       return;
     }
+    if (this.isUneditedInstall(rel)) {
+      this.add(rel, 'file', 'remove', 'listed in init manifest');
+      return;
+    }
     let text: string;
     try {
       if (lstatSync(this.abs(rel)).isSymbolicLink()) throw new Error('symlink');
@@ -470,6 +501,30 @@ class Planner {
       );
   }
 
+  /** The root .gitignore: whole when `doctor --fix` made it and nobody edited it, else only its monomind section. */
+  planGitignore(rel: string): void {
+    if (this.kindOf(rel) !== 'file' || this.tracked.files.has(rel)) return;
+    if (this.isUneditedInstall(rel)) {
+      this.add(rel, 'file', 'remove', 'listed in init manifest');
+      return;
+    }
+    let text: string;
+    try {
+      if (lstatSync(this.abs(rel)).isSymbolicLink()) return;
+      text = readFileSync(this.abs(rel), 'utf8');
+    } catch {
+      return;
+    }
+    const next = text.replace(GITIGNORE_SECTION_RE, '');
+    if (next === text) return;
+    const rest = `${next.replace(/\n{3,}/g, '\n\n').trim()}\n`;
+    if (rest.trim() === '') this.add(rel, 'file', 'remove', 'contains only the monomind section');
+    else
+      this.add(rel, 'file', 'strip', 'remove the monomind section, keep the rest', {
+        content: rest,
+      });
+  }
+
   planConfigFile(rel: string): void {
     if (this.kindOf(rel) !== 'file') return;
     if (this.tracked.files.has(rel)) this.add(rel, 'file', 'skip', 'tracked by git');
@@ -487,6 +542,7 @@ export function buildCleanupPlan(cwd: string, opts: CleanupPlanOptions): Cleanup
   p.planConfigFile('monomind.config.json');
   for (const f of MARKED_FILES) if (existsSync(join(cwd, f))) p.planMarkedFile(f);
   for (const { path, entry } of JSON_ENTRY_FILES) p.planJsonEntry(path, entry);
+  p.planGitignore('.gitignore');
   p.planData();
   // Last: needs every removal above to know which helpers are going away.
   for (const f of SETTINGS_FILES) p.planSettings(f);
@@ -496,6 +552,21 @@ export function buildCleanupPlan(cwd: string, opts: CleanupPlanOptions): Cleanup
 /** Apply one `remove`/`strip` entry; `skip` is a no-op. Throws on failure. */
 export function applyCleanupEntry(cwd: string, e: CleanupPlanEntry): void {
   const abs = join(cwd, ...e.path.split('/'));
-  if (e.action === 'remove') rmSync(abs, { recursive: e.kind === 'dir', force: true });
-  else if (e.action === 'strip' && e.content !== undefined) writeFileSync(abs, e.content);
+  if (e.action === 'remove') {
+    rmSync(abs, { recursive: e.kind === 'dir', force: true });
+    pruneEmptyParents(cwd, abs);
+  } else if (e.action === 'strip' && e.content !== undefined) writeFileSync(abs, e.content);
+}
+
+/** Remove the directories `abs` sat in once they are empty, stopping at the project root. */
+function pruneEmptyParents(cwd: string, abs: string): void {
+  const root = resolve(cwd);
+  for (let dir = dirname(abs); dir.startsWith(`${root}${sep}`); dir = dirname(dir)) {
+    try {
+      if (readdirSync(dir).length > 0) return;
+      rmdirSync(dir);
+    } catch {
+      return;
+    }
+  }
 }
