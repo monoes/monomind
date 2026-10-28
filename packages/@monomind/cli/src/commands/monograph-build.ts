@@ -37,6 +37,12 @@ export const buildCommand: Command = {
       description: 'Force full rebuild even if index is fresh',
     },
     {
+      name: 'tool-assets',
+      type: 'boolean',
+      description:
+        'Also index tool-managed assets (.pi/ and the Agent/Skill definitions under .claude/). Off by default; the choice is remembered for this project (--no-tool-assets turns it off)',
+    },
+    {
       name: 'report-path',
       type: 'string',
       description:
@@ -61,6 +67,8 @@ export const buildCommand: Command = {
     const codeOnly = ctx.flags['code-only'] === true;
     const force = ctx.flags.force === true;
     const reportPath = (ctx.flags['report-path'] as string | undefined) || undefined;
+    const toolAssets =
+      typeof ctx.flags['tool-assets'] === 'boolean' ? ctx.flags['tool-assets'] : undefined;
     const llmFlag = ctx.flags.llm === true;
     const llmSections = parseInt((ctx.flags['llm-sections'] as string) || '50', 10);
     const { isClaudeCodeAvailable } = await import('../routing/llm-caller.js');
@@ -106,6 +114,7 @@ export const buildCommand: Command = {
       await buildAsync(root, {
         codeOnly,
         force,
+        includeToolAssets: toolAssets,
         llmMaxSections,
         reportPath,
         onProgress: (p: { phase: string; message?: string }) => {

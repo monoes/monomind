@@ -19,6 +19,11 @@ export const monographBuildTool: MCPTool = {
       path: { type: 'string', description: 'Absolute path to the repo (defaults to project cwd)' },
       codeOnly: { type: 'boolean', description: 'Only index code files (skip docs, config)' },
       force: { type: 'boolean', description: 'Force full rebuild even if index is fresh' },
+      toolAssets: {
+        type: 'boolean',
+        description:
+          'Index tool-managed assets (.pi/, .claude agents and skills). Off by default; remembered per project, so omit it on later builds to keep the current choice.',
+      },
       incremental: {
         type: 'boolean',
         description:
@@ -33,6 +38,7 @@ export const monographBuildTool: MCPTool = {
     await buildAsync(repoPath, {
       codeOnly: (input.codeOnly as boolean | undefined) ?? false,
       force: (input.force as boolean | undefined) ?? false,
+      includeToolAssets: input.toolAssets as boolean | undefined,
       incremental: (input.incremental as boolean | undefined) ?? false,
       onProgress: (p) => {
         progressLog += `[${p.phase}] ${p.message ?? ''}\n`;

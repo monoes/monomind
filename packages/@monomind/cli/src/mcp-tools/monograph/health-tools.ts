@@ -45,7 +45,7 @@ export const monographStatsTool: MCPTool = {
       const manifestStr = manifest
         ? [
             '',
-            `Last build: generation ${manifest.generation}, ${manifest.builtAt}, ${(manifest.durationMs / 1000).toFixed(1)}s, scope ${manifest.scope}, identity v${manifest.identityVersion}`,
+            `Last build: generation ${manifest.generation}, ${manifest.builtAt}, ${(manifest.durationMs / 1000).toFixed(1)}s, scope ${manifest.scope}, tool assets ${manifest.toolAssets ? 'on' : 'off'}, identity v${manifest.identityVersion}`,
             `  nodes by label: ${top(manifest.nodes, 8)}`,
             `  edges by relation: ${top(manifest.edges, 8)}`,
             `  summarized symbols/files: ${manifest.summarized}`,
