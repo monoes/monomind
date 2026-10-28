@@ -1,0 +1,14 @@
+{
+  "id": "pagination-last-page",
+  "title": "Fix an off-by-one in paginate()",
+  "tags": ["bugfix", "single-file"],
+  "fixture": "fixtures/pagination",
+  "prompt": "paginate(items, page, size) in src/paginate.mjs returns one item too few on every page. Fix it so each page holds `size` items, the last page holds the remainder, and a page past the end is empty. Do not change the function signature.",
+  "check": {
+    "command": ["node", "--test", "hidden.check.mjs"],
+    "overlay": "fixtures/pagination.hidden",
+    "timeoutS": 60
+  },
+  "maxTurns": 20,
+  "timeoutS": 300
+}

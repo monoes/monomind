@@ -1,0 +1,14 @@
+{
+  "id": "rename-option-multifile",
+  "title": "Rename a config option across modules",
+  "tags": ["refactor", "multi-file", "structural"],
+  "fixture": "fixtures/rename-option",
+  "prompt": "Rename the config option `retries` to `maxRetries` everywhere it is defined or read under src/ (defaults, client, queue, CLI). The command-line flag stays `--retries`. Behavior must not change otherwise.",
+  "check": {
+    "command": ["node", "--test", "hidden.check.mjs"],
+    "overlay": "fixtures/rename-option.hidden",
+    "timeoutS": 60
+  },
+  "maxTurns": 25,
+  "timeoutS": 300
+}

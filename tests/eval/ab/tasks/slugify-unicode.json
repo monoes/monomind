@@ -1,0 +1,14 @@
+{
+  "id": "slugify-unicode",
+  "title": "Make slugify() robust",
+  "tags": ["feature", "single-file"],
+  "fixture": "fixtures/slugify",
+  "prompt": "slugify() in src/slugify.mjs only lowercases and replaces spaces. Make it produce clean URL slugs: strip diacritics (Crème Brûlée -> creme-brulee), drop punctuation, collapse runs of spaces/dashes into a single dash, trim dashes at both ends, keep digits, and return an empty string when nothing is left.",
+  "check": {
+    "command": ["node", "--test", "hidden.check.mjs"],
+    "overlay": "fixtures/slugify.hidden",
+    "timeoutS": 60
+  },
+  "maxTurns": 20,
+  "timeoutS": 300
+}

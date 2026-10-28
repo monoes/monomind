@@ -1,0 +1,20 @@
+{
+  "_comment": "settings = agent exec --settings value. setup = monomind CLI invocations run in the throwaway workspace before the turn (init writes the CLAUDE.md, hooks, skills, MCP config). assume = tokens per run used ONLY for the cost estimate and the pre-run spend check; they are guesses, replace them with the numbers of a small pilot.",
+  "arms": {
+    "off": {
+      "settings": "none",
+      "setup": [],
+      "assume": { "inputTokens": 150000, "outputTokens": 8000 }
+    },
+    "lean": {
+      "settings": "project",
+      "setup": [["init", "--minimal", "--yes"]],
+      "assume": { "inputTokens": 170000, "outputTokens": 8000 }
+    },
+    "full": {
+      "settings": "project",
+      "setup": [["init", "--full", "--yes"], ["monograph", "build"]],
+      "assume": { "inputTokens": 230000, "outputTokens": 9000 }
+    }
+  }
+}
