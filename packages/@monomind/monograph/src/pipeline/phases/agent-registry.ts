@@ -121,6 +121,7 @@ export const agentRegistryPhase: PipelinePhase<{ definitions: number }> = {
     );
     db.exec("DELETE FROM nodes WHERE label IN ('Agent','Skill')");
 
+    if (!ctx.options.includeToolAssets) return { definitions: 0 };
     const defs = readDefinitions(ctx.repoPath);
     if (defs.length === 0) return { definitions: 0 };
 

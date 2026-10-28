@@ -101,6 +101,12 @@ describe('monograph_suggest task= (#406)', () => {
     expect(out).not.toMatch(/monograph_build/);
   });
 
+  it('says "no relevant match" when the hits only share one stray word with the task', async () => {
+    const out = await suggest(builtRepo, { task: 'payment gateway scheduler retries' });
+    expect(out).toMatch(/No relevant match/);
+    expect(out).not.toMatch(/\[(Class|Function)\]/);
+  });
+
   it('tells the caller to build when the graph is empty', async () => {
     const withTask = await suggest(emptyRepo, { task: 'PaymentProcessor' });
     expect(withTask).toMatch(/Run monograph_build first/);

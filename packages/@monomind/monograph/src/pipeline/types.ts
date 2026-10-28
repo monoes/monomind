@@ -22,6 +22,12 @@ export interface PipelineOptions {
   llmMaxSections: number;
   /** When true, bypass the on-disk extraction cache entirely and re-parse every file from scratch. Default false. */
   force?: boolean;
+  /**
+   * Index the tool-managed asset dirs `monomind init` writes (`.pi/`, and the Agent/Skill
+   * definitions under `.claude/`). Off by default: in a fresh project they are ~9% of the
+   * nodes and none of it is the user's code.
+   */
+  includeToolAssets?: boolean;
 }
 
 export const DEFAULT_OPTIONS: PipelineOptions = {
@@ -32,6 +38,7 @@ export const DEFAULT_OPTIONS: PipelineOptions = {
   ignore: [],
   llmMaxSections: 0,
   force: false,
+  includeToolAssets: false,
 };
 
 export interface PipelinePhase<TOutput> {

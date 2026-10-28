@@ -1,6 +1,6 @@
 import type { MonographImpactResult, MonographNode } from '@monoes/monograph';
 import type { MCPTool } from '../types.js';
-import { ambiguityResult, nodeLocation, textWithData } from './impact-tools-shared.js';
+import { ambiguityResult, nodeLocation } from './impact-tools-shared.js';
 import { getDbPath, text } from './shared.js';
 
 // ── monograph_impact ──────────────────────────────────────────────────────────
@@ -106,34 +106,8 @@ export const monographImpactTool: MCPTool = {
         }
       }
 
-      return textWithData(lines.join('\n').trim(), {
-        symbol: {
-          id: root.id,
-          name: root.name,
-          label: root.label,
-          filePath: root.filePath ?? null,
-          startLine: root.startLine ?? null,
-        },
-        maxDepth: Math.min(depth ?? 3, 6),
-        riskScore: result.riskScore,
-        riskLevel: result.riskLevel,
-        affectedFileCount: result.affectedFiles.length,
-        affectedFiles: result.affectedFiles,
-        affectedTests: result.affectedTests,
-        affectedSymbolCount: callers.length,
-        callers: callers.map(({ node, depth: callerDepth }) => ({
-          id: node.id,
-          name: node.name,
-          label: node.label,
-          filePath: node.filePath ?? null,
-          startLine: node.startLine ?? null,
-          depth: callerDepth,
-        })),
-        truncated: {
-          callersListedInText: shown.length,
-          callersOmittedFromText: callers.length - shown.length,
-        },
-      });
+      // One block of prose: a JSON copy of the same result doubled the output.
+      return text(lines.join('\n').trim());
     } finally {
       closeDb(db);
     }

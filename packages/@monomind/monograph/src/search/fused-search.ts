@@ -77,6 +77,7 @@ export async function searchGraphFused(
   const add = (hit: GraphSearchResult, rank: number, weight: number): void => {
     const penalty = !wantsTests && hit.filePath && TEST_PATH.test(hit.filePath) ? TEST_FACTOR : 1;
     const entry = fused.get(hit.id) ?? { hit, score: 0 };
+    if (hit.similarity !== undefined) entry.hit.similarity = hit.similarity;
     entry.score += (weight * penalty) / (RRF_K + rank + 1);
     fused.set(hit.id, entry);
   };
@@ -93,6 +94,7 @@ export async function searchGraphFused(
         startLine: s.startLine,
         endLine: s.endLine,
         matchStrategy: 'semantic',
+        similarity: s.similarity,
       },
       i,
       ws,

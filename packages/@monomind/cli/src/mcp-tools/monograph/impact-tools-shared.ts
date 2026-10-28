@@ -1,5 +1,6 @@
 import type { MonographNode, SymbolCandidate } from '@monoes/monograph';
 import type { MCPToolResult } from '../types.js';
+import { text } from './shared.js';
 
 /**
  * Human-readable text plus the machine-readable result it was rendered from.
@@ -33,7 +34,8 @@ export function nodeLocation(node: Pick<MonographNode, 'filePath' | 'startLine'>
  * the wrong definition — say, a test mock with 0 callers — is worse than asking.
  */
 export function ambiguityResult(name: string, candidates: SymbolCandidate[]): MCPToolResult {
-  return textWithData(
+  // Prose only: the candidates are already listed line by line, a JSON copy repeats them.
+  return text(
     [
       `"${name}" matches ${candidates.length} definitions — re-run with nodeId (or filePath) to pick one:`,
       ...candidates.map(
@@ -43,6 +45,5 @@ export function ambiguityResult(name: string, candidates: SymbolCandidate[]): MC
           }`,
       ),
     ].join('\n'),
-    { ambiguous: true, candidates },
   );
 }

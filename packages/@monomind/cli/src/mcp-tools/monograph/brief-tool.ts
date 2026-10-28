@@ -47,7 +47,12 @@ export const monographBriefTool: MCPTool = {
       });
       const lines: string[] = [`Brief for: ${task}`, ''];
 
-      if (brief.entryPoints.length === 0) {
+      if (!brief.relevant) {
+        lines.push(
+          'No relevant match: nothing in the graph is about this task (the closest hits shared too few of its words). ' +
+            'Rephrase with identifiers or filenames, or this concept may not exist in the code yet.',
+        );
+      } else if (brief.entryPoints.length === 0) {
         lines.push(
           'No code matches. Try identifiers or filenames from the codebase, or monograph_query with scope "docs".',
         );

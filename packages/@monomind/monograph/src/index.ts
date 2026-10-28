@@ -92,6 +92,7 @@ export * from './search/ast-chunker.js';
 export * from './search/diacritic.js';
 export * from './search/fused-search.js';
 export * from './search/hybrid-query.js';
+export * from './search/relevance.js';
 export * from './search/rrf.js';
 export * from './security/safe-fetch.js';
 export * from './security/sensitive-files.js';

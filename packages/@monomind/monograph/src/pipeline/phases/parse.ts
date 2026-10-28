@@ -99,9 +99,18 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
           fileSymbols.push(...varInfos.map((v) => variableToNode(v)));
 
           const arrowFns = extractArrowFunctions(source, fileNode.filePath ?? '');
+          const known = new Set(fileSymbols.map((n) => n.id));
           for (const fn of arrowFns) {
+            const id = symbolId({
+              filePath: fn.filePath,
+              scope: [],
+              name: fn.name,
+              kind: 'Function',
+            });
+            // The tree-sitter node of a file-level const arrow already has the line range.
+            if (known.has(id)) continue;
             fileSymbols.push({
-              id: symbolId({ filePath: fn.filePath, scope: [], name: fn.name, kind: 'Function' }),
+              id,
               name: fn.name,
               label: 'Function',
               normLabel: 'function',

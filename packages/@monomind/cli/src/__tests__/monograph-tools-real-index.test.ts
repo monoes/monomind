@@ -125,25 +125,20 @@ describe('monograph tools against a real index', () => {
     // disagree with what the library actually computed.
     const { computeRiskLevel } = await import('@monoes/monograph');
     const out = await textOf('monograph_impact', { name: 'helper' });
-    const data = await dataOf('monograph_impact', { name: 'helper' });
-
     const counts = /Blast radius:\s*(\d+) symbols across (\d+) files/.exec(out);
     expect(counts).not.toBeNull();
-    expect(Number(counts?.[1])).toBe(data.callers.length);
-    expect(Number(counts?.[2])).toBe(data.affectedFiles.length);
-    expect(data.affectedSymbolCount).toBe(data.callers.length);
-    expect(data.affectedFileCount).toBe(data.affectedFiles.length);
+    const callerLines = out.split('\n').filter((l) => /\[depth \d+\]$/.test(l));
+    expect(callerLines).toHaveLength(Number(counts?.[1]));
 
     const risk = /Risk: (LOW|MEDIUM|HIGH|CRITICAL) \((\d+\.\d\d)\)/.exec(out);
     expect(risk).not.toBeNull();
-    expect(risk?.[1]).toBe(data.riskLevel);
-    expect(data.riskLevel).toBe(computeRiskLevel(data.riskScore));
+    expect(risk?.[1]).toBe(computeRiskLevel(Number(risk?.[2])));
 
-    // Every listed caller keeps its source location and BFS depth.
-    for (const caller of data.callers) {
-      expect(typeof caller.name).toBe('string');
-      expect(caller.depth).toBeGreaterThanOrEqual(1);
-    }
+    // One block of prose, not prose followed by a JSON copy of it.
+    const raw = (await tool('monograph_impact').handler({ name: 'helper' }, undefined)) as {
+      content: unknown[];
+    };
+    expect(raw.content).toHaveLength(1);
   });
 
   it('rename reports the library-computed changes with before/after diffs', async () => {

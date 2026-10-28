@@ -98,8 +98,7 @@ describe('monograph_impact adapter renders the library result', () => {
 
     expect(prose(res)).toContain('Risk: MEDIUM (0.30)');
     expect(prose(res)).not.toContain('LOW');
-    expect(data(res).riskLevel).toBe('MEDIUM');
-    expect(data(res).riskScore).toBe(0.3);
+    expect(res.content).toHaveLength(1);
   });
 
   it('counts affectedFiles as files and callers as symbols', async () => {
@@ -108,18 +107,14 @@ describe('monograph_impact adapter renders the library result', () => {
 
     // Old bug: "Blast radius: 2 symbols affected" — that 2 was the file count.
     expect(prose(res)).toContain('Blast radius: 3 symbols across 2 files');
-    expect(data(res).affectedSymbolCount).toBe(3);
-    expect(data(res).affectedFileCount).toBe(2);
-    expect(data(res).affectedFiles).toEqual(['src/b.ts', 'src/c.ts']);
   });
 
-  it('lists the tests to run, in prose and in the data block', async () => {
+  it('lists the tests to run', async () => {
     mocks.getMonographImpact.mockReturnValue(impactResult);
     const res = await callTool('monograph_impact', { name: 'doWork' });
 
     expect(prose(res)).toContain('Tests to run (1):');
     expect(prose(res)).toContain('src/__tests__/b.test.ts');
-    expect(data(res).affectedTests).toEqual(['src/__tests__/b.test.ts']);
   });
 
   it('preserves per-caller source locations and the depth from the grouping', async () => {
@@ -128,11 +123,6 @@ describe('monograph_impact adapter renders the library result', () => {
 
     expect(prose(res)).toContain('[Function] callerOne  src/b.ts:4 [depth 1]');
     expect(prose(res)).toContain('[Function] callerThree  src/c.ts:7 [depth 2]');
-    expect(data(res).callers).toEqual([
-      { id: 'c1', name: 'callerOne', label: 'Function', filePath: 'src/b.ts', startLine: 4, depth: 1 },
-      { id: 'c2', name: 'callerTwo', label: 'Function', filePath: 'src/b.ts', startLine: 40, depth: 1 },
-      { id: 'c3', name: 'callerThree', label: 'Function', filePath: 'src/c.ts', startLine: 7, depth: 2 },
-    ]);
   });
 
   it('reports truncation state when more callers exist than are listed', async () => {
@@ -147,12 +137,6 @@ describe('monograph_impact adapter renders the library result', () => {
 
     expect(prose(res)).toContain('Callers (25, showing 20)');
     expect(prose(res)).toContain('… 5 more');
-    expect(data(res).truncated).toEqual({
-      callersListedInText: 20,
-      callersOmittedFromText: 5,
-    });
-    // Truncation is display-only — the structured payload keeps every caller.
-    expect(data(res).callers).toHaveLength(25);
   });
 
   it('reports "no symbol found" when the library returns a null node', async () => {
@@ -195,7 +179,7 @@ describe('impact/context list candidates when a name matches several definitions
       prose(res).indexOf('bridge.test.ts'),
     );
     expect(prose(res)).not.toContain('Risk:');
-    expect(data(res)).toEqual({ ambiguous: true, candidates });
+    expect(res.content).toHaveLength(1);
   });
 
   it('monograph_impact forwards filePath and nodeId to the library', async () => {

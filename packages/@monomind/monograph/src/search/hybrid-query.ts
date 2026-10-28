@@ -99,6 +99,8 @@ export interface GraphSearchResult {
   endLine: number | null;
   /** Which retrieval strategy surfaced this row. */
   matchStrategy: 'fts' | 'like' | 'fuzzy' | 'semantic';
+  /** Cosine similarity to the query, set only on hits the embedding lane found. */
+  similarity?: number;
 }
 
 /**
@@ -172,9 +174,19 @@ export function searchGraph(
 const SUMMARY_WEIGHT = 0.8;
 const LEXICAL_ONLY_FACTOR = 0.25;
 /** Tests restate the code they exercise; they rank below it unless asked for. */
-export const TEST_PATH = /(\.test\.|\.spec\.|__tests__|__mocks__|\/tests?\/)/;
+export const TEST_PATH =
+  /(\.test\.|\.spec\.|_test\.(go|py)$|(^|\/)test_[^/]*\.py$|__tests__|__mocks__|__fixtures__|(^|\/)(tests?|fixtures?|mocks?|e2e|testdata)\/)/;
 export const TEST_INTENT = /\b(tests?|specs?|mocks?|fixtures?)\b/i;
 export const TEST_FACTOR = 0.6;
+
+/** Scales down hits from test/mock/fixture files unless the query is about tests. */
+function demoteTests(query: string, hits: GraphSearchResult[]): GraphSearchResult[] {
+  if (TEST_INTENT.test(query)) return hits;
+  for (const r of hits) {
+    if (r.filePath && TEST_PATH.test(r.filePath)) r.relevance *= TEST_FACTOR;
+  }
+  return hits;
+}
 
 function searchLabels(
   db: Database.Database,
@@ -193,7 +205,9 @@ function searchLabels(
     label,
     label === DOC_SCOPE_LABELS ? 1 : 2,
   );
-  if (described.length === 0) return lexical;
+  if (described.length === 0) {
+    return demoteTests(normalizedQuery, lexical).sort((a, b) => b.relevance - a.relevance);
+  }
   // A multi-word question is not an identifier: a lexical-only hit is then
   // usually a substring accident ("handle" inside handleTasksStatus), so it
   // counts for less than a hit the descriptions also support.
@@ -221,11 +235,9 @@ function searchLabels(
       });
     }
   }
-  const wantsTests = TEST_INTENT.test(normalizedQuery);
-  for (const r of byId.values()) {
-    if (!wantsTests && r.filePath && TEST_PATH.test(r.filePath)) r.relevance *= TEST_FACTOR;
-  }
-  return [...byId.values()].sort((a, b) => b.relevance - a.relevance).slice(0, limit);
+  return demoteTests(normalizedQuery, [...byId.values()])
+    .sort((a, b) => b.relevance - a.relevance)
+    .slice(0, limit);
 }
 
 function searchLexical(
