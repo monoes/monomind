@@ -107,6 +107,42 @@ describe('MCP stdio integration (real child process, issue #36 regression)', () 
     }
   }, 25000);
 
+  it('serves a modern (2026-07-28) client with no initialize: server/discover, cached tools/list, version error', async () => {
+    child = spawn('node', [CLI_BIN, 'mcp', 'start'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    const responsesPromise = collectResponses(child, 3, 20000);
+    const meta = (version: string) => ({
+      _meta: { 'io.modelcontextprotocol/protocolVersion': version },
+    });
+    const send = (id: number, method: string, version: string) =>
+      child!.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params: meta(version) })}\n`);
+
+    send(1, 'server/discover', '2026-07-28');
+    send(2, 'tools/list', '2026-07-28');
+    send(3, 'tools/list', '1900-01-01');
+
+    const responses = await responsesPromise;
+
+    const discover = responses.find((r) => r.id === 1);
+    expect(discover.error).toBeUndefined();
+    expect(discover.result.resultType).toBe('complete');
+    expect(discover.result.supportedVersions).toEqual(['2026-07-28']);
+    expect(discover.result._meta['io.modelcontextprotocol/serverInfo'].name).toBe('monomind');
+    expect(discover.result.ttlMs).toBeGreaterThanOrEqual(0);
+    expect(discover.result.cacheScope).toBe('public');
+
+    const tools = responses.find((r) => r.id === 2);
+    expect(tools.result.tools.length).toBeGreaterThan(0);
+    expect(tools.result.ttlMs).toBeGreaterThanOrEqual(0);
+    expect(tools.result.cacheScope).toBe('public');
+
+    const bad = responses.find((r) => r.id === 3);
+    expect(bad.error.code).toBe(-32022);
+    expect(bad.error.data).toEqual({ supported: ['2026-07-28'], requested: '1900-01-01' });
+  }, 25000);
+
   it('still calls a tool hidden from the default tools/list by name (#410)', async () => {
     child = spawn('node', [CLI_BIN, 'mcp', 'start'], {
       stdio: ['pipe', 'pipe', 'pipe'],

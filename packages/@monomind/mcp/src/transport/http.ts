@@ -8,6 +8,7 @@ import { createServer } from 'node:http';
 import type { NextFunction, Request, Response } from 'express';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { validateCredential } from '../auth.js';
+import { HEADER_MISMATCH, validateModernHeaders } from '../modern.js';
 import type { ILogger, ITransport, MCPNotification, MCPRequest } from '../types.js';
 import { HttpTransportBase, type HttpTransportConfig } from './http-base.js';
 
@@ -282,6 +283,16 @@ export class HttpTransport extends HttpTransportBase implements ITransport {
           jsonrpc: '2.0',
           id: message.id || null,
           error: { code: -32600, message: 'Missing method' },
+        });
+        return;
+      }
+
+      const headerError = validateModernHeaders(req.headers, message);
+      if (headerError) {
+        res.status(400).json({
+          jsonrpc: '2.0',
+          id: message.id ?? null,
+          error: { code: HEADER_MISMATCH, message: headerError },
         });
         return;
       }

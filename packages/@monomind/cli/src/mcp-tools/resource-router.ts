@@ -38,6 +38,7 @@ import {
   listCaptureResources,
   loadCaptureDocuments,
 } from './capture-resources.js';
+import { withCacheHints } from './mcp-modern.js';
 
 export interface ResourceDescriptor {
   uri: string;
@@ -239,9 +240,9 @@ export async function handleResourceMethod(
   try {
     switch (method) {
       case 'resources/list':
-        return { result: await listResources(params as ListResourcesParams) };
+        return { result: withCacheHints(await listResources(params as ListResourcesParams)) };
       case 'resources/templates/list':
-        return { result: listResourceTemplates() };
+        return { result: withCacheHints(listResourceTemplates()) };
       case 'resources/read': {
         const uri = typeof params.uri === 'string' ? params.uri : '';
         if (!uri)
@@ -249,7 +250,7 @@ export async function handleResourceMethod(
         if (!isCaptureUri(uri) && !uri.startsWith('monograph://')) {
           return { error: { code: -32602, message: `Unknown resource URI: ${uri}` } };
         }
-        return { result: await readResource(uri) };
+        return { result: withCacheHints(await readResource(uri), 'private') };
       }
       default:
         return null;

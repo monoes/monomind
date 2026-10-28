@@ -2,6 +2,7 @@
  * @monoes/mcp - MCP Server (tool, resource and prompt handlers)
  */
 
+import { withCacheHints } from './modern.js';
 import { MCPServerBuiltins } from './server-builtins.js';
 import type { MCPRequest, MCPResponse, ToolContext } from './types.js';
 import { ErrorCodes } from './types.js';
@@ -17,7 +18,7 @@ export abstract class MCPServerHandlers extends MCPServerBuiltins {
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: { tools },
+      result: withCacheHints({ tools }),
     };
   }
 
@@ -86,7 +87,7 @@ export abstract class MCPServerHandlers extends MCPServerBuiltins {
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result,
+      result: withCacheHints(result),
     };
   }
 
@@ -218,7 +219,7 @@ export abstract class MCPServerHandlers extends MCPServerBuiltins {
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result,
+      result: withCacheHints(result),
     };
   }
 
