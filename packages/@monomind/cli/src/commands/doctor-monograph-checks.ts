@@ -122,7 +122,7 @@ function findNativeModuleLastModifiedMs(pkgName: string, cwd: string): number | 
   }
 }
 
-export async function checkMonographFreshness(): Promise<HealthCheck> {
+async function monographFreshnessCore(): Promise<HealthCheck> {
   try {
     const cwd = process.cwd();
     const dbPath = join(cwd, '.monomind', 'monograph.db');
@@ -330,6 +330,34 @@ export async function checkMonoesMemory(): Promise<HealthCheck> {
     message: '@monoes/memory not installed (vector search disabled)',
     fix: 'npm install @monoes/memory',
   };
+}
+
+/** Whether the project's graph indexes tool-managed assets (.pi/, .claude agents and skills); null when unknown. */
+export function readToolAssetsSetting(cwd: string): boolean | null {
+  const dbPath = join(cwd, '.monomind', 'monograph.db');
+  if (!existsSync(dbPath)) return null;
+  try {
+    const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite');
+    const db = new DatabaseSync(`file:${dbPath}?immutable=1`, { readOnly: true });
+    try {
+      const row = db.prepare("SELECT value FROM index_meta WHERE key = 'tool_assets'").get() as
+        | { value: string }
+        | undefined;
+      return row ? row.value === '1' : false;
+    } finally {
+      db.close();
+    }
+  } catch {
+    return null;
+  }
+}
+
+export async function checkMonographFreshness(): Promise<HealthCheck> {
+  const check = await monographFreshnessCore();
+  const on = readToolAssetsSetting(process.cwd());
+  if (on === null) return check;
+  const note = `tool-asset indexing ${on ? 'on' : 'off (opt in: monomind monograph build --tool-assets)'}`;
+  return { ...check, message: `${check.message} · ${note}` };
 }
 
 /**

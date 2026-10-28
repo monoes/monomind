@@ -15,6 +15,8 @@ export interface IndexManifest {
   builtAt: string;
   durationMs: number;
   scope: IndexScope;
+  /** Whether tool-managed assets (.pi/, .claude agents and skills) were indexed. */
+  toolAssets?: boolean;
   commit: string | null;
   /** Version of the symbol-id scheme; ids from different versions are not comparable. */
   identityVersion: number;
@@ -53,6 +55,7 @@ export function writeManifest(
   input: {
     startedAt: number;
     scope: IndexScope;
+    toolAssets: boolean;
     commit: string | null;
     summarized: number;
     parseErrors: string[];
@@ -63,6 +66,7 @@ export function writeManifest(
     builtAt: new Date().toISOString(),
     durationMs: Date.now() - input.startedAt,
     scope: input.scope,
+    toolAssets: input.toolAssets,
     commit: input.commit,
     identityVersion: SYMBOL_ID_VERSION,
     nodes: countBy(db, 'nodes', 'label'),

@@ -135,4 +135,34 @@ describe('tool-managed assets are left out of the index by default', () => {
     expect(files).toContain('.pi/extensions/mesh.ts');
     expect(files).toContain('.claude/agents/coder.md');
   }, 60_000);
+
+  it('keeps the opt-in across a rebuild that does not restate it, and an explicit false turns it off', async () => {
+    await buildAsync(tmpDir, { force: true, includeToolAssets: true });
+    const db = (): Database.Database =>
+      new Database(join(tmpDir, '.monomind', 'monograph.db'), { readonly: true });
+    const count = (): number => {
+      const d = db();
+      const n = (
+        d.prepare("SELECT COUNT(*) AS n FROM nodes WHERE file_path LIKE '.claude/%'").get() as {
+          n: number;
+        }
+      ).n;
+      d.close();
+      return n;
+    };
+    expect(count()).toBeGreaterThan(0);
+    await buildAsync(tmpDir, { force: true }); // no option: inherits the stored setting
+    expect(count()).toBeGreaterThan(0);
+    const d = db();
+    const manifest = JSON.parse(
+      (d.prepare("SELECT value FROM index_meta WHERE key = 'manifest'").get() as { value: string })
+        .value,
+    );
+    d.close();
+    expect(manifest.toolAssets).toBe(true);
+    await buildAsync(tmpDir, { force: true, includeToolAssets: false });
+    expect(count()).toBe(0);
+    await buildAsync(tmpDir, { force: true });
+    expect(count()).toBe(0);
+  }, 120_000);
 });

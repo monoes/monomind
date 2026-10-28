@@ -7,7 +7,13 @@ import { generateGraphReport } from '../reporting/graph-report.js';
 import { closeDb, openDb } from '../storage/db.js';
 import type { PipelineProgress, SuggestedQuestion } from '../types.js';
 import { acquireBuildLock, type BuildLockHolder, describeBuildLockHolder } from './build-lock.js';
-import { readIndexScope, scopeForOptions, writeIndexScope } from './index-scope.js';
+import {
+  readIndexScope,
+  readToolAssets,
+  scopeForOptions,
+  writeIndexScope,
+  writeToolAssets,
+} from './index-scope.js';
 import { writeManifest } from './manifest.js';
 import { agentRegistryPhase } from './phases/agent-registry.js';
 import { bridgeResolverPhase } from './phases/bridge-resolver.js';
@@ -180,6 +186,9 @@ async function buildAsyncLocked(
     fullOptions.codeOnly = storedScope === 'code';
   }
   const activeScope = scopeForOptions(fullOptions.codeOnly);
+  // Tool-asset indexing is a per-project opt-in kept the same way: an explicit
+  // value wins and is stored, an unstated one inherits the stored setting.
+  fullOptions.includeToolAssets = options.includeToolAssets ?? readToolAssets(db) ?? false;
   options.onProgress?.({ phase: 'scope', message: `Index scope: ${activeScope}` });
 
   // The whole build is one SQL transaction: a phase throwing (e.g. issue
@@ -303,9 +312,11 @@ async function buildAsyncLocked(
       new Date().toISOString(),
     );
     writeIndexScope(db, activeScope);
+    writeToolAssets(db, fullOptions.includeToolAssets);
     writeManifest(db, {
       startedAt: buildStartedAt,
       scope: activeScope,
+      toolAssets: fullOptions.includeToolAssets,
       commit: hash ?? null,
       summarized:
         (outputs.get('summaries') as { summarized?: number } | undefined)?.summarized ?? 0,

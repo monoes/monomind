@@ -32,6 +32,27 @@ export function readIndexScope(db: MonographDb): IndexScope | null {
   }
 }
 
+const TOOL_ASSETS_KEY = 'tool_assets';
+
+/** Whether the project opted in to indexing tool-managed assets, or null if never recorded. */
+export function readToolAssets(db: MonographDb): boolean | null {
+  try {
+    const row = db.prepare('SELECT value FROM index_meta WHERE key = ?').get(TOOL_ASSETS_KEY) as
+      | { value: string }
+      | undefined;
+    return row ? row.value === '1' : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeToolAssets(db: MonographDb, on: boolean): void {
+  db.prepare('INSERT OR REPLACE INTO index_meta VALUES (?, ?)').run(
+    TOOL_ASSETS_KEY,
+    on ? '1' : '0',
+  );
+}
+
 export function writeIndexScope(db: MonographDb, scope: IndexScope): void {
   db.prepare('INSERT OR REPLACE INTO index_meta VALUES (?, ?)').run(INDEX_SCOPE_KEY, scope);
 }

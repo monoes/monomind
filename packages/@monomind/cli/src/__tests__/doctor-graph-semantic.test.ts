@@ -3,7 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb } from '@monoes/monograph';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { checkMonographSemantic } from '../commands/doctor-monograph-checks.js';
+import {
+  checkMonographSemantic,
+  readToolAssetsSetting,
+} from '../commands/doctor-monograph-checks.js';
 
 describe('checkMonographSemantic', () => {
   let dir: string;
@@ -64,5 +67,24 @@ describe('checkMonographSemantic', () => {
     expect(r.status).toBe('warn');
     expect(r.fix).toBe('monomind monograph embed');
     expect(r.message).toContain('1/3');
+  });
+});
+
+describe('readToolAssetsSetting', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'doctor-toolassets-'));
+    mkdirSync(join(dir, '.monomind'));
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it('is null without a graph, off by default and on once recorded', () => {
+    expect(readToolAssetsSetting(dir)).toBeNull();
+    openDb(join(dir, '.monomind', 'monograph.db')).close();
+    expect(readToolAssetsSetting(dir)).toBe(false);
+    const db = openDb(join(dir, '.monomind', 'monograph.db'));
+    db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('tool_assets', '1')").run();
+    db.close();
+    expect(readToolAssetsSetting(dir)).toBe(true);
   });
 });
