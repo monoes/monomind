@@ -106,7 +106,10 @@ describe('cleanup after init leaves no config pointing at removed monomind files
     const plan = (preview.data as { plan: CleanupPlanEntry[] }).plan;
     const planned = (rel: string) => plan.find((e) => e.path === rel)?.action;
     expect(planned('.claude/settings.json')).toBe('strip');
-    expect(planned('.codex/config.toml')).toBe('strip');
+    // init wrote .codex/config.toml and nobody edited it: removed whole.
+    expect(plan.find((e) => e.path === '.codex' || e.path === '.codex/config.toml')?.action).toBe(
+      'remove',
+    );
     expect(planned('.kimi-code/mcp.json')).toBe('remove');
     expect(read('.claude/settings.json')).toBe(before);
 
@@ -211,5 +214,57 @@ describe('cleanup after init leaves no config pointing at removed monomind files
     }
     // Everything else monomind installed is still removed.
     expect(fs.existsSync(abs('.monomind'))).toBe(false);
+  }, 120000);
+});
+
+describe('cleanup after init leaves nothing behind (value-review 0.7 #3)', () => {
+  let tmpDir: string;
+  let fakeHome: string;
+  let realHome: string | undefined;
+  const ctx = (flags: Record<string, unknown>): CommandContext =>
+    ({ args: [], flags: { _: [], ...flags }, cwd: tmpDir, interactive: false }) as CommandContext;
+
+  beforeEach(async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-cleanup-zero-'));
+    fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-cleanup-zero-home-'));
+    realHome = process.env.HOME;
+    process.env.HOME = fakeHome;
+    const { execFileSync } = await vi.importActual<typeof import('node:child_process')>(
+      'node:child_process',
+    );
+    execFileSync('git', ['init', '-q'], { cwd: tmpDir });
+  });
+
+  afterEach(async () => {
+    try {
+      const bridge = await import('../src/memory/memory-bridge.js');
+      await bridge.shutdownBridge();
+    } catch {}
+    process.env.HOME = realHome;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(fakeHome, { recursive: true, force: true });
+  });
+
+  const listFiles = (rel = ''): string[] => {
+    const out: string[] = [];
+    for (const e of fs.readdirSync(path.join(tmpDir, rel), { withFileTypes: true })) {
+      if (e.name === '.git') continue;
+      const child = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) out.push(...listFiles(child));
+      else out.push(child);
+    }
+    return out;
+  };
+
+  it('--all-platforms init then cleanup --force --purge-data removes every file init wrote', async () => {
+    const init = await initCommand.action!(
+      ctx({ force: true, 'no-watch': true, 'no-start-all': true, 'all-platforms': true }),
+    );
+    expect(init.success, JSON.stringify(init)).toBe(true);
+    expect(listFiles().length).toBeGreaterThan(50);
+    const res = await cleanupCommand.action!(ctx({ force: true, 'purge-data': true }));
+    expect(res.success).toBe(true);
+    expect(listFiles()).toEqual([]);
+    expect(fs.readdirSync(tmpDir)).toEqual(['.git']);
   }, 120000);
 });

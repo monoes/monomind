@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -90,8 +90,13 @@ describe('copilot hook wiring', () => {
       created: { directories: [], files: [] as string[] },
       skipped: [] as string[],
     });
+    // No Copilot/Hermes signal: nothing is written.
+    const none = mk();
+    writeCopilotMeshHooks(root, {} as never, none as never);
+    expect(none.created.files).toEqual([]);
+    expect(existsSync(join(root, '.github'))).toBe(false);
     const first = mk();
-    writeCopilotMeshHooks(root, {} as never, first as never);
+    writeCopilotMeshHooks(root, { selectedPlatforms: ['copilot'] } as never, first as never);
     expect(first.created.files).toEqual([
       '.github/hooks/monomind-mesh.cjs',
       '.github/hooks/monomind-mesh.json',

@@ -19,6 +19,22 @@ import type { MCPTool } from './mcp-tools/types.js';
  */
 export const FULL_ROSTER = process.env.MONOMIND_MCP_FULL === '1';
 
+/**
+ * Lean profile (MONOMIND_MCP_PROFILE=lean): advertise only code-graph navigation, picking and
+ * hidden-tool discovery. Every other core tool stays callable by name and is found through
+ * monomind_tool_search, exactly like the non-core ones. MONOMIND_MCP_FULL=1 wins over it.
+ */
+export const LEAN_ROSTER = process.env.MONOMIND_MCP_PROFILE === 'lean' && !FULL_ROSTER;
+
+export const LEAN_ADVERTISED_TOOLS = new Set([
+  'monograph_query',
+  'monograph_brief',
+  'monograph_impact',
+  'monograph_context',
+  'pick',
+  'monomind_tool_search',
+]);
+
 export const CORE_ADVERTISED_TOOLS = new Set([
   // monograph: code-graph navigation
   'monograph_build',
@@ -54,7 +70,7 @@ export const CORE_ADVERTISED_TOOLS = new Set([
 export const CORE_TOOL_CATEGORIES = new Set([...CORE_ADVERTISED_TOOLS].map(categoryFromToolName));
 
 export function isCoreAdvertised(tool: MCPTool): boolean {
-  return CORE_ADVERTISED_TOOLS.has(tool.name);
+  return (LEAN_ROSTER ? LEAN_ADVERTISED_TOOLS : CORE_ADVERTISED_TOOLS).has(tool.name);
 }
 
 let _coreLoaded = false;

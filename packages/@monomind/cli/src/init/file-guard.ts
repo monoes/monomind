@@ -66,6 +66,29 @@ export interface FileGuardOptions {
   ifMissing?: boolean;
 }
 
+/**
+ * Files init creates or merges into without going through `write()`. When init
+ * itself created one (absent at the start of the run), or merged into an
+ * untouched copy of its own earlier output, `finalize` records its hash, so
+ * `cleanup` can prove an unedited one is ours and remove it whole instead of
+ * leaving a shell behind. A file that predates init is never recorded.
+ */
+export const MERGE_TARGETS: readonly string[] = [
+  '.claude/settings.json',
+  '.claude/helpers/skill-registry.json',
+  '.gemini/settings.json',
+  '.codex/config.toml',
+  '.agents/hooks.json',
+  '.github/hooks/monomind-mesh.cjs',
+  '.github/hooks/monomind-mesh.json',
+  '.pi/extensions/monomind-mesh.ts',
+  '.kilo/plugin/monomind-mesh.js',
+  '.mcp.json',
+  '.kimi-code/mcp.json',
+  'opencode.json',
+  '.gitignore',
+];
+
 export type GuardOutcome = 'written' | 'unchanged' | 'kept';
 
 export class FileGuard {
@@ -85,6 +108,8 @@ export class FileGuard {
   private readonly files: Record<string, string>;
   private readonly blocks: Record<string, string>;
   private readonly touched = new Set<string>();
+  /** sha256 of each merge target at construction, or null when it was absent. */
+  private readonly preMerge = new Map<string, string | null>();
 
   constructor(
     readonly targetDir: string,
@@ -94,6 +119,13 @@ export class FileGuard {
     this.files = { ...(manifest?.files ?? {}) };
     this.blocks = { ...(manifest?.blocks ?? {}) };
     this.backupDir = path.join(targetDir, '.monomind', 'backups', `${Date.now()}-${process.pid}`);
+    for (const rel of MERGE_TARGETS) {
+      try {
+        this.preMerge.set(rel, sha256(fs.readFileSync(path.join(targetDir, rel))));
+      } catch {
+        this.preMerge.set(rel, null);
+      }
+    }
   }
 
   private rel(file: string): string {
@@ -242,6 +274,9 @@ export class FileGuard {
 
   /** Record hashes for what was written; call once every writer has run. */
   finalize(): void {
+    for (const [rel, before] of this.preMerge) {
+      if (before === null || before === this.files[rel]) this.touched.add(rel);
+    }
     for (const rel of this.touched) {
       const file = path.join(this.targetDir, rel);
       if (fs.existsSync(file)) this.files[rel] = sha256(fs.readFileSync(file));
@@ -285,6 +320,11 @@ export function finalizeGuard(result: InitResult): void {
   if (guard.skippedExisting.length) {
     result.skipped = [...result.skipped, ...guard.skippedExisting];
   }
+}
+
+/** Re-record the hashes after a step that ran once the run had finalized (the deferred doctor pass). */
+export function rehashGuard(result: InitResult): void {
+  guards.get(result)?.finalize();
 }
 
 /**
