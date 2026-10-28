@@ -74,34 +74,34 @@ describe('mcpLookalikes', () => {
 });
 
 describe('checkSupplyChain', () => {
-  it('passes on a clean project', () => {
-    expect(checkSupplyChain(newRoot()).status).toBe('pass');
+  it("passes on a clean project", async () => {
+    expect((await checkSupplyChain(newRoot())).status).toBe('pass');
   });
 
   it('fails, naming the file, when a projected approved skill was edited', async () => {
     const root = newRoot();
     writeEntry(root, { name: 'cat-lint', targets: ['org', 'platform:claude'] });
     await applyProjection(root, 'platform:claude', { dryRun: false });
-    expect(checkSupplyChain(root).status).toBe('pass');
+    expect((await checkSupplyChain(root)).status).toBe('pass');
     appendFileSync(join(root, '.claude/skills/cat-lint/SKILL.md'), '\nnew instruction\n');
-    const r = checkSupplyChain(root);
+    const r = await checkSupplyChain(root);
     expect(r.status).toBe('fail');
     expect(r.message).toMatch(/\.claude\/skills\/cat-lint\/SKILL\.md changed after approval/);
   });
 
-  it('warns when an installed skill differs from the hash init recorded', () => {
+  it("warns when an installed skill differs from the hash init recorded", async () => {
     const root = mkdtempSync(join(tmpdir(), 'sc-init-'));
     const guard = new FileGuard(root, { replaceUnrecorded: false });
     guard.write(join(root, '.claude/skills/demo/SKILL.md'), 'original');
     guard.finalize();
-    expect(checkSupplyChain(root).status).toBe('pass');
+    expect((await checkSupplyChain(root)).status).toBe('pass');
     writeFileSync(join(root, '.claude/skills/demo/SKILL.md'), 'original + injected');
-    const r = checkSupplyChain(root);
+    const r = await checkSupplyChain(root);
     expect(r.status).toBe('warn');
     expect(r.message).toMatch(/changed since install.*\.claude\/skills\/demo\/SKILL\.md/);
   });
 
-  it('warns on a lookalike MCP server and on an executing git config key', () => {
+  it("warns on a lookalike MCP server and on an executing git config key", async () => {
     const root = mkdtempSync(join(tmpdir(), 'sc-misc-'));
     writeFileSync(
       join(root, '.mcp.json'),
@@ -109,7 +109,7 @@ describe('checkSupplyChain', () => {
     );
     mkdirSync(join(root, '.git'));
     writeFileSync(join(root, '.git/config'), '[core]\n\tfsmonitor = ./w.sh\n');
-    const r = checkSupplyChain(root);
+    const r = await checkSupplyChain(root);
     expect(r.status).toBe('warn');
     expect(r.message).toMatch(/monomlnd/);
     expect(r.message).toMatch(/core\.fsmonitor/);

@@ -137,7 +137,7 @@ function repoConfigPath(root: string): string | undefined {
   }
 }
 
-export function checkSupplyChain(root: string = process.cwd()): HealthCheck {
+export async function checkSupplyChain(root: string = process.cwd()): Promise<HealthCheck> {
   const failures: string[] = [];
   const warnings: string[] = [];
   const fixes: string[] = [];
