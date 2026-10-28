@@ -197,6 +197,239 @@ async function _decidePick(CWD, prompt) {
 }
 
 
+// ── Second Brain injection ──────────────────────────────────────────────────
+// The one advisory that is an exception to MONOMIND_HOOK_QUIET: the excerpts
+// are the content the user asked monomind to put in front of the model, not a
+// banner. Only the excerpt block is printed under QUIET (sbLog); the "no match"
+// and "skipped" notices are advisory and stay on advisoryLog.
+function sbLog(msg) {
+  console.log(msg);
+}
+
+async function _injectSecondBrain(hCtx, CWD, hookInput, prompt) {
+  // ── Second Brain: per-request knowledge injection ──────────────────
+  // When the project has an indexed knowledge base, surface the most
+  // relevant excerpts for THIS prompt so Claude has them without having
+  // to decide to call knowledge_search. Semantic-first via the dashboard
+  // server's warm /api/knowledge/search (it holds the local embedding
+  // model hot — a hook subprocess can't afford a 1-3s model load per
+  // prompt); tokenized keyword scoring over chunks.jsonl as the fallback
+  // when the server is down or still warming.
+  try {
+    var sbPrompt = String(prompt || '');
+    // Skip slash commands and low-content prompts — injection would be
+    // noise. A prompt earns injection only when it carries at least two
+    // substantive terms ("what is next" / "ok go ahead" / "thanks" carry
+    // zero-to-one and must stay quiet; a real question about the project
+    // clears this easily).
+    var _SB_FILLER = new Set(['what', 'whats', 'is', 'are', 'was', 'were', 'the', 'this', 'that', 'these', 'those',
+      'next', 'now', 'then', 'and', 'but', 'for', 'not', 'you', 'your', 'can', 'could', 'should', 'would', 'will',
+      'lets', 'let', 'make', 'made', 'making', 'please', 'okay', 'yes', 'yeah', 'sure', 'thanks', 'thank',
+      'ahead', 'continue', 'proceed', 'more', 'again', 'how', 'why', 'when', 'where', 'who', 'which',
+      'with', 'about', 'from', 'into', 'onto', 'over', 'under', 'all', 'any', 'some', 'one', 'two', 'just',
+      'like', 'want', 'need', 'get', 'got', 'here', 'there', 'still', 'also', 'too', 'very', 'really',
+      'them', 'they', 'their', 'theirs', 'its', 'our', 'ours', 'him', 'her', 'his', 'hers',
+      'order', 'done', 'doing', 'did', 'does', 'goes', 'going', 'went', 'come', 'came', 'good', 'great', 'nice', 'fine']);
+    var _sbSubstantive = sbPrompt.toLowerCase().split(/[^a-z0-9]+/).filter(function(t) {
+      return t.length >= 3 && !_SB_FILLER.has(t);
+    });
+    if (_sbSubstantive.length >= 2 && sbPrompt.charAt(0) !== '/') {
+      // Gate on ANY knowledge, resolved from the nearest enclosing project.
+      //
+      // This used to require CWD/.monomind/knowledge/chunks.jsonl, which is
+      // written ONLY by the monograph god-node injector — so a user who ran
+      // `doc ingest ./docs` and populated the real document store (the
+      // corpus the warm endpoint below actually serves) got zero injection
+      // unless they also happened to have a monograph DB. doc-metadata.jsonl
+      // is the marker for that store; either one means there is knowledge
+      // worth searching. The upward walk matches the CLI, which keys the
+      // store to the project root, so a session started in a package
+      // subdirectory still finds its brain.
+      var sbRoot = null;
+      var sbProbe = CWD;
+      for (var _sbUp = 0; _sbUp < 8; _sbUp++) {
+        var _sbK = path.join(sbProbe, '.monomind', 'knowledge');
+        if (fs.existsSync(path.join(_sbK, 'chunks.jsonl')) || fs.existsSync(path.join(_sbK, 'doc-metadata.jsonl'))) { sbRoot = sbProbe; break; }
+        var _sbParent = path.dirname(sbProbe);
+        if (_sbParent === sbProbe) break;
+        sbProbe = _sbParent;
+      }
+      var sbKnowledgeDir = sbRoot && path.join(sbRoot, '.monomind', 'knowledge');
+      if (sbRoot) {
+        var sbHits = null;
+        var sbMethod = 'keyword';
+        // Which corpus answered. The two paths are NOT the same corpus and
+        // deliberately so:
+        //   'second-brain'         — the full ingested document store
+        //                            (knowledge:shared in SQLite, superseded
+        //                            versions filtered out server-side).
+        //   'project-instructions' — the keyword fallback over
+        //                            .monomind/knowledge/chunks.jsonl, which
+        //                            _autoIndexKnowledge builds from CLAUDE.md,
+        //                            CLAUDE.local.md, docs/todo.md and monograph
+        //                            god-nodes ONLY. A hook subprocess cannot
+        //                            afford the 1-3s embedding-model load the
+        //                            real store needs, so when the warm server
+        //                            is down this narrower corpus is all that is
+        //                            reachable. It is labelled in the banner
+        //                            rather than passed off as the Second Brain.
+        var sbCorpus = 'project-instructions';
+
+        // Semantic path: warm control-server endpoint (strictly local traffic;
+        // sbAuth is the local dashboard session value from .monomind, same one
+        // every other hook event POST attaches — not a checked-in secret).
+        try {
+          // CWD first, then the resolved project root. CWD-first keeps an
+          // existing working pairing byte-identical; the root fallback is
+          // what stops a subdirectory session from reading no token at all,
+          // silently failing auth and reporting keyword where the warm
+          // server would have answered semantic.
+          var sbCtrlUrl = 'http://localhost:4242';
+          var sbCtrlPid = null;
+          var _sbCfgDirs = sbRoot && sbRoot !== CWD ? [CWD, sbRoot] : [CWD];
+          for (var _sbCi = 0; _sbCi < _sbCfgDirs.length; _sbCi++) {
+            try {
+              var sbCtl = JSON.parse(fs.readFileSync(path.join(_sbCfgDirs[_sbCi], '.monomind', 'control.json'), 'utf-8'));
+              if (sbCtl.url) { sbCtrlUrl = sbCtl.url; sbCtrlPid = sbCtl.pid; break; }
+            } catch (_) {}
+          }
+          // #416: a server whose recorded pid is gone cannot answer — skip
+          // the POST instead of paying its timeout on every prompt. A
+          // missing/0 pid (not yet paired) can't be judged, so it is tried.
+          if (Number.isInteger(sbCtrlPid) && sbCtrlPid > 0) {
+            try { process.kill(sbCtrlPid, 0); } catch (e) {
+              if (!e || e.code !== 'EPERM') throw new Error('control server pid not alive');
+            }
+          }
+          var sbAuth = '';
+          for (var _sbAi = 0; _sbAi < _sbCfgDirs.length; _sbAi++) {
+            try {
+              sbAuth = fs.readFileSync(path.join(_sbCfgDirs[_sbAi], '.monomind', 'dashboard-token'), 'utf-8').trim();
+              if (sbAuth) break;
+            } catch (_) {}
+          }
+          if (!isLoopbackUrl(sbCtrlUrl)) throw new Error('control.json url is not loopback');
+          var sbResp = await fetch(sbCtrlUrl + '/api/knowledge/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-monomind-token': sbAuth },
+            body: JSON.stringify({ query: sbPrompt, namespace: 'knowledge:shared', limit: 3 }),
+            // A warm server answers in well under this; a hung one must
+            // not hold the prompt for long (#416: was 900 ms).
+            signal: AbortSignal.timeout(250),
+          });
+          if (sbResp.ok) {
+            var sbData = await sbResp.json();
+            if (sbData && Array.isArray(sbData.results) && sbData.results.length > 0) {
+              sbHits = sbData.results.map(function(r) {
+                var src = (r.tags || []).find(function(t) { return t.indexOf('src:') === 0; });
+                return { key: r.key, value: r.content, score: r.score, global: !!r.global, metadata: src ? { filePath: src.slice(4) } : {} };
+              });
+              sbMethod = sbData.method === 'semantic' ? 'semantic' : 'keyword';
+              sbCorpus = 'second-brain';
+            }
+          }
+        } catch (_) { /* server down or warming — fall back below */ }
+
+        if (!sbHits) {
+          var sbSearch = hCtx._buildKnowledgeSearchFn(sbKnowledgeDir);
+          sbHits = await hCtx.runWithTimeout(
+            function() { return sbSearch(sbPrompt, { namespace: 'knowledge:shared', limit: 3, minScore: 0.45 }); },
+            'second-brain-inject'
+          );
+        }
+        // Relevance floor: injecting weak matches pollutes every prompt's
+        // context — configurable via .monomind/second-brain.json, default
+        // 0.65 for semantic hits, 0.5 for the noisier keyword fallback.
+        // #416: at the old 0.35 floor, 2 of 27 injected excerpts were
+        // relevant. Semantic scores are gte-modernbert cosine (+0.05 for
+        // project hits, see routes-org-knowledge.mjs), where unrelated
+        // prose in the same repo routinely lands at 0.4–0.6.
+        var sbFloor = sbMethod === 'keyword' ? 0.5 : 0.65;
+        var sbInjectionLimit = 3;
+        try {
+          var sbConf = JSON.parse(fs.readFileSync(path.join(CWD, '.monomind', 'second-brain.json'), 'utf-8'));
+          if (typeof sbConf.relevanceFloor === 'number') sbFloor = sbConf.relevanceFloor;
+          if (typeof sbConf.injectionLimit === 'number' && sbConf.injectionLimit > 0) sbInjectionLimit = sbConf.injectionLimit;
+        } catch (_) {}
+        if (sbHits) sbHits = sbHits.filter(function(h) { return (h.score || 0) >= sbFloor; });
+        // One excerpt by default; a runner-up only rides along when it
+        // scores within 0.03 of the top hit (a genuine tie, not a tail).
+        if (sbHits && sbHits.length > 1) {
+          sbHits.sort(function(a, b) { return (b.score || 0) - (a.score || 0); });
+          var sbTop = sbHits[0].score || 0;
+          sbHits = sbHits.filter(function(h, i) { return i === 0 || sbTop - (h.score || 0) <= 0.03; });
+        }
+        if (sbHits && sbHits.length > sbInjectionLimit) sbHits = sbHits.slice(0, sbInjectionLimit);
+
+        // Telemetry: append one JSONL line per evaluated prompt so the
+        // thresholds above can be tuned from real usage (and misses can
+        // seed the golden-set eval). Prompt text is NOT logged.
+        try {
+          var sbMetricsDir = path.join(CWD, '.monomind', 'metrics');
+          fs.mkdirSync(sbMetricsDir, { recursive: true });
+          var sbMetricsFile = path.join(sbMetricsDir, 'second-brain.jsonl');
+          try {
+            if (fs.existsSync(sbMetricsFile) && fs.statSync(sbMetricsFile).size > 512 * 1024) {
+              var sbOld = fs.readFileSync(sbMetricsFile, 'utf-8').trim().split('\n');
+              fs.writeFileSync(sbMetricsFile, sbOld.slice(-500).join('\n') + '\n', 'utf-8');
+            }
+          } catch (_) {}
+          // Derive store provenance from individual hits: 'project', 'global',
+          // or 'mixed' when both brains contributed. Hits carry a boolean
+          // `global` flag set by the warm endpoint / fallback path above.
+          var _sbStore = 'none';
+          if (sbHits && sbHits.length > 0) {
+            var _sbHasProject = false, _sbHasGlobal = false;
+            for (var _sbSi = 0; _sbSi < sbHits.length; _sbSi++) {
+              if (sbHits[_sbSi].global) _sbHasGlobal = true; else _sbHasProject = true;
+            }
+            _sbStore = _sbHasProject && _sbHasGlobal ? 'mixed' : _sbHasGlobal ? 'global' : 'project';
+          }
+          fs.appendFileSync(sbMetricsFile, JSON.stringify({
+            ts: Date.now(),
+            method: sbMethod,
+            hits: sbHits ? sbHits.length : 0,
+            topScore: sbHits && sbHits[0] ? Number((sbHits[0].score || 0).toFixed(3)) : null,
+            promptLen: sbPrompt.length,
+            terms: _sbSubstantive.length,
+            corpus: sbCorpus,
+            injected: !!(sbHits && sbHits.length > 0),
+            store: _sbStore,
+          }) + '\n', 'utf-8');
+        } catch (_) { /* telemetry never blocks */ }
+
+        if (sbHits && sbHits.length > 0) {
+          var sbSource = sbCorpus === 'second-brain'
+            ? 'the Second Brain document store'
+            : 'project instructions only (CLAUDE.md/todo — Second Brain store unreachable)';
+          var sbLines = ['[SECOND_BRAIN] ' + sbHits.length + ' relevant excerpt(s) (' + sbMethod + ') from ' + sbSource + ':'];
+          for (var sbI = 0; sbI < sbHits.length; sbI++) {
+            var sbH = sbHits[sbI];
+            var sbSrc = (sbH.metadata && sbH.metadata.filePath) ? String(sbH.metadata.filePath).split('/').slice(-2).join('/') : sbH.key;
+            var sbText = String(sbH.value || '').replace(/\s+/g, ' ').slice(0, 160);
+            sbLines.push('  • [' + sbSrc + (sbH.global ? ' · global' : '') + '] ' + sbText);
+          }
+          sbLines.push('  (deeper lookup: mcp__monomind__knowledge_search or `monomind doc search -q "..."`)');
+          sbLog(sbLines.join('\n'));
+        } else {
+          // Ran but found nothing: distinguishable from "never looked" — but
+          // only when the real document store was searched. A miss over the
+          // project-instructions fallback says nothing about the user's
+          // documents and would print on nearly every prompt.
+          if (sbCorpus === 'second-brain') {
+            advisoryLog('[SECOND_BRAIN] no match for this prompt (searched the Second Brain document store)');
+          }
+        }
+      } else if (!_HOOK_QUIET && noticeOncePerSession(CWD, hookInput.session_id || hookInput.sessionId, 'sb-no-store')) {
+        advisoryLog('[SECOND_BRAIN] skipped: no knowledge store in this project (shown once per session)');
+      }
+    } else if (sbPrompt.charAt(0) !== '/'
+        && !_HOOK_QUIET && noticeOncePerSession(CWD, hookInput.session_id || hookInput.sessionId, 'sb-low-content')) {
+      advisoryLog('[SECOND_BRAIN] skipped: low-content prompt (shown once per session)');
+    }
+  } catch (e) { /* non-fatal — knowledge injection must never block a prompt */ }
+}
+
 module.exports = {
   routeDeadlineMs: routeDeadlineMs,
   isLoopbackUrl: isLoopbackUrl,
@@ -251,10 +484,11 @@ module.exports = {
         });
       } catch (e) { /* non-fatal */ }
 
-      // When QUIET: the advisory output is suppressed anyway, so skip ALL the
-      // expensive enrichment below (embedding search, second-brain HTTP, monograph
-      // DB queries, metrics reads, episodes search).
-      if (_HOOK_QUIET) return;
+      // When QUIET: the advisory output is suppressed anyway, so skip the
+      // expensive enrichment below (embedding search, monograph DB queries,
+      // metrics reads, episodes search). Second Brain injection is the one
+      // exception and still runs.
+      if (_HOOK_QUIET) { await _injectSecondBrain(hCtx, CWD, hookInput, prompt); return; }
 
       // ── Intelligence embedding suggestion (SONA/ReasoningBank read path) ──
       // An advisory signal only: its agent labels come from post-task records,
@@ -392,227 +626,7 @@ module.exports = {
       // Skill suggestions are opt-in (MONOMIND_SKILL_AUTO=1) and still respect QUIET.
       if (output.length > 0 && String(process.env.MONOMIND_SKILL_AUTO || '') === '1' && !_HOOK_QUIET) console.log(output.join('\n'));
 
-      // ── Second Brain: per-request knowledge injection ──────────────────
-      // When the project has an indexed knowledge base, surface the most
-      // relevant excerpts for THIS prompt so Claude has them without having
-      // to decide to call knowledge_search. Semantic-first via the dashboard
-      // server's warm /api/knowledge/search (it holds the local embedding
-      // model hot — a hook subprocess can't afford a 1-3s model load per
-      // prompt); tokenized keyword scoring over chunks.jsonl as the fallback
-      // when the server is down or still warming.
-      try {
-        var sbPrompt = String(prompt || '');
-        // Skip slash commands and low-content prompts — injection would be
-        // noise. A prompt earns injection only when it carries at least two
-        // substantive terms ("what is next" / "ok go ahead" / "thanks" carry
-        // zero-to-one and must stay quiet; a real question about the project
-        // clears this easily).
-        var _SB_FILLER = new Set(['what', 'whats', 'is', 'are', 'was', 'were', 'the', 'this', 'that', 'these', 'those',
-          'next', 'now', 'then', 'and', 'but', 'for', 'not', 'you', 'your', 'can', 'could', 'should', 'would', 'will',
-          'lets', 'let', 'make', 'made', 'making', 'please', 'okay', 'yes', 'yeah', 'sure', 'thanks', 'thank',
-          'ahead', 'continue', 'proceed', 'more', 'again', 'how', 'why', 'when', 'where', 'who', 'which',
-          'with', 'about', 'from', 'into', 'onto', 'over', 'under', 'all', 'any', 'some', 'one', 'two', 'just',
-          'like', 'want', 'need', 'get', 'got', 'here', 'there', 'still', 'also', 'too', 'very', 'really',
-          'them', 'they', 'their', 'theirs', 'its', 'our', 'ours', 'him', 'her', 'his', 'hers',
-          'order', 'done', 'doing', 'did', 'does', 'goes', 'going', 'went', 'come', 'came', 'good', 'great', 'nice', 'fine']);
-        var _sbSubstantive = sbPrompt.toLowerCase().split(/[^a-z0-9]+/).filter(function(t) {
-          return t.length >= 3 && !_SB_FILLER.has(t);
-        });
-        if (_sbSubstantive.length >= 2 && sbPrompt.charAt(0) !== '/') {
-          // Gate on ANY knowledge, resolved from the nearest enclosing project.
-          //
-          // This used to require CWD/.monomind/knowledge/chunks.jsonl, which is
-          // written ONLY by the monograph god-node injector — so a user who ran
-          // `doc ingest ./docs` and populated the real document store (the
-          // corpus the warm endpoint below actually serves) got zero injection
-          // unless they also happened to have a monograph DB. doc-metadata.jsonl
-          // is the marker for that store; either one means there is knowledge
-          // worth searching. The upward walk matches the CLI, which keys the
-          // store to the project root, so a session started in a package
-          // subdirectory still finds its brain.
-          var sbRoot = null;
-          var sbProbe = CWD;
-          for (var _sbUp = 0; _sbUp < 8; _sbUp++) {
-            var _sbK = path.join(sbProbe, '.monomind', 'knowledge');
-            if (fs.existsSync(path.join(_sbK, 'chunks.jsonl')) || fs.existsSync(path.join(_sbK, 'doc-metadata.jsonl'))) { sbRoot = sbProbe; break; }
-            var _sbParent = path.dirname(sbProbe);
-            if (_sbParent === sbProbe) break;
-            sbProbe = _sbParent;
-          }
-          var sbKnowledgeDir = sbRoot && path.join(sbRoot, '.monomind', 'knowledge');
-          if (sbRoot) {
-            var sbHits = null;
-            var sbMethod = 'keyword';
-            // Which corpus answered. The two paths are NOT the same corpus and
-            // deliberately so:
-            //   'second-brain'         — the full ingested document store
-            //                            (knowledge:shared in SQLite, superseded
-            //                            versions filtered out server-side).
-            //   'project-instructions' — the keyword fallback over
-            //                            .monomind/knowledge/chunks.jsonl, which
-            //                            _autoIndexKnowledge builds from CLAUDE.md,
-            //                            CLAUDE.local.md, docs/todo.md and monograph
-            //                            god-nodes ONLY. A hook subprocess cannot
-            //                            afford the 1-3s embedding-model load the
-            //                            real store needs, so when the warm server
-            //                            is down this narrower corpus is all that is
-            //                            reachable. It is labelled in the banner
-            //                            rather than passed off as the Second Brain.
-            var sbCorpus = 'project-instructions';
-
-            // Semantic path: warm control-server endpoint (strictly local traffic;
-            // sbAuth is the local dashboard session value from .monomind, same one
-            // every other hook event POST attaches — not a checked-in secret).
-            try {
-              // CWD first, then the resolved project root. CWD-first keeps an
-              // existing working pairing byte-identical; the root fallback is
-              // what stops a subdirectory session from reading no token at all,
-              // silently failing auth and reporting keyword where the warm
-              // server would have answered semantic.
-              var sbCtrlUrl = 'http://localhost:4242';
-              var sbCtrlPid = null;
-              var _sbCfgDirs = sbRoot && sbRoot !== CWD ? [CWD, sbRoot] : [CWD];
-              for (var _sbCi = 0; _sbCi < _sbCfgDirs.length; _sbCi++) {
-                try {
-                  var sbCtl = JSON.parse(fs.readFileSync(path.join(_sbCfgDirs[_sbCi], '.monomind', 'control.json'), 'utf-8'));
-                  if (sbCtl.url) { sbCtrlUrl = sbCtl.url; sbCtrlPid = sbCtl.pid; break; }
-                } catch (_) {}
-              }
-              // #416: a server whose recorded pid is gone cannot answer — skip
-              // the POST instead of paying its timeout on every prompt. A
-              // missing/0 pid (not yet paired) can't be judged, so it is tried.
-              if (Number.isInteger(sbCtrlPid) && sbCtrlPid > 0) {
-                try { process.kill(sbCtrlPid, 0); } catch (e) {
-                  if (!e || e.code !== 'EPERM') throw new Error('control server pid not alive');
-                }
-              }
-              var sbAuth = '';
-              for (var _sbAi = 0; _sbAi < _sbCfgDirs.length; _sbAi++) {
-                try {
-                  sbAuth = fs.readFileSync(path.join(_sbCfgDirs[_sbAi], '.monomind', 'dashboard-token'), 'utf-8').trim();
-                  if (sbAuth) break;
-                } catch (_) {}
-              }
-              if (!isLoopbackUrl(sbCtrlUrl)) throw new Error('control.json url is not loopback');
-              var sbResp = await fetch(sbCtrlUrl + '/api/knowledge/search', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-monomind-token': sbAuth },
-                body: JSON.stringify({ query: sbPrompt, namespace: 'knowledge:shared', limit: 3 }),
-                // A warm server answers in well under this; a hung one must
-                // not hold the prompt for long (#416: was 900 ms).
-                signal: AbortSignal.timeout(250),
-              });
-              if (sbResp.ok) {
-                var sbData = await sbResp.json();
-                if (sbData && Array.isArray(sbData.results) && sbData.results.length > 0) {
-                  sbHits = sbData.results.map(function(r) {
-                    var src = (r.tags || []).find(function(t) { return t.indexOf('src:') === 0; });
-                    return { key: r.key, value: r.content, score: r.score, global: !!r.global, metadata: src ? { filePath: src.slice(4) } : {} };
-                  });
-                  sbMethod = sbData.method === 'semantic' ? 'semantic' : 'keyword';
-                  sbCorpus = 'second-brain';
-                }
-              }
-            } catch (_) { /* server down or warming — fall back below */ }
-
-            if (!sbHits) {
-              var sbSearch = hCtx._buildKnowledgeSearchFn(sbKnowledgeDir);
-              sbHits = await hCtx.runWithTimeout(
-                function() { return sbSearch(sbPrompt, { namespace: 'knowledge:shared', limit: 3, minScore: 0.45 }); },
-                'second-brain-inject'
-              );
-            }
-            // Relevance floor: injecting weak matches pollutes every prompt's
-            // context — configurable via .monomind/second-brain.json, default
-            // 0.65 for semantic hits, 0.5 for the noisier keyword fallback.
-            // #416: at the old 0.35 floor, 2 of 27 injected excerpts were
-            // relevant. Semantic scores are gte-modernbert cosine (+0.05 for
-            // project hits, see routes-org-knowledge.mjs), where unrelated
-            // prose in the same repo routinely lands at 0.4–0.6.
-            var sbFloor = sbMethod === 'keyword' ? 0.5 : 0.65;
-            var sbInjectionLimit = 3;
-            try {
-              var sbConf = JSON.parse(fs.readFileSync(path.join(CWD, '.monomind', 'second-brain.json'), 'utf-8'));
-              if (typeof sbConf.relevanceFloor === 'number') sbFloor = sbConf.relevanceFloor;
-              if (typeof sbConf.injectionLimit === 'number' && sbConf.injectionLimit > 0) sbInjectionLimit = sbConf.injectionLimit;
-            } catch (_) {}
-            if (sbHits) sbHits = sbHits.filter(function(h) { return (h.score || 0) >= sbFloor; });
-            // One excerpt by default; a runner-up only rides along when it
-            // scores within 0.03 of the top hit (a genuine tie, not a tail).
-            if (sbHits && sbHits.length > 1) {
-              sbHits.sort(function(a, b) { return (b.score || 0) - (a.score || 0); });
-              var sbTop = sbHits[0].score || 0;
-              sbHits = sbHits.filter(function(h, i) { return i === 0 || sbTop - (h.score || 0) <= 0.03; });
-            }
-            if (sbHits && sbHits.length > sbInjectionLimit) sbHits = sbHits.slice(0, sbInjectionLimit);
-
-            // Telemetry: append one JSONL line per evaluated prompt so the
-            // thresholds above can be tuned from real usage (and misses can
-            // seed the golden-set eval). Prompt text is NOT logged.
-            try {
-              var sbMetricsDir = path.join(CWD, '.monomind', 'metrics');
-              fs.mkdirSync(sbMetricsDir, { recursive: true });
-              var sbMetricsFile = path.join(sbMetricsDir, 'second-brain.jsonl');
-              try {
-                if (fs.existsSync(sbMetricsFile) && fs.statSync(sbMetricsFile).size > 512 * 1024) {
-                  var sbOld = fs.readFileSync(sbMetricsFile, 'utf-8').trim().split('\n');
-                  fs.writeFileSync(sbMetricsFile, sbOld.slice(-500).join('\n') + '\n', 'utf-8');
-                }
-              } catch (_) {}
-              // Derive store provenance from individual hits: 'project', 'global',
-              // or 'mixed' when both brains contributed. Hits carry a boolean
-              // `global` flag set by the warm endpoint / fallback path above.
-              var _sbStore = 'none';
-              if (sbHits && sbHits.length > 0) {
-                var _sbHasProject = false, _sbHasGlobal = false;
-                for (var _sbSi = 0; _sbSi < sbHits.length; _sbSi++) {
-                  if (sbHits[_sbSi].global) _sbHasGlobal = true; else _sbHasProject = true;
-                }
-                _sbStore = _sbHasProject && _sbHasGlobal ? 'mixed' : _sbHasGlobal ? 'global' : 'project';
-              }
-              fs.appendFileSync(sbMetricsFile, JSON.stringify({
-                ts: Date.now(),
-                method: sbMethod,
-                hits: sbHits ? sbHits.length : 0,
-                topScore: sbHits && sbHits[0] ? Number((sbHits[0].score || 0).toFixed(3)) : null,
-                promptLen: sbPrompt.length,
-                terms: _sbSubstantive.length,
-                corpus: sbCorpus,
-                injected: !!(sbHits && sbHits.length > 0),
-                store: _sbStore,
-              }) + '\n', 'utf-8');
-            } catch (_) { /* telemetry never blocks */ }
-
-            if (sbHits && sbHits.length > 0) {
-              var sbSource = sbCorpus === 'second-brain'
-                ? 'the Second Brain document store'
-                : 'project instructions only (CLAUDE.md/todo — Second Brain store unreachable)';
-              var sbLines = ['[SECOND_BRAIN] ' + sbHits.length + ' relevant excerpt(s) (' + sbMethod + ') from ' + sbSource + ':'];
-              for (var sbI = 0; sbI < sbHits.length; sbI++) {
-                var sbH = sbHits[sbI];
-                var sbSrc = (sbH.metadata && sbH.metadata.filePath) ? String(sbH.metadata.filePath).split('/').slice(-2).join('/') : sbH.key;
-                var sbText = String(sbH.value || '').replace(/\s+/g, ' ').slice(0, 160);
-                sbLines.push('  • [' + sbSrc + (sbH.global ? ' · global' : '') + '] ' + sbText);
-              }
-              sbLines.push('  (deeper lookup: mcp__monomind__knowledge_search or `monomind doc search -q "..."`)');
-              advisoryLog(sbLines.join('\n'));
-            } else {
-              // Ran but found nothing: distinguishable from "never looked" — but
-              // only when the real document store was searched. A miss over the
-              // project-instructions fallback says nothing about the user's
-              // documents and would print on nearly every prompt.
-              if (sbCorpus === 'second-brain') {
-                advisoryLog('[SECOND_BRAIN] no match for this prompt (searched the Second Brain document store)');
-              }
-            }
-          } else if (noticeOncePerSession(CWD, hookInput.session_id || hookInput.sessionId, 'sb-no-store')) {
-            advisoryLog('[SECOND_BRAIN] skipped: no knowledge store in this project (shown once per session)');
-          }
-        } else if (sbPrompt.charAt(0) !== '/'
-            && noticeOncePerSession(CWD, hookInput.session_id || hookInput.sessionId, 'sb-low-content')) {
-          advisoryLog('[SECOND_BRAIN] skipped: low-content prompt (shown once per session)');
-        }
-      } catch (e) { /* non-fatal — knowledge injection must never block a prompt */ }
+      await _injectSecondBrain(hCtx, CWD, hookInput, prompt);
 
       // Record any decision markers in this prompt (auto-ADR pipeline).
       try { hCtx._recordDecisionMarkers(prompt); } catch (e) {}

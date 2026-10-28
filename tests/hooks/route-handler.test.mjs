@@ -610,6 +610,59 @@ describe('route-handler second-brain gate', () => {
     expect(out).toContain('[SECOND_BRAIN] 2 relevant excerpt(s)');
     expect(out).not.toContain('excerpt c');
   });
+
+  describe('under MONOMIND_HOOK_QUIET=1 (exception: injection is always active)', () => {
+    beforeEach(() => { process.env.MONOMIND_HOOK_QUIET = '1'; });
+
+    it('still delivers a relevant excerpt from the real store', async () => {
+      writeControl(tmpDir, { url: 'http://127.0.0.1:4242', pid: process.pid });
+      writeKnowledge(tmpDir, 'doc-metadata.jsonl');
+      const out = await runCaptured(serve([hit('a', 0.82)]));
+      expect(out).toContain('[SECOND_BRAIN] 1 relevant excerpt(s)');
+      expect(out).toContain('excerpt a');
+      expect(lastTelemetry(tmpDir)).toMatchObject({ injected: true, hits: 1 });
+    });
+
+    it('keeps the relevance floor: weak hits inject nothing and print no no-match line', async () => {
+      writeControl(tmpDir, { url: 'http://127.0.0.1:4242', pid: process.pid });
+      writeKnowledge(tmpDir, 'doc-metadata.jsonl');
+      const out = await runCaptured(serve([hit('a', 0.6)]));
+      expect(out).not.toContain('[SECOND_BRAIN]');
+      expect(lastTelemetry(tmpDir)).toMatchObject({ injected: false, hits: 0 });
+    });
+
+    it('stays silent about a missing store and does not burn the once-per-session notice', async () => {
+      const run = async () => {
+        const lines = [];
+        vi.spyOn(console, 'log').mockImplementation((...a) => lines.push(a.join(' ')));
+        await loadRH().handle(
+          makeHCtx({
+            prompt: PROMPT,
+            hookInput: { session_id: 'sess-q' },
+            router: router(),
+            _buildKnowledgeSearchFn: searchFn(),
+          }),
+        );
+        vi.restoreAllMocks();
+        return lines.join('\n');
+      };
+      expect(await run()).not.toContain('[SECOND_BRAIN]');
+      delete process.env.MONOMIND_HOOK_QUIET;
+      expect(await run()).toContain('[SECOND_BRAIN] skipped: no knowledge store');
+    });
+
+    it('does not run the rest of the enrichment (budget, banners)', async () => {
+      writeControl(tmpDir, { url: 'http://127.0.0.1:4242', pid: process.pid });
+      writeKnowledge(tmpDir, 'doc-metadata.jsonl');
+      const budget = vi.fn(() => null);
+      const lines = [];
+      vi.spyOn(console, 'log').mockImplementation((...a) => lines.push(a.join(' ')));
+      vi.stubGlobal('fetch', serve([hit('a', 0.9)]));
+      await loadRH().handle(makeHCtx({ prompt: PROMPT, router: router(), _buildKnowledgeSearchFn: searchFn(), _getBudgetStatus: budget }));
+      vi.unstubAllGlobals();
+      expect(budget).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('route-handler isLoopbackUrl', () => {
