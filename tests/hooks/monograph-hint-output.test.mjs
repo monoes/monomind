@@ -236,6 +236,26 @@ describe('graph gate is a one-time nudge, never a block (#413)', () => {
     expect(r.stdout).toBe('');
   });
 
+  it('still nudges under MONOMIND_HOOK_QUIET=1 (init default): QUIET silences the terminal, not additionalContext', () => {
+    freshGraphProject();
+    const env = { ...process.env, CLAUDE_PROJECT_DIR: tmp, MONOMIND_HOOK_QUIET: '1' };
+    delete env.MONOMIND_SDK_AGENT;
+    delete env.MONOMIND_GRAPH_GATE;
+    const run = (cmd, input) =>
+      spawnSync(process.execPath, [HANDLER, cmd], {
+        cwd: tmp, env, input: JSON.stringify(input), encoding: 'utf-8', timeout: 15000,
+      });
+    const bash = run('pre-bash', {
+      session_id: 'q1', tool_name: 'Bash', tool_input: { command: 'grep -rn "noSuchSymbolAnywhere" src' },
+    });
+    expect(bash.status).toBe(0);
+    expect(JSON.parse(bash.stdout).hookSpecificOutput.additionalContext).toContain('[MONOGRAPH_REMINDER]');
+    const search = run('pre-search', {
+      session_id: 'q2', tool_name: 'Grep', tool_input: { pattern: 'noSuchSymbolAnywhere', path: 'src' },
+    });
+    expect(JSON.parse(search.stdout).hookSpecificOutput.additionalContext).toContain('[MONOGRAPH_REMINDER]');
+  });
+
   it('does not nudge when the graph is empty', () => {
     freshGraphProject();
     const { DatabaseSync } = require('node:sqlite');
