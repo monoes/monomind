@@ -45,50 +45,6 @@ function makeHCtx(overrides = {}) {
   };
 }
 
-// ── consolidation lock ─────────────────────────────────────────────────────────
-
-describe('session-handler consolidation lock', () => {
-  it('skips consolidation when lock file exists', async () => {
-    const sh = loadSH();
-    const lockPath = path.join(tmpDir, '.monomind', 'consolidation.lock');
-    fs.writeFileSync(lockPath, '1', 'utf-8');
-    const mockConsolidate = vi.fn();
-    const hCtx = makeHCtx({
-      intelligence: { consolidate: mockConsolidate },
-    });
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    await sh.handleEnd(hCtx);
-    expect(mockConsolidate).not.toHaveBeenCalled();
-    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
-    expect(output).toContain('daemon holds lock');
-  });
-
-  it('calls consolidation when no lock file', async () => {
-    const sh = loadSH();
-    const mockConsolidate = vi.fn().mockResolvedValue({ entries: 0, edges: 0, newEntries: 0 });
-    const hCtx = makeHCtx({
-      intelligence: { consolidate: mockConsolidate },
-    });
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await sh.handleEnd(hCtx);
-    expect(mockConsolidate).toHaveBeenCalled();
-  });
-
-  it('logs consolidated count when entries > 0', async () => {
-    const sh = loadSH();
-    const hCtx = makeHCtx({
-      intelligence: {
-        consolidate: vi.fn().mockResolvedValue({ entries: 5, edges: 3, newEntries: 2 }),
-        feedback: vi.fn(),
-      },
-    });
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    await sh.handleEnd(hCtx);
-    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
-    expect(output).toContain('Consolidated: 5 entries');
-  });
-});
-
 // ── session.end() ──────────────────────────────────────────────────────────────
 
 describe('session-handler session end', () => {
@@ -212,36 +168,5 @@ describe('session-handler routing feedback', () => {
     await sh.handleEnd(hCtx);
     const feedbackFile = path.join(tmpDir, '.monomind', 'routing-feedback.jsonl');
     expect(fs.existsSync(feedbackFile)).toBe(false);
-  });
-
-  it('sessionSuccess=false when majority of outcomes are failures', async () => {
-    const sh = loadSH();
-    const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
-    fs.writeFileSync(
-      routeFile,
-      JSON.stringify({ agent: 'coder', confidence: 0.7, sessionId: 'sess-1' }),
-      'utf-8',
-    );
-
-    // Write mostly-failure outcomes within 30-minute window
-    fs.mkdirSync(path.join(tmpDir, '.monomind', 'data'), { recursive: true });
-    const outcomesFile = path.join(tmpDir, '.monomind', 'data', 'intelligence-outcomes.jsonl');
-    const now = Date.now();
-    const lines = `${[
-      JSON.stringify({ ts: now - 1000, success: false }),
-      JSON.stringify({ ts: now - 2000, success: false }),
-      JSON.stringify({ ts: now - 3000, success: true }),
-    ].join('\n')}\n`;
-    fs.writeFileSync(outcomesFile, lines, 'utf-8');
-
-    const mockFeedback = vi.fn();
-    const hCtx = makeHCtx({
-      hookInput: { sessionId: 'sess-1' },
-      intelligence: { feedback: mockFeedback },
-    });
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await sh.handleEnd(hCtx);
-    // sessionSuccess should be false — majority (2/3) are failures
-    expect(mockFeedback).toHaveBeenCalledWith(false);
   });
 });

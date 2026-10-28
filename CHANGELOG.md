@@ -4,6 +4,14 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Changed
+
+- **Second Brain excerpts reach the model under `MONOMIND_HOOK_QUIET=1`.** Quiet mode (what `init` writes) returned right after the `[PICK]` line, so the per-prompt Second Brain injection never ran. It is now an exception: under quiet mode the relevance floors, telemetry and the excerpt block are unchanged, while the "no match" and "skipped" notices and the other advisory banners stay quiet (and a quiet run does not use up the once-per-session notice).
+
+### Removed
+
+- **`.claude/helpers/intelligence.cjs` and `router.cjs`, and the `hook-handler.cjs stats` command.** Nothing used `router.cjs` (the prompt hook's pick ranks the agent and skill catalogs). `intelligence.cjs` fed `auto-memory-store.json`, `ranked-context.json`, `pending-insights.jsonl` and `intelligence-outcomes.jsonl`; the compact, session, edit, task and capture handlers no longer call it. Session-end success is now derived only from a commit in the last 30 minutes. `init` and `init upgrade` retire both files (and the `.gemini/helpers` copies) the way they retire the monoswarm files: moved to `.monomind/backups/<run>/retired/files/` when unmodified, kept with a warning when edited. `/mastermind:specialagents` lists categories and agents from `.claude/agents` and activates an agent by reading its file, since the `router.cjs --load-agent` and `hook-handler.cjs list-extras` calls it relied on did not exist.
+
 ## [2.29.0] — 2026-10-26
 
 ### Added

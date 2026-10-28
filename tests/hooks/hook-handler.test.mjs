@@ -153,17 +153,25 @@ describe('hook-handler.cjs route — slash commands', () => {
   });
 });
 
-// #430: the prompt hook's pick is the only agent selector; the hooks no longer
-// load router.cjs (its agent table is gone and matchSkills predates the catalogs).
-describe('hook-handler.cjs does not load router.cjs', () => {
-  it('neither the dispatcher nor any handler requires router.cjs or reads hCtx.router', () => {
+// #430: the prompt hook's pick is the only agent selector; router.cjs and
+// intelligence.cjs are gone, and nothing may load them or read them off hCtx.
+describe('hook-handler.cjs does not load router.cjs or intelligence.cjs', () => {
+  it('the files are gone', () => {
+    const helpers = path.dirname(HANDLER);
+    expect(fs.existsSync(path.join(helpers, 'router.cjs'))).toBe(false);
+    expect(fs.existsSync(path.join(helpers, 'intelligence.cjs'))).toBe(false);
+  });
+
+  it('neither the dispatcher nor any handler requires them or reads hCtx.router/intelligence', () => {
     const helpers = path.dirname(HANDLER);
     const handlers = path.join(helpers, 'handlers');
     const files = [HANDLER, ...fs.readdirSync(handlers).map((f) => path.join(handlers, f))];
     for (const f of files.filter((p) => p.endsWith('.cjs'))) {
       const src = fs.readFileSync(f, 'utf-8');
       expect(src, f).not.toMatch(/require\([^)]*router\.cjs/);
+      expect(src, f).not.toMatch(/require\([^)]*intelligence\.cjs/);
       expect(src, f).not.toMatch(/hCtx\.router\b/);
+      expect(src, f).not.toMatch(/hCtx\.intelligence\b/);
       expect(src, f).not.toMatch(/^\s*router: router/m);
     }
   });

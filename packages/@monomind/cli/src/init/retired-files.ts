@@ -42,6 +42,7 @@ export function bodyHash(text: string): string {
   return contentHash(body.trim());
 }
 
+const isHelperScript = (rel: string): boolean => /^\.(claude|gemini)\/helpers\//.test(rel);
 const DERIVED_TREE = /^\.(kimi-code|opencode|agents|gemini)\//;
 const bodyHashes = new Set(RETIRED_BODY_HASHES);
 
@@ -93,7 +94,9 @@ export function retireRemovedFiles(
     if (!isShippedCopy(rel, text)) {
       result.warnings = [
         ...(result.warnings ?? []),
-        `${rel} was removed in 2.22.0 (monoswarm/autopilot, #418) but you edited it, so it was kept. It refers to tools that no longer exist: delete it or rewrite it for the Task tool / \`monomind org run\`.`,
+        isHelperScript(rel)
+          ? `${rel} is no longer shipped (nothing loads it any more) but you edited it, so it was kept. Delete it unless you still use it.`
+          : `${rel} was removed in 2.22.0 (monoswarm/autopilot, #418) but you edited it, so it was kept. It refers to tools that no longer exist: delete it or rewrite it for the Task tool / \`monomind org run\`.`,
       ];
       continue;
     }

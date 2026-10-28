@@ -334,9 +334,8 @@ The lean build records trajectories and outcomes rather than training a neural m
 During `session-end` and `consolidate`:
 
 - **Trajectory + outcome logging** — steps and trajectories are recorded (`intelligence.ts`); command and route outcomes are tracked (`command-outcomes.ts`, `route-outcomes.ts`)
-- **Consolidation** — successful outcomes become entries in `.monomind/data/auto-memory-store.json`; entries with the same summary or the same file set as an existing one are skipped, the store is capped at 200 entries, and the outcome log keeps its last 500 lines
 
-Consolidation is `consolidate()` in `.claude/helpers/intelligence.cjs`, run by the session-end and pre-compact hooks. There is no `learning` or `patterns` background worker; the <!-- doc-count:workers -->9<!-- /doc-count:workers --> workers are listed by `monomind hooks worker list`.
+The hook helpers no longer consolidate outcomes into `auto-memory-store.json` (`intelligence.cjs` was removed). There is no `learning` or `patterns` background worker; the <!-- doc-count:workers -->9<!-- /doc-count:workers --> workers are listed by `monomind hooks worker list`.
 
 ---
 

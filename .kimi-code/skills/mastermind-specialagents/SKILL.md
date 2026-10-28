@@ -30,10 +30,10 @@ Activate a specialist agent persona. Three modes:
 
 Run:
 ```bash
-node "${CLAUDE_PROJECT_DIR:-$(pwd)}/.claude/helpers/hook-handler.cjs" list-extras 2>/dev/null
+find "${CLAUDE_PROJECT_DIR:-$(pwd)}/.claude/agents" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort
 ```
 
-Parse the output. Extract the category names (lines like `=== ACADEMIC ===` → `academic`). Display them as a numbered list:
+Each line is a category (the agent folders under `.claude/agents`). Display them as a numbered list:
 
 ```
 Available agent categories:
@@ -58,10 +58,10 @@ Map the user's reply to the lowercase category slug (e.g. "1" → `academic`, "P
 
 Run:
 ```bash
-node "${CLAUDE_PROJECT_DIR:-$(pwd)}/.claude/helpers/hook-handler.cjs" list-extras <category> 2>/dev/null
+grep -rH -m1 '^description:' "${CLAUDE_PROJECT_DIR:-$(pwd)}/.claude/agents/<category>" --include='*.md'
 ```
 
-Parse the agents listed. Display them numbered:
+Each line is `<path>:description: <text>`; the slug is the file name without `.md`. Display them numbered:
 
 ```
 Agents in <category>:
@@ -87,7 +87,7 @@ Jump to **Step 4: Activate**.
 
 Run:
 ```bash
-node "${CLAUDE_PROJECT_DIR:-$(pwd)}/.claude/helpers/hook-handler.cjs" list-extras 2>/dev/null
+find "${CLAUDE_PROJECT_DIR:-$(pwd)}/.claude/agents" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort
 ```
 
 Read the full output. Based on the current conversation context (the user's request, task description, or recent messages), decide which **category** is the best fit. Do not ask the user — choose silently.
@@ -96,7 +96,7 @@ Read the full output. Based on the current conversation context (the user's requ
 
 Run:
 ```bash
-node "${CLAUDE_PROJECT_DIR:-$(pwd)}/.claude/helpers/hook-handler.cjs" list-extras <chosen-category> 2>/dev/null
+grep -rH -m1 '^description:' "${CLAUDE_PROJECT_DIR:-$(pwd)}/.claude/agents/<chosen-category>" --include='*.md'
 ```
 
 Read the agent list. Based on the same conversation context, decide which **agent** is the best fit. Do not ask the user — choose silently.
@@ -112,10 +112,10 @@ Jump to **Step 4: Activate**.
 
 Run:
 ```bash
-node "${CLAUDE_PROJECT_DIR:-$(pwd)}/.claude/helpers/router.cjs" --load-agent "<slug>" 2>/dev/null
+find "${CLAUDE_PROJECT_DIR:-$(pwd)}/.claude/agents" -type f -name "<slug>.md"
 ```
 
-Read the output. It will contain the agent's persona definition, capabilities, and behavioral rules.
+Read the file it prints (with the Read tool). It contains the agent's persona definition, capabilities, and behavioral rules.
 
 **Adopt the agent identity fully:**
 - Introduce yourself in the agent's voice: name, specialty, how you can help.
@@ -123,4 +123,4 @@ Read the output. It will contain the agent's persona definition, capabilities, a
 - If the agent definition includes example openers or greetings, use one.
 - Remain in character unless the user explicitly asks to switch agents or end the session.
 
-If `router.cjs` returns an error or empty output, say: "Could not load agent `<slug>`. Run `/mastermind:specialagents` to browse available agents."
+If `find` prints nothing, say: "Could not load agent `<slug>`. Run `/mastermind:specialagents` to browse available agents."

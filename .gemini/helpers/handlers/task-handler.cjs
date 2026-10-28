@@ -42,7 +42,6 @@ module.exports = {
   handlePostTask: async function(hCtx) {
     var hookInput = hCtx.hookInput;
     var prompt = hCtx.prompt;
-    var intelligence = hCtx.intelligence;
     var CWD = hCtx.CWD;
 
     var taskSuccess = hookInput.success !== false && hookInput.status !== 'failed';
@@ -50,11 +49,6 @@ module.exports = {
     // older/other payload shapes.
     var completedAgent = String(hookInput.agent_type || hookInput.subagent_type || hookInput.agentType
       || hookInput.agentSlug || hookInput.agent_slug || '').slice(0, 128) || 'unknown';
-    if (intelligence && intelligence.feedback) {
-      try {
-        intelligence.feedback(taskSuccess);
-      } catch (e) { /* non-fatal */ }
-    }
     // Each TeammateIdle/TaskCompleted = one agent done → remove its registration.
     const regDir = path.join(CWD, '.monomind', 'agents', 'registrations');
     try {
@@ -178,22 +172,6 @@ module.exports = {
         }
       }
     } catch (e) { /* non-fatal */ }
-
-    // Record whether this task's outcome matched a recalled memory pattern,
-    // so future pattern recall can be scored for usefulness.
-    try {
-      var intelligence = hCtx.intelligence;
-      if (intelligence && intelligence.recordMemoryDecision) {
-        var agentSlug = completedAgent;
-        var taskDesc = typeof prompt === 'string' ? prompt : hookInput.description || '';
-        await Promise.resolve(intelligence.recordMemoryDecision({
-          taskDescription: taskDesc.substring(0, 200),
-          agent: agentSlug,
-          success: taskSuccess,
-          latencyMs: hookInput.latencyMs || hookInput.latency_ms || 0,
-        }));
-      }
-    } catch (e) { /* non-fatal — LOG is advisory */ }
 
     // ── ADR Auto-Generation ────────────────────────────────────────────────
     // When adr.autoGenerate is true and task involved architect-level work,

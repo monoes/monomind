@@ -47,7 +47,7 @@ function subagentKey(hookInput) {
 // transcript, not text sniffing) is authoritative when present; the summary
 // keyword check is a fallback for failures narrated without a tool error
 // (e.g. "I couldn't find X" with no failing tool call). Shared by the
-// Monograph `success` column and the intelligence.feedback() call below.
+// Monograph `success` column and the routing-feedback entry below.
 function deriveSubagentSuccess(summary, lastToolError) {
   if (lastToolError) return false;
   if (!summary) return true;
@@ -395,17 +395,7 @@ async function handleSubagentStop(hookInput) {
     + (session ? ' · sess=' + session : '')
     + (org ? ' · ' + org + '/' + runId : ''));
 
-  // Feed the real per-subagent success/failure signal into the same
-  // intelligence-outcomes.jsonl that session-handler.cjs's SessionEnd
-  // heuristic reads (via outcomesSignal) to veto a commit-based "success".
-  // Without this, that veto path never fires — SubagentStop is the only
-  // remaining event that carries a genuine failure signal, since post-task
-  // (TeammateIdle/TaskCompleted) is dead code (those aren't valid Claude
-  // Code hook events and are stripped from settings.json on init).
   const _subagentSuccess = deriveSubagentSuccess(summary, lastToolError);
-  try {
-    require('../intelligence.cjs').feedback(_subagentSuccess);
-  } catch (e) { /* non-fatal — feedback recording must never block subagent-stop */ }
 
   // ── Routing Feedback Loop (per-subagent) ──────────────────────────────
   // session-handler.cjs's SessionEnd writes one routing-feedback.jsonl entry

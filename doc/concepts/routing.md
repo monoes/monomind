@@ -113,7 +113,7 @@ The `UserPromptSubmit` hook ([`route-handler.cjs`](.claude/helpers/handlers/rout
 - The line is printed even under `MONOMIND_HOOK_QUIET=1`. It is the hook's answer, not an advisory banner.
 - Prompts Claude Code submits itself — task notifications, reminder-only turns, slash-command expansions and local-command output — get no pick and no record ([`pick-core.cjs → isSystemPrompt`](.claude/helpers/handlers/pick-core.cjs#isSystemPrompt)).
 - Trivial prompts (fewer than three content words, such as "hi" or "thanks") get no pick and no record; the session's earlier route stays.
-- The hook does not use `router.cjs`; its old keyword agent table is gone.
+- `router.cjs` and `intelligence.cjs` no longer exist; `init upgrade` retires them from older installs.
 
 The hook waits for Jev up to `MONOMIND_JEV_HOOK_TIMEOUT_MS` (default 1500; larger values are capped at 3000, so a dead endpoint delays a prompt at most 3 s). After a failed or timed-out pick it skips Jev for 5 minutes (`.monomind/jev-breaker.json`).
 

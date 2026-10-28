@@ -82,42 +82,6 @@ describe('edit-handler session.metric', () => {
   });
 });
 
-// ── intelligence.recordEdit ────────────────────────────────────────────────────
-
-describe('edit-handler intelligence.recordEdit', () => {
-  it('calls intelligence.recordEdit with file from hookInput', async () => {
-    const eh = loadEH();
-    const mockRecord = vi.fn();
-    const hCtx = makeHCtx({
-      hookInput: { file_path: '/src/auth.ts' },
-      intelligence: { recordEdit: mockRecord },
-    });
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await eh.handle(hCtx);
-    expect(mockRecord).toHaveBeenCalledWith('/src/auth.ts');
-  });
-
-  it('falls back to toolInput.file_path', async () => {
-    const eh = loadEH();
-    const mockRecord = vi.fn();
-    const hCtx = makeHCtx({
-      hookInput: {},
-      toolInput: { file_path: '/src/index.ts' },
-      intelligence: { recordEdit: mockRecord },
-    });
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await eh.handle(hCtx);
-    expect(mockRecord).toHaveBeenCalledWith('/src/index.ts');
-  });
-
-  it('does not throw when intelligence is null', async () => {
-    const eh = loadEH();
-    const hCtx = makeHCtx({ intelligence: null });
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await expect(eh.handle(hCtx)).resolves.not.toThrow();
-  });
-});
-
 // ── no unconditional [OK] footer ─────────────────────────────────────────────
 
 describe('edit-handler completion message', () => {

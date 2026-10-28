@@ -13,10 +13,8 @@ Claude Code event (JSON via stdin)
   ├── handlers/pick-core.cjs      ← [PICK] decision, route records, adherence
   ├── jev-catalog.cjs, pick-rank.cjs ← Agent/skill index + keyword ranker
   ├── pick-stats.cjs              ← Pick outcomes → bounded ranking prior
-  ├── router.cjs                  ← Legacy skill keyword matcher (not used by the prompt hook)
   ├── session.cjs                 ← Session state
   ├── memory.cjs                  ← KV store
-  ├── intelligence.cjs            ← Pattern store: edits, outcomes, consolidation
   ├── utils/telemetry.cjs         ← Budget tracking, hook latency
   ├── utils/monograph.cjs         ← Knowledge graph integration
   └── utils/micro-agents.cjs      ← MicroAgent trigger scanning
@@ -80,7 +78,7 @@ It also runs the graph gate (`pre-search` does the same for `Grep`/`Glob`). The 
 
 ### `PostToolUse(Write|Edit|MultiEdit)` → `post-edit`
 
-Calls `intelligence.recordEdit(file)` — appends to `pending-insights.jsonl` for later consolidation.
+Records the edited file for compact injection and test lookup, and queues a graph rebuild.
 
 ### `SubagentStart` / `SubagentStop`
 
@@ -98,7 +96,7 @@ Hooks are identified by event, matcher and helper script plus argument, not by t
 
 ### `SessionEnd` → `session-end`
 
-1. `intelligence.consolidate()` — clears `pending-insights.jsonl`
+1. Writes the session's `routing-feedback.jsonl` line and joins its outcome onto the route
 2. `session.end()` — archives `current.json` → `session-{id}.json`
 
 ---

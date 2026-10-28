@@ -25,9 +25,7 @@ export {
 } from './executor.js';
 
 export {
-  generateAgentRouter,
   generateHookHandler,
-  generateIntelligenceStub,
   generateMemoryHelper,
   generatePostCommitHook,
   generatePreCommitHook,

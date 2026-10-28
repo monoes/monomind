@@ -14,8 +14,7 @@ const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..');
 // hardcoded copies this session's refactor consolidated (see
 // docs/mastermind/plans/2026-07-17-app-audit-plan.md). This test is the
 // substitute for that missing import: it fails CI the moment the two lists
-// disagree, instead of the drift going unnoticed for releases like router.cjs
-// did before.
+// disagree, instead of the drift going unnoticed for releases.
 function extractHelpersToCheck(cjsPath: string): string[] {
   const src = readFileSync(cjsPath, 'utf-8');
   const match = src.match(/var helpersToCheck = \[([^\]]+)\];/);

@@ -13,18 +13,10 @@ module.exports = {
     var toolInput = hCtx.toolInput;
     var args = hCtx.args;
     var session = hCtx.session;
-    var intelligence = hCtx.intelligence;
     var CWD = hCtx.CWD;
 
     if (session && session.metric) {
       try { session.metric('edits'); } catch (e) { /* no active session */ }
-    }
-    if (intelligence && intelligence.recordEdit) {
-      try {
-        var file = hookInput.file_path || toolInput.file_path
-          || process.env.TOOL_INPUT_file_path || args[0] || '';
-        intelligence.recordEdit(file);
-      } catch (e) { /* non-fatal */ }
     }
     // Track recently-edited files for compact injection and pre-resolve boosting.
     try {

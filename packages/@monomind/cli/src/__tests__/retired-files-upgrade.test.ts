@@ -29,6 +29,9 @@ const PKG = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..
 const OLD_LAYOUT: Record<string, string> = JSON.parse(
   fs.readFileSync(path.join(PKG, '__tests__', 'fixtures', 'retired-418-layout.json'), 'utf-8'),
 );
+const OLD_HELPERS: Record<string, string> = JSON.parse(
+  fs.readFileSync(path.join(PKG, '__tests__', 'fixtures', 'retired-helpers.json'), 'utf-8'),
+);
 const SOURCE_CLAUDE = path.join(PKG, '.claude');
 const EDITED = '.claude/commands/mastermind/topology.md';
 const EDITED_OPENCODE = '.opencode/command/monoswarm-status.md';
@@ -217,5 +220,41 @@ describe('retiring files 2.22.0 removed (#418)', () => {
     expect(result.updated.join('\n')).toContain(
       '[retired] files/.claude/commands/mastermind/monoswarm.md',
     );
+  });
+
+  it('retires the intelligence.cjs and router.cjs helpers, in .claude and .gemini', () => {
+    const rels = Object.keys(OLD_HELPERS);
+    for (const rel of rels) {
+      write(dir, rel, OLD_HELPERS[rel]);
+      write(dir, rel.replace('.claude/', '.gemini/'), OLD_HELPERS[rel]);
+    }
+    write(dir, '.claude/helpers/hook-handler.cjs', '// kept\n');
+    const result = freshResult();
+    retireRemovedFiles(dir, result, SOURCE_CLAUDE);
+    for (const rel of rels) {
+      expect(fs.existsSync(path.join(dir, rel)), rel).toBe(false);
+      expect(fs.existsSync(path.join(dir, rel.replace('.claude/', '.gemini/'))), rel).toBe(false);
+    }
+    expect(fs.existsSync(path.join(dir, '.claude/helpers/hook-handler.cjs'))).toBe(true);
+    expect(result.removed.join('\n')).toContain('files/.claude/helpers/router.cjs');
+  });
+
+  it('keeps an edited helper with a helper-specific warning', () => {
+    const rel = '.claude/helpers/router.cjs';
+    write(dir, rel, `${OLD_HELPERS[rel]}\n// mine\n`);
+    const result = freshResult();
+    retireRemovedFiles(dir, result, SOURCE_CLAUDE);
+    expect(fs.existsSync(path.join(dir, rel))).toBe(true);
+    const warnings = (result.warnings ?? []).join('\n');
+    expect(warnings).toContain(rel);
+    expect(warnings).not.toContain('monoswarm');
+  });
+
+  it('init upgrade retires the helpers too', async () => {
+    for (const rel of Object.keys(OLD_HELPERS)) write(dir, rel, OLD_HELPERS[rel]);
+    await executeUpgrade(dir);
+    for (const rel of Object.keys(OLD_HELPERS)) {
+      expect(fs.existsSync(path.join(dir, rel)), rel).toBe(false);
+    }
   });
 });

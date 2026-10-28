@@ -73,7 +73,6 @@ const {
 
 const session = safeRequire(path.join(helpersDir, 'session.cjs'));
 const memory = safeRequire(path.join(helpersDir, 'memory.cjs'));
-const intelligence = safeRequire(path.join(helpersDir, 'intelligence.cjs'));
 
 // Module-level reference to @monoes/hooks — populated lazily via
 // _ensureHooksModule(). NOTE: hook-handler.cjs runs as a fresh `node` process
@@ -336,7 +335,6 @@ var hCtx = {
   args: args,
   CWD: CWD,
   session: session,
-  intelligence: intelligence,
   isSimpleCommand: isSimpleCommand,
   // Module-level singleton (populated by session-restore handler, or lazily
   // via _ensureHooksModule() — required since each hook event is a fresh process).
@@ -901,10 +899,6 @@ const handlers = {
     h.handle(hCtx);
   },
 
-  'stats': async () => {
-    const h = require('./handlers/stats-handler.cjs');
-    await h.handle(hCtx);
-  },
 };
 
 if (command && handlers[command]) {
@@ -938,7 +932,7 @@ if (command && handlers[command]) {
     // SubagentStart runs `status`: an acknowledgement only, silent under QUIET.
     if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[OK] Hook: ' + command);
   } else {
-    console.log('Usage: hook-handler.cjs <route|pre-agent|pre-bash|pre-search|post-edit|post-graph-tool|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|stats>');
+    console.log('Usage: hook-handler.cjs <route|pre-agent|pre-bash|pre-search|post-edit|post-graph-tool|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto>');
   }
 }
 

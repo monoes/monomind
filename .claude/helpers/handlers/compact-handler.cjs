@@ -7,14 +7,9 @@ const fs = require('fs');
 
 module.exports = {
   handle: async function(hCtx, mode) {
-    var intelligence = hCtx.intelligence;
-    var runWithTimeout = hCtx.runWithTimeout;
     var _injectCompactGraphMap = hCtx._injectCompactGraphMap;
     var CWD = hCtx.CWD;
 
-    if (intelligence && intelligence.consolidate) {
-      try { await runWithTimeout(function() { return intelligence.consolidate(); }, 'intelligence.consolidate()'); } catch (e) { /* non-fatal */ }
-    }
     try {
       var lastRoute = path.join(CWD, '.monomind', 'last-route.json');
       if (fs.existsSync(lastRoute)) {
@@ -26,10 +21,10 @@ module.exports = {
     } catch (e) { /* non-fatal */ }
     _injectCompactGraphMap();
     if (mode === 'auto') {
-      console.log('[COMPACT] Auto compaction — intelligence consolidated, context preserved');
+      console.log('[COMPACT] Auto compaction — context preserved');
       console.log('GOLDEN RULE: 1 message = all parallel operations');
     } else {
-      console.log('[COMPACT] Manual compaction — intelligence consolidated, context preserved');
+      console.log('[COMPACT] Manual compaction — context preserved');
     }
   },
 };

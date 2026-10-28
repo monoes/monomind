@@ -70,7 +70,7 @@ describe('init upgrade refreshes the Gemini helper copy', () => {
     writeFileSync(join(gemini, 'statusline.cjs'), STALE);
     writeFileSync(join(gemini, 'hook-handler.cjs'), STALE);
     writeFileSync(join(gemini, 'utils', 'fs-helpers.cjs'), STALE);
-    rmSync(join(gemini, 'router.cjs'));
+    rmSync(join(gemini, 'control-start.cjs'));
     rmSync(join(gemini, 'audit-log-writer.cjs'));
     // A user-editable scaffold and a file of the user's own must survive.
     writeFileSync(join(gemini, 'memory.cjs'), '// user edit\n');
@@ -86,7 +86,7 @@ describe('init upgrade refreshes the Gemini helper copy', () => {
     expect(installed('statusline.cjs')).toBe(bundled('statusline.cjs'));
     expect(installed('hook-handler.cjs')).toBe(bundled('hook-handler.cjs'));
     expect(installed('utils/fs-helpers.cjs')).toBe(bundled('utils/fs-helpers.cjs'));
-    expect(installed('router.cjs')).toBe(bundled('router.cjs'));
+    expect(installed('control-start.cjs')).toBe(bundled('control-start.cjs'));
     expect(existsSync(join(gemini, 'audit-log-writer.cjs'))).toBe(true);
     expect(installed('memory.cjs')).toBe('// user edit\n');
     expect(installed('my-own.cjs')).toBe('// mine\n');

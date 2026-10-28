@@ -4,15 +4,13 @@
  * skill-registry.json generator
  *
  * Scans the PROJECT-LOCAL skill/command trees and regenerates
- * .claude/helpers/skill-registry.json, which router.cjs's matchSkills()
- * reads to suggest a skill for a routed task.
+ * .claude/helpers/skill-registry.json, which jev-catalog.cjs reads to suggest
+ * a skill for a routed task.
  *
  * Why this exists: the registry was previously hand-maintained and rotted
  * badly — 28 of 53 entries pointed at skills that had been renamed
  * (lancedb-* -> agentdb-*, bare names -> v3-* prefixes, github:x -> github-x)
- * or deleted outright, while its own _meta claimed router.cjs read it (it
- * didn't — router.cjs had a separate hardcoded 6-entry list, one of which,
- * /graphify, was itself a phantom). Generating from the live tree is the only
+ * or deleted outright. Generating from the live tree is the only
  * way this file stays true.
  *
  * Scope: the PROJECT's own trees (.claude/commands, .claude/skills), the
@@ -373,7 +371,7 @@ function build(root, opts) {
       description:
         'Auto-generated index of the project\'s slash commands (.claude/commands) and ' +
         'skills (.claude/skills), the user\'s ~/.claude/skills, and the Org skill library ' +
-        '(orgSkills). Read by router.cjs matchSkills() and jev-catalog.cjs.',
+        '(orgSkills). Read by jev-catalog.cjs.',
       generatedBy: '.claude/helpers/build-skill-registry.cjs',
       regenerate: 'node .claude/helpers/build-skill-registry.cjs',
       note:

@@ -14,6 +14,8 @@
  *   - what the current Kimi Code and OpenCode converters make of it
  *     (`.kimi-code/{agents,skills,plugin/commands}`, `.opencode/{agent,command,skills}`);
  *   - every tracked version of the repo's own `.kimi-code` copies.
+ * Helper scripts (`helpers/…`) are hashed as `.claude/helpers/…` and `.gemini/helpers/…`
+ * only: the Kimi/OpenCode converters do not carry them.
  * Stale READMEs `init` no longer rewrites are listed with the hashes of their
  * old versions, so an unmodified one can be refreshed to the current copy.
  *
@@ -42,6 +44,8 @@ const RETIRED_FILES = [
   'commands/optimization/auto-topology.md',
   'agents/templates/coordinator-monoswarm-init.md',
 ];
+/** Helper scripts removed after 2.29.0: nothing loads them any more. */
+const RETIRED_HELPERS = ['helpers/intelligence.cjs', 'helpers/router.cjs'];
 /** READMEs still shipped whose old versions named the removed commands. */
 const REFRESHED_READMES = [
   'commands/coordination/README.md',
@@ -121,7 +125,7 @@ function convertOne(rel, text) {
   }
 }
 
-const sources = new Set(RETIRED_FILES);
+const sources = new Set([...RETIRED_FILES, ...RETIRED_HELPERS]);
 for (const dir of RETIRED_DIRS) {
   for (const tree of TREES) {
     for (const p of pathsEverUnder(`${tree}/${dir}`)) sources.add(p.slice(tree.length + 1));
@@ -132,6 +136,10 @@ for (const rel of [...sources].sort()) {
   for (const tree of TREES) {
     for (const text of versionsOf(`${tree}/${rel}`)) {
       add(`.claude/${rel}`, text);
+      if (rel.startsWith('helpers/')) {
+        add(`.gemini/${rel}`, text); // helpers are not converted for Kimi/OpenCode
+        continue;
+      }
       bodies.add(bodyHash(text));
       if (rel.startsWith('skills/')) {
         add(`.agents/${rel}`, text);

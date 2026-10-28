@@ -3,8 +3,6 @@
  * - lock acquire/release/stale-override via claimLock/releaseLock from
  *   .claude/helpers/utils/fs-helpers.cjs (the primitive the daemon-side
  *   code uses for .monomind locks)
- * - the session-end skip via .claude/helpers/handlers/session-handler.cjs,
- *   which checks .monomind/consolidation.lock under hCtx.CWD
  *
  * Everything runs against a per-test tmpDir — never the repo's own
  * .monomind directory (the previous version of this file re-implemented
@@ -23,13 +21,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const HELPERS = path.resolve(__dirname, '../../.claude/helpers');
 const { claimLock, releaseLock } = require(path.join(HELPERS, 'utils/fs-helpers.cjs'));
-const SH_PATH = path.join(HELPERS, 'handlers/session-handler.cjs');
-
-function loadSessionHandler() {
-  delete require.cache[SH_PATH];
-  return require(SH_PATH);
-}
-
 let tmpDir;
 let lockPath;
 
@@ -103,44 +94,7 @@ describe('releaseLock (real fs-helpers implementation)', () => {
   });
 });
 
-describe('session-handler coordination with the lock', () => {
-  function makeHCtx(intelligence) {
-    return {
-      hookInput: {},
-      CWD: tmpDir,
-      session: null,
-      intelligence,
-      getLearningService: async () => null,
-      runWithTimeout: async (fn) => fn(),
-      _hooksModule: null,
-    };
-  }
-
-  it('session-end skips consolidation while the lock is held', async () => {
-    const sh = loadSessionHandler();
-    expect(claimLock(lockPath)).toBe(true); // daemon holds it
-    const consolidate = vi.fn();
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    try {
-      await sh.handleEnd(makeHCtx({ consolidate }));
-      expect(consolidate).not.toHaveBeenCalled();
-      const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
-      expect(output).toContain('daemon holds lock');
-    } finally {
-      releaseLock(lockPath);
-    }
-  });
-
-  it('session-end consolidates again once the lock is released', async () => {
-    const sh = loadSessionHandler();
-    expect(claimLock(lockPath)).toBe(true);
-    releaseLock(lockPath);
-    const consolidate = vi.fn().mockResolvedValue({ entries: 0, edges: 0, newEntries: 0 });
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await sh.handleEnd(makeHCtx({ consolidate }));
-    expect(consolidate).toHaveBeenCalled();
-  });
-
+describe('lock test isolation', () => {
   it('never touches the repository lock — all paths stay inside tmpDir', () => {
     // Guard against regression to the old fake test, which wrote a lock into
     // path.join(process.cwd(), '.monomind', 'consolidation.lock').

@@ -280,21 +280,6 @@ describe('edit-handler', () => {
     expect(metricCalled).toBe(true);
   });
 
-  it('calls intelligence.recordEdit with file path', async () => {
-    let recordedFile = null;
-    const hCtx = makeHCtx({
-      CWD: tmpDir,
-      hookInput: { file_path: '/some/file.ts' },
-      intelligence: {
-        recordEdit: (f) => {
-          recordedFile = f;
-        },
-      },
-    });
-    await capture(() => loadEdit().handle(hCtx));
-    expect(recordedFile).toBe('/some/file.ts');
-  });
-
   it('logs [SECURITY_EDIT] for auth-related file paths', async () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,

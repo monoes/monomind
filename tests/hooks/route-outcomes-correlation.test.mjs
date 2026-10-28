@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -34,6 +35,20 @@ describe('route-outcomes end-to-end correlation', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  // The session-end outcome is derived from a commit in the last 30 minutes.
+  const commitInTmp = () => {
+    const env = {
+      ...process.env,
+      GIT_AUTHOR_NAME: 't',
+      GIT_AUTHOR_EMAIL: 't@example.com',
+      GIT_COMMITTER_NAME: 't',
+      GIT_COMMITTER_EMAIL: 't@example.com',
+    };
+    const run = (...args) => execFileSync('git', args, { cwd: tmpDir, env, stdio: 'ignore' });
+    run('init', '-q');
+    run('commit', '--allow-empty', '-q', '-m', 'work');
+  };
+
   const readOutcomes = () =>
     fs
       .readFileSync(path.join(tmpDir, '.monomind', 'route-outcomes.jsonl'), 'utf-8')
@@ -49,8 +64,6 @@ describe('route-outcomes end-to-end correlation', () => {
     await routeHandler.handle({
       prompt: 'ask the devops automator to set up the CI/CD pipelines',
       hookInput: { session_id: 'sess-123' },
-      router: { routeTask: () => ({ agent: 'backend-developer', confidence: 0.9 }) },
-      intelligence: { getContext: () => null },
       CWD: tmpDir,
       isSimpleCommand: () => false,
     });
@@ -70,14 +83,9 @@ describe('route-outcomes end-to-end correlation', () => {
       tool_input: { subagent_type: 'coder' },
     });
 
-    fs.mkdirSync(path.join(tmpDir, '.monomind', 'data'), { recursive: true });
-    fs.writeFileSync(
-      path.join(tmpDir, '.monomind', 'data', 'intelligence-outcomes.jsonl'),
-      `${JSON.stringify({ ts: Date.now(), success: true })}\n`,
-    );
+    commitInTmp();
     await sessionHandler.handleEnd({
       hookInput: { sessionId: 'sess-123' },
-      intelligence: {},
       session: {},
       CWD: tmpDir,
     });
@@ -96,53 +104,17 @@ describe('route-outcomes end-to-end correlation', () => {
     await routeHandler.handle({
       prompt: 'ask the devops automator to set up the CI/CD pipelines',
       hookInput: { session_id: 'sess-9' },
-      router: null,
-      intelligence: null,
       CWD: tmpDir,
       isSimpleCommand: () => false,
     });
-    fs.mkdirSync(path.join(tmpDir, '.monomind', 'data'), { recursive: true });
-    fs.writeFileSync(
-      path.join(tmpDir, '.monomind', 'data', 'intelligence-outcomes.jsonl'),
-      `${JSON.stringify({ ts: Date.now(), success: false })}\n`,
-    );
+    commitInTmp();
     await sessionHandler.handleEnd({
       hookInput: { sessionId: 'sess-9' },
-      intelligence: {},
       session: {},
       CWD: tmpDir,
     });
     const [rec] = readOutcomes();
-    expect(rec.measuredSuccess).toBe(false);
+    expect(rec.measuredSuccess).toBe(true);
     expect(rec.agentActuallyUsed).toBeUndefined();
-  });
-
-  it('reads the recent tail of a large intelligence-outcomes file', async () => {
-    const routeHandler = require('../../.claude/helpers/handlers/route-handler.cjs');
-    const sessionHandler = require('../../.claude/helpers/handlers/session-handler.cjs');
-    await routeHandler.handle({
-      prompt: 'ask the devops automator to set up the CI/CD pipelines',
-      hookInput: { session_id: 'sess-big' },
-      router: null,
-      intelligence: null,
-      CWD: tmpDir,
-      isSimpleCommand: () => false,
-    });
-    fs.mkdirSync(path.join(tmpDir, '.monomind', 'data'), { recursive: true });
-    const old = `${JSON.stringify({ ts: 1, success: true, pad: 'x'.repeat(200) })}\n`.repeat(4000);
-    fs.writeFileSync(
-      path.join(tmpDir, '.monomind', 'data', 'intelligence-outcomes.jsonl'),
-      `${old}${JSON.stringify({ ts: Date.now(), success: false })}\n`,
-    );
-    expect(
-      fs.statSync(path.join(tmpDir, '.monomind', 'data', 'intelligence-outcomes.jsonl')).size,
-    ).toBeGreaterThan(512 * 1024);
-    await sessionHandler.handleEnd({
-      hookInput: { sessionId: 'sess-big' },
-      intelligence: {},
-      session: {},
-      CWD: tmpDir,
-    });
-    expect(readOutcomes()[0].measuredSuccess).toBe(false);
   });
 });

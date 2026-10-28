@@ -7,53 +7,15 @@ const path = require('path');
 const fs = require('fs');
 const pickCore = require('./pick-core.cjs');
 
-// The last `bytes` of a JSONL file as parsed records (a partial first line is
-// dropped), so a large file still yields its recent entries instead of none.
-function readTailRecords(file, bytes) {
-  var fd;
-  try {
-    var size = fs.statSync(file).size;
-    var len = Math.min(bytes, size);
-    var buf = Buffer.alloc(len);
-    fd = fs.openSync(file, 'r');
-    fs.readSync(fd, buf, 0, len, size - len);
-    var lines = buf.toString('utf-8').split('\n');
-    if (size > len) lines.shift();
-    return lines.map(function(l) { try { return l ? JSON.parse(l) : null; } catch (e) { return null; } }).filter(Boolean);
-  } catch (e) {
-    return [];
-  } finally {
-    if (fd !== undefined) try { fs.closeSync(fd); } catch (e) { /* ignore */ }
-  }
-}
-
 module.exports = {
   handleEnd: async function(hCtx) {
     var hookInput = hCtx.hookInput;
-    var intelligence = hCtx.intelligence;
     var session = hCtx.session;
     var CWD = hCtx.CWD;
 
-    // Check if daemon is holding the consolidation lock — if so, skip synchronous consolidation
-    // to avoid duplicate work and potential index corruption
-    var consolidationLockPath = path.join(CWD, '.monomind', 'consolidation.lock');
-    var daemonHoldsLock = fs.existsSync(consolidationLockPath);
-
-    if (daemonHoldsLock) {
-      console.log('[SESSION] Skipping consolidation — daemon holds lock');
-    }
-
-    // ── Session-end feedback BEFORE consolidation ──────────────────────────
-    // IMPORTANT: feedback() must run BEFORE consolidate() so that the session-end
-    // outcome record captures recentEdits from disk. consolidate() clears
-    // recent-edits.jsonl, so calling it first leaves the outcome empty.
-    // (Fixed: all outcomes previously had recentEdits: [].)
-
     // ── Routing Feedback Loop (SE-001) ────────────────────────────────────
-    // Persist routing accuracy feedback so the router improves over sessions.
-    // sessionSuccess is derived from intelligence-outcomes.jsonl entries written
-    // during this session (last 30 minutes). A session is marked failed when the
-    // majority of feedback() calls carried success=false in that window.
+    // Persist routing accuracy feedback so the pick improves over sessions.
+    // sessionSuccess is derived from recent commits and working-tree changes.
     var sessionSuccess = null; // null = no evidence; only set to a boolean from real signals
     try {
       var feedbackPath = path.join(CWD, '.monomind', 'routing-feedback.jsonl');
@@ -61,52 +23,13 @@ module.exports = {
       var lastRoute = pickCore.readSessionRoute(CWD, endSessionId);
       if (lastRoute) {
 
-        // Derive sessionSuccess. A commit alone is not proof of success — a
-        // session can commit a partial fix and then hit repeated failures —
-        // so recent intelligence-outcomes are checked FIRST and can veto a
-        // commit-based "true" when they show a majority of failures.
+        // Derive sessionSuccess from git: a commit in the last 30 minutes is
+        // success; otherwise there is no evidence either way (leave null).
         try {
-          var execSync = require('child_process').execSync;
-
-          var outcomesSignal = null; // majority success/failure from intelligence-outcomes, if any
-          var outcomesPath = path.join(CWD, '.monomind', 'data', 'intelligence-outcomes.jsonl');
-          // Only the tail is read: the 30-minute window lives at the end of the
-          // file, and a size cap used to drop the whole signal once it grew.
-          if (fs.existsSync(outcomesPath)) {
-            var windowMs = 30 * 60 * 1000;
-            var cutoff = Date.now() - windowMs;
-            var recent = readTailRecords(outcomesPath, 256 * 1024)
-              .filter(function(e) { return e.ts && e.ts >= cutoff; });
-            if (recent.length > 0) {
-              var failures = recent.filter(function(e) { return e.success === false; }).length;
-              outcomesSignal = failures / recent.length < 0.5;
-            }
-          }
-
-          if (outcomesSignal === false) {
-            // Recent tool/command outcomes were majority failures — this
-            // overrides a commit, since committing doesn't undo those failures.
-            sessionSuccess = false;
-          } else {
-            var recentCommits = execSync('git log --oneline --since="30 minutes ago" 2>/dev/null || true', { cwd: CWD, timeout: 3000, encoding: 'utf-8' }).trim();
-            if (recentCommits.length > 0) {
-              sessionSuccess = true;
-            } else {
-              // No commits — check if files were modified (work in progress, not failure)
-              var gitStatus = execSync('git diff --name-only 2>/dev/null || true', { cwd: CWD, timeout: 3000, encoding: 'utf-8', env: Object.assign({}, process.env, { GIT_OPTIONAL_LOCKS: '0' }) }).trim();
-              // Modified files = probably still working; no changes at all = exploration or failure
-              if (gitStatus.length === 0 && outcomesSignal !== null) {
-                sessionSuccess = outcomesSignal;
-              }
-              // else: modified files exist, or no evidence either way (leave null)
-            }
-          }
+          var recentCommits = require('child_process').execSync('git log --oneline --since="30 minutes ago" 2>/dev/null || true', { cwd: CWD, timeout: 3000, encoding: 'utf-8' }).trim();
+          if (recentCommits.length > 0) sessionSuccess = true;
         } catch (e) { /* non-critical — leave null (no evidence) */ }
 
-        // Record session-end feedback WITH recentEdits (before consolidate clears them)
-        if (intelligence && intelligence.feedback && typeof sessionSuccess === 'boolean') {
-          try { intelligence.feedback(sessionSuccess); } catch (e) { /* non-fatal */ }
-        }
         // The session's outcome joins its latest route by routeId. The agent
         // actually used is never inferred here: pick-adherence (PreToolUse
         // Task|Agent) records the real subagent_type on the route when one ran.
@@ -137,7 +60,7 @@ module.exports = {
               // drop the first (possibly partial) line, and keep the rest — instead
               // of the previous behavior which threw here and skipped trimming
               // entirely, leaving the file to grow forever and permanently disabling
-              // consumers (router.cjs, route-handler.cjs) that bail out on oversized
+              // consumers (route-handler.cjs) that bail out on oversized
               // files.
               var TAIL_BYTES = 256 * 1024; // ~256 KiB of tail content
               var fd = fs.openSync(feedbackPath, 'r');
@@ -177,15 +100,6 @@ module.exports = {
     // Fold this session's adherence/outcome lines into pick-stats.json (the ranking prior).
     try { require('../pick-stats.cjs').update(CWD); } catch (e) { /* non-fatal */ }
 
-    // Now consolidate AFTER feedback has been recorded (so the outcome has recentEdits)
-    if (!daemonHoldsLock && intelligence && intelligence.consolidate) {
-      var consResult = await hCtx.runWithTimeout(function() { return intelligence.consolidate(); }, 'intelligence.consolidate()');
-      if (consResult && consResult.entries > 0) {
-        var msg = '[INTELLIGENCE] Consolidated: ' + consResult.entries + ' entries';
-        if (consResult.newEntries > 0) msg += ', ' + consResult.newEntries + ' new patterns learned';
-        console.log(msg);
-      }
-    }
     try {
       if (session && session.end) {
         session.end();

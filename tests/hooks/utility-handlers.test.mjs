@@ -3,7 +3,6 @@
  *   .claude/helpers/handlers/compact-handler.cjs
  *   .claude/helpers/handlers/budget-status-handler.cjs
  *   .claude/helpers/handlers/loops-status-handler.cjs
- *   .claude/helpers/handlers/stats-handler.cjs
  */
 
 import * as fs from 'node:fs';
@@ -61,7 +60,6 @@ describe('compact-handler', () => {
   function makeCtx(overrides = {}) {
     return {
       CWD: tmpDir,
-      intelligence: null,
       runWithTimeout: async (fn) => fn(),
       _injectCompactGraphMap: () => {},
       ...overrides,
@@ -82,27 +80,6 @@ describe('compact-handler', () => {
     );
     expect(lines.find((l) => l.includes('[COMPACT]') && l.includes('Auto'))).toBeTruthy();
     expect(lines.find((l) => l.includes('GOLDEN RULE'))).toBeTruthy();
-  });
-
-  it('calls intelligence.consolidate() when present', async () => {
-    let called = false;
-    const ctx = makeCtx({
-      intelligence: {
-        consolidate: () => {
-          called = true;
-        },
-      },
-    });
-    await captureAsync(() => loadHandler('compact-handler.cjs').handle(ctx, 'manual'));
-    expect(called).toBe(true);
-  });
-
-  it('skips consolidate when intelligence is null', async () => {
-    // Should not throw
-    const ctx = makeCtx({ intelligence: null });
-    await expect(
-      captureAsync(() => loadHandler('compact-handler.cjs').handle(ctx, 'manual')),
-    ).resolves.toBeInstanceOf(Array);
   });
 
   it('logs [COMPACT_CONTEXT] when last-route.json exists', async () => {
@@ -387,69 +364,5 @@ describe('loops-status-handler', () => {
     fs.writeFileSync(path.join(tmpDir, '.monomind', 'loops', 'bad.json'), 'not-json');
     const lines = capture(() => loadHandler('loops-status-handler.cjs').handle(makeCtx()));
     expect(lines.find((l) => l.includes('No loops.'))).toBeTruthy();
-  });
-});
-
-// ── stats-handler ─────────────────────────────────────────────────────────────
-
-describe('stats-handler', () => {
-  function makeCtx(overrides = {}) {
-    return { intelligence: null, args: [], ...overrides };
-  }
-
-  it('logs [WARN] when intelligence is null', async () => {
-    const lines = await captureAsync(() => loadHandler('stats-handler.cjs').handle(makeCtx()));
-    expect(
-      lines.find((l) => l.includes('[WARN]') && l.includes('Intelligence module not available')),
-    ).toBeTruthy();
-  });
-
-  it('logs [WARN] when intelligence has no stats method', async () => {
-    const lines = await captureAsync(() =>
-      loadHandler('stats-handler.cjs').handle(makeCtx({ intelligence: {} })),
-    );
-    expect(lines.find((l) => l.includes('[WARN]'))).toBeTruthy();
-  });
-
-  it('calls intelligence.stats() when available', async () => {
-    let calledWith = null;
-    const ctx = makeCtx({
-      intelligence: {
-        stats: (json) => {
-          calledWith = json;
-        },
-      },
-    });
-    await captureAsync(() => loadHandler('stats-handler.cjs').handle(ctx));
-    expect(calledWith).toBe(false);
-  });
-
-  it('passes true to intelligence.stats() when args includes --json', async () => {
-    let calledWith = null;
-    const ctx = makeCtx({
-      intelligence: {
-        stats: (json) => {
-          calledWith = json;
-        },
-      },
-      args: ['--json'],
-    });
-    await captureAsync(() => loadHandler('stats-handler.cjs').handle(ctx));
-    expect(calledWith).toBe(true);
-  });
-
-  it('does not throw when intelligence.stats() throws', async () => {
-    const ctx = makeCtx({
-      intelligence: {
-        stats: () => {
-          throw new Error('db locked');
-        },
-      },
-    });
-    // stats-handler delegates to runWithTimeout in the parent — but here it calls
-    // Promise.resolve() which catches synchronous throws. Verify no unhandled rejection.
-    await expect(
-      captureAsync(() => loadHandler('stats-handler.cjs').handle(ctx)),
-    ).resolves.toBeInstanceOf(Array);
   });
 });

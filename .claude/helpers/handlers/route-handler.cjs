@@ -158,8 +158,7 @@ async function _pickWithJev(CWD, prompt, agents, includeAgentId, skills) {
 
 // The prompt's pick, as the legacy result object the enrichment below reads.
 // Agents and skills both come from the shared catalogs (registry.json and the
-// skill index through jev-picker), the same the CLI pickers rank; router.cjs
-// is not a selector (its agent table and matchSkills predate the catalogs).
+// skill index through jev-picker), the same the CLI pickers rank.
 async function _decidePick(CWD, prompt) {
   var jp = _loadJevPicker();
   // The skill index is read below: rebuild it first when a skill/command tree

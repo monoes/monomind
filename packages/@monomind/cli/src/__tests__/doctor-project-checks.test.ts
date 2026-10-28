@@ -826,13 +826,13 @@ describe('doctor-project-checks', () => {
     });
 
     it('flags a helper that is missing locally (bundled has it, project does not) as stale', async () => {
-      if (!existsSync(join(realHelpersDir, 'router.cjs'))) return;
+      if (!existsSync(join(realHelpersDir, 'control-start.cjs'))) return;
       copyRealHelpersInto(dir);
-      rmSync(join(dir, '.claude', 'helpers', 'router.cjs'));
+      rmSync(join(dir, '.claude', 'helpers', 'control-start.cjs'));
 
       const result = await checkHelpersFresh();
       expect(result.status).toBe('warn');
-      expect(result.message).toContain('router.cjs');
+      expect(result.message).toContain('control-start.cjs');
     });
 
     it('fixStaleHelpers copies the bundled version over a stale local file', async () => {

@@ -612,7 +612,9 @@ describe('route-handler second-brain gate', () => {
   });
 
   describe('under MONOMIND_HOOK_QUIET=1 (exception: injection is always active)', () => {
-    beforeEach(() => { process.env.MONOMIND_HOOK_QUIET = '1'; });
+    beforeEach(() => {
+      process.env.MONOMIND_HOOK_QUIET = '1';
+    });
 
     it('still delivers a relevant excerpt from the real store', async () => {
       writeControl(tmpDir, { url: 'http://127.0.0.1:4242', pid: process.pid });
@@ -658,7 +660,14 @@ describe('route-handler second-brain gate', () => {
       const lines = [];
       vi.spyOn(console, 'log').mockImplementation((...a) => lines.push(a.join(' ')));
       vi.stubGlobal('fetch', serve([hit('a', 0.9)]));
-      await loadRH().handle(makeHCtx({ prompt: PROMPT, router: router(), _buildKnowledgeSearchFn: searchFn(), _getBudgetStatus: budget }));
+      await loadRH().handle(
+        makeHCtx({
+          prompt: PROMPT,
+          router: router(),
+          _buildKnowledgeSearchFn: searchFn(),
+          _getBudgetStatus: budget,
+        }),
+      );
       vi.unstubAllGlobals();
       expect(budget).not.toHaveBeenCalled();
     });

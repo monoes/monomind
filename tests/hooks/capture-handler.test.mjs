@@ -139,7 +139,7 @@ describe('handleSubagentStop cross-subagent scoping', () => {
   }
 
   function readOutcomes() {
-    const p = path.join(projectDir, '.monomind', 'data', 'intelligence-outcomes.jsonl');
+    const p = path.join(projectDir, '.monomind', 'routing-feedback.jsonl');
     if (!fs.existsSync(p)) return [];
     return fs
       .readFileSync(p, 'utf-8')
@@ -205,13 +205,13 @@ describe('handleSubagentStop cross-subagent scoping', () => {
 
     const outcomes = readOutcomes();
     expect(outcomes).toHaveLength(1);
-    expect(outcomes[0].success).toBe(true);
+    expect(outcomes[0].intelligenceFeedback).toBe(true);
   });
 
   it('falls back to the directory-wide new-files diff when transcript_path is absent', () => {
     // Older Claude Code payload shape (no transcript_path) — single-subagent
     // case should still work via the fallback path.
-    runHook('subagent-start', {});
+    runHook('subagent-start', { agentType: 'coder' });
     const transcript = path.join(claudeDir, 'solo-agent.jsonl');
     fs.writeFileSync(
       transcript,
@@ -232,7 +232,7 @@ describe('handleSubagentStop cross-subagent scoping', () => {
 
     const outcomes = readOutcomes();
     expect(outcomes).toHaveLength(1);
-    expect(outcomes[0].success).toBe(true);
+    expect(outcomes[0].intelligenceFeedback).toBe(true);
   });
 });
 

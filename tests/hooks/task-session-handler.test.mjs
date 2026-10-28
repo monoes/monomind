@@ -175,14 +175,6 @@ describe('session-handler — handleEnd', () => {
   });
   afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
-  it('logs [SESSION] Skipping when daemon holds consolidation lock', async () => {
-    const lockPath = path.join(tmpDir, '.monomind', 'consolidation.lock');
-    fs.writeFileSync(lockPath, '1');
-    const hCtx = makeHCtx({ CWD: tmpDir });
-    const lines = await capture(() => loadSession().handleEnd(hCtx));
-    expect(lines.join('\n')).toContain('[SESSION] Skipping consolidation');
-  });
-
   it('logs [OK] Session ended when no session module provided', async () => {
     const hCtx = makeHCtx({ CWD: tmpDir, session: null });
     const lines = await capture(() => loadSession().handleEnd(hCtx));
@@ -201,26 +193,6 @@ describe('session-handler — handleEnd', () => {
     });
     await capture(() => loadSession().handleEnd(hCtx));
     expect(endCalled).toBe(true);
-  });
-
-  it('logs [INTELLIGENCE] Consolidated when intelligence.consolidate returns entries', async () => {
-    const hCtx = makeHCtx({
-      CWD: tmpDir,
-      intelligence: {
-        consolidate: () => ({ entries: 10, edges: 4, newEntries: 2 }),
-        feedback: () => {},
-      },
-    });
-    const lines = await capture(() => loadSession().handleEnd(hCtx));
-    const consLine = lines.find((l) => l.includes('[INTELLIGENCE] Consolidated'));
-    expect(consLine).toBeTruthy();
-    expect(consLine).toContain('10');
-  });
-
-  it('does not log [INTELLIGENCE] Consolidated when no intelligence', async () => {
-    const hCtx = makeHCtx({ CWD: tmpDir, intelligence: null });
-    const lines = await capture(() => loadSession().handleEnd(hCtx));
-    expect(lines.find((l) => l.includes('[INTELLIGENCE] Consolidated'))).toBeUndefined();
   });
 
   it('appends an entry to routing-feedback.jsonl when last-route.json exists', async () => {
@@ -244,22 +216,5 @@ describe('session-handler — handleEnd', () => {
     await capture(() => loadSession().handleEnd(hCtx));
     const feedbackPath = path.join(tmpDir, '.monomind', 'routing-feedback.jsonl');
     expect(fs.existsSync(feedbackPath)).toBe(false);
-  });
-
-  it('skips intelligence consolidation when daemon holds lock', async () => {
-    const lockPath = path.join(tmpDir, '.monomind', 'consolidation.lock');
-    fs.writeFileSync(lockPath, '1');
-    let consolidateCalled = false;
-    const hCtx = makeHCtx({
-      CWD: tmpDir,
-      intelligence: {
-        consolidate: () => {
-          consolidateCalled = true;
-          return { entries: 5, edges: 2, newEntries: 1 };
-        },
-      },
-    });
-    await capture(() => loadSession().handleEnd(hCtx));
-    expect(consolidateCalled).toBe(false);
   });
 });

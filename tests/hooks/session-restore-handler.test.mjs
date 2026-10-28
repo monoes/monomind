@@ -118,50 +118,6 @@ describe('session-restore-handler', () => {
     expect(restoreCalled).toBe(true);
   });
 
-  it('skips intelligence init when monomind.neural.enabled=false', async () => {
-    const settingsPath = path.join(tmpDir, '.claude', 'settings.json');
-    fs.writeFileSync(settingsPath, JSON.stringify({ monomind: { neural: { enabled: false } } }));
-    let initCalled = false;
-    const hCtx = makeHCtx({
-      CWD: tmpDir,
-      intelligence: {
-        init: () => {
-          initCalled = true;
-          return { nodes: 5, edges: 3 };
-        },
-      },
-    });
-    const lines = await runCapture(hCtx);
-    expect(initCalled).toBe(false);
-    const neuralLine = lines.find((l) => l.includes('[NEURAL]'));
-    expect(neuralLine).toContain('Disabled');
-  });
-
-  it('runs intelligence init when neural kill switch is absent', async () => {
-    let initCalled = false;
-    const hCtx = makeHCtx({
-      CWD: tmpDir,
-      intelligence: {
-        init: () => {
-          initCalled = true;
-          return { nodes: 5, edges: 3 };
-        },
-      },
-    });
-    await runCapture(hCtx);
-    expect(initCalled).toBe(true);
-  });
-
-  it('logs [INTELLIGENCE] Loaded when init returns nodes', async () => {
-    const hCtx = makeHCtx({
-      CWD: tmpDir,
-      intelligence: { init: () => ({ nodes: 42, edges: 10 }) },
-    });
-    const lines = await runCapture(hCtx);
-    const intelLine = lines.find((l) => l.includes('[INTELLIGENCE]') && l.includes('42'));
-    expect(intelLine).toBeTruthy();
-  });
-
   it('surfaces [REGISTRY] count when registry.json has agents', async () => {
     const regPath = path.join(tmpDir, '.monomind', 'registry.json');
     fs.writeFileSync(regPath, JSON.stringify({ agents: ['a', 'b', 'c'] }));

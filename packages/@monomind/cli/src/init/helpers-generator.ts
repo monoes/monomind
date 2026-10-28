@@ -4,14 +4,12 @@
  */
 
 import {
-  generateAgentRouter,
   generateMemoryHelper,
   generatePostCommitHook,
   generatePreCommitHook,
   generateSessionManager,
 } from './helpers-core-scripts.js';
 import { generateHookHandler } from './helpers-hook-handler.js';
-import { generateIntelligenceStub } from './helpers-intelligence.js';
 import {
   generateCrossPlatformSessionManager,
   generateWindowsBatchWrapper,
@@ -21,10 +19,8 @@ import { generateStatuslineHook, generateStatuslineScript } from './statusline-g
 import type { InitOptions } from './types.js';
 
 export {
-  generateAgentRouter,
   generateCrossPlatformSessionManager,
   generateHookHandler,
-  generateIntelligenceStub,
   generateMemoryHelper,
   generatePostCommitHook,
   generatePreCommitHook,
@@ -40,7 +36,7 @@ export {
 // upgrade's force-sync step, init upgrade's broader fallback-if-missing
 // step) need to know about it. These 3 lists used to be hardcoded
 // separately in doctor-project-checks.ts and executor.ts and drifted
-// (router.cjs was missing from one of them for 3 releases) — see
+// (one helper was missing from one of them for 3 releases) — see
 // docs/mastermind/plans/2026-07-17-app-audit-plan.md.
 export interface HelperFileSpec {
   /** Force-overwritten from source (or regenerated as fallback) on every `init upgrade` run. */
@@ -53,16 +49,13 @@ export interface HelperFileSpec {
 
 export const HELPER_FILES: Record<string, HelperFileSpec> = {
   'hook-handler.cjs': { forceSync: true, doctorTracked: true, generate: generateHookHandler },
-  'intelligence.cjs': { forceSync: true, generate: generateIntelligenceStub },
   'statusline.cjs': { forceSync: true, doctorTracked: true },
   'monograph-freshen.cjs': { forceSync: true, doctorTracked: true },
   'control-start.cjs': { forceSync: true, doctorTracked: true },
-  'router.cjs': { forceSync: true, doctorTracked: true, generate: generateAgentRouter },
-  // Regenerates skill-registry.json (which router.cjs's matchSkills and
-  // jev-catalog.cjs read) from the live skill trees and the Org library. No
-  // fallback generator: if it can't be copied there is nothing to regenerate
-  // the registry with, and router.cjs degrades to its built-in FALLBACK_SKILLS
-  // rather than breaking. init/upgrade run it; the index is never copied.
+  // Regenerates skill-registry.json (which jev-catalog.cjs reads) from the
+  // live skill trees and the Org library. No fallback generator: if it can't
+  // be copied there is nothing to regenerate the registry with. init/upgrade
+  // run it; the index is never copied.
   'build-skill-registry.cjs': { forceSync: true, doctorTracked: true },
   // Builds .monomind/registry.json (project, ~/.claude/agents and extra
   // agents); the CLI's src/agents/registry-builder.ts loads the same file, and
@@ -121,13 +114,15 @@ export const DOCTOR_TRACKED_HELPERS: string[] = Object.keys(HELPER_FILES).filter
 export const OBSOLETE_HELPER_NAMES: string[] = [
   'graphify-freshen.cjs', // renamed to monograph-freshen.cjs (2026-09-16)
   'auto-memory-hook.mjs', // a no-op since AutoMemoryBridge was removed; hooks dropped (#417)
+  'intelligence.cjs', // pattern store helper removed; nothing loads it (also retired by hash, see retired-files-data.ts)
+  'router.cjs', // legacy skill keyword matcher removed; the prompt hook's pick never used it
 ];
 
 // Fallback generators for force-synced helpers (used when source is missing
 // the file entirely). Previously duplicated by hand as two separate maps
 // that disagreed on membership — the "source found but file missing" path
-// lacked a router.cjs fallback that the "source not found" path had, so a
-// corrupted/incomplete source copy could silently ship without router.cjs.
+// lacked a fallback that the "source not found" path had, so a
+// corrupted/incomplete source copy could silently ship without the helper.
 export const FORCE_SYNC_GENERATORS: Record<string, () => string> = Object.fromEntries(
   Object.entries(HELPER_FILES)
     .filter(([, spec]) => spec.forceSync && spec.generate)
@@ -156,7 +151,6 @@ export function generateHelpers(options: InitOptions): Record<string, string> {
 
     // Cross-platform Node.js scripts
     helpers['session.js'] = generateCrossPlatformSessionManager();
-    helpers['router.js'] = generateAgentRouter();
     helpers['memory.js'] = generateMemoryHelper();
 
     // Windows-specific scripts

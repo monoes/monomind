@@ -45,7 +45,6 @@ module.exports = {
   handleRestore: async function(hCtx) {
     var hookInput = hCtx.hookInput;
     var session = hCtx.session;
-    var intelligence = hCtx.intelligence;
     var CWD = hCtx.CWD;
     var helpersDir = hCtx.helpersDir;
     var runWithTimeout = hCtx.runWithTimeout;
@@ -167,7 +166,7 @@ module.exports = {
         if (bundledDir) {
           var healed = [];
           // Top-level critical files — mirrors executor.ts's `criticalHelpers` list.
-          var helpersToCheck = ['hook-handler.cjs', 'statusline.cjs', 'router.cjs', 'monograph-freshen.cjs', 'control-start.cjs', 'intelligence.cjs', 'build-skill-registry.cjs', 'agent-registry.cjs', 'org-skill-index.cjs', 'jev-picker.cjs', 'jev-catalog.cjs', 'redact-secrets.cjs', 'pick-rank.cjs', 'pick-stats.cjs'];
+          var helpersToCheck = ['hook-handler.cjs', 'statusline.cjs', 'monograph-freshen.cjs', 'control-start.cjs', 'build-skill-registry.cjs', 'agent-registry.cjs', 'org-skill-index.cjs', 'jev-picker.cjs', 'jev-catalog.cjs', 'redact-secrets.cjs', 'pick-rank.cjs', 'pick-stats.cjs'];
           for (var hi = 0; hi < helpersToCheck.length; hi++) {
             var hName = helpersToCheck[hi];
             var healedName = _healIfStale(
@@ -269,26 +268,6 @@ module.exports = {
         }
       }
     } catch (e) { /* non-fatal — migration is best-effort */ }
-
-    // Initialize intelligence — respects monomind.neural.enabled kill switch.
-    var neuralEnabled = true;
-    try {
-      if (!settingsData) {
-        if (fs.existsSync(settingsPath) && (function() { try { return fs.statSync(settingsPath).size <= MAX_SETTINGS; } catch(_) { return false; } }())) {
-          settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-        }
-      }
-      if (settingsData && settingsData.monomind && settingsData.monomind.neural && settingsData.monomind.neural.enabled === false) {
-        neuralEnabled = false;
-        log('[NEURAL] Disabled via monomind.neural.enabled=false');
-      }
-    } catch (e) { /* non-fatal */ }
-    if (neuralEnabled && intelligence && intelligence.init) {
-      var initResult = await runWithTimeout(function() { return intelligence.init(); }, 'intelligence.init()');
-      if (initResult && initResult.nodes > 0) {
-        log('[INTELLIGENCE] Loaded ' + initResult.nodes + ' patterns, ' + initResult.edges + ' edges');
-      }
-    }
 
     // Bridge to @monoes/hooks compiled workers (GAP-001).
     // Uses the shared hCtx._ensureHooksModule() (defined in hook-handler.cjs) so worker
