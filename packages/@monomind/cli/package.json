@@ -97,7 +97,7 @@
     "publish:all": "./scripts/publish.sh"
   },
   "devDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.303",
+    "@anthropic-ai/claude-agent-sdk": "0.3.310",
     "chokidar": "^3.6.0",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
@@ -114,7 +114,7 @@
     "zod": "^4.6.6"
   },
   "peerDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.303"
+    "@anthropic-ai/claude-agent-sdk": "0.3.310"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/claude-agent-sdk": {
