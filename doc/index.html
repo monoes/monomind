@@ -241,7 +241,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <img src="assets/logo.svg" alt="Monomind logo" width="32" height="32" style="border-radius:6px;flex-shrink:0">
     <div>
       <div class="logo-text">Monomind</div>
-      <div class="logo-ver">v2.24.5</div>
+      <div class="logo-ver">v2.29.1</div>
     </div>
   </div>
   <div class="nav-section">
@@ -323,7 +323,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="card-grid">
       <div class="card reveal"><div class="card-icon">🧠</div><div class="card-title">Persistent Memory</div><div class="card-desc">A JSON pattern store with episodic recall injected at prompt time. Context survives across sessions.</div></div>
       <div class="card reveal"><div class="card-icon">🏢</div><div class="card-title">Org Runtime</div><div class="card-desc">Run real agent organizations — role hierarchies, goals, budgets, and approval workflows backed by actual Claude Agent SDK sessions per role, with a live dashboard.</div></div>
-      <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 19 MCP tools by default (27 more via MONOGRAPH_MCP_ADVANCED=1) for impact analysis, dead code detection, path finding, and multi-repo queries.</div></div>
+      <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 20 MCP tools by default (27 more via MONOGRAPH_MCP_ADVANCED=1) for impact analysis, dead code detection, path finding, and multi-repo queries.</div></div>
       <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Agent &amp; Skill Picking</div><div class="card-desc">One index of your agents and skills, ranked for every prompt and delivered to Claude as a <code>[PICK]</code> line. Adherence and outcomes are logged and measured by <code>doctor -c pick</code>. <a href="#agents" style="color:var(--accent)">Agents &amp; Skills</a></div></div>
       <div class="card reveal"><div class="card-icon">🔁</div><div class="card-title">Autonomous Loops</div><div class="card-desc">--tillend runs a command until nothing is left to do. /mastermind:review --tillend finds, fixes, and re-verifies until a round comes back clean.</div></div>
       <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">20 typed hook events (PreEdit, PostEdit, SessionStart...) in the registry/executor, plus <!-- doc-count:hooks-subcommands -->28<!-- /doc-count:hooks-subcommands --> separate hooks CLI subcommands and <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers. Zero-overhead dispatch across editing, tasks, sessions, and subagents.</div></div>
@@ -404,7 +404,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td class="mono">npx monomind doctor</td><td>Health diagnostics; auto-fix with --fix</td></tr>
         <tr><td class="mono">npx monomind hooks worker run &lt;name&gt;</td><td>Run a background worker on demand</td></tr>
         <tr><td class="mono">npx monomind memory store</td><td>Store a memory with optional namespace</td></tr>
-        <tr><td class="mono">npx monomind memory search</td><td>Keyword/BM25 search over stored memories</td></tr>
+        <tr><td class="mono">npx monomind memory search</td><td>Semantic (vector) search over stored memories, keyword fallback</td></tr>
         <tr><td class="mono">npx monomind org run &lt;name&gt;</td><td>Start a persistent SDK-backed agent org</td></tr>
         <tr><td class="mono">npx monomind hooks list</td><td>Show all registered hooks</td></tr>
       </tbody>
@@ -451,7 +451,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <text class="arch-sub" x="120" y="212" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">SQLite + local embeddings</text>
         <text class="arch-sub" x="120" y="228" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Default engine, LanceDB removed</text>
         <text class="arch-label" x="380" y="192" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monoes/monograph</text>
-        <text class="arch-sub" x="380" y="212" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">19 + 27 MCP tools</text>
+        <text class="arch-sub" x="380" y="212" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">20 + 27 MCP tools</text>
         <text class="arch-sub" x="380" y="228" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Code knowledge graph</text>
         <text class="arch-label" x="640" y="192" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monoes/routing</text>
         <text class="arch-sub" x="640" y="212" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">semantic routing (opt-in)</text>
@@ -484,7 +484,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td class="mono">@monoes/mcp</td><td class="mono">packages/@monomind/mcp/</td><td>MCP server framework for explicit HTTP/WebSocket transports (<code>mcp start -t http|websocket</code>). The default stdio path (<code>claude mcp add ... mcp start</code>) uses a separate hand-rolled JSON-RPC loop in the CLI itself, not this package.</td></tr>
         <tr><td class="mono">@monoes/routing</td><td class="mono">packages/@monomind/routing/</td><td>Embedding-based route layer (keyword pre-filter → local embedding → cosine similarity → Haiku fallback), used by <code>route semantic</code>, <code>agent spawn --task</code> and <code>hooks_route_semantic</code> only after the central picker has no confident answer. <code>monomind pick</code>, <code>route task</code> and the <code>[PICK]</code> hook use the picker alone.</td></tr>
         <tr><td class="mono">monofence-ai</td><td class="mono">packages/monofence-ai/</td><td>AI manipulation defense — prompt injection, jailbreak, evasion detection</td></tr>
-        <tr><td class="mono">monograph</td><td class="mono">packages/@monomind/monograph/</td><td>Code knowledge graph — 19 default MCP tools, 27 advanced via <code>MONOGRAPH_MCP_ADVANCED=1</code> — published standalone as <code>@monoes/monograph</code></td></tr>
+        <tr><td class="mono">monograph</td><td class="mono">packages/@monomind/monograph/</td><td>Code knowledge graph — 20 default MCP tools, 27 advanced via <code>MONOGRAPH_MCP_ADVANCED=1</code> — published standalone as <code>@monoes/monograph</code></td></tr>
         <tr><td class="mono">@monoes/monobrowse</td><td class="mono">packages/@monoes/monobrowse/</td><td>Browser automation via CDP</td></tr>
         <tr><td class="mono">@monoes/monodesign</td><td class="mono">packages/@monoes/monodesign/</td><td>Frontend design intelligence — design tokens + 51-rule antipattern detector (slop/quality/performance/accessibility). Sole design agent — 8 retired agents consolidated into it. Produces image prompts, not images (image generation is the separate <code>monoagent-image</code> skill).</td></tr>
         <tr><td class="mono">monomind</td><td class="mono">/ (root)</td><td>Umbrella package published to npm</td></tr>
@@ -512,7 +512,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="page-header">
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Memory &amp; Knowledge</h1>
-      <p class="page-desc">A JSON pattern store with episodic recall, Monograph (code knowledge graph — 19+27 MCP tools), and Second Brain (document knowledge base — 22 file formats including all Microsoft Office and Google Drive types).</p>
+      <p class="page-desc">A JSON pattern store with episodic recall, Monograph (code knowledge graph — 20+27 MCP tools), and Second Brain (document knowledge base — 22 file formats including all Microsoft Office and Google Drive types).</p>
     </div>
     <div class="section-title reveal">Storage</div>
     <div class="table-wrap reveal">
@@ -526,7 +526,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     </table>
     </div>
     <div class="section-title reveal">Monograph — Code Knowledge Graph</div>
-    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Monograph builds a SQLite-backed graph of your codebase via tree-sitter — nodes are files/classes/functions, edges are imports/calls/dependencies. 46 MCP tools total: 19 exposed by default (navigation, impact analysis, dead code, index lifecycle) plus 27 advanced tools (Cypher queries, snapshots, export, wiki, multi-repo groups) enabled with <code>MONOGRAPH_MCP_ADVANCED=1</code>. PPR graph reranking (HippoRAG-style) is on by default for query/suggest results. 13 language grammars supported: C, C#, C++, Dart, Go, Java, Kotlin, PHP, Python, Ruby, Rust, Swift, TypeScript/JS, and Vue. Use it before touching 3+ files. Also available standalone as <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">@monoes/monograph</code>.</p>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Monograph builds a SQLite-backed graph of your codebase via tree-sitter — nodes are files/classes/functions, edges are imports/calls/dependencies. 47 MCP tools total: 20 exposed by default (navigation, impact analysis, dead code, index lifecycle) plus 27 advanced tools (Cypher queries, snapshots, export, wiki, multi-repo groups) enabled with <code>MONOGRAPH_MCP_ADVANCED=1</code>. PPR graph reranking (HippoRAG-style) is on by default for query/suggest results. 13 language grammars supported: C, C#, C++, Dart, Go, Java, Kotlin, PHP, Python, Ruby, Rust, Swift, TypeScript/JS, and Vue. Use it before touching 3+ files. Also available standalone as <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">@monoes/monograph</code>.</p>
     <div class="table-wrap reveal">
     <table class="doc-table">
       <thead><tr><th>Tool</th><th>When to use</th></tr></thead>
@@ -640,10 +640,10 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="page-header">
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Hooks &amp; Workers</h1>
-      <p class="page-desc"><!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers, a pattern store that logs edits, task outcomes and session trajectories to local JSON files, and hook dispatch through <!-- doc-count:hooks-subcommands -->28<!-- /doc-count:hooks-subcommands --> <code>hooks</code> CLI subcommands (a curated 17 shown below) built on 20 internally typed hook events (<code>PreEdit</code>, <code>PostEdit</code>, <code>SessionStart</code>...). Workers run in-process at session start — there is no separate daemon.</p>
+      <p class="page-desc"><!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers, a pattern store that logs edits, task outcomes and session trajectories to local JSON files, and hook dispatch through <!-- doc-count:hooks-subcommands -->28<!-- /doc-count:hooks-subcommands --> <code>hooks</code> CLI subcommands (a curated 16 shown below) built on 20 internally typed hook events (<code>PreEdit</code>, <code>PostEdit</code>, <code>SessionStart</code>...). Workers run in-process at session start — there is no separate daemon.</p>
     </div>
     <div class="section-title reveal">Hook Commands</div>
-    <p class="reveal" style="color:var(--text2);font-size:13.5px;margin-bottom:12px;max-width:720px">These are <code>hooks</code> CLI subcommands (invoke as <code>npx monomind hooks &lt;name&gt;</code>) — a curated subset of the full 29. They aren't a 1:1 list of the 20 typed <code>HookEvent</code> registry/executor events (e.g. <code>PreEdit</code>/<code>PostEdit</code>); some rows below, like the intelligence and teams commands, are separate CLI/Claude-Code mechanisms rather than registry events.</p>
+    <p class="reveal" style="color:var(--text2);font-size:13.5px;margin-bottom:12px;max-width:720px">These are <code>hooks</code> CLI subcommands (invoke as <code>npx monomind hooks &lt;name&gt;</code>) — a curated subset of the full 28. They aren't a 1:1 list of the 20 typed <code>HookEvent</code> registry/executor events (e.g. <code>PreEdit</code>/<code>PostEdit</code>); some rows below, like the intelligence and teams commands, are separate CLI/Claude-Code mechanisms rather than registry events.</p>
     <div class="table-wrap reveal">
     <table class="doc-table">
       <thead><tr><th>Command</th><th>Category</th><th>Description</th></tr></thead>
@@ -652,7 +652,7 @@ monomind doc ingest ./their-knowledge -s shared
         <tr><td class="mono">post-edit</td><td><span class="tag tag-accent">core</span></td><td>Record edit outcome for pattern logging</td></tr>
         <tr><td class="mono">pre-command</td><td><span class="tag tag-accent">core</span></td><td>Intercept command before execution</td></tr>
         <tr><td class="mono">post-command</td><td><span class="tag tag-accent">core</span></td><td>Record command result</td></tr>
-        <tr><td class="mono">pre-task</td><td><span class="tag tag-accent">core</span></td><td>Register task start; get AGENT_BOOSTER_AVAILABLE or TASK_MODEL_RECOMMENDATION</td></tr>
+        <tr><td class="mono">pre-task</td><td><span class="tag tag-accent">core</span></td><td>Register task start; get agent suggestions</td></tr>
         <tr><td class="mono">post-task</td><td><span class="tag tag-accent">core</span></td><td>Record completion in the local outcome log</td></tr>
         <tr><td class="mono">session-start</td><td><span class="tag tag-cyan">session</span></td><td>Restore cross-session context</td></tr>
         <tr><td class="mono">session-end</td><td><span class="tag tag-cyan">session</span></td><td>Persist state; flush working memory</td></tr>
@@ -680,6 +680,7 @@ monomind doc ingest ./their-knowledge -s shared
         <tr><td class="mono">ddd</td><td><span class="tag tag-muted">low</span></td><td>Track DDD progress → metrics/ddd-progress.json</td></tr>
         <tr><td class="mono">consolidate</td><td><span class="tag tag-muted">low</span></td><td>Memory dedup, contradiction detection, pruning</td></tr>
         <tr><td class="mono">cache</td><td><span class="tag tag-muted">bg</span></td><td>Clean temp files, old logs, stale cache</td></tr>
+        <tr><td class="mono">reflexion</td><td><span class="tag tag-amber">normal</span></td><td>Failed routed tasks → templated notes in .monomind/reflexion-store.json (disabled by default)</td></tr>
       </tbody>
     </table>
     </div>
@@ -688,13 +689,13 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="code-block reveal"><span class="comment">// .claude/settings.json</span>
 {
   <span class="string">"hooks"</span>: {
-    <span class="string">"pre-task"</span>: [{ <span class="string">"matcher"</span>: <span class="string">".*"</span>, <span class="string">"hooks"</span>: [{
+    <span class="string">"PreToolUse"</span>: [{ <span class="string">"matcher"</span>: <span class="string">"Task|Agent"</span>, <span class="string">"hooks"</span>: [{
       <span class="string">"type"</span>: <span class="string">"command"</span>,
-      <span class="string">"command"</span>: <span class="string">"npx monomind hooks pre-task --description \"$TASK\""</span>
+      <span class="string">"command"</span>: <span class="string">"node .claude/helpers/hook-handler.cjs pre-agent"</span>
     }]}],
-    <span class="string">"post-edit"</span>: [{ <span class="string">"matcher"</span>: <span class="string">".*"</span>, <span class="string">"hooks"</span>: [{
+    <span class="string">"PostToolUse"</span>: [{ <span class="string">"matcher"</span>: <span class="string">"Write|Edit|MultiEdit"</span>, <span class="string">"hooks"</span>: [{
       <span class="string">"type"</span>: <span class="string">"command"</span>,
-      <span class="string">"command"</span>: <span class="string">"npx monomind hooks post-edit --file \"$FILE\""</span>
+      <span class="string">"command"</span>: <span class="string">"node .claude/helpers/hook-handler.cjs post-edit"</span>
     }]}]
   }
 }</div>
@@ -743,12 +744,12 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="page-header">
       <span class="page-tag">Reference</span>
       <h1 class="page-title">CLI Commands</h1>
-      <p class="page-desc">38 top-level commands. Run <code>npx monomind &lt;command&gt; --help</code> for full flag reference.</p>
+      <p class="page-desc">39 top-level commands. Run <code>npx monomind &lt;command&gt; --help</code> for full flag reference.</p>
     </div>
     <div class="search-bar reveal"><span class="search-icon">⌕</span><input type="text" id="cli-search" placeholder="Search commands..." aria-label="Search CLI commands"></div>
     <div class="cmd-grid" id="cli-grid">
       <div class="cmd-item" data-search="init wizard preset skills"><div class="cmd-name">init</div><div class="cmd-desc">Project init wizard — topology, memory, hooks</div></div>
-      <div class="cmd-item" data-search="init preset minimal"><div class="cmd-name">init --preset minimal</div><div class="cmd-desc">Initialize with a named preset configuration</div></div>
+      <div class="cmd-item" data-search="init preset minimal"><div class="cmd-name">init --minimal</div><div class="cmd-desc">Initialize with the minimal preset (<code>--full</code> for the full one)</div></div>
       <div class="cmd-item" data-search="agent spawn start create"><div class="cmd-name">agent spawn</div><div class="cmd-desc">Spawn a named agent by type</div></div>
       <div class="cmd-item" data-search="agent list show active"><div class="cmd-name">agent list</div><div class="cmd-desc">List active agents and their status</div></div>
       <div class="cmd-item" data-search="agent status info"><div class="cmd-name">agent status &lt;id&gt;</div><div class="cmd-desc">Detailed agent info and metrics</div></div>
@@ -765,39 +766,39 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="org answer human in the loop respond"><div class="cmd-name">org answer &lt;name&gt; &lt;id&gt; "&lt;text&gt;"</div><div class="cmd-desc">Answer a pending question — delivered live if the org is running, queued for next start otherwise</div></div>
       <div class="cmd-item" data-search="org create wizard define roles"><div class="cmd-name">org create</div><div class="cmd-desc">Define and save a new org config</div></div>
       <div class="cmd-item" data-search="memory store save write"><div class="cmd-name">memory store</div><div class="cmd-desc">Store a memory entry with optional namespace</div></div>
-      <div class="cmd-item" data-search="memory search query find bm25 keyword"><div class="cmd-name">memory search</div><div class="cmd-desc">Keyword/BM25 search over stored memories</div></div>
+      <div class="cmd-item" data-search="memory search query find semantic vector keyword"><div class="cmd-name">memory search</div><div class="cmd-desc">Semantic (vector) search over stored memories, keyword fallback</div></div>
       <div class="cmd-item" data-search="memory list show namespace"><div class="cmd-name">memory list</div><div class="cmd-desc">List memories by namespace or tag</div></div>
       <div class="cmd-item" data-search="memory delete remove purge"><div class="cmd-name">memory delete &lt;key&gt;</div><div class="cmd-desc">Remove a memory entry</div></div>
       <div class="cmd-item" data-search="memory export backup json"><div class="cmd-name">memory export</div><div class="cmd-desc">Export memories to JSON</div></div>
       <div class="cmd-item" data-search="memory import restore load"><div class="cmd-name">memory import</div><div class="cmd-desc">Import memories from JSON</div></div>
       <div class="cmd-item" data-search="memory stats counts backend health"><div class="cmd-name">memory stats</div><div class="cmd-desc">Entry counts, backend info, index health</div></div>
       <div class="cmd-item" data-search="mcp start server stdio"><div class="cmd-name">mcp start</div><div class="cmd-desc">Start MCP server (required for claude mcp add)</div></div>
-      <div class="cmd-item" data-search="mcp list tools registered"><div class="cmd-name">mcp list</div><div class="cmd-desc">List all registered MCP tools</div></div>
+      <div class="cmd-item" data-search="mcp tools list registered"><div class="cmd-name">mcp tools</div><div class="cmd-desc">List all registered MCP tools</div></div>
       <div class="cmd-item" data-search="mcp status health connection"><div class="cmd-name">mcp status</div><div class="cmd-desc">Server health and connection info</div></div>
       <div class="cmd-item" data-search="task create new title"><div class="cmd-name">task create</div><div class="cmd-desc">Create a task with title, description, priority</div></div>
       <div class="cmd-item" data-search="task list show board status"><div class="cmd-name">task list</div><div class="cmd-desc">Show tasks filtered by status or board</div></div>
-      <div class="cmd-item" data-search="task update status priority"><div class="cmd-name">task update &lt;id&gt;</div><div class="cmd-desc">Update task status, priority, assignee</div></div>
-      <div class="cmd-item" data-search="task delete remove"><div class="cmd-name">task delete &lt;id&gt;</div><div class="cmd-desc">Remove a task permanently</div></div>
+      <div class="cmd-item" data-search="task status details"><div class="cmd-name">task status &lt;id&gt;</div><div class="cmd-desc">Get task status and details</div></div>
+      <div class="cmd-item" data-search="task cancel stop"><div class="cmd-name">task cancel &lt;id&gt;</div><div class="cmd-desc">Cancel a task</div></div>
       <div class="cmd-item" data-search="hooks pre-task before task start"><div class="cmd-name">hooks pre-task</div><div class="cmd-desc">Register task start; get routing recommendation</div></div>
       <div class="cmd-item" data-search="hooks post-task after task complete"><div class="cmd-name">hooks post-task</div><div class="cmd-desc">Record completion in the local outcome log</div></div>
       <div class="cmd-item" data-search="hooks pre-edit before file edit"><div class="cmd-name">hooks pre-edit</div><div class="cmd-desc">Context suggestions before file edit</div></div>
       <div class="cmd-item" data-search="hooks post-edit after file edit"><div class="cmd-name">hooks post-edit</div><div class="cmd-desc">Record edit outcome for patterns</div></div>
       <div class="cmd-item" data-search="hooks session start begin restore"><div class="cmd-name">hooks session-start</div><div class="cmd-desc">Restore cross-session context</div></div>
       <div class="cmd-item" data-search="hooks session end finish persist"><div class="cmd-name">hooks session-end</div><div class="cmd-desc">Persist state; flush working memory</div></div>
-      <div class="cmd-item" data-search="hooks route model tier routing"><div class="cmd-name">hooks route</div><div class="cmd-desc">3-tier model routing decision</div></div>
+      <div class="cmd-item" data-search="hooks route model tier routing"><div class="cmd-name">hooks route</div><div class="cmd-desc">Best registry agent for a task, through the central picker</div></div>
       <div class="cmd-item" data-search="hooks worker list background"><div class="cmd-name">hooks worker list</div><div class="cmd-desc">List active background workers</div></div>
       <div class="cmd-item" data-search="hooks worker run background on demand"><div class="cmd-name">hooks worker run &lt;name&gt;</div><div class="cmd-desc">Run a background worker on demand</div></div>
       <div class="cmd-item" data-search="hooks intelligence patterns list logged"><div class="cmd-name">hooks intelligence patterns</div><div class="cmd-desc">List logged patterns</div></div>
       <div class="cmd-item" data-search="hooks intelligence predict route input"><div class="cmd-name">hooks intelligence predict</div><div class="cmd-desc">Predict routing for a task from logged patterns</div></div>
-      <div class="cmd-item" data-search="hooks intelligence stats patterns count"><div class="cmd-name">hooks intelligence stats</div><div class="cmd-desc">Pattern store status</div></div>
+      <div class="cmd-item" data-search="hooks intelligence status patterns count"><div class="cmd-name">hooks intelligence status</div><div class="cmd-desc">Pattern store status</div></div>
       <div class="cmd-item" data-search="security scan secrets vulnerability npm audit code smell"><div class="cmd-name">security scan</div><div class="cmd-desc">npm audit + secret-pattern scan + code-smell scan (eval, innerHTML, SQL/command injection); <code>--fix</code> shells to npm audit fix</div></div>
       <div class="cmd-item" data-search="security cve check lookup nvd osv vulnerability database"><div class="cmd-name">security cve --check &lt;id&gt;</div><div class="cmd-desc">Look up a CVE against the live NVD/OSV.dev APIs (24h cache)</div></div>
       <div class="cmd-item" data-search="security secrets scan pattern hardcoded keys"><div class="cmd-name">security secrets</div><div class="cmd-desc">Standalone secret-pattern scan (same engine as scan's secrets pass)</div></div>
       <div class="cmd-item" data-search="security defend monofence threat detection input"><div class="cmd-name">security defend -i "&lt;text&gt;"</div><div class="cmd-desc">Run monofence-ai's real threat detection against arbitrary input</div></div>
-      <div class="cmd-item" data-search="security audit event log stub partial"><div class="cmd-name">security audit</div><div class="cmd-desc">Lists recent .swarm/*.json activity as inferred events — a lightweight preview, not a persistent audit log (declared log/export/clear actions aren't implemented yet)</div></div>
-      <div class="cmd-item" data-search="security redteam dry-run attack prompts stub preview"><div class="cmd-name">security redteam --dry-run</div><div class="cmd-desc">Preview a 20-prompt adversarial test library (injection/jailbreak/adversarial/PII) — live --target execution against a running agent isn't implemented yet</div></div>
+      <div class="cmd-item" data-search="security audit event log export clear"><div class="cmd-name">security audit --action &lt;list|log|export|clear&gt;</div><div class="cmd-desc">Read, tail, export (<code>-o</code>) or archive-and-clear the security audit trail</div></div>
+      <div class="cmd-item" data-search="security redteam attack prompts target dry-run"><div class="cmd-name">security redteam [--target &lt;url&gt;]</div><div class="cmd-desc">Adversarial prompt library (injection/jailbreak/adversarial/PII): listed for review by default, or sent live to <code>--target</code> and evaluated</div></div>
       <div class="cmd-item" data-search="performance profile benchmark latency token"><div class="cmd-name">performance profile</div><div class="cmd-desc">Record latency and token cost profiles</div></div>
-      <div class="cmd-item" data-search="performance report metrics time series"><div class="cmd-name">performance report</div><div class="cmd-desc">Time-series performance metrics</div></div>
+      <div class="cmd-item" data-search="performance metrics export time series"><div class="cmd-name">performance metrics</div><div class="cmd-desc">View and export performance metrics</div></div>
       <div class="cmd-item" data-search="doctor health check diagnose fix repair"><div class="cmd-name">doctor</div><div class="cmd-desc">System diagnostics — all components</div></div>
       <div class="cmd-item" data-search="doctor fix auto repair node db workers"><div class="cmd-name">doctor --fix</div><div class="cmd-desc">Auto-fix: Node version, DB init, stale worker metrics</div></div>
       <div class="cmd-item" data-search="doc ingest index documents pdf docx knowledge second brain"><div class="cmd-name">doc ingest &lt;path&gt;</div><div class="cmd-desc">Index documents into the Second Brain knowledge base</div></div>
@@ -890,13 +891,11 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="mastermind marketing campaigns copy seo social media content launch"><div class="cmd-name">/mastermind:marketing</div><div class="cmd-desc">Marketing strategy: campaigns, copy, SEO, social</div></div>
       <div class="cmd-item" data-search="mastermind content blog threads docs newsletters copywriting"><div class="cmd-name">/mastermind:content</div><div class="cmd-desc">Blog posts, threads, docs, newsletters</div></div>
       <div class="cmd-item" data-search="mastermind sales outreach proposals pipeline management strategy"><div class="cmd-name">/mastermind:sales</div><div class="cmd-desc">Sales strategy, outreach, and pipeline management</div></div>
-      <!-- swarm: -->
-      <div class="cmd-item" data-search="swarm development hierarchical architect coder tester flow"><div class="cmd-name">/swarm:development</div><div class="cmd-desc">Hierarchical: architect→coder→tester flow</div></div>
-      <div class="cmd-item" data-search="swarm analysis mesh distributed codebase perf security adaptive"><div class="cmd-name">/swarm:analysis</div><div class="cmd-desc">Mesh + adaptive for codebase analysis</div></div>
-      <div class="cmd-item" data-search="swarm testing star parallel unit integration e2e all types"><div class="cmd-name">/swarm:testing</div><div class="cmd-desc">Star + parallel for all test types</div></div>
-      <div class="cmd-item" data-search="swarm optimization profiling bottleneck performance detect"><div class="cmd-name">/swarm:optimization</div><div class="cmd-desc">Profiling, bottleneck detection, optimization</div></div>
-      <div class="cmd-item" data-search="swarm research mesh exploration knowledge sharing"><div class="cmd-name">/swarm:research</div><div class="cmd-desc">Mesh swarm for research and exploration</div></div>
-      <div class="cmd-item" data-search="swarm maintenance dependency updates security audits"><div class="cmd-name">/swarm:maintenance</div><div class="cmd-desc">Dependency updates and security audits</div></div>
+      <!-- workflows / analysis / optimization: -->
+      <div class="cmd-item" data-search="workflows development plan implement test review task agents dev team org"><div class="cmd-name">/workflows:development</div><div class="cmd-desc">Development workflow: plan, implement, test, review</div></div>
+      <div class="cmd-item" data-search="workflows research parallel researcher agents findings memory"><div class="cmd-name">/workflows:research</div><div class="cmd-desc">Research workflow with parallel researcher agents</div></div>
+      <div class="cmd-item" data-search="analysis bottleneck detect performance components"><div class="cmd-name">/analysis:bottleneck-detect</div><div class="cmd-desc">Detect performance bottlenecks in system components</div></div>
+      <div class="cmd-item" data-search="optimization performance optimize memory latency throughput"><div class="cmd-name">/optimization:performance-optimize</div><div class="cmd-desc">System-level performance analysis and optimization recommendations</div></div>
       <!-- github: -->
       <div class="cmd-item" data-search="github pr pull request manager lifecycle swarm"><div class="cmd-name">/github:pr-manager</div><div class="cmd-desc">Full PR lifecycle with swarm coordination</div></div>
       <div class="cmd-item" data-search="github issue tracker milestone creation progress"><div class="cmd-name">/github:issue-tracker</div><div class="cmd-desc">Issue creation and progress tracking</div></div>
@@ -2046,7 +2045,7 @@ You are an API contract reviewer. ...</div>
 <span class="keyword">const</span> scan = <span class="keyword">await</span> fence.scanOutput(llmResponse, originalPrompt);
 
 <span class="comment">// Multi-turn context tracking</span>
-console.log(fence.getContextState()); <span class="comment">// 'clean' | 'probing' | 'escalating' | 'attack'</span>
+console.log(fence.getContextState().escalationState); <span class="comment">// 'clean' | 'probing' | 'escalating' | 'attack'</span>
 fence.resetContext();                 <span class="comment">// start a new conversation</span></div>
 
     <div class="section-title reveal">Key Features</div>
@@ -2074,7 +2073,7 @@ fence.resetContext();                 <span class="comment">// start a new conve
       <div class="card">
         <div class="card-icon">🔒</div>
         <div class="card-title">SecurityHook</div>
-        <div class="card-desc">Registers a pre-task and pre-command scanner with priority 1000. Aborts execution when escalation state reaches <code>attack</code>. Off by default — opt in via <code>SecurityHook.register()</code> or the CLI flag.</div>
+        <div class="card-desc">Registers a pre-task and pre-command scanner with priority 1000. Aborts execution when escalation state reaches <code>attack</code>. Off by default — opt in by calling <code>registerSecurityHooks(registry)</code> from <code>monofence-ai/hooks</code>.</div>
       </div>
       <div class="card">
         <div class="card-icon">🤝</div>
@@ -2084,13 +2083,10 @@ fence.resetContext();                 <span class="comment">// start a new conve
     </div>
 
     <div class="section-title reveal">CLI Integration</div>
-    <div class="code-block reveal"><span class="comment"># Wire MonoFence AI into the pre-task hook (blocks on 'attack' state)</span>
-<span class="cmd">npx monomind hooks pre-task --monofence-ai-check</span>
-
-<span class="comment"># Enable in mastermind:review — adds security pass to each review iteration</span>
+    <div class="code-block reveal"><span class="comment"># Enable in mastermind:review — adds monofence-ai self-validation (test suite + adversarial probes) to the security pass</span>
 <span class="keyword">/mastermind:review</span> --monofence-ai-check
 
-<span class="comment"># Deep security scan (includes SecurityConsensus across parallel agents)</span>
+<span class="comment"># Deeper pass — scans LLM-facing input boundaries through monofence-ai</span>
 <span class="keyword">/mastermind:review</span> --monofence-ai-check --monofence-ai-security-deep</div>
 
     <div class="section-title reveal">API Reference</div>
@@ -2100,11 +2096,11 @@ fence.resetContext();                 <span class="comment">// start a new conve
       <tbody>
         <tr><td class="mono">fence.detect(input)</td><td class="mono">ThreatDetectionResult</td><td>Primary scan — returns <code>safe</code>, <code>threats</code>, <code>overallRisk</code>. ~0.04ms per call.</td></tr>
         <tr><td class="mono">fence.scanOutput(output, prompt)</td><td class="mono">OutputScanResult</td><td>Scan LLM output for PII leakage, echo attacks, and policy violations.</td></tr>
-        <tr><td class="mono">fence.getContextState()</td><td class="mono">ContextState</td><td>Current escalation state: <code>clean | probing | escalating | attack</code>.</td></tr>
+        <tr><td class="mono">fence.getContextState()</td><td class="mono">ContextState</td><td>Current context state; <code>escalationState</code> is one of <code>clean | probing | escalating | attack</code>.</td></tr>
         <tr><td class="mono">fence.resetContext()</td><td class="mono">void</td><td>Reset conversation context. Call at the start of each new conversation.</td></tr>
         <tr><td class="mono">fence.addAllowlistRule(rule)</td><td class="mono">void</td><td>Add a runtime bypass rule with optional TTL decay.</td></tr>
         <tr><td class="mono">fence.isAllowed(input)</td><td class="mono">boolean</td><td>Check if input matches an allowlist rule before running detection.</td></tr>
-        <tr><td class="mono">calculateSecurityConsensus(results)</td><td class="mono">ConsensusResult</td><td>Aggregate threat assessments from multiple agents. Import from <code>monofence-ai</code>.</td></tr>
+        <tr><td class="mono">calculateSecurityConsensus(assessments)</td><td class="mono">{ consensus, confidence, criticalThreats }</td><td>Aggregate threat assessments from multiple agents. Import from <code>monofence-ai</code>.</td></tr>
       </tbody>
     </table>
     </div>
@@ -2134,12 +2130,12 @@ fence.resetContext();                 <span class="comment">// start a new conve
 ]);
 
 <span class="keyword">const</span> consensus = calculateSecurityConsensus([
-  { result: resultA, weight: 0.6 },
-  { result: resultB, weight: 0.4 },
+  { agentId: 'a', threatAssessment: resultA, weight: 0.6 },
+  { agentId: 'b', threatAssessment: resultB, weight: 0.4 },
 ]);
 <span class="comment">// consensus.consensus  → 'safe' | 'threat' | 'uncertain'</span>
 <span class="comment">// consensus.confidence → 0.0 – 1.0</span>
-<span class="comment">// consensus.criticalThreats → string[]</span></div>
+<span class="comment">// consensus.criticalThreats → Threat[]</span></div>
   </div>
 </div>
 <!-- ══════════════ END MONOFENCE AI PAGE ══════════════ -->
@@ -2329,7 +2325,7 @@ function runTypewriter() {
     {t:'cmd',text:'npx monomind doctor'},
     {t:'out',text:'Node 22.0.0          ✓'},
     {t:'out',text:'Memory store         ✓  patterns.json + episodic'},
-    {t:'out',text:'MCP tools            ✓  19 monograph + core monomind'},
+    {t:'out',text:'MCP tools            ✓  20 monograph + core monomind'},
     {t:'cmd',text:'/mastermind:review --tillend'},
     {t:'out',text:'[tillend] Starting tillend loop for /mastermind:review (safety cap: 50, 60s between runs). Run 1...',cls:'amber'},
     {t:'out',text:'[review] Auto-fixed 4 issues. Remaining 2 issues require manual intervention.',cls:'amber'},

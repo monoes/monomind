@@ -136,7 +136,7 @@ const res2 = await router.route('Create new REST endpoint for user profiles');
 
 - [GitHub Repository](https://github.com/monoes/monomind)
 - [Documentation Site](https://monoes.github.io/monomind/)
-- [Monomind CLI Command Reference](https://monoes.github.io/monomind/#routing)
+- [Monomind CLI Command Reference](https://monoes.github.io/monomind/#commands)
 
 ## 📄 License
 

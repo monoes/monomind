@@ -314,7 +314,7 @@ Every session, every agent, every org writes to a persistent memory store that s
 ```mermaid
 graph TD
     L0["L0 - In-flight\nCurrent session drawers\nephemeral"]
-    L1["L1 - Working\nCross-session memory\nBM25 K1=1.5, B=0.75"]
+    L1["L1 - Working\nCross-session memory\nBM25 K1=1.2, B=0.75"]
     L2["L2 - Long-term\nEpisodic store\nSemantic recall"]
     L3["L3 - Shared\nCross-agent namespace\nFederated swarm reads"]
 
