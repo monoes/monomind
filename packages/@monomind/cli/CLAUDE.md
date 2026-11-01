@@ -1,4 +1,4 @@
-# Claude Code Configuration - Monomind v2.0
+# Claude Code Configuration - Monomind
 
 ## Skill Auto-Invocation Rules
 
@@ -48,7 +48,7 @@ Bash("npx monomind@latest memory store --namespace patterns --key '[pattern-name
 Bash("npx monomind@latest hooks post-edit --file '[main-file]' --success true")
 
 # 3. Record task completion with metrics
-Bash("npx monomind@latest hooks post-task --task-id '[id]' --success true --store-results true")
+Bash("npx monomind@latest hooks post-task --task-id '[id]' --success true")
 
 # 4. Refresh the codebase map worker after a structural change
 Bash("npx monomind@latest hooks worker run map")
@@ -140,11 +140,11 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 
 | Command     | Subcommands | Description                                                              | Status          |
 | ----------- | ----------- | ------------------------------------------------------------------------ | --------------- |
-| `init`      | 5           | Project initialization with wizard, presets, skills, hooks               | Working         |
-| `ui`        | 0           | Start the Neural Control Room dashboard (`--no-open`, `--port`; alias `dashboard`) | Working         |
-| `agent`     | 7           | Agent lifecycle (spawn, list, status, stop, metrics, pool, health)       | Working — runs in-process, no MCP server needed |
+| `init`      | 6           | Project initialization with wizard, presets, skills, hooks               | Working         |
+| `ui`        | 1           | Start the Neural Control Room dashboard (`--no-open`, `--port`; alias `dashboard`; subcommand `open`) | Working         |
+| `agent`     | 11          | Agent lifecycle (spawn, list, status, stop, metrics, pool, health, exec, scan, models, test) | Working — runs in-process, no MCP server needed |
 | `memory`    | 12          | Memory store (SQLite/JSON; optional vector search)                        | Working         |
-| `mcp`       | 9           | MCP server management and tool execution                                 | Working         |
+| `mcp`       | 11          | MCP server management and tool execution                                 | Working         |
 | `task`      | 5           | Task creation, assignment, and lifecycle                                 | Working         |
 | `session`   | 6           | Session state management, persistence, and replay (`session replay`)     | Working         |
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
@@ -164,7 +164,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | `guidance`    | 1           | Governance gate setup (`guidance setup`)                                      | Working          |
 | `monograph`   | -           | Knowledge graph CLI (delegates to @monoes/monograph)                          | Working          |
 | `browse`      | -           | Browser automation via CDP (@monoes/monobrowse)                               | Working          |
-| `doctor`      | 0           | System diagnostics — flat command, flags only (`--component` accepts 28 named categories, dispatch table `doctor.ts:97-111`) | Working          |
+| `doctor`      | 0           | System diagnostics — flat command, flags only (`--component` accepts a named category; the valid names are listed in `doctor --help` and the `componentMap` dispatch table in `doctor.ts`) | Working          |
 | `completions` | 4           | Shell completions (bash, zsh, fish, powershell)                               | Working          |
 
 ### Quick CLI Examples
@@ -180,7 +180,7 @@ npx monomind@latest agent spawn -t coder --name my-coder
 npx monomind@latest org run <org> --task "..."
 
 # Search memory (local SQLite + local HF-embeddings; keyword fallback. HNSW ANN
-# index is used automatically above 5,000 entries; --build-hnsw builds it early)
+# index is used automatically above 100,000 entries; --build-hnsw builds it early)
 npx monomind@latest memory search --query "authentication patterns"
 
 # System diagnostics
@@ -268,12 +268,12 @@ npx monomind@latest hooks post-edit --file "[file]" --success true
 
 # Session management
 npx monomind@latest hooks session-start --session-id "[id]"
-npx monomind@latest hooks session-end --export-metrics true
+npx monomind@latest hooks session-end --save-state true
 npx monomind@latest hooks session-restore --session-id "[id]"
 
 # Intelligence routing
 npx monomind@latest hooks route --task "[task]"
-npx monomind@latest hooks explain --topic "[topic]"
+npx monomind@latest hooks explain --task "[task]"
 
 # Scan the repository (file types, import lines) into the memory store and local pattern log (no model is trained)
 npx monomind@latest hooks pretrain --path . --depth medium
@@ -299,7 +299,7 @@ The lean build records what happens and measures whether routing helped — no n
 - **Route-outcome measurement**: correlates each pick with the subagent actually spawned and its success; adherence surfaced by `doctor -c pick` and `route stats`, and near-tied keyword picks re-ranked within ±15 %
 - **Trajectory + outcome logging**: `intelligence.ts` records steps/trajectories; `command-outcomes.ts` tracks command results
 - **Pattern persistence**: plain `patterns.json` read by `intelligence.ts`
-- **HNSW**: real, size-gated ANN fast path inside `@monoes/memory`'s `SqlBackend.search()` (`packages/@monomind/memory/src/sql-backend.ts`) — used automatically once active embedded entries cross `MONOMIND_HNSW_THRESHOLD` (default 5000; below it, brute-force cosine is cheaper and stays the path, per the second-brain-scale note on `search()`). The built graph is persisted to disk next to the SQLite file (`HNSWIndex.serialize()`/`.deserialize()` in `hnsw-index.ts`) and validated by entry count, so a fresh CLI invocation loads it instead of paying a full rebuild when the corpus hasn't changed. `memory search --build-hnsw` force-builds and caches it ahead of time (`bridgeForceBuildHNSW()` in `memory-bridge-entries.ts`); `bridgeGetHNSWStatus()` reports real status.
+- **HNSW**: real, size-gated ANN fast path inside `@monoes/memory`'s `SqlBackend.search()` (`packages/@monomind/memory/src/sql-backend.ts`) — used automatically once active embedded entries cross `MONOMIND_HNSW_THRESHOLD` (default 100000; below it, brute-force cosine is cheaper and stays the path, per the second-brain-scale note on `search()`). The built graph is persisted to disk next to the SQLite file (`HNSWIndex.serialize()`/`.deserialize()` in `hnsw-index.ts`) and validated by entry count, so a fresh CLI invocation loads it instead of paying a full rebuild when the corpus hasn't changed. `memory search --build-hnsw` force-builds and caches it ahead of time (`bridgeForceBuildHNSW()` in `memory-bridge-entries.ts`); `bridgeGetHNSWStatus()` reports real status.
 
 **SONA and EWC++ ship in main** (`src/memory/sona-optimizer.ts`, `src/memory/ewc-consolidation.ts`) — see the file headers for their actual scope.
 
@@ -326,7 +326,7 @@ Features:
 
 ```bash
 # After any significant operation, track metrics
-Bash("npx monomind@latest hooks post-command --command '[operation]' --track-metrics true")
+Bash("npx monomind@latest hooks post-command --command '[operation]' --success true")
 
 # Periodically run benchmarks (every major feature)
 Bash("npx monomind@latest performance benchmark --suite all")
@@ -339,10 +339,10 @@ Bash("npx monomind@latest performance profile --target '[component]'")
 
 ```bash
 # At session start - restore previous context
-Bash("npx monomind@latest session restore --latest")
+Bash("npx monomind@latest session restore <session-id>")
 
 # At session end - persist logged patterns and session state
-Bash("npx monomind@latest hooks session-end --generate-summary true --persist-state true --export-metrics true")
+Bash("npx monomind@latest hooks session-end --save-state true")
 ```
 
 ### Pattern Logging & Lookup
@@ -360,7 +360,6 @@ Bash("npx monomind@latest hooks intelligence patterns --action list")
 ```bash
 # Configuration
 MONOMIND_CONFIG=./monomind.config.json
-MONOMIND_LOG_LEVEL=info
 
 # Provider API Keys
 ANTHROPIC_API_KEY=sk-ant-...
@@ -380,12 +379,9 @@ ALIBABA_API_KEY=...                  # Alibaba Qwen (Vercel runner, vendor: 'ali
 OPENROUTER_API_KEY=...               # OpenRouter aggregator (Vercel runner, vendor: 'openrouter')
 
 # MCP Server
-MONOMIND_MCP_PORT=3000
-MONOMIND_MCP_HOST=localhost
 MONOMIND_MCP_TRANSPORT=stdio
 
 # Memory
-MONOMIND_MEMORY_BACKEND=hybrid
 MONOMIND_MEMORY_PATH=./data/memory
 ```
 
@@ -393,7 +389,7 @@ MONOMIND_MEMORY_PATH=./data/memory
 
 Run `npx monomind@latest doctor` to check:
 
-- Node.js version (20+)
+- Node.js version (22.12+)
 - npm version (9+)
 - Git installation
 - Config file validity
