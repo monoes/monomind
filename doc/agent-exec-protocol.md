@@ -614,7 +614,7 @@ progress go to stderr. A caller must be able to `JSON.parse` every stdout line.
 | `--startup-timeout <dur>` | | rev 12. Max wait for `phase:"ready"` when `--settings` is non-none (default `30s`); on expiry monomind emits `error {code:"runner-error", message:"claude did not initialize (settings/MCP startup hang?)"}` + `done`, exit 1, instead of hanging until `--timeout`. No effect with `--settings none`. |
 | `--budget-usd <n>` | | rev 3. Optional spend cap for this turn, enforced via the same per-role budget mechanism orgrt already uses internally. On breach: SIGTERM the agent child, emit `error {code:"budget", fatal:true}` + `done`, exit 1. Bare `agent exec` has no default cap — callers driving cost-sensitive flows (e.g. a chat UI, not an org role) should set this explicitly. **rev 4 granularity**: on a single-shot exec the cap is checked when the turn's `result` message arrives (the AgentRunner interface surfaces usage at result granularity) — the overspend is reported as the terminal outcome (`error budget` + exit 1, **no success `result` event`) so callers stop, but a single turn's own spend cannot be interrupted mid-flight. Mid-turn enforcement arrives with M2 (`agent_ask` in orgrt, where the mailbox-close mechanism applies). |
 
-Exactly one of `--prompt` / `--prompt-file`. Unknown flags → exit 2 with JSON error on stderr.
+Exactly one of `--prompt` / `--prompt-file`, else exit 2 with a JSON error on stderr. Unknown flags are ignored, not rejected (`org sign` is the exception, §7.2).
 
 There is no output-mode flag: NDJSON events on stdout are the command's only output mode.
 
@@ -1454,7 +1454,7 @@ KILO_CLI_BIN=/absolute/path/to/kilo monomind agent exec --runtime kilo \
   --access full --cwd /absolute/path/to/workspace \
   --settings user,project,local --tools none \
   --model openrouter/qwen/qwen3.8-27b:free \
-  --prompt-file /absolute/path/to/prompt.txt --timeout 2m --json
+  --prompt-file /absolute/path/to/prompt.txt --timeout 2m
 ```
 
 `--tools none` here disables caller tools; explicitly requested full access still
