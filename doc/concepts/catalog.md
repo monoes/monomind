@@ -234,7 +234,7 @@ description — never prompts, commands, URLs, providers, `policy` or
 A role opts in with `"blueprint": "<name>"`.
 [`resolveOrgDefBlueprints`](packages/@monomind/cli/src/catalog/blueprints.ts#resolveOrgDefBlueprints)
 runs where the Org definition is parsed — daemon start and hot reload,
-checkpoint replay, `org validate` and `org run --dryRun` — and fills only what
+checkpoint replay, `org validate` and `org run --dry-run` — and fills only what
 the role leaves unset:
 
 - `skills` ← `[archetype, ...blueprint.skills]` when the role has no `skills`
@@ -242,7 +242,7 @@ the role leaves unset:
 - `skill_pool` ← the blueprint's when the role has none;
 - `policy` and `tool_providers` are never produced;
 - `runtimeHints` and `recommendedPolicy` are printed by `org validate` and
-  `org run --dryRun` as notes ending in `(not applied)` and are not applied.
+  `org run --dry-run` as notes ending in `(not applied)` and are not applied.
 
 The blueprint must be active for `org`, and every skill it names must resolve
 in the library (a legacy skill or an active `org` catalog entry), or

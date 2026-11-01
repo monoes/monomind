@@ -42,7 +42,7 @@
 - Ranking: a Jev-compatible decision model (self-hosted OpenJev via `MONOMIND_JEV_URL`, or hosted TypeSafe with `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1`) when configured, acted on unattended at 0.6 and shown as low-confidence down to 0.25; otherwise a BM25-style keyword ranker (stopwords, stemming, IDF, length normalisation). Off by default. Also backs `org skills search`, `org_task`'s `assignee: "auto"` and per-task org skill suggestions.
 - Learning loop: the hooks log whether spawned subagents followed the pick and whether they succeeded; `.monomind/pick-stats.json` re-ranks near-tied keyword picks within ±15 %.
 - `route semantic`, `hooks_route_semantic` and `agent spawn --task` ask the picker first, then fall back to the `@monoes/routing` regex pre-filter, real-embedding cosine similarity and a Haiku classifier.
-- Evaluation: `pnpm run pick:eval` (60 tasks) and the opt-in `monomind doctor -c pick`.
+- Evaluation: `pnpm run pick:eval` (82 tasks) and the opt-in `monomind doctor -c pick`.
 - Concept Doc: [`doc/concepts/routing.md`](doc/concepts/routing.md)
 
 ### Skill Catalog

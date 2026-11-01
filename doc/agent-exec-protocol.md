@@ -284,7 +284,7 @@
   - rev 13 (2026-09-28): **threat model + guardrails** (issue #360). `agent exec --access full`
     now appends one JSON line per turn to `~/.monomind/logs/agent-exec-full-access.log`
     (`MONOMIND_FULL_ACCESS_LOG` overrides), regardless of how the turn ended — `ts, cwd, runtime,
-    session_id?, exit_code, tool_calls` (the number of native `tool_activity` starts observed) —
+    sessionId?, exitCode, toolCalls` (the number of native `tool_activity` starts observed) —
     never for `scoped` access; best-effort (a write failure never fails the turn). No protocol
     surface (flags/events/capabilities) changed — see `doc/concepts/coder-mode-security.md` for
     the full write-up, including the audited set of paths (MCP tools, the org runtime, workflow/
@@ -591,7 +591,7 @@ progress go to stderr. A caller must be able to `JSON.parse` every stdout line.
 
 | Flag | Req | Meaning |
 |---|---|---|
-| `--runtime <id>` | ✓ | Runner id: `claude, codex, kimicode, opencode, antigravity, grok, qwen, qwen-rpc, crush, copilot, pi, pi-rpc, vercel, gemini, cursor` (set grows with monomind releases). **rev 31**: also accepts the runtime's CLI binary name when it differs from the id and is unambiguous (`agy` → `antigravity`, `kimi` → `kimicode`); a binary shared by more than one id (`qwen`, `pi`) is not resolved |
+| `--runtime <id>` | ✓ | Runner id: `claude, codex, kimicode, opencode, antigravity, grok, qwen, qwen-rpc, crush, copilot, pi, pi-rpc, vercel, hermes, cline, aider, dsh, kilo` (the ids `agent scan --json` lists; the set grows with monomind releases). **rev 31**: also accepts the runtime's CLI binary name when it differs from the id and is unambiguous (`agy` → `antigravity`, `kimi` → `kimicode`); a binary shared by more than one id (`qwen`, `pi`) is not resolved |
 | `--prompt <text>` | ✓* | Prompt text (or `--prompt-file`) |
 | `--prompt-file <path>` | ✓* | Prompt from file (large prompts; avoids argv limits) |
 | `--system-file <path>` | | System prompt file (prepended first turn only, runner-dependent — same semantics as orgrt) |

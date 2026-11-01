@@ -26,7 +26,7 @@ node .gemini/helpers/statusline.cjs
 | Category | Key Tools |
 |---|---|
 | **Knowledge Graph** | `monograph_suggest`, `monograph_query`, `monograph_impact`, `monograph_neighbors`, `monograph_context` |
-| **Memory** | `memory_kg_search`, `memory_pattern-store`, `memory_feedback`, `memory_kg_ingest`, `memory_kg_search` |
+| **Memory** | `memory_kg_search`, `memory_pattern-store`, `memory_feedback`, `memory_kg_ingest` |
 | **Documents** | `knowledge_search`, `knowledge_ingest` |
 | **Orgs** | `task_create`, `task_status`, `system_status` |
 

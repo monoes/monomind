@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>An open-source MCP server that extends Claude Code with a codebase knowledge graph, persistent memory, and multi-agent coordination.</strong><br/>
-  Apache 2.0 licensed &middot; Monomind keeps its own state on your machine; the AI tools it drives send prompts and code to their model providers — see [Trust & Security](#trust--security)
+  Apache 2.0 licensed &middot; Monomind keeps its own state on your machine; the AI tools it drives send prompts and code to their model providers — see <a href="#trust--security">Trust &amp; Security</a>
 </p>
 
 <p align="center">
@@ -209,7 +209,7 @@ The repo ships one worked example beyond the sample: `config/orgs/release.json`,
 Org roles and `monomind agent exec` run on whichever coding agent you have installed, through the [Agent Exec Protocol](doc/agent-exec-protocol.md): one turn in, NDJSON events out, the same shape for every runtime.
 
 ```bash
-monomind agent scan                              # which runtimes are installed (19 known: claude, codex, opencode, kimicode, kilo, qwen, grok, copilot, hermes, aider, …)
+monomind agent scan                              # which runtimes are installed (18 known: claude, codex, opencode, kimicode, kilo, qwen, grok, copilot, hermes, aider, …)
 monomind agent models --runtime codex --json     # a runtime's own model list
 monomind agent test claude --json                # smoke-test a runtime with one tiny turn
 monomind agent exec --runtime codex --prompt "summarize ./README" --effort high
@@ -314,7 +314,7 @@ Every session, every agent, every org writes to a persistent memory store that s
 ```mermaid
 graph TD
     L0["L0 - In-flight\nCurrent session drawers\nephemeral"]
-    L1["L1 - Working\nCross-session memory\nBM25 K1=1.5, B=0.75"]
+    L1["L1 - Working\nCross-session memory\nBM25 K1=1.2, B=0.75"]
     L2["L2 - Long-term\nEpisodic store\nSemantic recall"]
     L3["L3 - Shared\nCross-agent namespace\nFederated swarm reads"]
 
@@ -347,7 +347,7 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 # → "find all callers of validateToken()"
 ```
 
-<!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
+20 Monograph MCP tools by default (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
 
 The MCP server advertises a lean core of <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> tools by default to keep Claude's context small. Every other tool stays callable by name, and `monomind_tool_search` finds it. `MONOMIND_MCP_FULL=1` advertises all <!-- doc-count:mcp-tools-full -->204<!-- /doc-count:mcp-tools-full --> ([MCP server](doc/concepts/mcp-server.md)).
 
@@ -363,7 +363,6 @@ flowchart LR
     H --> P["pre-edit\npre-task\npre-command"]
     H --> SS["session-start\nsession-end\nnotify"]
     H --> I["route\nlog outcomes"]
-    H --> T["teammate-idle\ntask-completed"]
 
     I --> DB[("patterns.json\nmemory store")]
     DB -->|next session| CE

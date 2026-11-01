@@ -27,7 +27,7 @@ The Memory Palace helper (`.claude/helpers/memory-palace.cjs`) was removed in [#
 ---
 ## 2. Memory Subsystem Architecture (v3.0.0 Schema)
 
-**Schema Architecture**: Embedded SQLite database operating in **WAL mode** (`PRAGMA journal_mode = WAL`); the database file itself is created `chmod 0600` (owner read/write only). Supports standalone `@monoes/memory` core schema (schema version **3** — `SCHEMA_VERSION` constant, [`sql-schema.ts → SCHEMA_VERSION`](packages/@monomind/memory/src/sql-schema.ts#SCHEMA_VERSION), applied via `PRAGMA user_version`; previously documented here as "v2", now stale) — **5 tables**: `memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`, plus the FTS5 full-text virtual table `memory_entries_fts` ([`sql-schema.ts → createFTS5Index`](packages/@monomind/memory/src/sql-schema.ts#createFTS5Index), added for issue #66) — and CLI project memory schema (v3.0.0, 9 tables at [`memory-schema.ts → MEMORY_SCHEMA`](packages/@monomind/cli/src/memory/memory-schema.ts#MEMORY_SCHEMA): `memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
+**Schema Architecture**: Embedded SQLite database operating in **WAL mode** (`PRAGMA journal_mode = WAL`); the database file itself is created `chmod 0600` (owner read/write only). Supports standalone `@monoes/memory` core schema (schema version **4** — `SCHEMA_VERSION` constant, [`sql-schema.ts → SCHEMA_VERSION`](packages/@monomind/memory/src/sql-schema.ts#SCHEMA_VERSION), applied via `PRAGMA user_version`) — **5 tables**: `memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`, plus the FTS5 full-text virtual table `memory_entries_fts` ([`sql-schema.ts → createFTS5Index`](packages/@monomind/memory/src/sql-schema.ts#createFTS5Index), added for issue #66) — and CLI project memory schema (v3.0.0, 9 tables at [`memory-schema.ts → MEMORY_SCHEMA`](packages/@monomind/cli/src/memory/memory-schema.ts#MEMORY_SCHEMA): `memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
 
 ### Key Memory Stores
 
@@ -108,25 +108,25 @@ MonoMind supports export/import of memory entries and knowledge documents using 
 
 ```bash
 monomind memory init                             # initialize SQLite memory database (schema v3.0.0)
-monomind memory store -k <key> -v <val>          # store entry (--namespace, --tags, --confidence)
-monomind memory edit -k <key> -v <val>           # update memory entry
+monomind memory store -k <key> --value <val>     # store entry (--namespace, --tags, --ttl, --vector, --upsert)
+monomind memory edit -k <key> --value <val>      # update memory entry
 monomind memory retrieve -k <key>                # retrieve entry by key
 monomind memory search "query"                   # execute RRF hybrid search (vector + BM25)
 monomind memory list                             # list entries (--namespace, --limit)
 monomind memory delete -k <key>                  # delete entry
 monomind memory stats                            # view table counts and vector status
 monomind memory export --format okf -o <dir>     # export to OKF Markdown bundle
-monomind memory import --format okf -i <dir>     # import from OKF Markdown bundle
+monomind memory import -i <dir>                 # import from OKF Markdown bundle
 ```
 
 ---
 
 ## 3. Monograph (Code Knowledge Graph)
 
-**Engine package:** `packages/@monomind/monograph/` (published as `@monoes/monograph`, v1.5.6) — the lower-level parse/storage/query engine: tree-sitter grammars plus a regex fallback tier (see `packages/@monomind/monograph/README.md#supported-languages--parsers` for the authoritative language/grammar count), `better-sqlite3` storage, `graphology` for graph algorithms.  
-**MCP tool layer:** registration and gating for all 19+27 tools actually lives in the CLI package at `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`, **not** inside `packages/@monomind/monograph/` itself — the CLI wraps the engine and exposes it over MCP, same split pattern as the memory subsystem's `memory-bridge.ts`.  
+**Engine package:** `packages/@monomind/monograph/` (published as `@monoes/monograph`, v2.25.3) — the lower-level parse/storage/query engine: tree-sitter grammars plus a regex fallback tier (see `packages/@monomind/monograph/README.md#supported-languages--parsers` for the authoritative language/grammar count), `better-sqlite3` storage, `graphology` for graph algorithms.  
+**MCP tool layer:** registration and gating for all 20+27 tools actually lives in the CLI package at `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`, **not** inside `packages/@monomind/monograph/` itself — the CLI wraps the engine and exposes it over MCP, same split pattern as the memory subsystem's `memory-bridge.ts`.  
 **Database:** `.monomind/monograph.db` (SQLite)  
-**Tools:** 19 MCP tools by default (`mcp__monomind__monograph_*`); 27 more advanced tools are exposed when `MONOGRAPH_MCP_ADVANCED=1` is set
+**Tools:** 20 MCP tools by default (`mcp__monomind__monograph_*`); 27 more advanced tools are exposed when `MONOGRAPH_MCP_ADVANCED=1` is set
 
 ### What It Is
 
@@ -149,6 +149,7 @@ monomind monograph watch
 
 | Tool | When to use |
 |---|---|
+| `monograph_brief` | **Start a multi-file task** — one call from the task text to entry points (callers, callees, tests), docs and blast radius |
 | `monograph_suggest` | **Start every task** — returns files + relationships for your task description |
 | `monograph_query` | Primary lookup — BM25 keyword search returning file + line number |
 | `monograph_god_nodes` | Find high-centrality internal files (architectural hotspots) |
@@ -161,7 +162,7 @@ monomind monograph watch
 | `monograph_stats` | Node/edge counts |
 | `monograph_build` | Trigger graph build |
 
-**Staleness mechanics:** `monograph_health`/`monograph_staleness` compare the index's recorded `index_meta.last_commit_hash` against HEAD via `git rev-list --count`; once the index is more than `STALENESS_THRESHOLD` (3) commits behind, `monograph_suggest --checkStaleness` auto-triggers a background rebuild. Useful for debugging "why is monograph returning stale results" — check `monograph_health` first before assuming a bug.
+**Staleness mechanics:** `monograph_health`/`monograph_staleness` compare the index's recorded `index_meta.last_commit_hash` against HEAD via `git rev-list --count`; once the index is more than `STALENESS_THRESHOLD` (1) commits behind (a rebuild triggers at 2 or more), `monograph_suggest --checkStaleness` auto-triggers a background rebuild. Useful for debugging "why is monograph returning stale results" — check `monograph_health` first before assuming a bug.
 
 **Advanced tools** (set `MONOGRAPH_MCP_ADVANCED=1` to expose over MCP): `monograph_cypher`, `monograph_shortest_path`, `monograph_community`, `monograph_surprises`, `monograph_shape_check`, `monograph_rename`, `monograph_tool_map`, `monograph_serve`, `monograph_visualize`, `monograph_snapshot`, `monograph_diff`, `monograph_report`, `monograph_export`, wiki/skill generation, and the multi-repo group tools.
 

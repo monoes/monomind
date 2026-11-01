@@ -8,7 +8,7 @@
 [![license](https://img.shields.io/npm/l/@monoes/mcp.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D22.12-blue?style=flat-square)](https://nodejs.org)
 
-**Standalone MCP server engine** — Version `1.0.1`. Supports stdio, HTTP, and WebSocket transports with tool registry, resources, prompts, sessions, rate limiting, and connection pooling. Zero `@monomind/*` dependencies.
+**Standalone MCP server engine** — Version `2.24.1`. Supports stdio, HTTP, and WebSocket transports with tool registry, resources, prompts, sessions, rate limiting, and connection pooling. Zero `@monomind/*` dependencies.
 
 > Part of the [Monomind](https://github.com/monoes/monomind) ecosystem.
 
@@ -18,11 +18,11 @@
 
 The Monomind MCP Subsystem is split across two core packages:
 
-1. **`@monoes/mcp` (`v1.0.1`)** (*This package*): Standalone MCP protocol engine powering stdio, HTTP (Express/Cors/Helmet), and WebSocket (`ws`) transports, connection pooling, prompt/resource registries, rate limiting, and session lifecycle management.
-2. **`@monoes/monomindcli` (`v2.9.0`)**: Implements CLI integration, binary entry points (`monomind-mcp`), MCP server manager, MCP client loader, and 30+ domain tool modules (`src/mcp-tools/`).
+1. **`@monoes/mcp` (`v2.24.1`)** (*This package*): Standalone MCP protocol engine powering stdio, HTTP (Express/Cors/Helmet), and WebSocket (`ws`) transports, connection pooling, prompt/resource registries, rate limiting, and session lifecycle management.
+2. **`@monoes/monomindcli` (`v2.29.1`)**: Implements CLI integration, binary entry points (`monomind-mcp`), MCP server manager, MCP client loader, and 30+ domain tool modules (`src/mcp-tools/`).
 
-- **Protocol Version**: Returns `protocolVersion: '2024-11-05'` per standard MCP specification release ([`packages/@monomind/cli/src/mcp-server.ts:532`](packages/@monomind/cli/src/mcp-server.ts#L532) & [`packages/@monomind/mcp/src/server.ts:91`](packages/@monomind/mcp/src/server.ts#L91)).
-- **Server Identity Version Drift**: The binary `monomind-mcp` hardcodes server identity `VERSION = '3.0.0'` in its JSON-RPC `initialize` response (`serverInfo: { name: 'monomind', version: '3.0.0' }` at [`packages/@monomind/cli/bin/mcp-server.js:13`](packages/@monomind/cli/bin/mcp-server.js#L13)), decoupled from package versioning (`v2.9.0`).
+- **Protocol Version**: The CLI's `initialize` response returns `protocolVersion: '2024-11-05'` ([`packages/@monomind/cli/src/mcp-server.ts`](../cli/src/mcp-server.ts)). This package's `MCPServer` reports MCP `2025-11-25` ([`packages/@monomind/mcp/src/server-core.ts`](src/server-core.ts)).
+- **Server Identity Version Drift**: The CLI's `initialize` response hardcodes server identity `serverInfo: { name: 'monomind', version: '3.0.0' }` ([`packages/@monomind/cli/src/mcp-server.ts`](../cli/src/mcp-server.ts)), and this package exports `VERSION = '3.0.0'`; both are decoupled from package versioning (`v2.29.1` / `v2.24.1`).
 
 ---
 
@@ -30,9 +30,9 @@ The Monomind MCP Subsystem is split across two core packages:
 
 | Entry Point / Module | Location | Description & Role |
 |---|---|---|
-| **`bin/mcp-server.js`** | `packages/@monomind/cli/bin/mcp-server.js` | Direct stdio MCP server binary (`monomind-mcp`). Reads lines from `process.stdin` and handles JSON-RPC calls (`initialize`, `tools/list`, `tools/call`, `ping`, `notifications/initialized`) with hardcoded version `3.0.0` protocol handshake behavior for direct Claude Code integration. |
-| **`commands/mcp.ts`** | `packages/@monomind/cli/src/commands/mcp.ts` | User-facing CLI command handler for `monomind mcp` subcommands (`start`, `stop`, `status`, `list`, `call`, `toggle`, `health`, `logs`, `metrics`, `test`). |
-| **`mcp-server.ts`** | `packages/@monomind/cli/src/mcp-server.ts` | Implements `MCPServerManager` class managing server process lifecycle, PID file management (`~/.monomind/mcp-server.pid`), background daemonization, and health monitoring. |
+| **`bin/mcp-server.js`** | `packages/@monomind/cli/bin/mcp-server.js` | Direct stdio MCP server binary (`monomind-mcp`). Reads lines from `process.stdin` and handles JSON-RPC calls (`server/discover`, `initialize`, `tools/list`, `tools/call`, and others) with hardcoded version `3.0.0` protocol handshake behavior for direct Claude Code integration. |
+| **`commands/mcp.ts`** | `packages/@monomind/cli/src/commands/mcp.ts` | User-facing CLI command handler for `monomind mcp` subcommands (`start`, `stop`, `status`, `health`, `restart`, `tools`, `toggle`, `exec`, `logs`, `verify`, `monoes-proxy`). |
+| **`mcp-server.ts`** | `packages/@monomind/cli/src/mcp-server.ts` | Implements `MCPServerManager` class managing server process lifecycle, PID file management (`~/.monomind/mcp.pid`), background daemonization, and health monitoring. |
 
 ---
 
@@ -117,9 +117,12 @@ const { resource, handler } = createTextResource('file://readme.txt', 'README', 
 server.getResourceRegistry().registerResource(resource, handler);
 
 // Prompts
-const prompt = definePrompt('summarize', 'Summarize text', [
-  { name: 'text', description: 'Text to summarize', required: true }
-], (args) => ({ messages: [textMessage(`Summarize: ${args.text}`)] }));
+const prompt = definePrompt(
+  'summarize',
+  'Summarize text',
+  async (args) => [textMessage('user', `Summarize: ${args.text}`)],
+  { arguments: [{ name: 'text', description: 'Text to summarize', required: true }] }
+);
 server.getPromptRegistry().registerPrompt(prompt);
 ```
 
@@ -131,9 +134,11 @@ interface IMCPServer {
   stop(): Promise<void>;
   registerTool(tool: MCPTool): boolean;
   registerTools(tools: MCPTool[]): { registered: number; failed: string[] };
-  getHealthStatus(): Promise<{ healthy: boolean; error?: string }>;
+  getHealthStatus(): Promise<{ healthy: boolean; error?: string; metrics?: Record<string, number> }>;
   getMetrics(): MCPServerMetrics;
   getSessions(): MCPSession[];
+  getSession(sessionId: string): MCPSession | undefined;
+  terminateSession(sessionId: string): boolean;
 }
 ```
 
@@ -154,5 +159,5 @@ interface IMCPServer {
 
 ## License
 
-MIT
+Apache-2.0
 

@@ -8,7 +8,7 @@
 [![license](https://img.shields.io/npm/l/@monoes/routing?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D22.12-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 
-> **Semantic task-to-agent routing** for Monomind (`@monoes/routing` `v1.0.3` / Monomind CLI `v2.9.0`).
+> **Semantic task-to-agent routing** for Monomind (`@monoes/routing` `v2.24.0` / Monomind CLI `v2.29.1`).
 
 Part of the [Monomind](https://github.com/monoes/monomind) ecosystem. Handles deterministic keyword filtering, hash-embedding cosine similarity matching, and LLM fallback classification to route user tasks to specialized agent roles.
 
@@ -41,62 +41,61 @@ When a task description is processed, `@monoes/routing` executes a multi-tier ca
 ```
 
 ### 1. Tier 1: Deterministic Keyword Pre-Filter
-- **Source**: [`keyword-pre-filter.ts:18-93`](packages/@monomind/routing/src/keyword-pre-filter.ts#L18-L93)
+- **Source**: [`keyword-pre-filter.ts`](src/keyword-pre-filter.ts)
 - Evaluates tasks using fast regular expression matching against 24 default rule definitions (e.g., CVE security checks, unit test files, Docker/DevOps configs, Solidity contracts, MCP tools). Every rule and route names a spawnable agent — a bundled agent's frontmatter `name`, such as `Security Engineer`.
 - Returns immediate match with `confidence: 1.0` and `method: 'keyword'`.
 
 ### 2. Tier 2: Cosine Centroid Embedding Match
-- **Source**: [`route-layer.ts:73-106`](packages/@monomind/routing/src/route-layer.ts#L73-L106), [`cosine.ts:5-20`](packages/@monomind/routing/src/cosine.ts#L5-L20)
+- **Source**: [`route-layer.ts`](src/route-layer.ts), [`cosine.ts`](src/cosine.ts)
 - Computes cosine similarity between task vector embeddings and agent route centroid vectors.
 - Supports lightweight 256-D MD5/SHA-256 hash embeddings (`LocalEncoder`) or transformer embeddings (`HNSWEncoder`).
 - If similarity $\ge \text{threshold}$ (default: 0.5), routes task with `method: 'semantic'`.
 
 ### 3. Tier 3: LLM Fallback Classification
-- **Source**: [`llm-fallback.ts:20-88`](packages/@monomind/routing/src/llm-fallback.ts#L20-L88), [`prompts/classify.ts:4-28`](packages/@monomind/routing/src/prompts/classify.ts#L4-L28)
+- **Source**: [`llm-fallback.ts`](src/llm-fallback.ts), [`prompts/classify.ts`](src/prompts/classify.ts)
 - Constructs a compact capability prompt (max 8,000 chars) detailing candidate agent descriptions and returns classification with `confidence: 0.85` and `method: 'llm_fallback'`.
-- On API failure or missing key, degrades gracefully to the default route with `method: 'semantic_degraded'`.
+- On API failure or missing key, degrades gracefully to the nearest semantic match with `method: 'semantic_degraded'`.
 
 ---
 
 ## 💻 CLI Command Reference (`monomind route`)
 
-The Monomind CLI provides 9 subcommands under `monomind route` (defined in [`src/commands/route.ts:80-800`](packages/@monomind/cli/src/commands/route.ts#L80-L800)):
+The Monomind CLI provides 9 subcommands under `monomind route` (defined in [`packages/@monomind/cli/src/commands/route.ts`](../cli/src/commands/route.ts) and its `route-*-commands.ts` siblings). `task`, `list-agents`, `stats` and the outcome commands go through the central picker (the same ranking as `monomind pick`); only `semantic` (deprecated) runs the `@monoes/routing` pipeline.
 
 | Subcommand | Usage | Description | Key Flags |
 |---|---|---|---|
-| `task` | `monomind route task "<prompt>"` | Primary CLI entry point. Routes a task prompt to the best agent slug. | `--json`, `--verbose` |
-| `semantic` | `monomind route semantic "<prompt>"` | Executes full `@monoes/routing` embedding + centroid pipeline. | `--threshold N`, `--json` |
-| `list-agents` | `monomind route list-agents` | Displays all registered agents, capabilities, and keyword patterns. | `--format json` |
-| `stats` | `monomind route stats` | Displays routing performance metrics, cache hits, and tier usage breakdown. | `--reset` |
-| `feedback` | `monomind route feedback -t "<task>" -a <agent> -r <reward>` | Records routing outcome to the local feedback ledger (`route-outcomes.jsonl`). | `-t`, `-a`, `-r` |
-| `reset` | `monomind route reset` | Resets cached route centroids, outcomes, and feedback data. | `--force` |
-| `export` | `monomind route export --out <file>` | Exports learned routing centroids and capability index to JSON. | `--out` |
-| `import` | `monomind route import --in <file>` | Imports routing centroids and rules from external JSON file. | `--in`, `--merge` |
-| `coverage` / `cov` | `monomind route coverage` | Runs benchmark coverage test across sample task prompts. | `--min-score N` |
+| `task` | `monomind route task "<prompt>"` | Primary CLI entry point (also `monomind route "<prompt>"`). Routes a task prompt to the best agent. | `-a/--agent`, `-j/--json` |
+| `semantic` (`sem`) | `monomind route semantic -t "<prompt>"` | Deprecated: central picker, then cosine similarity (`RouteLayer`) and Haiku fallback. | `-t/--task`, `-d/--debug`, `-j/--json` |
+| `list-agents` (`agents`, `ls`) | `monomind route list-agents` | Lists available agent types. | `-j/--json` |
+| `stats` | `monomind route stats` | Shows routing accuracy and adherence. | `-j/--json` |
+| `feedback` | `monomind route feedback -t "<task>" -a <agent> -r <reward>` | Records routing outcome to the local feedback ledger (`route-outcomes.jsonl`). | `-t`, `-a`, `-r` (-1 to 1), `-n/--next-task` |
+| `reset` | `monomind route reset` | Clears outcome history. | `-f/--force` |
+| `export` | `monomind route export -f <file>` | Exports route outcomes (stdout when `-f` is omitted). | `-f/--file` |
+| `import` | `monomind route import -f <file>` | Imports route outcomes from a file. | `-f/--file` |
+| `coverage` (`cov`) | `monomind route coverage` | Routes tasks based on test coverage analysis. | `-p/--path`, `-t/--threshold` (default 80), `-s/--suggest`, `-g/--gaps`, `-j/--json` |
 
 ---
 
 ## ⚡ Task Complexity Scoring Rules
 
-Task complexity is dynamically calculated to estimate execution duration, budget allocation, and agent delegation hierarchy:
+The `hooks_route` and `hooks_pre-task` MCP tools estimate effort from the task wording ([`taskComplexity` in `hooks-route.ts`](../cli/src/mcp-tools/hooks-route.ts)):
 
-- **High Complexity** ("2–4 hours"): Prompts containing architecture refactoring, full stack migrations, multi-package dependencies, or text length $> 500$ chars.
-- **Medium Complexity** ("30–60 min"): Standard feature implementations, multi-file bugfixes, API integration, or text length $> 150$ chars.
-- **Complexity Scoring**:
-  - `High` (Estimated 2-4 hours): Task description contains `'complex'` or `'architecture'` OR character `length > 200` ([`hooks-routing.ts:395-400`](packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L395-L400)).
-  - `Low` (Estimated 10-30 min): Task description contains `'simple'` or `'fix'` OR character `length < 50`.
-  - `Medium` (Estimated 30-60 min): All other standard task prompts.
+- `High` (estimated 2-4 hours): task description contains `'complex'` or `'architecture'`, or is longer than 200 characters.
+- `Low` (estimated 10-30 min): task description contains `'simple'` or `'fix'`, or is shorter than 50 characters.
+- `Medium` (estimated 30-60 min): everything else.
 
 ---
 
 ## Test Suites
 
-Vitest test suites are located in [`packages/@monomind/routing/__tests__/`](packages/@monomind/routing/__tests__/):
+Vitest test suites are located in [`packages/@monomind/routing/src/__tests__/`](src/__tests__/):
 - `route-layer.test.ts`: Cascade evaluation, thresholds, and fallback behavior.
 - `keyword-pre-filter.test.ts`: Regex rule precedence and pattern matching.
 - `encoder.test.ts`: 256-D MD5/SHA-256 local encoding and LRU cache eviction.
 - `llm-fallback.test.ts`: LLM prompt construction, candidate hint parsing, and error recovery.
 - `cosine.test.ts`: Validates vector dot product calculation and centroid position aggregation.
+- `classify-prompt.test.ts`: Classification prompt output.
+- `agent-slugs.test.ts`: Route and keyword rule agent slugs resolve to spawnable agents.
 - `capability-index.test.ts`: Ensures agent capability indexing stays under the 8,000-character context budget.
 
 Run unit tests via:
@@ -113,9 +112,9 @@ import { RouteLayer } from '@monoes/routing';
 
 const router = new RouteLayer({
   routes: [
-    { name: 'coder', agentSlug: 'coder', utterances: ['implement feature', 'build api'], threshold: 0.5 },
-    { name: 'tester', agentSlug: 'tester', utterances: ['write unit test', 'add coverage'], threshold: 0.5 },
-    { name: 'security', agentSlug: 'Security Engineer', utterances: ['fix cve', 'audit vulnerability'], threshold: 0.5 },
+    { name: 'coder', agentSlug: 'coder', utterances: ['implement feature', 'build api'], threshold: 0.5, fallbackToLLM: false },
+    { name: 'tester', agentSlug: 'tester', utterances: ['write unit test', 'add coverage'], threshold: 0.5, fallbackToLLM: false },
+    { name: 'security', agentSlug: 'Security Engineer', utterances: ['fix cve', 'audit vulnerability'], threshold: 0.5, fallbackToLLM: false },
   ],
   enableKeywordFilter: true,
 });
