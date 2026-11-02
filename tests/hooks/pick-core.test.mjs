@@ -563,6 +563,27 @@ describe('route-outcomes under concurrent sessions', () => {
     });
     expect(fs.existsSync(lock)).toBe(false);
   });
+
+  it('keeps an old lock whose holder is still alive instead of breaking it (#719)', () => {
+    const lock = path.join(tmp, '.monomind', 'route-outcomes.jsonl.lock');
+    // The parent process is alive: a slow holder, not a dead one.
+    fs.writeFileSync(lock, String(process.ppid));
+    const past = new Date(Date.now() - 60_000);
+    fs.utimesSync(lock, past, past);
+    const pick = {
+      agent: null,
+      skill: null,
+      method: 'none',
+      provider: null,
+      confidence: null,
+      candidates: [],
+    };
+    const id = pc().persistRoute(tmp, { pick, prompt: 'p', sessionId: 's', shown: false });
+    // The record still lands (unlocked append) and the holder's lock survives.
+    expect(readJsonl(path.join(tmp, '.monomind', 'route-outcomes.jsonl')).at(-1).routeId).toBe(id);
+    expect(fs.readFileSync(lock, 'utf-8')).toBe(String(process.ppid));
+    expect(Date.now() - fs.statSync(lock).mtimeMs).toBeLessThan(15_000);
+  }, 20_000);
 });
 
 describe('slash-command routes', () => {
