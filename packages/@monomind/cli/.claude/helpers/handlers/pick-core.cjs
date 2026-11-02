@@ -42,7 +42,8 @@ var ROUTE_FILE_TTL_MS = 7 * 24 * 3600 * 1000;
 // route-outcomes.jsonl is shared by every session of the project: appends,
 // joins and rotation all run under one lock file so a rewrite never drops a
 // line another session appended meanwhile. Held for milliseconds; a lock
-// older than LOCK_STALE_MS belongs to a dead process and is broken.
+// older than LOCK_STALE_MS whose holder process is gone is broken; a holder
+// that is alive but descheduled under load keeps it (its mtime is refreshed).
 var LOCK_WAIT_MS = 5000;
 var LOCK_STALE_MS = 10000;
 
@@ -247,15 +248,40 @@ function pruneRouteFiles(dir) {
 
 function outcomesFile(CWD) { return path.join(monoDir(CWD), 'route-outcomes.jsonl'); }
 
+/** A lock past LOCK_STALE_MS whose holder pid is still alive is a slow holder
+ *  (descheduled under load), not an abandoned lock: breaking it would let two
+ *  processes rewrite the file at once and drop a record. Refresh its mtime so
+ *  claimLock leaves it alone; a dead or unreadable holder is still broken. */
+function keepLiveLock(lock) {
+  try {
+    if (Date.now() - fs.statSync(lock).mtimeMs < LOCK_STALE_MS) return;
+    var pid = Number(fs.readFileSync(lock, 'utf-8'));
+    if (!pid || pid === process.pid) return;
+    process.kill(pid, 0);
+    var now = new Date();
+    fs.utimesSync(lock, now, now);
+  } catch (e) { /* gone, dead holder (ESRCH) or unreadable: let claimLock decide */ }
+}
+
+/** Replace `file` with `text` only if it still has `size` bytes, i.e. nothing
+ *  was appended since it was read (an append that missed the lock). */
+function rewriteIfUnchanged(file, size, text) {
+  if (fs.statSync(file).size !== size) return false;
+  atomicWrite(file, text);
+  return true;
+}
+
 /** Run `fn(locked)` holding route-outcomes.jsonl.lock, waiting up to
  *  LOCK_WAIT_MS. `locked` is false when the wait ran out: the caller decides
  *  whether its work is safe without the lock. */
 function withOutcomesLock(CWD, fn) {
   var lock = outcomesFile(CWD) + '.lock';
   var deadline = Date.now() + LOCK_WAIT_MS;
+  keepLiveLock(lock);
   var locked = fsHelpers.claimLock(lock, LOCK_STALE_MS, 3);
   while (!locked && Date.now() < deadline) {
     fsHelpers.sleepSync(2 + Math.floor(Math.random() * 4));
+    keepLiveLock(lock);
     locked = fsHelpers.claimLock(lock, LOCK_STALE_MS, 3);
   }
   try {
@@ -275,13 +301,14 @@ function appendOutcome(CWD, rec) {
     if (!locked) return;
     try {
       if (fs.statSync(file).size <= MAX_OUTCOMES_BYTES) return;
-      var lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean).slice(-KEEP_OUTCOMES);
+      var raw = fs.readFileSync(file, 'utf-8');
+      var lines = raw.split('\n').filter(Boolean).slice(-KEEP_OUTCOMES);
       var bytes = 0;
       var from = lines.length;
       while (from > 0 && bytes + Buffer.byteLength(lines[from - 1]) + 1 <= MAX_OUTCOMES_BYTES / 2) {
         bytes += Buffer.byteLength(lines[--from]) + 1;
       }
-      atomicWrite(file, lines.slice(from).join('\n') + '\n');
+      rewriteIfUnchanged(file, Buffer.byteLength(raw), lines.slice(from).join('\n') + '\n');
     } catch (e) { /* rotation is best effort */ }
   });
 }
@@ -378,7 +405,8 @@ function joinOutcome(CWD, routeId, patch) {
     if (!locked) return false;
     try {
       if (fs.statSync(file).size > MAX_JOIN_BYTES) return false;
-      var lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean);
+      var raw = fs.readFileSync(file, 'utf-8');
+      var lines = raw.split('\n').filter(Boolean);
       for (var i = lines.length - 1; i >= 0; i--) {
         var rec;
         try { rec = JSON.parse(lines[i]); } catch (e) { continue; }
@@ -389,8 +417,7 @@ function joinOutcome(CWD, routeId, patch) {
         });
         if (!changed) return false;
         lines[i] = JSON.stringify(rec);
-        atomicWrite(file, lines.join('\n') + '\n');
-        return true;
+        return rewriteIfUnchanged(file, Buffer.byteLength(raw), lines.join('\n') + '\n');
       }
     } catch (e) { /* no outcomes yet */ }
     return false;
