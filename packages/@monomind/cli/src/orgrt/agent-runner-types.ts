@@ -135,6 +135,11 @@ export interface AgentRunArgs {
    *  don't support `access: 'full'`, never call it. */
   onProcessSpawned?: (info: {
     pid: number;
+    /** #724: the child's process group id (it leads its own group on POSIX);
+     *  absent where there is no group (win32). */
+    pgid?: number;
+    /** #724: the turn's `MONOMIND_EXEC_TREE` token, as put in the child's env. */
+    execTree?: string;
     getBackgroundSurvivors: () => { pids: number[]; supported: boolean };
   }) => void;
   /** ADR-O001 D2: directory for spilled tool-result bodies. When set,
