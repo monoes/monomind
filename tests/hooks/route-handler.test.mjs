@@ -560,7 +560,7 @@ describe('route-handler second-brain gate', () => {
     writeKnowledge(tmpDir, 'doc-metadata.jsonl');
     const out = await runCaptured(serve([hit('a', 0.6), hit('b', 0.55), hit('c', 0.5)]));
     expect(out).not.toContain('relevant excerpt(s)');
-    expect(out).toContain('[SECOND_BRAIN] no match for this prompt');
+    expect(out).toContain('[SECOND BRAIN] no match for this prompt');
     expect(lastTelemetry(tmpDir)).toMatchObject({ injected: false, hits: 0 });
   });
 
@@ -578,26 +578,45 @@ describe('route-handler second-brain gate', () => {
       );
       return lines.join('\n');
     };
-    expect(await run('sess-a')).toContain('[SECOND_BRAIN] skipped: no knowledge store');
-    expect(await run('sess-a')).not.toContain('[SECOND_BRAIN]');
-    expect(await run('sess-b')).toContain('[SECOND_BRAIN] skipped: no knowledge store');
+    expect(await run('sess-a')).toContain('[SECOND BRAIN] skipped: no knowledge store');
+    expect(await run('sess-a')).not.toContain('[SECOND BRAIN]');
+    expect(await run('sess-b')).toContain('[SECOND BRAIN] skipped: no knowledge store');
   });
 
-  it('prints no [SECOND_BRAIN] line for a no-match over the project-instructions fallback', async () => {
+  it('says it was skipped (server unreachable) for a no-match over the project-instructions fallback (#722)', async () => {
     // chunks.jsonl only (no doc-metadata.jsonl) and no reachable server: the
-    // keyword fallback over CLAUDE.md-style chunks ran and found nothing.
+    // keyword fallback over CLAUDE.md-style chunks ran and found nothing, so
+    // the document store was never searched.
     deadServer(tmpDir);
     writeKnowledge(tmpDir, 'chunks.jsonl');
-    const out = await runCaptured(serve([]));
-    expect(out).not.toContain('[SECOND_BRAIN]');
+    const out = await runCaptured(vi.fn(() => Promise.reject(new Error('ECONNREFUSED'))));
+    expect(out).toContain('[SECOND BRAIN] skipped: document store unreachable');
+    expect(out).not.toContain('no match for this prompt');
     expect(fs.existsSync(telemetry(tmpDir))).toBe(true);
+  });
+
+  it('marks each excerpt with its source and section path (#722)', async () => {
+    writeControl(tmpDir, { url: 'http://127.0.0.1:4242', pid: process.pid });
+    writeKnowledge(tmpDir, 'doc-metadata.jsonl');
+    const sectioned = {
+      key: 's',
+      content: '§ Guide · Setup > Install\nrun the installer first',
+      score: 0.9,
+      tags: ['src:/p/docs/guide.md'],
+    };
+    const out = await runCaptured(serve([sectioned]));
+    expect(out).toContain('[SECOND BRAIN] 1 relevant excerpt(s)');
+    expect(out).toContain('docs/guide.md');
+    expect(out).toContain('section: Guide · Setup > Install');
+    expect(out).toContain('run the installer first');
+    expect(out).not.toContain('[SECOND_BRAIN]');
   });
 
   it('injects exactly one excerpt when only the top result is strong', async () => {
     writeControl(tmpDir, { url: 'http://127.0.0.1:4242', pid: process.pid });
     writeKnowledge(tmpDir, 'doc-metadata.jsonl');
     const out = await runCaptured(serve([hit('a', 0.82), hit('b', 0.7), hit('c', 0.68)]));
-    expect(out).toContain('[SECOND_BRAIN] 1 relevant excerpt(s)');
+    expect(out).toContain('[SECOND BRAIN] 1 relevant excerpt(s)');
     expect(out).toContain('excerpt a');
     expect(out).not.toContain('excerpt b');
     expect(lastTelemetry(tmpDir)).toMatchObject({ injected: true, hits: 1, topScore: 0.82 });
@@ -607,7 +626,7 @@ describe('route-handler second-brain gate', () => {
     writeControl(tmpDir, { url: 'http://127.0.0.1:4242', pid: process.pid });
     writeKnowledge(tmpDir, 'doc-metadata.jsonl');
     const out = await runCaptured(serve([hit('a', 0.8), hit('b', 0.79), hit('c', 0.7)]));
-    expect(out).toContain('[SECOND_BRAIN] 2 relevant excerpt(s)');
+    expect(out).toContain('[SECOND BRAIN] 2 relevant excerpt(s)');
     expect(out).not.toContain('excerpt c');
   });
 
@@ -620,7 +639,7 @@ describe('route-handler second-brain gate', () => {
       writeControl(tmpDir, { url: 'http://127.0.0.1:4242', pid: process.pid });
       writeKnowledge(tmpDir, 'doc-metadata.jsonl');
       const out = await runCaptured(serve([hit('a', 0.82)]));
-      expect(out).toContain('[SECOND_BRAIN] 1 relevant excerpt(s)');
+      expect(out).toContain('[SECOND BRAIN] 1 relevant excerpt(s)');
       expect(out).toContain('excerpt a');
       expect(lastTelemetry(tmpDir)).toMatchObject({ injected: true, hits: 1 });
     });
@@ -629,7 +648,7 @@ describe('route-handler second-brain gate', () => {
       writeControl(tmpDir, { url: 'http://127.0.0.1:4242', pid: process.pid });
       writeKnowledge(tmpDir, 'doc-metadata.jsonl');
       const out = await runCaptured(serve([hit('a', 0.6)]));
-      expect(out).not.toContain('[SECOND_BRAIN]');
+      expect(out).not.toContain('[SECOND BRAIN]');
       expect(lastTelemetry(tmpDir)).toMatchObject({ injected: false, hits: 0 });
     });
 
@@ -648,9 +667,9 @@ describe('route-handler second-brain gate', () => {
         vi.restoreAllMocks();
         return lines.join('\n');
       };
-      expect(await run()).not.toContain('[SECOND_BRAIN]');
+      expect(await run()).not.toContain('[SECOND BRAIN]');
       delete process.env.MONOMIND_HOOK_QUIET;
-      expect(await run()).toContain('[SECOND_BRAIN] skipped: no knowledge store');
+      expect(await run()).toContain('[SECOND BRAIN] skipped: no knowledge store');
     });
 
     it('does not run the rest of the enrichment (budget, banners)', async () => {
