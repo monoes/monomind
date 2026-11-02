@@ -93,7 +93,12 @@ export function spawnRunnerProcess(
   if (typeof child.pid === 'number') {
     tracker = trackDescendants(child.pid, { marker: treeToken, plat });
     const t = tracker;
-    args.onProcessSpawned?.({ pid: child.pid, getBackgroundSurvivors: () => t.liveMembers() });
+    args.onProcessSpawned?.({
+      pid: child.pid,
+      ...(plat !== 'win32' ? { pgid: child.pid } : {}),
+      execTree: treeToken,
+      getBackgroundSurvivors: () => t.liveMembers(),
+    });
   }
   return {
     child,

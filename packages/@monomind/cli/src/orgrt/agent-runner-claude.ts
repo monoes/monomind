@@ -306,6 +306,8 @@ export class ClaudeAgentRunner implements AgentRunner {
                   tracker = trackDescendants(pid, { marker: treeToken });
                   args.onProcessSpawned?.({
                     pid,
+                    ...(process.platform !== 'win32' ? { pgid: pid } : {}),
+                    execTree: treeToken,
                     getBackgroundSurvivors: () => tracker!.liveMembers(),
                   });
                 },
