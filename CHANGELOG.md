@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Added
+
+- **`monomind org drill-grant`: a scoped, time-limited drill-signing path for release QA (#720).** `org.allowDrillSigning` stays off by default, so release QA could not run live org drills and 2.29.0's `org_compact_role`/`org_clear_role`, codex `allowWrite` roots and mesh roster revert were verified by unit tests only. The operator can now run `monomind org drill-grant --org release --role runtime-qa --ttl 120` in a terminal: it writes a grant (named orgs and roles, no `*`, at most 24 hours) to `~/.monomind/operator-settings.json`, and `org sign` from a role accepts it only while `MONOMIND_ORG_NAME` and `MONOMIND_ORG_ROLE` are both named in it and before it expires. The drill limits are unchanged (scratch project outside a git work tree, `MONOMIND_ORGRT_OPERATOR_DIR` inside it). The command refuses inside an org role or agent process, and roles cannot write the settings file, so no role can grant itself signing; `--revoke` turns it off.
+
 ### Changed
 
 - **Second Brain excerpts reach the model under `MONOMIND_HOOK_QUIET=1`.** Quiet mode (what `init` writes) returned right after the `[PICK]` line, so the per-prompt Second Brain injection never ran. It is now an exception: under quiet mode the relevance floors, telemetry and the excerpt block are unchanged, while the "no match" and "skipped" notices and the other advisory banners stay quiet (and a quiet run does not use up the once-per-session notice).

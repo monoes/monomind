@@ -1,6 +1,6 @@
 # `monomind org` — Command Reference
 
-> **<!-- doc-count:org-subcommands -->39<!-- /doc-count:org-subcommands --> subcommands** for starting, stopping, monitoring, and managing autonomous agent
+> **<!-- doc-count:org-subcommands -->40<!-- /doc-count:org-subcommands --> subcommands** for starting, stopping, monitoring, and managing autonomous agent
 > organizations. All commands target a named org config in `.monomind/orgs/<name>.json`.
 
 ---
@@ -47,6 +47,7 @@
 | [`mark-complete`](#mark-complete) | Clear stale running/crashed runtime record |
 | [`role set-access`](#role-set-access) | Human-only grant/revoke of `policy.access: "full"` for one role |
 | [`sign`](#sign) | Review an org definition's authority and sign it as the operator |
+| [`drill-grant`](#drill-grant) | Operator only: let named roles of a named org sign throwaway QA-drill orgs for a limited time |
 | [`approve-paths`](#approve-paths) | List, or approve, protected paths the runtime would quarantine as possible plants |
 
 ---
@@ -1127,6 +1128,28 @@ signature was checked.
 
 **Source:** [`commands/org-sign.ts → signAction`](packages/@monomind/cli/src/commands/org-sign.ts#signAction), [`orgrt/org-signature.ts → verifyOrgDef`](packages/@monomind/cli/src/orgrt/org-signature.ts#verifyOrgDef)
 
+
+---
+
+## `drill-grant`
+
+Operator only (#720). Lets named roles of a named org (release QA's `runtime-qa`) run `org sign` on a
+throwaway QA-drill org for a limited time, without turning `org.allowDrillSigning` on for every role.
+
+```bash
+monomind org drill-grant --org release --role runtime-qa --ttl 120   # two hours
+monomind org drill-grant --revoke
+```
+
+It writes `{ "org": { "allowDrillSigning": { orgs, roles, issuedAt, expiresAt } } }` to
+`~/.monomind/operator-settings.json`. The grant needs at least one org and one role (no `*`), lasts at
+most 24 hours (`--ttl` is minutes, 1 to 1440), and applies only while the signing process's
+`MONOMIND_ORG_NAME` and `MONOMIND_ORG_ROLE` are both named in it. The existing drill limits still hold:
+the project must be outside a git work tree and `MONOMIND_ORGRT_OPERATOR_DIR` must point inside it, so a
+signature never applies to a real org. The command refuses inside an org role's or `agent exec`'s
+process tree, and roles cannot write the settings file, so a role cannot grant itself the path.
+
+**Source:** [`commands/org-drill-grant.ts → drillGrantAction`](packages/@monomind/cli/src/commands/org-drill-grant.ts#drillGrantAction)
 
 ---
 

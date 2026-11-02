@@ -193,7 +193,7 @@ monomind org delete <name>          # remove an org
 monomind org memory <name>          # cross-run KG memory: stats (default) | search <q> | rules | rollback <run-ref>
 ```
 
-`org` has <!-- doc-count:org-subcommands -->39<!-- /doc-count:org-subcommands --> subcommands total (skills, run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory, costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete, role).
+`org` has <!-- doc-count:org-subcommands -->40<!-- /doc-count:org-subcommands --> subcommands total (skills, run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory, costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete, role).
 
 > **Note:** `/mastermind:runorg` delegates directly to the Org Runtime daemon (the same path as `monomind org run`) — there is no boss agent, no monotask board, and no manual curl calls in this path. `/mastermind:runorg` converts legacy-format org config files with `monomind org migrate` before starting the daemon. New orgs should use `monomind org run` (or `/mastermind:runorg`) against a hand-authored `.monomind/orgs/<name>.json`.
 
