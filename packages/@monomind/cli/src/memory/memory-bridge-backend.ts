@@ -321,7 +321,7 @@ export async function getBackend(dbPath?: string): Promise<any | null> {
   if (!slot.promise) {
     slot.promise = (async () => {
       try {
-        const mod = await import('@monoes/memory' as string);
+        const mod = await import('@monoes/memory');
         await loadEmbedder();
 
         // Local SQLite engine (LanceDB replaced 2026-07): better-sqlite3 when its
