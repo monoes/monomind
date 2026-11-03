@@ -21,7 +21,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "postinstall": "node scripts/clean-appledouble.mjs",
+    "postinstall": "node bin/clean-appledouble.mjs",
     "prepare": "node scripts/install-hooks.mjs",
     "dev": "cd packages/@monomind/cli && tsx watch src/index.ts",
     "build": "pnpm -r run build",
