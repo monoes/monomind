@@ -399,17 +399,21 @@ Every session, every agent, every org writes to a persistent memory store that s
 
 ```mermaid
 graph TD
-    L0["L0 - In-flight\nCurrent session drawers\nephemeral"]
-    L1["L1 - Working\nCross-session memory\nBM25 K1=1.5, B=0.75"]
-    L2["L2 - Long-term\nEpisodic store\nSemantic recall"]
-    L3["L3 - Shared\nCross-agent namespace\nFederated swarm reads"]
+    Q["Query"]
+    H["Hybrid search\nRRF of dense vectors + BM25\n(k1=1.2, b=0.75)"]
+    E["Episodic and semantic memory\nmemory_entries, default or custom namespace"]
+    S["Second Brain documents\nnamespace knowledge:scope"]
+    K["Memory knowledge graph\nkg:nodes, kg:edges, rules"]
+    G[("Global brain\n~/.monomind/global-brain")]
 
-    L0 -->|promoted| L1 --> L2 --> L3
+    Q --> H
+    H --> E
+    H --> S
+    H --> K
+    G -.->|merged, project wins ties| H
 
-    style L0 fill:#00D2AA11,stroke:#00D2AA
-    style L1 fill:#F59E0B11,stroke:#F59E0B
-    style L2 fill:#8B5CF611,stroke:#8B5CF6
-    style L3 fill:#EF444411,stroke:#EF4444
+    style H fill:#F59E0B11,stroke:#F59E0B
+    style G fill:#8B5CF611,stroke:#8B5CF6
 ```
 
 ```bash
