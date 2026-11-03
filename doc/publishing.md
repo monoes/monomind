@@ -121,6 +121,40 @@ Root `prepublishOnly` also runs `node scripts/generate-doc-counts.mjs --check` a
 count, or cites a source symbol that no longer exists, blocks the publish. Regenerate counts
 with `pnpm run docs:counts`.
 
+## Version policy
+
+Packages are versioned **independently**. Do not switch to lockstep.
+
+| Package | Version line |
+| --- | --- |
+| `monomind` (root) and `@monoes/monomindcli` | The release number. Always equal; bump both together. |
+| every other package (`hooks`, `routing`, `mcp`, `memory`, `monograph`, `monobrowse`, `monodesign`, `monofence-ai`) | Its own semver line. Bump only when its shipped files change. |
+
+Bump rules:
+
+- **Umbrella and CLI move together.** Edit both `package.json` versions; leave the umbrella's `workspace:*` pin alone.
+- **A sub-package whose shipped files changed since its version was set must be bumped** (patch or minor, by the change), and published before the CLI. "Shipped" excludes tests, vitest config and markdown, and manifest-only commits that touch no consumer-visible key.
+- **A sub-package takes a major only with a breaking commit** (`type(scope)!:` or a `BREAKING CHANGE:` footer) touching it since the last release tag. Never copy the release number onto a sub-package (#636).
+- **A bump does not cascade.** Dependents use `workspace:*`, which pnpm rewrites to the exact version at pack time, so a bumped sub-package is picked up by the next CLI publish without editing the CLI.
+
+`pnpm run check:versions` runs all of these through `scripts/check-versions.mjs` (one summary, every check runs even after a failure; `--no-registry` skips the one that needs npm). Each script also runs alone:
+
+| Script | Enforces |
+| --- | --- |
+| `check-publish-versions.mjs` | umbrella and CLI versions equal; umbrella pin is `workspace:*`; publishing root with pnpm |
+| `check-package-bumps.mjs` | shipped changes need a bump; no unearned major. `MONOMIND_ALLOW_STALE_PACKAGES=1` / `MONOMIND_ALLOW_MAJOR_BUMP=1` skip |
+| `check-workspace-protocol.mjs` | every sibling dependency uses `workspace:` |
+| `check-overrides-source.mjs` | overrides live only in `pnpm-workspace.yaml` |
+| `check-published-pins.mjs` | the packages a manifest pins already exist on npm (needs the registry; checks one package, `.` by default). `MONOMIND_ALLOW_UNPUBLISHED_PINS=1` skips |
+
+`prepublishOnly` still calls the five scripts directly.
+
+### Tagging and the release workflow
+
+Tag every release `v<umbrella version>`. `node scripts/tag-release.mjs` refuses on a dirty tree or failing checks, then **prints** the `git tag -a` and `git push origin` commands; it never runs them. Pushing the tag starts `.github/workflows/release.yml`: it builds, runs `check-versions` and `test:all:run`, then publishes with pnpm (provenance on) every package whose version differs from the previous `v*` tag (`scripts/release-packages.mjs`), siblings first, CLI, then umbrella, skipping versions already on npm. Run it from the Actions tab with `publish` left false for a dry run.
+
+One-time setup the maintainer owns: an `NPM_TOKEN` secret (automation token with publish rights) scoped to the `release` GitHub environment, required reviewers on that environment as the approval gate, and the packages' npm provenance settings (or trusted publishing) allowing GitHub Actions. The first tag has no previous tag to diff against, so run `release-packages.mjs --base <ref>` by hand once to check the list.
+
 ## The release org
 
 A release is run by the `release` org, defined in `.monomind/orgs/release.json` and mirrored in
