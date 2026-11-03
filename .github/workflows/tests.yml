@@ -24,8 +24,9 @@ name: Tests
 # workflow and that pnpm treats as a tolerable unmet optional peer.
 #
 # So: use pnpm, the package manager this repo is actually built and published
-# with. `--no-frozen-lockfile` because the lockfile legitimately moves when a
-# workspace package is version-bumped mid-release.
+# with. `--frozen-lockfile`: the committed lockfile is consistent, so a PR that
+# changes a package.json without updating pnpm-lock.yaml must fail here rather
+# than silently resolving something else than what is merged.
 
 on:
   pull_request:
@@ -37,12 +38,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Docs-only PRs skip the heavy steps (builds, typecheck, tests) of every job
+  # below but still run lint and the doc checks. Skipping is done per STEP, not
+  # per job: a job-level `if` on a matrix job reports a check named with the
+  # unexpanded `${{ matrix.name }}`, which would break required checks.
+  # Checks that need the built CLI (skills, trees, doc counts) count as heavy.
+  changes:
+    name: Detect code changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          # Everything except docs and markdown counts as code. push events
+          # (main) compare against the previous commit and are treated alike.
+          filters: |
+            code:
+              - '**'
+              - '!doc/**'
+              - '!docs/**'
+              - '!**/*.md'
+              - '!LICENSE'
+
   root:
     name: Root suite
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          # check:versions compares against the last release tag
+          # (check-package-bumps.mjs); a shallow clone has no tag and skips it.
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -79,10 +111,25 @@ jobs:
             pnpm-${{ runner.os }}-
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
+
+      # tests/eval/retrieval/lib.test.ts shells out to `rg`; the runner image
+      # does not ship it (spawnSync rg ENOENT).
+      - name: Install ripgrep
+        if: needs.changes.outputs.code == 'true'
+        run: sudo apt-get install -y ripgrep
 
       - name: Lint
         run: pnpm run lint
+
+      - name: Check doc source references
+        run: node scripts/check-doc-refs.mjs
+
+      - name: Check publish versions and package bumps
+        run: pnpm run check:versions
+
+      - name: Check test skips are justified
+        run: node scripts/ci/check-skips.mjs
 
       # The CLI imports @monoes/hooks, @monoes/memory and @monoes/monograph as
       # workspace:* deps whose package.json "types"/"main" point at dist/ — pnpm
@@ -91,6 +138,7 @@ jobs:
       # before building cli itself, or its own build fails with "Cannot find
       # module '@monoes/hooks'" even though the package is correctly linked.
       - name: Build CLI's workspace dependencies
+        if: needs.changes.outputs.code == 'true'
         run: pnpm --filter "@monoes/monomindcli^..." run build
 
       # The root typecheck scans every package under packages/**, not just the
@@ -99,6 +147,7 @@ jobs:
       # once this package has built its own dist/. Nothing else in this job
       # otherwise needs monobrowse built, hence the standalone step.
       - name: Build monobrowse (self-imported; needed for root typecheck)
+        if: needs.changes.outputs.code == 'true'
         run: pnpm --filter "@monoes/monobrowse" run build
 
       # Same "dist/ must exist" requirement applies to the root typecheck —
@@ -107,6 +156,7 @@ jobs:
       # only resolve once the dependency build above has run. Must stay after
       # both builds, not alongside Lint.
       - name: Typecheck
+        if: needs.changes.outputs.code == 'true'
         run: pnpm run typecheck
 
       # Several root tests import from packages/@monomind/cli/dist — e.g.
@@ -114,13 +164,16 @@ jobs:
       # memory-bridge.js. Without this they fail with ERR_MODULE_NOT_FOUND,
       # which reads like a missing dependency rather than a missing build.
       - name: Build CLI package
+        if: needs.changes.outputs.code == 'true'
         working-directory: packages/@monomind/cli
         run: npm run build
 
       - name: Verify generated platform compatibility documentation
+        if: needs.changes.outputs.code == 'true'
         run: node packages/@monomind/cli/bin/cli.js platforms docs --check
 
       - name: Lint skill packages
+        if: needs.changes.outputs.code == 'true'
         run: node scripts/lint-skills.mjs
 
       - name: Lint agent and skill references
@@ -130,6 +183,7 @@ jobs:
       # in the guidance catalog must exist in the full MCP registry / built
       # CLI, and agent `monomind <cmd>` references must resolve (GH #421).
       - name: Lint MCP tool and CLI command references
+        if: needs.changes.outputs.code == 'true'
         run: node scripts/lint-tool-refs.mjs
 
       # `monomind init --force` rewrites the root .claude/ tree (and
@@ -140,11 +194,13 @@ jobs:
       # ship as sources. This is the guard; the fix is
       # `pnpm run sync:claude-trees`.
       - name: Check .claude asset trees are canonical and in sync
+        if: needs.changes.outputs.code == 'true'
         run: node scripts/sync-claude-trees.mjs --check
 
       # Counts quoted in README/doc markers, computed from tracked files plus
       # the skills generated at pack time (see scripts/generate-doc-counts.mjs).
       - name: Check doc-count markers
+        if: needs.changes.outputs.code == 'true'
         run: node scripts/generate-doc-counts.mjs --check
 
       # doc-eval-asserts-fire.test.ts, doc-eval-metrics.test.ts, and
@@ -168,6 +224,7 @@ jobs:
       # ('main', in knowledge/eval/model-presence.ts), plus the transformers
       # version, which is part of the cache path.
       - name: Resolve embedding model cache path
+        if: needs.changes.outputs.code == 'true'
         id: model-cache-path
         working-directory: packages/@monomind/cli
         run: |
@@ -177,6 +234,7 @@ jobs:
           echo "transformers=$tf_version" >> "$GITHUB_OUTPUT"
 
       - name: Restore embedding model cache
+        if: needs.changes.outputs.code == 'true'
         id: model-cache
         uses: actions/cache/restore@v4
         with:
@@ -191,6 +249,7 @@ jobs:
       # this touches no network. On a miss, transient HuggingFace errors get
       # two retries (20s, then 60s); a third failure fails the job as before.
       - name: Provision embedding models
+        if: needs.changes.outputs.code == 'true'
         working-directory: packages/@monomind/cli
         run: |
           delays=(20 60)
@@ -210,7 +269,7 @@ jobs:
       # Saved here, not by actions/cache's post step: that only runs when the
       # whole job succeeds, so one failing test would discard a good download.
       - name: Save embedding model cache
-        if: steps.model-cache.outputs.cache-hit != 'true'
+        if: needs.changes.outputs.code == 'true' && (steps.model-cache.outputs.cache-hit != 'true')
         uses: actions/cache/save@v4
         with:
           path: |
@@ -219,6 +278,7 @@ jobs:
           key: ${{ steps.model-cache.outputs.cache-primary-key }}
 
       - name: Run root tests
+        if: needs.changes.outputs.code == 'true'
         run: npx vitest run --reporter=verbose
         env:
           CI: true
@@ -229,11 +289,13 @@ jobs:
       # (GH issue #32). node --test loads the model directly, so hit-rate/
       # blend/rule-dedup checks actually execute in CI.
       - name: Run semantic eval assertions
+        if: needs.changes.outputs.code == 'true'
         run: npm run test:semantic-eval
         env:
           CI: true
 
   windows:
+    needs: changes
     name: ${{ matrix.name }} (windows)
     runs-on: windows-latest
     timeout-minutes: 25
@@ -343,11 +405,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js
+        if: needs.changes.outputs.code == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node || '22' }}
 
       - name: Set up pnpm
+        if: needs.changes.outputs.code == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -365,8 +429,9 @@ jobs:
       # costs this job a bit more time; a cache that reliably breaks it costs
       # everyone more.
       - name: Install dependencies for ${{ matrix.name }}
+        if: needs.changes.outputs.code == 'true'
         shell: bash
-        run: pnpm install --no-frozen-lockfile --ignore-scripts --filter "${{ matrix.pkg }}..."
+        run: pnpm install --frozen-lockfile --ignore-scripts --filter "${{ matrix.pkg }}..."
 
       # The install above pulls the workspace siblings in, but a sibling's
       # "types"/"main" point at dist/, which only exists once it is built. hooks
@@ -376,6 +441,7 @@ jobs:
       # "expected 0 to be greater than 0". A package with no workspace
       # dependencies matches nothing here and exits 0.
       - name: Build ${{ matrix.name }}'s workspace dependencies
+        if: needs.changes.outputs.code == 'true'
         shell: bash
         run: pnpm --filter "${{ matrix.pkg }}^..." run build
 
@@ -391,7 +457,7 @@ jobs:
       # fixtures. Neither has anything to do with Windows, and its tests run
       # from source, so the build adds no signal here. Its test step still runs.
       - name: Build ${{ matrix.name }} on cmd.exe
-        if: matrix.build != 'skip'
+        if: needs.changes.outputs.code == 'true' && (matrix.build != 'skip')
         working-directory: ${{ matrix.dir }}
         shell: cmd
         run: npm run build
@@ -400,7 +466,7 @@ jobs:
       # null, and `null != false` is true, so a boolean flag here would silently
       # never skip anything.
       - name: Run ${{ matrix.name }} tests
-        if: matrix.test != 'skip'
+        if: needs.changes.outputs.code == 'true' && (matrix.test != 'skip')
         working-directory: ${{ matrix.dir }}
         shell: bash
         run: npm test
@@ -408,6 +474,7 @@ jobs:
           CI: true
 
   packages:
+    needs: changes
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -422,6 +489,11 @@ jobs:
             dir: packages/@monomind/monograph
           - name: memory
             dir: packages/@monomind/memory
+            # The one leg that also measures coverage (report uploaded as an
+            # artifact, no thresholds). The provider is not a repo dependency,
+            # so it is added at run time, matched to the installed vitest.
+            cmd: 'npm test -- --coverage'
+            coverage: true
           - name: mcp
             dir: packages/@monomind/mcp
           - name: routing
@@ -464,12 +536,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js
+        if: needs.changes.outputs.code == 'true'
         uses: actions/setup-node@v4
         with:
           # Packages that need a newer runtime set `node` in the matrix.
           node-version: ${{ matrix.node || '22' }}
 
       - name: Set up pnpm
+        if: needs.changes.outputs.code == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -486,10 +560,12 @@ jobs:
       # ~/Library/pnpm/store on macOS). Caching the wrong directory caches
       # nothing, silently, which is worse than no cache at all.
       - name: Resolve pnpm store path
+        if: needs.changes.outputs.code == 'true'
         id: pnpm-store
         run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
+        if: needs.changes.outputs.code == 'true'
         uses: actions/cache@v4
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
@@ -502,7 +578,8 @@ jobs:
       # links between them — a per-package `npm install` cannot do that and was
       # resolving each package against the registry instead of its sibling.
       - name: Install workspace dependencies
-        run: pnpm install --no-frozen-lockfile
+        if: needs.changes.outputs.code == 'true'
+        run: pnpm install --frozen-lockfile
 
       # A workspace:* dep's "types"/"main" point at dist/, and the symlink pnpm
       # creates is not enough — tsc needs those dist/ declarations to exist.
@@ -524,6 +601,7 @@ jobs:
       # with no workspace dependencies prints "No projects matched the filters"
       # and exits 0, which is why this is unconditional.
       - name: Build ${{ matrix.name }}'s workspace dependencies
+        if: needs.changes.outputs.code == 'true'
         run: pnpm --filter "{${{ matrix.dir }}}^..." run build
 
       # Build before testing: some suites exercise build OUTPUT rather than
@@ -542,7 +620,7 @@ jobs:
       # on them by design, and its suite runs node:test against source anyway —
       # nothing there needs dist.
       - name: Build ${{ matrix.name }}
-        if: matrix.build != 'skip'
+        if: needs.changes.outputs.code == 'true' && (matrix.build != 'skip')
         working-directory: ${{ matrix.dir }}
         run: npm run build --if-present
 
@@ -552,7 +630,7 @@ jobs:
       # retried exactly as there; see the root job's comments for the paths
       # and the key.
       - name: Resolve embedding model cache path
-        if: matrix.name == 'cli'
+        if: needs.changes.outputs.code == 'true' && (matrix.name == 'cli')
         id: model-cache-path
         working-directory: ${{ matrix.dir }}
         run: |
@@ -562,7 +640,7 @@ jobs:
           echo "transformers=$tf_version" >> "$GITHUB_OUTPUT"
 
       - name: Restore embedding model cache
-        if: matrix.name == 'cli'
+        if: needs.changes.outputs.code == 'true' && (matrix.name == 'cli')
         id: model-cache
         uses: actions/cache/restore@v4
         with:
@@ -574,7 +652,7 @@ jobs:
             hf-models-${{ runner.os }}-gte-modernbert-base-ettin-reranker-32m-v1-main-
 
       - name: Provision embedding models
-        if: matrix.name == 'cli'
+        if: needs.changes.outputs.code == 'true' && (matrix.name == 'cli')
         working-directory: ${{ matrix.dir }}
         run: |
           delays=(20 60)
@@ -592,7 +670,7 @@ jobs:
           exit 1
 
       - name: Save embedding model cache
-        if: matrix.name == 'cli' && steps.model-cache.outputs.cache-hit != 'true'
+        if: needs.changes.outputs.code == 'true' && (matrix.name == 'cli' && steps.model-cache.outputs.cache-hit != 'true')
         uses: actions/cache/save@v4
         with:
           path: |
@@ -600,8 +678,23 @@ jobs:
             ~/.monomind/models
           key: ${{ steps.model-cache.outputs.cache-primary-key }}
 
+      - name: Install coverage provider for ${{ matrix.name }}
+        if: needs.changes.outputs.code == 'true' && matrix.coverage == true
+        run: |
+          v=$(node -p "require('./${{ matrix.dir }}/node_modules/vitest/package.json').version")
+          pnpm --filter "{${{ matrix.dir }}}" add -D "@vitest/coverage-v8@$v"
+
       - name: Run ${{ matrix.name }} tests
+        if: needs.changes.outputs.code == 'true'
         working-directory: ${{ matrix.dir }}
         run: ${{ matrix.cmd || 'npm test' }}
         env:
           CI: true
+
+      - name: Upload ${{ matrix.name }} coverage report
+        if: needs.changes.outputs.code == 'true' && matrix.coverage == true && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.name }}
+          path: ${{ matrix.dir }}/coverage
+          if-no-files-found: warn
