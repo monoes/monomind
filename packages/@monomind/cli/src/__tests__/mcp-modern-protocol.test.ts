@@ -26,7 +26,10 @@ describe('mcp-modern helper', () => {
     const r = buildDiscoverResult({ name: 'monomind', version: '1' }, { tools: {} });
     expect(r.resultType).toBe('complete');
     expect(r.supportedVersions).toEqual(['2026-07-28']);
-    expect(r._meta['io.modelcontextprotocol/serverInfo']).toEqual({ name: 'monomind', version: '1' });
+    expect(r._meta['io.modelcontextprotocol/serverInfo']).toEqual({
+      name: 'monomind',
+      version: '1',
+    });
     expect(r.ttlMs).toBeGreaterThanOrEqual(0);
     expect(r.cacheScope).toBe('public');
   });
@@ -67,7 +70,9 @@ describe('resource router cache hints', () => {
 
   it('errors carry no cache hints', async () => {
     const res = await handleResourceMethod('resources/read', { uri: '' });
-    expect(res).toEqual({ error: { code: -32602, message: 'Invalid params.uri: expected a string' } });
+    expect(res).toEqual({
+      error: { code: -32602, message: 'Invalid params.uri: expected a string' },
+    });
   });
 });
 
