@@ -468,10 +468,7 @@ export const GOLDEN_SET: GoldenPair[] = [
   {
     id: 'agent-pr',
     query: 'the worker that shepherds a change request through checks and gets it landed',
-    relevant: [
-      '.claude/agents/github/pr-manager.md',
-      'packages/@monomind/cli/.claude/commands/github/pr-manager.md',
-    ],
+    relevant: ['.claude/agents/github/pr-manager.md', '.claude/commands/github/pr-manager.md'],
     tags: ['agents'],
   },
   {
@@ -479,7 +476,7 @@ export const GOLDEN_SET: GoldenPair[] = [
     query: 'coordinating version bumps across several packages and shipping them',
     relevant: [
       '.claude/agents/github/release-manager.md',
-      'packages/@monomind/cli/.claude/commands/github/release-manager.md',
+      '.claude/commands/github/release-manager.md',
     ],
     tags: ['agents'],
   },
@@ -488,7 +485,7 @@ export const GOLDEN_SET: GoldenPair[] = [
     query: 'keeping tickets moving and reporting progress back to the team',
     relevant: [
       '.claude/agents/github/issue-tracker.md',
-      'packages/@monomind/cli/.claude/commands/github/issue-tracker.md',
+      '.claude/commands/github/issue-tracker.md',
     ],
     tags: ['agents'],
   },
@@ -765,115 +762,115 @@ GOLDEN_SET.push(
     id: 'b0-warehouse-trust',
     query:
       'who keeps the nightly loading jobs reliable and catches silent corruption before analysts see it',
-    relevant: ['packages/@monomind/cli/.claude/agents/engineering/engineering-data-engineer.md'],
+    relevant: ['.claude/agents/engineering/engineering-data-engineer.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-throwaway-demo',
     query:
       'need someone to slap together a rough but working version in a couple of days just to see if the idea holds up',
-    relevant: ['packages/@monomind/cli/.claude/agents/engineering/engineering-rapid-prototyper.md'],
+    relevant: ['.claude/agents/engineering/engineering-rapid-prototyper.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-recon-role',
     query:
       'the member whose only job is to wander unfamiliar ground and post everything it notices into shared storage as it goes',
-    relevant: ['packages/@monomind/cli/.claude/agents/monoswarm/scout-explorer.md'],
+    relevant: ['.claude/agents/monoswarm/scout-explorer.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-what-to-charge',
     query:
       'help deciding plan levels whether to give something away for free and what unit to bill on',
-    relevant: ['packages/@monomind/cli/.claude/agents/marketing/marketing-pricing-strategist.md'],
+    relevant: ['.claude/agents/marketing/marketing-pricing-strategist.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-final-say-borrow',
     query:
       'who has the last word on whether something copied from another project gets taken as is reshaped or thrown out',
-    relevant: ['packages/@monomind/cli/.claude/agents/reengineer-squad/critic-architect.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/agents/reengineer-squad/critic-architect.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-pass-or-halt',
     query:
       'the checkpoint that gives finished work either a clean yes or a hard stop with evidence before commit',
-    relevant: ['packages/@monomind/cli/.claude/agents/reengineer-squad/tester.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/agents/reengineer-squad/tester.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-many-language-servers',
     query:
       'specialist wiring several editor backends into one symbol map for instant jump to definition',
-    relevant: ['packages/@monomind/cli/.claude/agents/specialized/lsp-index-engineer.md'],
+    relevant: ['.claude/agents/specialized/lsp-index-engineer.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-auto-pick-helpers',
     query:
       'something that reads the request itself and decides how many helpers to create and with what skills',
-    relevant: ['packages/@monomind/cli/.claude/agents/templates/automation-smart-agent.md'],
+    relevant: ['.claude/agents/templates/automation-smart-agent.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-vendor-comparison',
     query: 'who compares competing products and works out real cost of ownership before we commit',
-    relevant: ['packages/@monomind/cli/.claude/agents/testing/testing-tool-evaluator.md'],
+    relevant: ['.claude/agents/testing/testing-tool-evaluator.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-whats-slowing-down',
     query:
       'figure out which part of the system is dragging everything else down and how deep to look',
-    relevant: ['packages/@monomind/cli/.claude/commands/analysis/bottleneck-detect.md'],
+    relevant: ['.claude/commands/analysis/bottleneck-detect.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-carry-context-over',
     query: 'keeping what was learned in one conversation available the next time i open the tool',
-    relevant: ['packages/@monomind/cli/.claude/commands/automation/session-memory.md'],
+    relevant: ['.claude/commands/automation/session-memory.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-event-handler-list',
     query:
       'what gets triggered around each file change or shell run and what is written down from it',
-    relevant: ['packages/@monomind/cli/.claude/commands/hooks/overview.md'],
+    relevant: ['.claude/commands/hooks/overview.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-saving-notes-index',
     query:
       'index of every subcommand for saving looking up exporting and clearing out stored notes',
-    relevant: ['packages/@monomind/cli/.claude/commands/memory/README.md'],
+    relevant: ['.claude/commands/memory/README.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-sibling-tools-setup',
     query:
       'getting the kanban board the automation helper and the clipboard utility onto this machine',
-    relevant: ['packages/@monomind/cli/.claude/commands/monoes/install.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/commands/monoes/install.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-index-counts',
     query: 'quick numbers on what ended up in the code index and which topics scored highest',
-    relevant: ['packages/@monomind/cli/.claude/commands/monograph/monograph-stats.md'],
+    relevant: ['.claude/commands/monograph/monograph-stats.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-who-holds-keyboard',
     query:
       'ways to split the typing between me and the assistant while working through something together',
-    relevant: ['packages/@monomind/cli/.claude/commands/pair/modes.md'],
+    relevant: ['.claude/commands/pair/modes.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-saved-pipeline',
     query: 'kick off a saved multi stage run from a template then check on it and stop it',
-    relevant: ['packages/@monomind/cli/.claude/commands/workflows/README.md'],
+    relevant: ['.claude/commands/workflows/README.md'],
     tags: ['b0'],
   },
   {
@@ -881,7 +878,7 @@ GOLDEN_SET.push(
     query:
       'keep a moving picture of what the automated browser did so a failure can be replayed later',
     relevant: [
-      'packages/@monomind/cli/.claude/skills/monomind/browse-references/video-recording.md',
+      'packages/@monomind/cli/claude-overlay/skills/monomind/browse-references/video-recording.md',
     ],
     tags: ['b0'],
   },
@@ -889,14 +886,14 @@ GOLDEN_SET.push(
     id: 'b0-narrow-the-roster',
     query:
       'narrowing a huge list of possible experts down to one by first choosing a field then a name',
-    relevant: ['packages/@monomind/cli/.claude/skills/specialagent/SKILL.md'],
+    relevant: ['.claude/skills/specialagent/SKILL.md'],
     tags: ['b0'],
   },
   {
     id: 'b0-auto-revert-bad',
     query:
       'scoring how trustworthy an output is and automatically undoing anything that falls below the bar',
-    relevant: ['packages/@monomind/cli/.claude/skills/verification-quality/SKILL.md'],
+    relevant: ['.claude/skills/verification-quality/SKILL.md'],
     tags: ['b0'],
   },
   {
@@ -1081,156 +1078,152 @@ GOLDEN_SET.push(
   {
     id: 'b1-slow-lookup',
     query: 'who to ask when a lookup takes forever and i suspect the table is being scanned',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-database-optimizer.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-database-optimizer.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-php-and-3d',
     query:
       'a builder specialising in php stack work with fancy stylesheets and three dimensional bits in the browser',
-    relevant: ['packages/@monomind/cli/.claude/agents/engineering/engineering-senior-developer.md'],
+    relevant: ['.claude/agents/engineering/engineering-senior-developer.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-across-projects',
     query:
       'drive helpers working across many separate code repositories in one organisation at the same time',
-    relevant: ['packages/@monomind/cli/.claude/agents/github/monoswarm-multi-repo.md'],
+    relevant: ['.claude/agents/github/monoswarm-multi-repo.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-shared-state-keeper',
     query:
       'the role responsible for keeping everyones shared knowledge in sync with layered caching and prefetching',
-    relevant: ['packages/@monomind/cli/.claude/agents/monoswarm/monoswarm-memory-manager.md'],
+    relevant: ['.claude/agents/monoswarm/monoswarm-memory-manager.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-speed-numbers',
     query:
       'measure throughput and response times repeatedly so a slowdown between versions gets caught automatically',
-    relevant: ['packages/@monomind/cli/.claude/agents/optimization/benchmark-suite.md'],
+    relevant: ['.claude/agents/optimization/benchmark-suite.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-version-control-owner',
     query:
       'the porting crew member who owns committing and branching and never writes straight to the trunk',
-    relevant: ['packages/@monomind/cli/.claude/agents/reengineer-squad/git-manager.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/agents/reengineer-squad/git-manager.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-prove-who',
     query:
       'how can an autonomous program prove who it is, what it was permitted to do, and leave records nobody can quietly alter',
-    relevant: ['packages/@monomind/cli/.claude/agents/specialized/agentic-identity-trust.md'],
+    relevant: ['.claude/agents/specialized/agentic-identity-trust.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-quiet-exclusion',
     query:
       'catch the places our product quietly shuts people out, like a rigid two box name field for someone abroad',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/specialized/specialized-cultural-intelligence-strategist.md',
-    ],
+    relevant: ['.claude/agents/specialized/specialized-cultural-intelligence-strategist.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-no-placeholders-left',
     query:
       'confirm nothing fake or half written remains and everything really talks to live services before going live',
-    relevant: ['packages/@monomind/cli/.claude/agents/testing/production-validator.md'],
+    relevant: ['.claude/agents/testing/production-validator.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-lean-six',
     query:
       'a specialist who maps how work flows today, finds where it jams, and redesigns it with lean thinking',
-    relevant: ['packages/@monomind/cli/.claude/agents/testing/testing-workflow-optimizer.md'],
+    relevant: ['.claude/agents/testing/testing-workflow-optimizer.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-why-was-it-slow',
     query:
       'after a job finishes what tells me it dragged because of processor load, too few helpers, or repeated file touching',
-    relevant: ['packages/@monomind/cli/.claude/commands/analysis/performance-bottlenecks.md'],
+    relevant: ['.claude/commands/analysis/performance-bottlenecks.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-auto-appear',
     query:
       'have the right helpers show up on their own based on what kind of file im touching instead of me picking each time',
-    relevant: ['packages/@monomind/cli/.claude/commands/automation/smart-agents.md'],
+    relevant: ['.claude/commands/automation/smart-agents.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-index-of-helpers',
     query:
       'an index of the available helpers for tickets, merge requests and shipping, plus which underlying programs they really call',
-    relevant: ['packages/@monomind/cli/.claude/commands/github/README.md'],
+    relevant: ['.claude/commands/github/README.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-log-change-outcome',
     query:
       'log whether a file change worked so the tool learns from it, fired automatically whenever something is written',
-    relevant: ['packages/@monomind/cli/.claude/commands/hooks/post-edit.md'],
+    relevant: ['.claude/commands/hooks/post-edit.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-find-old-notes',
     query:
       'look up saved notes either by meaning or exact words with a cutoff on how close a match must be',
-    relevant: ['packages/@monomind/cli/.claude/commands/memory/memory-search.md'],
+    relevant: ['.claude/commands/memory/memory-search.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-renamed-binary',
     query:
       'which executable name is current for the go tool that drives social sites through a browser and why its own readme is misleading',
-    relevant: ['packages/@monomind/cli/.claude/commands/monoes/monoagent.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/commands/monoes/monoagent.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-stay-fresh',
     query:
       'keep the code index current by itself while im still editing instead of me rerunning it',
-    relevant: ['packages/@monomind/cli/.claude/commands/monograph/monograph-watch.md'],
+    relevant: ['.claude/commands/monograph/monograph-watch.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-two-of-us-coding',
     query:
       'how to run a working-side-by-side stretch from setup through wrap up and picking it back up tomorrow',
-    relevant: ['packages/@monomind/cli/.claude/commands/pair/session.md'],
+    relevant: ['.claude/commands/pair/session.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-prebuilt-stages',
     query:
       'a ready made staged pipeline that goes from planning to writing to checking to joining it all up',
-    relevant: ['packages/@monomind/cli/.claude/commands/workflows/development.md'],
+    relevant: ['.claude/commands/workflows/development.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-shortest-thing',
     query: 'quit gold plating and hand me the smallest thing that does the job',
-    relevant: ['packages/@monomind/cli/.claude/skills/monolean/SKILL.md'],
+    relevant: ['.claude/skills/monolean/SKILL.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-unread-chats',
     query:
       'catch up on what i missed in team conversations and dig up who mentioned something, using the already logged in browser instead of tokens',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse-slack.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/skills/monomind/browse-slack.md'],
     tags: ['b1'],
   },
   {
     id: 'b1-robotic-prose',
     query: 'strip the telltale machine phrasing and tired clichés out of a draft',
-    relevant: ['packages/@monomind/cli/.claude/skills/stop-slop/SKILL.md'],
+    relevant: ['.claude/skills/stop-slop/SKILL.md'],
     tags: ['b1'],
   },
   {
@@ -1429,169 +1422,158 @@ GOLDEN_SET.push(
     id: 'b2-structure-decisions',
     query:
       'the role that makes the big shape calls weighs alternatives and leaves a record of why with boxes and arrows',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/architecture/system-design/arch-system-design.md',
-    ],
+    relevant: ['.claude/agents/architecture/system-design/arch-system-design.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-tiny-chip-code',
     query:
       'expert for code running on a tiny chip with kilobytes of ram where a lockup means a dead product in the field',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-embedded-firmware-engineer.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-embedded-firmware-engineer.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-onchain-money',
     query:
       'who do i ask about programs deployed to a public ledger where a bug means stolen money and every operation is billed',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-solidity-smart-contract-engineer.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-solidity-smart-contract-engineer.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-kanban-mirror',
     query:
       'keep the cards on the hosted planning board in step with what the workers are really doing',
-    relevant: ['packages/@monomind/cli/.claude/agents/github/project-board-sync.md'],
+    relevant: ['.claude/agents/github/project-board-sync.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-drone-executor',
     query:
       'the lowest tier helper that only carries out what it is handed and constantly posts where it is up to',
-    relevant: ['packages/@monomind/cli/.claude/agents/monoswarm/worker-specialist.md'],
+    relevant: ['.claude/agents/monoswarm/worker-specialist.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-idle-vs-swamped',
     query:
       'when some helpers sit idle while others are buried let the idle ones grab jobs off the busy queues',
-    relevant: ['packages/@monomind/cli/.claude/agents/optimization/load-balancer.md'],
+    relevant: ['.claude/agents/optimization/load-balancer.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-clean-slate-thinking',
     query:
       'the counterpart who asks what we would make if we began again instead of faithfully copying the original',
-    relevant: ['packages/@monomind/cli/.claude/agents/reengineer-squad/idea-generator.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/agents/reengineer-squad/idea-generator.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-spec-to-ship-pipeline',
     query:
       'one lead that walks a request from paper through building and checking until it is ready to release',
-    relevant: ['packages/@monomind/cli/.claude/agents/specialized/agents-orchestrator.md'],
+    relevant: ['.claude/agents/specialized/agents-orchestrator.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-community-champion',
     query:
       'the role that makes it easier for outsiders to get started and feeds their frustrations back to product',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/specialized/specialized-developer-advocate.md',
-    ],
+    relevant: ['.claude/agents/specialized/specialized-developer-advocate.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-blind-user-check',
     query:
       'make sure someone who cannot see the screen can still finish the flow instead of just clearing an automated checker',
-    relevant: ['packages/@monomind/cli/.claude/agents/testing/testing-accessibility-auditor.md'],
+    relevant: ['.claude/agents/testing/testing-accessibility-auditor.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-who-is-good-at-what',
     query:
       'a small table of which worker type is strongest at what plus the terminal call to print them',
-    relevant: ['packages/@monomind/cli/.claude/commands/agents/agent-capabilities.md'],
+    relevant: ['.claude/commands/agents/agent-capabilities.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-numbers-summary',
     query:
       'print a speed and resource summary for the past week and emit it in a shape a scraping monitor can ingest',
-    relevant: ['packages/@monomind/cli/.claude/commands/analysis/performance-report.md'],
+    relevant: ['.claude/commands/analysis/performance-report.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-auto-pick-helpers',
     query:
       'let the system decide by itself which helpers to launch purely from the sentence describing my job',
-    relevant: ['packages/@monomind/cli/.claude/commands/automation/smart-spawn.md'],
+    relevant: ['.claude/commands/automation/smart-spawn.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-repo-preset-modes',
     query:
       'what are the preset ways of plugging into a code hosting site for merge requests tickets and shipping versions',
-    relevant: [
-      '.claude/agents/github/github-modes.md',
-      'packages/@monomind/cli/.claude/commands/github/github-modes.md',
-    ],
+    relevant: ['.claude/agents/github/github-modes.md', '.claude/commands/github/github-modes.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-log-finish',
     query: 'record that a job wrapped up and how well it went so the pattern learner picks it up',
-    relevant: ['packages/@monomind/cli/.claude/commands/hooks/post-task.md'],
+    relevant: ['.claude/commands/hooks/post-task.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-watch-health',
     query:
       'which terminal calls give me a refreshing view of what is alive right now and how often it succeeds',
-    relevant: ['packages/@monomind/cli/.claude/commands/monitoring/README.md'],
+    relevant: ['.claude/commands/monitoring/README.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-copy-history-cli',
     query: 'script my paste history for that little tray app on the mac from a shell',
-    relevant: ['packages/@monomind/cli/.claude/commands/monoes/monoclip.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/commands/monoes/monoclip.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-index-written-material',
     query: 'make prose and bound files findable in the graph rather than functions and imports',
-    relevant: ['packages/@monomind/cli/.claude/commands/monograph/monograph-wiki.md'],
+    relevant: ['.claude/commands/monograph/monograph-wiki.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-stepwise-context-chain',
     query:
       'canned multi step flows where each stage receives the previous stages output as its input for review or cleanup work',
-    relevant: ['packages/@monomind/cli/.claude/commands/stream-chain/pipeline.md'],
+    relevant: ['.claude/commands/stream-chain/pipeline.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-gather-compare-conclude',
     query:
       'a canned team flow for gathering sources weighing them against each other and writing up conclusions',
-    relevant: ['packages/@monomind/cli/.claude/commands/workflows/research.md'],
+    relevant: ['.claude/commands/workflows/research.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-remote-browser-amazon',
     query:
       'point the page driver at a rented cloud machine using the login i already configured for that big cloud provider',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse-agentcore.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/skills/monomind/browse-agentcore.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-throwaway-vm-chrome',
     query:
       'spin up a short lived machine to click around a site from inside a serverless deployment',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse-vercel.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/skills/monomind/browse-vercel.md'],
     tags: ['b2'],
   },
   {
     id: 'b2-rewrite-samples',
     query:
       'paired samples showing prose before and after cutting the wind up phrases and theatrical one word sentences',
-    relevant: ['packages/@monomind/cli/.claude/skills/stop-slop/references/examples.md'],
+    relevant: ['.claude/skills/stop-slop/references/examples.md'],
     tags: ['b2'],
   },
   {
@@ -1785,159 +1767,153 @@ GOLDEN_SET.push(
     id: 'b3-merge-without-conflict',
     query:
       'specialist for reconciling the same data edited on several replicas at once so every copy converges without a referee',
-    relevant: ['packages/@monomind/cli/.claude/agents/monoswarm/monoswarm-memory-manager.md'],
+    relevant: ['.claude/agents/monoswarm/monoswarm-memory-manager.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-lark-platform',
     query:
       'our client runs everything internally on a chinese workplace platform and we need our product wired into it',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-feishu-integration-developer.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-feishu-integration-developer.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-uptime-owner',
     query:
       'who sets availability targets tracks how much failure we can afford and cuts repetitive manual ops work',
-    relevant: ['packages/@monomind/cli/.claude/agents/engineering/engineering-sre.md'],
+    relevant: ['.claude/agents/engineering/engineering-sre.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-ticket-to-workers',
     query:
       'turn a filed bug report on the hosting platform into split up assignments for several workers and post progress back as comments',
-    relevant: ['packages/@monomind/cli/.claude/agents/github/monoswarm-issue.md'],
+    relevant: ['.claude/agents/github/monoswarm-issue.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-versus-pages',
     query:
       'who writes the us against them pages and the best replacements for X pages that catch buyers while they are still deciding',
-    relevant: ['packages/@monomind/cli/.claude/agents/marketing/marketing-competitive-content.md'],
+    relevant: ['.claude/agents/marketing/marketing-competitive-content.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-live-numbers-watcher',
     query:
       'which specialist continuously samples runtime numbers and raises a flag when something drifts outside expected behaviour',
-    relevant: ['packages/@monomind/cli/.claude/agents/optimization/performance-monitor.md'],
+    relevant: ['.claude/agents/optimization/performance-monitor.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-one-card-at-a-time',
     query:
       'the builder role that works through porting instructions one card at a time and refuses to widen what was asked',
-    relevant: ['packages/@monomind/cli/.claude/agents/reengineer-squad/implementer.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/agents/reengineer-squad/implementer.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-should-we-automate',
     query:
       'who decides whether a business process is even worth making hands free and what must stay under a persons control',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/specialized/automation-governance-architect.md',
-    ],
+    relevant: ['.claude/agents/specialized/automation-governance-architect.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-decks-and-sheets',
     query: 'producing polished business files like slide sets and workbooks straight from code',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/specialized/specialized-document-generator.md',
-    ],
+    relevant: ['.claude/agents/specialized/specialized-document-generator.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-hammer-endpoints',
     query:
       'specialist who hammers our service endpoints for contract breakage load limits and security holes before customers find them',
-    relevant: ['packages/@monomind/cli/.claude/agents/testing/testing-api-tester.md'],
+    relevant: ['.claude/agents/testing/testing-api-tester.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-what-did-i-spend',
     query:
       'command line way to see what my model calls cost today and over the past month plus a live updating view',
-    relevant: ['packages/@monomind/cli/.claude/commands/analysis/token-usage.md'],
+    relevant: ['.claude/commands/analysis/token-usage.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-canned-recipe-run',
     query:
       'execute one of the prebuilt multi step recipes by name and optionally see what it would do first without doing it',
-    relevant: ['packages/@monomind/cli/.claude/commands/automation/workflow-select.md'],
+    relevant: ['.claude/commands/automation/workflow-select.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-tidy-many-repos',
     query:
       'reorganize a codebase layout and keep several separate checkouts consistent with each other using coordinated helpers',
-    relevant: ['packages/@monomind/cli/.claude/commands/github/repo-architect.md'],
+    relevant: ['.claude/commands/github/repo-architect.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-warn-before-touching',
     query:
       'what runs just ahead of a file being changed to surface likely fallout and suggest who should handle it',
-    relevant: ['packages/@monomind/cli/.claude/commands/hooks/pre-edit.md'],
+    relevant: ['.claude/commands/hooks/pre-edit.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-agent-scorecard',
     query:
       'per worker scorecard of how many jobs finished and what fraction succeeded over the last week',
-    relevant: ['packages/@monomind/cli/.claude/commands/monitoring/agent-metrics.md'],
+    relevant: ['.claude/commands/monitoring/agent-metrics.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-rust-cards-tool',
     query:
       'driving the rust command line card wall where everything is stored offline in a local database and a container must exist before any board',
-    relevant: ['packages/@monomind/cli/.claude/commands/monoes/monotask.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/commands/monoes/monotask.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-feed-output-forward',
     query:
       'i want my own ordered sequence where later stages automatically inherit everything the earlier stages produced',
-    relevant: ['packages/@monomind/cli/.claude/commands/stream-chain/run.md'],
+    relevant: ['.claude/commands/stream-chain/run.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-save-for-reuse',
     query:
       'i just ran a good multi stage sequence how do i store it under a name so i can replay it on future jobs',
-    relevant: ['packages/@monomind/cli/.claude/commands/workflows/workflow-create.md'],
+    relevant: ['.claude/commands/workflows/workflow-create.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-fire-around-operations',
     query:
       'machinery that fires automatically around every operation to tidy files keep state across restarts and learn from what worked',
-    relevant: ['packages/@monomind/cli/.claude/skills/hooks-automation/SKILL.md'],
+    relevant: ['.claude/skills/hooks-automation/SKILL.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-drive-desktop-app',
     query:
       'automate a native looking program on my machine that is really a packaged web app by attaching over its debug port',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse-electron.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/skills/monomind/browse-electron.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-cheap-page-clicking',
     query:
       'click through a live web page while spending as few tokens as possible using handles for elements and grouping steps into one call',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/skills/monomind/browse.md'],
     tags: ['b3'],
   },
   {
     id: 'b3-cut-the-filler',
     query:
       'catalogue of throat clearing openers and corporate cliches to strike out of any prose we produce',
-    relevant: ['packages/@monomind/cli/.claude/skills/stop-slop/references/phrases.md'],
+    relevant: ['.claude/skills/stop-slop/references/phrases.md'],
     tags: ['b3'],
   },
   {
@@ -2153,158 +2129,156 @@ GOLDEN_SET.push(
     id: 'b4-lying-voters',
     query:
       'protecting an agreement protocol from participants that lie flood or impersonate, using signing power split across many parties',
-    relevant: ['packages/@monomind/cli/.claude/agents/consensus/security-manager.md'],
+    relevant: ['.claude/agents/consensus/security-manager.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-tidy-history',
     query:
       'keep the change log of the repo readable with small self contained commits sensible branch naming and untangling conflicts',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-git-workflow-master.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-git-workflow-master.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-noisy-alerts',
     query:
       'write and tune the rules that spot intruders after they slip past prevention so the operations desk stops ignoring the alarms',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-threat-detection-engineer.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-threat-detection-engineer.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-team-from-pr-body',
     query:
       'spin up the worker group directly from what someone wrote in the merge request and drive it further by leaving comments there',
-    relevant: ['packages/@monomind/cli/.claude/agents/github/monoswarm-pr.md'],
+    relevant: ['.claude/agents/github/monoswarm-pr.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-visitors-dont-sign-up',
     query:
       'plenty of people reach the page but almost nobody signs up, find where they hesitate and rank what to change first',
-    relevant: ['packages/@monomind/cli/.claude/agents/marketing/marketing-cro-specialist.md'],
+    relevant: ['.claude/agents/marketing/marketing-cro-specialist.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-forecast-capacity',
     query:
       'work out ahead of time how much processing and storage the load will need and hand it out before things get tight',
-    relevant: ['packages/@monomind/cli/.claude/agents/optimization/resource-allocator.md'],
+    relevant: ['.claude/agents/optimization/resource-allocator.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-precise-task-cards',
     query:
       'convert approved keep or rework judgements into exact per file instruction cards so the person building makes no design calls of their own',
-    relevant: ['packages/@monomind/cli/.claude/agents/reengineer-squad/integration-planner.md'],
+    relevant: [
+      'packages/@monomind/cli/claude-overlay/agents/reengineer-squad/integration-planner.md',
+    ],
     tags: ['b4'],
   },
   {
     id: 'b4-onchain-money-holes',
     query:
       'assume the on chain money code is broken and hunt for the way somebody drains it with a borrowed pile of funds',
-    relevant: ['packages/@monomind/cli/.claude/agents/specialized/blockchain-security-auditor.md'],
+    relevant: ['.claude/agents/specialized/blockchain-security-auditor.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-recheck-someone-model',
     query:
       'independently rebuild and rerun a prediction system somebody else built to see if its probabilities still line up and the inputs have not shifted',
-    relevant: ['packages/@monomind/cli/.claude/agents/specialized/specialized-model-qa.md'],
+    relevant: ['.claude/agents/specialized/specialized-model-qa.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-pictures-or-it-didnt',
     query:
       'a checker that refuses to believe a clean report and demands pictures for every claim because first attempts always have several problems',
-    relevant: ['packages/@monomind/cli/.claude/agents/testing/testing-evidence-collector.md'],
+    relevant: ['.claude/agents/testing/testing-evidence-collector.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-coordination-doesnt-run',
     query:
       'reminder that the coordination calls do not actually run anything and that all the workers must be launched together in one go',
-    relevant: ['packages/@monomind/cli/.claude/commands/agents/agent-spawning.md'],
+    relevant: ['.claude/commands/agents/agent-spawning.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-selfheal-index',
     query:
       'index page pointing to notes on picking helpers by file type recovering from errors on its own and keeping context between sittings',
-    relevant: ['packages/@monomind/cli/.claude/commands/automation/README.md'],
+    relevant: ['.claude/commands/automation/README.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-versions-across-repos',
     query:
       'make sure every bundle in a group stays lined up at the same number when shipping, docs included, so nothing lands mismatched',
-    relevant: ['packages/@monomind/cli/.claude/commands/github/sync-coordinator.md'],
+    relevant: ['.claude/commands/github/sync-coordinator.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-announce-before-start',
     query:
       'tell the system what im about to work on and get back who should handle it how hard it looks and what might go wrong',
-    relevant: ['packages/@monomind/cli/.claude/commands/hooks/pre-task.md'],
+    relevant: ['.claude/commands/hooks/pre-task.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-whos-busy-table',
     query:
       'table listing each running worker what its handling right now how long its been alive and its pass rate',
-    relevant: ['packages/@monomind/cli/.claude/commands/monitoring/agents.md'],
+    relevant: ['.claude/commands/monitoring/agents.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-index-docs-and-pdfs',
     query:
       'index listing the ways to pull code prose and pdfs into one searchable web of relationships and keep it fresh as files change',
-    relevant: ['packages/@monomind/cli/.claude/commands/monograph/README.md'],
+    relevant: ['.claude/commands/monograph/README.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-tune-and-preview',
     query:
       'command line switches to tune footprint processing or response delay with the option to see what it would change first',
-    relevant: ['packages/@monomind/cli/.claude/commands/optimization/performance-optimize.md'],
+    relevant: ['.claude/commands/optimization/performance-optimize.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-canned-pipeline',
     query:
       'run a prepackaged multi stage recipe by name or from your own yaml file with a validate only switch',
-    relevant: ['packages/@monomind/cli/.claude/commands/workflows/workflow-execute.md'],
+    relevant: ['.claude/commands/workflows/workflow-execute.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-what-can-i-delete',
     query:
       'go through the entire tree and rank what could just be thrown away or swapped for something the language already ships, ignoring correctness bugs',
-    relevant: ['packages/@monomind/cli/.claude/skills/monolean-audit/SKILL.md'],
+    relevant: ['.claude/skills/monolean-audit/SKILL.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-poke-around-live-site',
     query:
       'wander through a running site clicking things to find problems and capture step by step pictures proving each one',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse-qa.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/skills/monomind/browse-qa.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-take-turns-typing',
     query:
       'work alongside me taking turns at who types and who watches with continuous checking and the option to undo when quality drops',
-    relevant: ['packages/@monomind/cli/.claude/skills/pair-programming/SKILL.md'],
+    relevant: ['.claude/skills/pair-programming/SKILL.md'],
     tags: ['b4'],
   },
   {
     id: 'b4-stop-fake-drama',
     query:
       'stop writing sentences that set up a false contrast then flip it, and stop the one word fragments meant to sound profound',
-    relevant: ['packages/@monomind/cli/.claude/skills/stop-slop/references/structures.md'],
+    relevant: ['.claude/skills/stop-slop/references/structures.md'],
     tags: ['b4'],
   },
   {
@@ -2325,10 +2299,7 @@ GOLDEN_SET.push(
     id: 'b5-repo-workflow-personas',
     query:
       'what preset operating personas exist for driving merge requests and repository chores with batched calls',
-    relevant: [
-      '.claude/agents/github/github-modes.md',
-      'packages/@monomind/cli/.claude/commands/github/github-modes.md',
-    ],
+    relevant: ['.claude/agents/github/github-modes.md', '.claude/commands/github/github-modes.md'],
     tags: ['b5'],
   },
   {
@@ -2456,125 +2427,117 @@ GOLDEN_SET.push(
     id: 'b5-fix-bad-records-inflight',
     query:
       'who patches malformed records mid stream using a model that runs on our own machines without halting the flow',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-ai-data-remediation-engineer.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-ai-data-remediation-engineer.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-outage-lead',
     query:
       'who takes charge when live systems break at 3am and later runs the no blame retrospective',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-incident-response-commander.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-incident-response-commander.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-china-messaging-apps',
     query:
       'building small embedded apps inside chinas dominant chat platform with its own markup and payment hooks',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-wechat-mini-program-developer.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-wechat-mini-program-developer.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-keep-repos-aligned',
     query:
       'keep release numbers and shared libraries in step across several code repositories at once',
-    relevant: ['packages/@monomind/cli/.claude/agents/github/sync-coordinator.md'],
+    relevant: ['.claude/agents/github/sync-coordinator.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-drip-sequences',
     query:
       'who drafts the automated message ladders that greet new signups win back quiet ones and pitch strangers',
-    relevant: ['packages/@monomind/cli/.claude/agents/marketing/marketing-email-specialist.md'],
+    relevant: ['.claude/agents/marketing/marketing-email-specialist.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-rewire-agent-layout',
     query:
       'the group of workers is talking inefficiently who rearranges how they connect to each other on the fly',
-    relevant: ['packages/@monomind/cli/.claude/agents/optimization/topology-optimizer.md'],
+    relevant: ['.claude/agents/optimization/topology-optimizer.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-catalog-foreign-project',
     query:
       'read through somebody elses open codebase and catalog each module its public surface and whether anything is truly original',
-    relevant: ['packages/@monomind/cli/.claude/agents/reengineer-squad/source-analyst.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/agents/reengineer-squad/source-analyst.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-certification-prep',
     query: 'an outside firm is coming to certify us next quarter who preps the paperwork trail',
-    relevant: ['packages/@monomind/cli/.claude/agents/specialized/compliance-auditor.md'],
+    relevant: ['.claude/agents/specialized/compliance-auditor.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-map-every-branch',
     query:
       'chart the whole decision tree of a product upfront so builders and testers both have something concrete',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/specialized/specialized-workflow-architect.md',
-    ],
+    relevant: ['.claude/agents/specialized/specialized-workflow-architect.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-prove-speedup',
     query:
       'who checks whether the app holds up when lots of people hit it and reports the delta after changes',
-    relevant: ['packages/@monomind/cli/.claude/agents/testing/testing-performance-benchmarker.md'],
+    relevant: ['.claude/agents/testing/testing-performance-benchmarker.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-worker-kind-roster',
     query: 'where is the full list of every kind of helper i am allowed to ask for',
-    relevant: ['packages/@monomind/cli/.claude/commands/agents/agent-types.md'],
+    relevant: ['.claude/commands/agents/agent-types.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-wrap-up-and-save',
     query:
       'close out what im doing now and keep a summary plus enough state that i can pick it back up tomorrow',
-    relevant: ['packages/@monomind/cli/.claude/commands/hooks/session-end.md'],
+    relevant: ['.claude/commands/hooks/session-end.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-one-glance-health',
     query:
       'one command that shows me overall health of everything at once and can keep refreshing on screen',
-    relevant: ['packages/@monomind/cli/.claude/commands/monitoring/status.md'],
+    relevant: ['.claude/commands/monitoring/status.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-reindex-code-map',
     query:
       'refresh the searchable map of the repo from zero also covering written material not just source',
-    relevant: ['packages/@monomind/cli/.claude/commands/monograph/monograph-build.md'],
+    relevant: ['.claude/commands/monograph/monograph-build.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-take-turns-coding',
     query:
       'working side by side with the assistant taking turns at the wheel while the other watches and critiques',
-    relevant: ['packages/@monomind/cli/.claude/commands/pair/README.md'],
+    relevant: ['.claude/commands/pair/README.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-prebuilt-pipelines',
     query:
       'what canned multi stage pipelines ship out of the box and how do i confirm my own yaml file is well formed',
-    relevant: ['packages/@monomind/cli/.claude/commands/workflows/workflow-export.md'],
+    relevant: ['.claude/commands/workflows/workflow-export.md'],
     tags: ['b5'],
   },
   {
     id: 'b5-shortcut-ledger',
     query:
       'gather every place we deliberately cut a corner and noted it in a comment so later does not become never',
-    relevant: ['packages/@monomind/cli/.claude/skills/monolean-debt/SKILL.md'],
+    relevant: ['.claude/skills/monolean-debt/SKILL.md'],
     tags: ['b5'],
   },
   {
@@ -2582,7 +2545,7 @@ GOLDEN_SET.push(
     query:
       'my scripted browsing keeps hitting the sign in wall how do i borrow credentials from a window im already logged into',
     relevant: [
-      'packages/@monomind/cli/.claude/skills/monomind/browse-references/authentication.md',
+      'packages/@monomind/cli/claude-overlay/skills/monomind/browse-references/authentication.md',
     ],
     tags: ['b5'],
   },
@@ -2590,7 +2553,7 @@ GOLDEN_SET.push(
     id: 'b5-find-coordination-slowdown',
     query:
       'figure out where a group of cooperating helpers is losing time and get concrete suggestions to fix it',
-    relevant: ['packages/@monomind/cli/.claude/skills/performance-analysis/SKILL.md'],
+    relevant: ['.claude/skills/performance-analysis/SKILL.md'],
     tags: ['b5'],
   },
   {
@@ -2778,127 +2741,123 @@ GOLDEN_SET.push(
     id: 'b6-shadow-trial-cost-guard',
     query:
       'quietly try a challenger engine in the background against live requests with a hard stop so it cannot run up the bill',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-autonomous-optimization-architect.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-autonomous-optimization-architect.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-phone-app-builder',
     query: 'who owns building the handheld version of the product for both stores',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-mobile-app-builder.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-mobile-app-builder.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-ci-pipeline-agents',
     query:
       'have coordinated helpers plug into the automated checks that run whenever someone pushes',
-    relevant: ['packages/@monomind/cli/.claude/agents/github/workflow-automation.md'],
+    relevant: ['.claude/agents/github/workflow-automation.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-announcement-sequence',
     query: 'how to stage the run up buzz and the day of push when we make something public',
-    relevant: ['packages/@monomind/cli/.claude/agents/marketing/marketing-launch-strategist.md'],
+    relevant: ['.claude/agents/marketing/marketing-launch-strategist.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-porting-loop-driver',
     query:
       'who hands out batches to the specialists each pass and decides when the whole effort is finished',
-    relevant: ['packages/@monomind/cli/.claude/agents/reengineer-squad/boss.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/agents/reengineer-squad/boss.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-where-would-it-attach',
     query: 'figure out what our own side already covers and where a borrowed feature would hook in',
-    relevant: ['packages/@monomind/cli/.claude/agents/reengineer-squad/target-analyst.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/agents/reengineer-squad/target-analyst.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-same-customer',
     query: 'several helpers must agree that two rows describe the same company or person',
-    relevant: ['packages/@monomind/cli/.claude/agents/specialized/identity-graph-operator.md'],
+    relevant: ['.claude/agents/specialized/identity-graph-operator.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-slipbox',
     query:
       'keep a growing web of small self contained cards joined by links rather than a folder tree',
-    relevant: ['packages/@monomind/cli/.claude/agents/specialized/zk-steward.md'],
+    relevant: ['.claude/agents/specialized/zk-steward.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-suite-output-trends',
     query: 'make sense of piles of raw check output and tell me where problems keep clustering',
-    relevant: ['packages/@monomind/cli/.claude/agents/testing/testing-test-results-analyzer.md'],
+    relevant: ['.claude/agents/testing/testing-test-results-analyzer.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-slow-and-spendy-index',
     query:
       'index page pointing to both the slowdown hunting entry points and the consumption reduction guidance',
-    relevant: ['packages/@monomind/cli/.claude/commands/analysis/README.md'],
+    relevant: ['.claude/commands/analysis/README.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-auto-recover',
     query: 'when a command blows up because a package is missing just install it and try again',
-    relevant: ['packages/@monomind/cli/.claude/commands/automation/self-healing.md'],
+    relevant: ['.claude/commands/automation/self-healing.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-callback-catalog',
     query: 'one page listing all the before and after triggers i can run from the terminal',
-    relevant: ['packages/@monomind/cli/.claude/commands/hooks/README.md'],
+    relevant: ['.claude/commands/hooks/README.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-register-callbacks',
     query: 'wire these triggers into the config file so the editor fires them by itself',
-    relevant: ['packages/@monomind/cli/.claude/commands/hooks/setup.md'],
+    relevant: ['.claude/commands/hooks/setup.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-sibling-tools',
     query: 'the neighbouring projects that are not part of this repo and how you install each one',
-    relevant: ['packages/@monomind/cli/.claude/commands/monoes/README.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/commands/monoes/README.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-index-lookup-modes',
     query:
       'search the prebuilt code index by concept instead of literal terms and narrow it to one kind of symbol',
-    relevant: ['packages/@monomind/cli/.claude/commands/monograph/monograph-search.md'],
+    relevant: ['.claude/commands/monograph/monograph-search.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-session-transcripts',
     query:
       'sample worked sessions showing exactly what to say while hunting a leak or reviewing together',
-    relevant: ['packages/@monomind/cli/.claude/commands/pair/examples.md'],
+    relevant: ['.claude/commands/pair/examples.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-honest-health-picture',
     query:
       'give me a straight answer on whether everything is behaving right now across the moving parts',
-    relevant: ['packages/@monomind/cli/.claude/commands/truth/start.md'],
+    relevant: ['.claude/commands/truth/start.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-lockfree-vcs',
     query:
       'history tracking built for many simultaneous writers instead of one person at a keyboard',
-    relevant: ['packages/@monomind/cli/.claude/skills/agentic-jujutsu/SKILL.md'],
+    relevant: ['.claude/skills/agentic-jujutsu/SKILL.md'],
     tags: ['b6'],
   },
   {
     id: 'b6-simplicity-levels',
     query: 'remind me of the intensity levels for keep it simple mode and how to switch it off',
-    relevant: ['packages/@monomind/cli/.claude/skills/monolean-help/SKILL.md'],
+    relevant: ['.claude/skills/monolean-help/SKILL.md'],
     tags: ['b6'],
   },
   {
@@ -2906,7 +2865,7 @@ GOLDEN_SET.push(
     query:
       'a website told the assistant to run a command and mail out the cookie file should it comply',
     relevant: [
-      'packages/@monomind/cli/.claude/skills/monomind/browse-references/trust-boundaries.md',
+      'packages/@monomind/cli/claude-overlay/skills/monomind/browse-references/trust-boundaries.md',
     ],
     tags: ['b6'],
   },
@@ -2914,7 +2873,7 @@ GOLDEN_SET.push(
     id: 'b6-authoring-capability-file',
     query:
       'spec for authoring a new reusable instruction package so it gets discovered automatically',
-    relevant: ['packages/@monomind/cli/.claude/skills/skill-builder/SKILL.md'],
+    relevant: ['.claude/skills/skill-builder/SKILL.md'],
     tags: ['b6'],
   },
   {
@@ -2935,227 +2894,227 @@ GOLDEN_SET.push(
   {
     id: 'b7-record-tech-choice',
     query: 'how to document a significant technical choice with its rationale and consequences',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/adr.md'],
+    relevant: ['.claude/commands/mastermind/adr.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-stored-wisdom',
     query: 'tap into stored knowledge and accumulated institutional wisdom',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/brain.md'],
+    relevant: ['.claude/commands/mastermind/brain.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-inspect-changeset',
     query: 'have someone else inspect my changeset for correctness and style',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/code-review.md'],
+    relevant: ['.claude/commands/mastermind/code-review.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-written-material',
     query: 'produce written material like blog posts or announcements for the product',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/content.md'],
+    relevant: ['.claude/commands/mastermind/content.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-new-group',
     query: 'set up a brand new collaborative group from scratch',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/createorg.md'],
+    relevant: ['.claude/commands/mastermind/createorg.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-add-backlog',
     query: 'add a new work item to the backlog so someone can pick it up',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/createtask.md'],
+    relevant: ['.claude/commands/mastermind/createtask.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-root-cause',
     query: 'find the true cause of a malfunction before attempting any repair',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/debug.md'],
+    relevant: ['.claude/commands/mastermind/debug.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-craft-visual',
     query: 'craft the visual appearance and user interaction patterns for a product',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/design.md'],
+    relevant: ['.claude/commands/mastermind/design.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-just-do-it',
     query: 'just carry out whatever is needed right now without further deliberation',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/do.md'],
+    relevant: ['.claude/commands/mastermind/do.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-run-procedure',
     query: 'run the concrete steps of a previously outlined procedure',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/execute.md'],
+    relevant: ['.claude/commands/mastermind/execute.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-fiscal-health',
     query: 'track monetary inflows outflows and overall fiscal health of operations',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/finance.md'],
+    relevant: ['.claude/commands/mastermind/finance.md'],
     tags: ['b7'],
   },
   // b7-dep-map-health removed: target file is 156 bytes, under the 400-byte corpus minimum
   {
     id: 'b7-available-commands',
     query: 'show me the available instructions and what each capability does',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/help.md'],
+    relevant: ['.claude/commands/mastermind/help.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-raw-spark',
     query: 'capture a raw spark of inspiration before it gets lost',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/idea.md'],
+    relevant: ['.claude/commands/mastermind/idea.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-many-directions',
     query: 'brainstorm multiple creative directions for a given challenge',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/ideate.md'],
+    relevant: ['.claude/commands/mastermind/ideate.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-incremental-better',
     query: 'make the existing thing better without starting from zero',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/improve.md'],
+    relevant: ['.claude/commands/mastermind/improve.md'],
     tags: ['b7'],
   },
   // b7-recurring-cycle removed: target is under the 400-byte corpus minimum
   {
     id: 'b7-attract-customers',
     query: 'promote and position the product to attract potential customers',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/marketing.md'],
+    relevant: ['.claude/commands/mastermind/marketing.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-portable-out',
     query: 'send internal structured data out as a portable interchange file',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/okf-export.md'],
+    relevant: ['.claude/commands/mastermind/okf-export.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-portable-in',
     query: 'ingest a portable interchange file into the local system',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/okf-import.md'],
+    relevant: ['.claude/commands/mastermind/okf-import.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-uptime-deploys',
     query: 'handle day to day operational concerns like uptime and deployments',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/ops.md'],
+    relevant: ['.claude/commands/mastermind/ops.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-group-performance',
     query: 'check how a running collaborative group is performing right now',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/orgstatus.md'],
+    relevant: ['.claude/commands/mastermind/orgstatus.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-all-groups',
     query: 'list all the collaborative groups that have been established',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/orgs.md'],
+    relevant: ['.claude/commands/mastermind/orgs.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-sequential-phases',
     query: 'outline the sequential phases and milestones to reach a goal',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/plan.md'],
+    relevant: ['.claude/commands/mastermind/plan.md'],
     tags: ['b7'],
   },
   // b7-roadmap-to-items removed: target file is not tracked in git, so it is not in the corpus
   {
     id: 'b7-incorporate-feedback',
     query: 'incorporate feedback that was given on my submitted work',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/receive-review.md'],
+    relevant: ['.claude/commands/mastermind/receive-review.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-redo-once-more',
     query: 'redo the previous action or cycle through it once more',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/repeat.md'],
+    relevant: ['.claude/commands/mastermind/repeat.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-investigate-topic',
     query: 'investigate a topic thoroughly by gathering and synthesizing information',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/research.md'],
+    relevant: ['.claude/commands/mastermind/research.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-critique-quality',
     query: 'examine and critique someone else s contribution for quality',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/review.md'],
+    relevant: ['.claude/commands/mastermind/review.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-close-deals',
     query: 'pursue leads and close deals with prospective buyers',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/sales.md'],
+    relevant: ['.claude/commands/mastermind/sales.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-reusable-package',
     query: 'create a reusable capability package that others can invoke later',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/skill-builder.md'],
+    relevant: ['.claude/commands/mastermind/skill-builder.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-narrow-experts',
     query: 'deploy purpose built workers with narrow domain expertise',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/specialagents.md'],
+    relevant: ['.claude/commands/mastermind/specialagents.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-shutdown-group',
     query: 'shut down a running collaborative group gracefully',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/stoporg.md'],
+    relevant: ['.claude/commands/mastermind/stoporg.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-transfer-infra',
     query: 'transfer a codebase to a different hosting platform or infrastructure',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/techport.md'],
+    relevant: ['.claude/commands/mastermind/techport.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-comprehend-area',
     query: 'deeply comprehend an unfamiliar area of the codebase before changing it',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/understand.md'],
+    relevant: ['.claude/commands/mastermind/understand.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-isolated-copy',
     query: 'use an isolated copy of the repository so parallel efforts do not collide',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/worktree.md'],
+    relevant: ['.claude/commands/mastermind/worktree.md'],
     tags: ['b7'],
   },
   // b7-spending-cap removed: target is under the 400-byte corpus minimum
   {
     id: 'b7-pi-equivalent',
     query: 'what are the equivalent capabilities when using the Inflection personal assistant',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind/references/pi-tools.md'],
+    relevant: ['.claude/skills/mastermind/references/pi-tools.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-agy-equivalent',
     query: 'how do the features translate to the alternative non gravitational command line',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind/references/antigravity-tools.md'],
+    relevant: ['.claude/skills/mastermind/references/antigravity-tools.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-anthropic-primitives',
     query: 'which native Anthropic primitives correspond to each orchestration capability',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind/references/claude-code-tools.md'],
+    relevant: ['.claude/skills/mastermind/references/claude-code-tools.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-openai-terminal',
     query: 'how do the features map onto the OpenAI terminal assistant equivalent',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind/references/codex-tools.md'],
+    relevant: ['.claude/skills/mastermind/references/codex-tools.md'],
     tags: ['b7'],
   },
 
@@ -3185,236 +3144,224 @@ GOLDEN_SET.push(
   {
     id: 'b7-ml-integration',
     query: 'which persona handles machine learning model integration work',
-    relevant: ['packages/@monomind/cli/.claude/agents/engineering/engineering-ai-engineer.md'],
+    relevant: ['.claude/agents/engineering/engineering-ai-engineer.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-server-data-layer',
     query: 'who designs the server side system structure and data layer',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-backend-architect.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-backend-architect.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-pr-quality',
     query: 'which specialist examines pull requests for quality and correctness',
-    relevant: ['packages/@monomind/cli/.claude/agents/engineering/engineering-code-reviewer.md'],
+    relevant: ['.claude/agents/engineering/engineering-code-reviewer.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-ci-cd-infra',
     query: 'who handles ci cd pipelines and deployment infrastructure setup',
-    relevant: ['packages/@monomind/cli/.claude/agents/engineering/engineering-devops-automator.md'],
+    relevant: ['.claude/agents/engineering/engineering-devops-automator.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-browser-interface',
     query: 'which role builds the user facing browser interface components',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-frontend-developer.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-frontend-developer.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-vuln-hardening',
     query: 'who audits for vulnerabilities and hardens the application',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-security-engineer.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-security-engineer.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-component-boundaries',
     query: 'which persona plans high level system design and component boundaries',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/engineering/engineering-software-architect.md',
-    ],
+    relevant: ['.claude/agents/engineering/engineering-software-architect.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-api-docs-help',
     query: 'who generates api docs and user facing help content',
-    relevant: ['packages/@monomind/cli/.claude/agents/engineering/engineering-technical-writer.md'],
+    relevant: ['.claude/agents/engineering/engineering-technical-writer.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-writes-source',
     query: 'which worker actually writes and modifies source files',
-    relevant: ['packages/@monomind/cli/.claude/agents/core/coder.md'],
+    relevant: ['.claude/agents/core/coder.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-central-dispatcher',
     query: 'who is the central dispatcher that assigns jobs to other workers',
-    relevant: ['packages/@monomind/cli/.claude/agents/core/coordinator.md'],
+    relevant: ['.claude/agents/core/coordinator.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-creates-roadmap',
     query: 'which role creates the roadmap and figures out what to do next',
-    relevant: ['packages/@monomind/cli/.claude/agents/core/planner.md'],
+    relevant: ['.claude/agents/core/planner.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-gathers-background',
     query: 'who investigates unknowns and gathers background information first',
-    relevant: ['packages/@monomind/cli/.claude/agents/core/researcher.md'],
+    relevant: ['.claude/agents/core/researcher.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-inspects-bugs',
     query: 'which persona inspects finished work for bugs and style issues',
-    relevant: ['packages/@monomind/cli/.claude/agents/core/reviewer.md'],
+    relevant: ['.claude/agents/core/reviewer.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-verification-suite',
     query: 'who writes and runs the verification suite for new functionality',
-    relevant: ['packages/@monomind/cli/.claude/agents/core/tester.md'],
+    relevant: ['.claude/agents/core/tester.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-simultaneous-diff',
     query: 'how to have multiple workers inspect a diff simultaneously',
-    relevant: ['packages/@monomind/cli/.claude/agents/github/monoswarm-code-review.md'],
+    relevant: ['.claude/agents/github/monoswarm-code-review.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-repo-hosting-modes',
     query: 'what are the different ways to interact with repository hosting',
-    relevant: ['packages/@monomind/cli/.claude/agents/github/github-modes.md'],
+    relevant: ['.claude/agents/github/github-modes.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-triage-bugs',
     query: 'how to automatically triage and label incoming bug reports',
-    relevant: ['packages/@monomind/cli/.claude/agents/github/issue-tracker.md'],
+    relevant: ['.claude/agents/github/issue-tracker.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-merge-approvals',
     query: 'who manages open merge requests and handles approvals',
-    relevant: ['packages/@monomind/cli/.claude/agents/github/pr-manager.md'],
+    relevant: ['.claude/agents/github/pr-manager.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-version-tagging',
     query: 'who handles version tagging and publishing new distributions',
-    relevant: ['packages/@monomind/cli/.claude/agents/github/release-manager.md'],
+    relevant: ['.claude/agents/github/release-manager.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-folder-restructure',
     query: 'who analyzes and restructures the overall folder and module layout',
-    relevant: ['packages/@monomind/cli/.claude/agents/github/repo-architect.md'],
+    relevant: ['.claude/agents/github/repo-architect.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-node-voting',
     query: 'how does voting and agreement work when multiple nodes must decide together',
-    relevant: ['packages/@monomind/cli/.claude/agents/consensus/quorum-manager.md'],
+    relevant: ['.claude/agents/consensus/quorum-manager.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-visual-polish',
     query: 'which persona handles visual appearance and ui polish decisions',
-    relevant: ['packages/@monomind/cli/.claude/agents/design/design-monodesign.md'],
+    relevant: ['.claude/agents/design/design-monodesign.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-define-objectives',
     query: 'how to define long term objectives and track progress toward them',
-    relevant: ['packages/@monomind/cli/.claude/agents/goal/goal-planner.md'],
+    relevant: ['.claude/agents/goal/goal-planner.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-aggregate-knowledge',
     query: 'how does the shared group brain aggregate knowledge from all participants',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/monoswarm/collective-intelligence-coordinator.md',
-    ],
+    relevant: ['.claude/agents/monoswarm/collective-intelligence-coordinator.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-cross-system-glue',
     query: 'who wires together different services and handles cross system glue',
-    relevant: ['packages/@monomind/cli/.claude/agents/specialists/integration-architect.md'],
+    relevant: ['.claude/agents/specialists/integration-architect.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-ios-android-js',
     query: 'which worker builds ios and android apps using javascript frameworks',
-    relevant: [
-      'packages/@monomind/cli/.claude/agents/specialized/mobile/spec-mobile-react-native.md',
-    ],
+    relevant: ['.claude/agents/specialized/mobile/spec-mobile-react-native.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-tool-server-plugins',
     query: 'who creates new tool server plugins with the proper protocol',
-    relevant: ['packages/@monomind/cli/.claude/agents/specialized/specialized-mcp-builder.md'],
+    relevant: ['.claude/agents/specialized/specialized-mcp-builder.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-p2p-topology',
     query: 'how does the peer to peer network topology manager distribute work',
-    relevant: ['packages/@monomind/cli/.claude/agents/monoswarm/mesh-coordinator.md'],
+    relevant: ['.claude/agents/monoswarm/mesh-coordinator.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-mock-first-parallel',
     query: 'how to do mock first outside in testing with parallel workers',
-    relevant: ['packages/@monomind/cli/.claude/agents/testing/tdd-london-monoswarm.md'],
+    relevant: ['.claude/agents/testing/tdd-london-monoswarm.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-google-ai-mapping',
     query: 'what are the equivalent capabilities when using the google ai terminal app',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind/references/gemini-tools.md'],
+    relevant: ['.claude/skills/mastermind/references/gemini-tools.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-ms-ai-mapping',
     query: 'how do microsoft ai assistant commands map to our features',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind/references/copilot-tools.md'],
+    relevant: ['.claude/skills/mastermind/references/copilot-tools.md'],
     tags: ['b7'],
   },
   // b7-worker-mgmt-docs removed: target is under the 400-byte corpus minimum
   {
     id: 'b7-parallel-sync',
     query: 'how to synchronize and direct multiple parallel workers on a shared task',
-    relevant: ['packages/@monomind/cli/.claude/commands/agents/agent-coordination.md'],
+    relevant: ['.claude/commands/agents/agent-coordination.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-launch-worker',
     query: 'how to launch a new background worker for a specific role',
-    relevant: ['packages/@monomind/cli/.claude/commands/coordination/agent-spawn.md'],
+    relevant: ['.claude/commands/coordination/agent-spawn.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-auto-pick-worker',
     query: 'how to let the system autonomously pick and run the right worker',
-    relevant: ['packages/@monomind/cli/.claude/commands/automation/auto-agent.md'],
+    relevant: ['.claude/commands/automation/auto-agent.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-intent-router',
     query: 'how does the universal intent router parse and dispatch incoming prompts',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind.md'],
+    relevant: ['.claude/commands/mastermind.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-prompt-size',
     query: 'how to count and measure prompt size before sending to the model',
-    relevant: ['packages/@monomind/cli/.claude/commands/tokens.md'],
+    relevant: ['.claude/commands/tokens.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-compile-check',
     query: 'how to quickly compile and check types in my codebase from the command line',
-    relevant: ['packages/@monomind/cli/.claude/commands/ts.md'],
+    relevant: ['.claude/commands/ts.md'],
     tags: ['b7'],
   },
 
@@ -3495,157 +3442,157 @@ GOLDEN_SET.push(
   {
     id: 'b7-tween-control',
     query: 'programmatically start stop and seek within running tweens',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomotion/rules/api-control.md'],
+    relevant: ['.claude/skills/monomotion/rules/api-control.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-transition-presets',
     query: 'built in transition presets like fade bounce and elastic easing',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomotion/rules/effects.md'],
+    relevant: ['.claude/skills/monomotion/rules/effects.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-motion-lib-wiring',
     query: 'wiring up the motion library with react vue or vanilla js',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomotion/rules/integration.md'],
+    relevant: ['.claude/skills/monomotion/rules/integration.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-scroll-trigger',
     query: 'trigger element changes as the user scrolls down the page',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomotion/rules/scroll.md'],
+    relevant: ['.claude/skills/monomotion/rules/scroll.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-chain-delays',
     query: 'chain multiple items to appear one after another with delays',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomotion/rules/sequencing.md'],
+    relevant: ['.claude/skills/monomotion/rules/sequencing.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-morph-paths',
     query: 'morph paths and draw lines in vector graphics with code',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomotion/rules/svg.md'],
+    relevant: ['.claude/skills/monomotion/rules/svg.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-letter-reveal',
     query: 'letter by letter reveal and word fly in headline effects',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomotion/rules/text.md'],
+    relevant: ['.claude/skills/monomotion/rules/text.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-nav-screenshot',
     query: 'end to end website navigation and screenshot verification suite',
-    relevant: ['packages/@monomind/cli/.claude/skills/agent-browser-testing/SKILL.md'],
+    relevant: ['.claude/skills/agent-browser-testing/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-perm-levels',
     query: 'who can view or modify resources and permission levels',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-access/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-access/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-event-timeline',
     query: 'see a timeline of recent actions and events in the system',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-activity/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-activity/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-external-connectors',
     query: 'configure connectors between the platform and external services',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-adapter-manager/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-adapter-manager/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-integration-list',
     query: 'list of available third party integrations and their status',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-adapters/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-adapters/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-single-worker-drill',
     query: 'inspect a single worker including its current load and history',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-agent-detail/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-agent-detail/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-roster-pick',
     query: 'pick the right specialist from the roster for a given job',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-agent-select/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-agent-select/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-workers-dashboard',
     query: 'overview dashboard of all running autonomous workers',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-agents/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-agents/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-signoff-requests',
     query: 'review pending sign off requests and their justification',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-approval-detail/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-approval-detail/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-snapshot-restore',
     query: 'snapshot and restore project state in case something goes wrong',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-backup/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-backup/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-scaffold-fresh',
     query: 'scaffold a fresh workspace with all dependencies ready to go',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-bootstrap/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-bootstrap/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-resource-allocation',
     query: 'track spending limits and resource allocation across teams',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-budgets/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-budgets/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-team-workspace',
     query: 'spin up a brand new team workspace from scratch',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-createorg/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-createorg/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-root-cause-method',
     query: 'methodical root cause analysis when something is broken',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-debug/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-debug/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-subtask-handoff',
     query: 'hand off a subtask to another autonomous worker mid flight',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-delegation/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-delegation/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-ux-route',
     query: 'route visual and ux improvement requests to the right handler',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-design/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-design/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-cryptic-error',
     query: 'figure out why a failing command gives a cryptic error message',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-diagnose/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-diagnose/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-runtime-vars',
     query: 'view and change runtime variables like paths and feature flags',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-env/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-env/SKILL.md'],
     tags: ['b7'],
   },
   {
     id: 'b7-deploy-targets',
     query: 'switch between staging production and local deployment targets',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-environments/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-environments/SKILL.md'],
     tags: ['b7'],
   },
 
@@ -4444,45 +4391,45 @@ GOLDEN_SET.push(
     id: 'c3lo2-groundhog-day',
     query:
       'how does the system keep doing the same thing over and over across separate conversations',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/_repeat.md'],
+    relevant: ['.claude/commands/mastermind/_repeat.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-work-item-anatomy',
     query:
       'what does the structured file look like that describes a unit of work with its lifecycle and prerequisites',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind/references/taskfile.md'],
+    relevant: ['.claude/skills/mastermind/references/taskfile.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-grand-dispatcher',
     query: 'where does a freeform prompt first land before it gets sent to the right specialist',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/master.md'],
+    relevant: ['.claude/commands/mastermind/master.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-elephant-never-forgets',
     query:
       'all the different ways I can save and retrieve things the system learned in earlier conversations',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/memory.md'],
+    relevant: ['.claude/commands/mastermind/memory.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-ship-it',
     query: 'how do I cut a new version and push it out to users with changelog and everything',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/release.md'],
+    relevant: ['.claude/commands/mastermind/release.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-waking-the-crew',
     query: 'how do I boot up a saved team of AI workers so they start processing their backlog',
-    relevant: ['packages/@monomind/cli/.claude/commands/mastermind/runorg.md'],
+    relevant: ['.claude/commands/mastermind/runorg.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-robot-clicks-buttons',
     query: 'how do I make the AI open a webpage and interact with it like a real person would',
-    relevant: ['packages/@monomind/cli/.claude/commands/monobrowse.md'],
+    relevant: ['.claude/commands/monobrowse.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4491,14 +4438,14 @@ GOLDEN_SET.push(
     id: 'c3lo2-follow-the-blueprint',
     query:
       'once a detailed blueprint exists how does the system carry it out step by step stopping on any blocker',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-execute/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-execute/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-pack-your-bags',
     query:
       'how can I bundle up everything about a team configuration so I can move it to another machine',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-export/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-export/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4506,14 +4453,14 @@ GOLDEN_SET.push(
   {
     id: 'c3lo2-zoom-into-ambition',
     query: 'how do I drill into a single objective to see its children and linked work items',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-goal-detail/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-goal-detail/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-north-star-tracker',
     query:
       'where do I define what the team is trying to achieve and see how far along each objective is',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-goals/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-goals/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4522,19 +4469,19 @@ GOLDEN_SET.push(
     id: 'c3lo2-lightbulb-factory',
     query:
       'how does the system generate a bunch of creative concepts then score and break them into actionable pieces',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-idea/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-idea/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-unpack-suitcase',
     query: 'how do I restore a previously exported team configuration from an archive file',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-import/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-import/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-morning-briefing',
     query: 'where do I see everything that needs my attention right now across all my teams',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-inbox/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-inbox/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4542,27 +4489,27 @@ GOLDEN_SET.push(
   {
     id: 'c3lo2-mothership-dashboard',
     query: 'how do I see a bird-eye view of every running team and their combined resource limits',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-instance/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-instance/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-twenty-questions',
     query:
       'when I give a vague instruction how does the system figure out what I actually want before starting',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-intake/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-intake/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-welcome-mat',
     query:
       'what happens when someone clicks an invitation link to join a team as either a person or a bot',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-invite-landing/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-invite-landing/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-golden-ticket',
     query: 'how do I create and revoke access tokens that let new members join my group',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-invites/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-invites/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4571,27 +4518,27 @@ GOLDEN_SET.push(
     id: 'c3lo2-magnifying-glass-ticket',
     query:
       'how do I see the full history and conversation around one specific work item including who touched it',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-issue-detail/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-issue-detail/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-bug-board',
     query:
       'how do I list all open work items filtered by who is responsible and how urgent they are',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-issues/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-issues/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-velvet-rope',
     query: 'where do I approve or deny people and bots waiting to be let into the group',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-join-queue/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-join-queue/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-stuck-detector',
     query:
       'how does the system notice when a worker has gone silent on something it owns and force a recovery',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-liveness/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-liveness/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4600,21 +4547,21 @@ GOLDEN_SET.push(
     id: 'c3lo2-institutional-wisdom',
     query:
       'how does a team keep its accumulated know-how organized using a notebook-style system with daily entries',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-memory/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-memory/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-tireless-watchman',
     query:
       'is there something that continuously polls external boards and automatically picks up new items to work on',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-monitor/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-monitor/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-kanban-swiss-army',
     query:
       'what is the local-first board system with columns and cards that supports subtasks and prerequisite chains',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-monotask/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-monotask/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4622,14 +4569,14 @@ GOLDEN_SET.push(
   {
     id: 'c3lo2-my-plate',
     query: 'how do I see only the work items that are currently assigned to me personally',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-my-issues/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-my-issues/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-hiring-a-new-bot',
     query:
       'how do I add a brand new AI worker to my team with a specific role and model preference',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-new-agent/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-new-agent/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4637,20 +4584,20 @@ GOLDEN_SET.push(
   {
     id: 'c3lo2-rename-the-band',
     query: 'how do I change the name or configuration fields of an existing team setup',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-org-settings/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-org-settings/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-roster-overview',
     query: 'how do I see all my saved AI teams and whether each one is currently active or idle',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-orgs/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-orgs/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-health-checkup',
     query:
       'how do I get a detailed breakdown of one specific team showing its budget and pending approvals',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-orgstatus/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-orgstatus/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4659,34 +4606,34 @@ GOLDEN_SET.push(
     id: 'c3lo2-blueprint-to-tickets',
     query:
       'how do I turn a written document into a set of assigned work items with dependency ordering',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-plan-to-tasks/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-plan-to-tasks/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-battle-plan',
     query:
       'how do I write a thorough step-by-step implementation document with exact file paths and no placeholders',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-plan/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-plan/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-app-store',
     query:
       'how do I add or remove third-party extensions and check if newer versions are available',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-plugin-manager/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-plugin-manager/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-extension-knobs',
     query: 'how do I configure an installed add-on and control which folders it can read or write',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-plugin-settings/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-plugin-settings/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-toolbox-extras',
     query:
       'how do I browse what third-party additions are installed and toggle them on or off per team',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-plugins/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-plugins/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4695,7 +4642,7 @@ GOLDEN_SET.push(
     id: 'c3lo2-who-am-i',
     query:
       'where do I change my display name and see how much work I have completed across all teams',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-profile/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-profile/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4704,27 +4651,27 @@ GOLDEN_SET.push(
     id: 'c3lo2-shared-grammar',
     query:
       'what are the common rules every domain specialist follows for loading context and formatting output',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-protocol/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-protocol/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-taking-notes-from-critics',
     query:
       'what is the correct posture when someone hands back a reviewed piece of work with requested changes',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-receive-review/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-receive-review/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-launch-day',
     query: 'who coordinates the pipeline from version bump through testing to final deployment',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-release/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-release/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-alarm-clock',
     query:
       'how does the system schedule itself to wake up and continue where it left off in a loop',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-repeat/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-repeat/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4733,26 +4680,26 @@ GOLDEN_SET.push(
     id: 'c3lo2-intelligence-gathering',
     query:
       'how do I get a comprehensive report on competitors and market trends using multiple parallel investigators',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-research/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-research/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-peer-examination',
     query: 'how do I get code and content checked from multiple angles with optional auto-fixing',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-review/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-review/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-clockwork-innards',
     query: 'how do I inspect the trigger schedule and run history of one specific recurring job',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-routine-detail/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-routine-detail/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-cron-butler',
     query:
       'how do I set up a job that runs at a fixed interval with rules for what happens when it overlaps',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-routines/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-routines/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4760,7 +4707,7 @@ GOLDEN_SET.push(
   {
     id: 'c3lo2-flip-the-switch',
     query: 'what is the procedure to activate a saved AI crew using the new daemon-based backend',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-runorg/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-runorg/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4768,27 +4715,27 @@ GOLDEN_SET.push(
   {
     id: 'c3lo2-needle-in-haystack',
     query: 'how do I find a specific item across all teams when I only remember part of its name',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-search/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-search/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-vault-keeper',
     query:
       'how do I safely store and rotate API credentials that my AI workers need without exposing them',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-secrets/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-secrets/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-teaching-new-tricks',
     query:
       'how do I create a brand new capability using a test-first approach that catches reasoning shortcuts',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-skill-builder/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-skill-builder/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-talent-inventory',
     query: 'how do I see which capabilities are available and toggle them per role in my team',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-skills/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-skills/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4796,21 +4743,21 @@ GOLDEN_SET.push(
   {
     id: 'c3lo2-pull-the-plug',
     query: 'how do I gracefully shut down a running AI team so it stops consuming resources',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-stoporg/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-stoporg/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-card-shuffler',
     query:
       'how do I move work items between columns and chain them with parent-child relationships',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-tasks/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-tasks/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-transplant-surgery',
     query:
       'how do I analyze a foreign codebase and safely bring its best parts into this project with proper renaming',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-techport/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-techport/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4819,13 +4766,13 @@ GOLDEN_SET.push(
     id: 'c3lo2-conversation-trail',
     query:
       'where are the ongoing discussions stored and how do I reply to one within a specific team',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-threads/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-threads/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-emergency-brake',
     query: 'how do I pause a runaway chain of subtasks and optionally cancel the whole branch',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-tree-control/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-tree-control/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -4834,26 +4781,26 @@ GOLDEN_SET.push(
     id: 'c3lo2-sandbox-inspector',
     query:
       'how do I see the services and logs running inside one specific isolated coding environment',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-workspace-detail/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-workspace-detail/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-parallel-sandboxes',
     query: 'how do I manage multiple isolated git branches where different workers do their coding',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-workspaces/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-workspaces/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-clean-room',
     query:
       'how do I set up a fresh isolated copy of the repo for a feature so it does not interfere with main',
-    relevant: ['packages/@monomind/cli/.claude/skills/mastermind-worktree/SKILL.md'],
+    relevant: ['.claude/skills/mastermind-worktree/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-moving-pictures',
     query: 'how do I create timeline-driven web animations with playback control and scene labels',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomotion/SKILL.md'],
+    relevant: ['.claude/skills/monomotion/SKILL.md'],
     tags: ['c3-lo2'],
   },
 
@@ -5089,41 +5036,41 @@ GOLDEN_SET.push(
   {
     id: 'c3lo2-fat-trimmer',
     query: 'how do I identify and remove unnecessary complexity and bloat from the codebase',
-    relevant: ['packages/@monomind/cli/.claude/skills/monolean/SKILL.md'],
+    relevant: ['.claude/skills/monolean/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-prose-diet',
     query:
       'how do I catch and fix AI-generated text that sounds hollow and uses too many filler phrases',
-    relevant: ['packages/@monomind/cli/.claude/skills/stop-slop/SKILL.md'],
+    relevant: ['.claude/skills/stop-slop/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-banned-words',
     query:
       'where is the list of overused expressions that should be replaced with plainer language',
-    relevant: ['packages/@monomind/cli/.claude/skills/stop-slop/references/phrases.md'],
+    relevant: ['.claude/skills/stop-slop/references/phrases.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-coding-buddy',
     query:
       'how do I work side by side with the AI in a collaborative back-and-forth coding session',
-    relevant: ['packages/@monomind/cli/.claude/skills/pair-programming/SKILL.md'],
+    relevant: ['.claude/skills/pair-programming/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-auto-wiring',
     query: 'how do I set up automatic actions that fire in response to specific lifecycle events',
-    relevant: ['packages/@monomind/cli/.claude/skills/hooks-automation/SKILL.md'],
+    relevant: ['.claude/skills/hooks-automation/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-web-surfer',
     query:
       'how does the AI navigate real websites using the Chrome DevTools protocol under the hood',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/skills/monomind/browse.md'],
     tags: ['c3-lo2'],
   },
 
@@ -5147,20 +5094,20 @@ GOLDEN_SET.push(
     id: 'c3lo2-hollow-scaffolding',
     query:
       'what are the common document shapes and paragraph patterns that signal empty filler content',
-    relevant: ['packages/@monomind/cli/.claude/skills/stop-slop/references/structures.md'],
+    relevant: ['.claude/skills/stop-slop/references/structures.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-chat-navigator',
     query: 'how do I have the AI read and interact with a team messaging workspace in the cloud',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse-slack.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/skills/monomind/browse-slack.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-deployment-dashboard',
     query:
       'how do I have the AI check on my hosted web application through the hosting provider portal',
-    relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse-vercel.md'],
+    relevant: ['packages/@monomind/cli/claude-overlay/skills/monomind/browse-vercel.md'],
     tags: ['c3-lo2'],
   },
   {
@@ -5173,7 +5120,7 @@ GOLDEN_SET.push(
   {
     id: 'c3lo2-custom-expert',
     query: 'how do I define a one-off specialist with a narrow focus area for a very specific job',
-    relevant: ['packages/@monomind/cli/.claude/skills/specialagent/SKILL.md'],
+    relevant: ['.claude/skills/specialagent/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
@@ -5286,13 +5233,13 @@ GOLDEN_SET.push(
   {
     id: 'c3lo2-waste-scanner',
     query: 'how do I get a report on dead code and unused dependencies that are adding weight',
-    relevant: ['packages/@monomind/cli/.claude/skills/monolean-audit/SKILL.md'],
+    relevant: ['.claude/skills/monolean-audit/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {
     id: 'c3lo2-proof-standards',
     query: 'what constitutes sufficient evidence that a change works before it can be called done',
-    relevant: ['packages/@monomind/cli/.claude/skills/verification-quality/SKILL.md'],
+    relevant: ['.claude/skills/verification-quality/SKILL.md'],
     tags: ['c3-lo2'],
   },
 );
