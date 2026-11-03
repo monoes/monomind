@@ -15,8 +15,8 @@
  */
 
 import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
+import { loadTransformers, transformersCacheDir } from '../utils/transformers-loader.js';
 
 /** HuggingFace model id — kept in sync with `routing/embedder.ts`. */
 export const EMBEDDING_MODEL_ID = 'Snowflake/snowflake-arctic-embed-xs';
@@ -26,28 +26,12 @@ export const EMBEDDING_MODEL_SIZE_LABEL = '~88 MB';
 
 /**
  * Locate the cache directory `@huggingface/transformers` writes model weights
- * into (`<package root>/.cache`), or null when the optionalDependency is not
- * installed. Resolution mirrors the guard in
- * `__tests__/route-layer-source-worker.test.ts`.
+ * into (`~/.monomind/models` for the runtime installed in the deps dir, the
+ * package's own `.cache` in a checkout), or null when the runtime is not
+ * installed.
  */
 export function findTransformersCacheDir(): string | null {
-  let entry: string;
-  try {
-    const require = createRequire(import.meta.url);
-    // Resolve the main entry, not '<pkg>/package.json' — the package does not
-    // export its package.json, so that throws ERR_PACKAGE_PATH_NOT_EXPORTED.
-    entry = require.resolve('@huggingface/transformers');
-  } catch {
-    return null;
-  }
-
-  let dir = dirname(entry);
-  for (let i = 0; i < 5 && !existsSync(join(dir, 'package.json')); i++) {
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return join(dir, '.cache');
+  return transformersCacheDir();
 }
 
 /** True when the embedding model weights are already cached on disk. */
@@ -91,11 +75,10 @@ export async function downloadEmbeddingModel(onProgress?: (line: string) => void
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let hf: any;
   try {
-    hf = await import('@huggingface/transformers' as string);
-  } catch {
+    hf = await loadTransformers();
+  } catch (err) {
     throw new Error(
-      '@huggingface/transformers is not installed (it is an optionalDependency). ' +
-        'Reinstall with optional dependencies enabled, e.g. `npm install --include=optional`.',
+      `The embedding runtime (@huggingface/transformers) is not available: ${(err as Error).message}`,
     );
   }
 

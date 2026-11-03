@@ -6,13 +6,14 @@
  */
 
 import type { Embedder } from '@monoes/monograph';
+import { loadTransformers } from '../../utils/transformers-loader.js';
 
 let embedderPromise: Promise<Embedder | null> | null = null;
 
 /** The local sentence-embedding model, loaded once per process; null if unavailable. */
 export function getEmbedder(): Promise<Embedder | null> {
   embedderPromise ??= import('@monoes/monograph').then(({ createTransformersEmbedder }) =>
-    createTransformersEmbedder(() => import('@huggingface/transformers' as string)),
+    createTransformersEmbedder(() => loadTransformers({ install: false })),
   );
   return embedderPromise;
 }

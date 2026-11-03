@@ -13,10 +13,13 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@huggingface/transformers', () => ({
-  pipeline: async () => {
-    throw new Error('mocked: no embedding model — forces the keyword/BM25 fallback path');
-  },
+vi.mock('../utils/transformers-loader.js', async (orig) => ({
+  ...(await orig<typeof import('../utils/transformers-loader.js')>()),
+  loadTransformers: async () => ({
+    pipeline: async () => {
+      throw new Error('mocked: no embedding model — forces the keyword/BM25 fallback path');
+    },
+  }),
 }));
 
 import { bridgeSearchEntries, bridgeStoreEntry, shutdownBridge } from '../memory/memory-bridge.js';

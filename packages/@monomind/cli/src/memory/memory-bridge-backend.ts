@@ -9,6 +9,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { loadTransformers } from '../utils/transformers-loader.js';
 import { BRIDGE_EMBEDDING_MODEL, logBridgeError } from './memory-bridge-core.js';
 import {
   getDbPath,
@@ -106,7 +107,7 @@ export async function loadReranker(): Promise<void> {
         const source = resolveRerankerSource(rerankerModelsDir());
         if (!source) return; // nothing that can score — stay unloaded (no per-search cost)
 
-        const hf = await import('@huggingface/transformers' as string);
+        const hf = await loadTransformers({ install: false });
         const opts = { local_files_only: true };
         const sigmoid = (logit: number) => 1 / (1 + Math.exp(-logit));
         if (source.kind === 'export') {
@@ -225,7 +226,7 @@ async function loadEmbedder(): Promise<void> {
   if (!_embedderPromise) {
     _embedderPromise = (async () => {
       try {
-        const hf = await import('@huggingface/transformers' as string);
+        const hf = await loadTransformers();
         // revision must be a git ref — 'main' is the HF default; 'default' 404s and
         // silently killed embeddings (every search degraded to keyword matching)
         // dtype pinned explicitly: transformers.js logs a "dtype not specified"
@@ -261,7 +262,7 @@ async function loadEmbedder(): Promise<void> {
 export async function downloadEmbeddingModel(): Promise<void> {
   if (localEmbeddingsDisabled())
     throw new Error('local embeddings are disabled (MONOMIND_NO_LOCAL_EMBEDDINGS=1)');
-  const hf = await import('@huggingface/transformers' as string);
+  const hf = await loadTransformers();
   await (hf as any).pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, {
     revision: 'main',
     dtype: 'q8',
