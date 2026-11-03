@@ -28,6 +28,7 @@
   },
   "files": [
     "dist",
+    "!dist/tsconfig.tsbuildinfo",
     "README.md"
   ],
   "publishConfig": {

@@ -71,6 +71,7 @@
     "!dist/**/*.test.js",
     "!dist/**/*.test.d.ts",
     "!dist/**/__tests__/**",
+    "!dist/tsconfig.tsbuildinfo",
     "bin",
     ".claude",
     "!.claude/**/.monomind/**",
