@@ -10,7 +10,6 @@ import { output } from '../output.js';
 import { runPlatformsDoctor } from '../platform-adapters/platform-doctor.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { checkCatalog, checkOrgSkills } from './doctor-catalog-checks.js';
-import { checkSupplyChain } from './doctor-supply-chain-checks.js';
 import { checkTokenCostSettings } from './doctor-cost-checks.js';
 import { checkDecisionModel, checkDecisionModelIfConfigured } from './doctor-decision-checks.js';
 import type { HealthCheck } from './doctor-env-checks.js';
@@ -72,6 +71,7 @@ import {
   fixStaleHelpers,
 } from './doctor-project-checks.js';
 import { checkRuntimeReadiness } from './doctor-runtime-readiness.js';
+import { checkSupplyChain } from './doctor-supply-chain-checks.js';
 
 function formatCheck(check: HealthCheck): string {
   const icon =
