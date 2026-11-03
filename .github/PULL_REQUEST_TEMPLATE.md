@@ -4,7 +4,7 @@
 
 ## Test plan
 
-- [ ] `npm test` passes in `packages/@monomind/cli` — all API contract tests pass
+- [ ] `pnpm run test:all:run` passes (the command CI runs: root suite plus every package's tests, incl. the CLI API contract tests)
 - [ ] If changing server response shapes (field names, added/removed fields): updated contract test expectations in `__tests__/api-contracts.test.ts`
 - [ ] If changing monograph integration (`monograph_build`, `monograph_query`, staleness): updated `__tests__/monograph-integration.test.ts`
 - [ ] If adding/modifying SSE events: verified `StepEvent.projectDir` is present for server-side filtering
@@ -14,7 +14,7 @@
 
 - [ ] Completed [Security Checklist](./SECURITY_CHECKLIST.md) for any security-relevant changes
 - [ ] Branch is up to date with `main`
-- [ ] `npm run build` succeeds without errors
+- [ ] `pnpm run build` succeeds without errors
 - [ ] No `.env` files or secrets committed
 - [ ] Commit messages follow conventional commits (`feat:`, `fix:`, `refactor:`, etc.)
 

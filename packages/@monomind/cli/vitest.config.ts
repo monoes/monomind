@@ -7,7 +7,7 @@ const home = (f: string) => fileURLToPath(new URL(`../../../tests/setup/${f}`, i
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['__tests__/**/*.test.ts', 'src/__tests__/**/*.test.ts'],
+    include: ['src/**/*.test.ts', '__tests__/**/*.test.ts'],
     exclude: ['node_modules', 'dist', '**/._*'],
     globalSetup: [home('claude-trees.global.ts'), home('isolated-home.global.ts')],
     setupFiles: [

@@ -1,5 +1,15 @@
 import { defineConfig } from 'vitest/config';
 
+// TEST LOCATION CONVENTION
+//
+// The root suite owns tests/** (this file). Every package under packages/**
+// owns its own tests, and each packages/*/vitest.config.ts includes BOTH
+// `src/**/*.test.ts` (tests beside source, incl. src/__tests__/) and
+// `__tests__/**/*.test.ts` (package-level tests), so a test file in either
+// place is never silently skipped. A package-level test that cannot run yet
+// must be excluded explicitly, with a comment, never left out by a narrow
+// include. CI's `pnpm run test:all:run` runs all of them via
+// vitest.workspace.ts.
 export default defineConfig({
   test: {
     environment: 'node',

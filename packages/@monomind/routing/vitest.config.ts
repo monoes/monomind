@@ -9,7 +9,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     globalSetup: [home('claude-trees.global.ts')],
-    include: ['src/__tests__/**/*.test.ts'],
+    include: ['src/**/*.test.ts', '__tests__/**/*.test.ts'],
     exclude: ['**/._*', '**/node_modules/**'],
     testTimeout: 10000,
     // Off by default to keep the edit/test loop fast; run
