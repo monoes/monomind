@@ -169,3 +169,24 @@ MCP tool suite above:
 - **CLI subcommand:** `monomind monograph lsp` ([`commands/monograph-lsp.ts → lspCommand`](packages/@monomind/cli/src/commands/monograph-lsp.ts#lspCommand)) starts it.
 - **Source:** [`packages/@monomind/monograph/src/lsp/`](packages/@monomind/monograph/src/lsp/).
 - **Test coverage:** 6 dedicated suites under [`tests/monograph/lsp/`](tests/monograph/lsp/) — `server`, `hover`, `code-lens`, `code-actions`, `diagnostics`, `diagnostics-ext`.
+
+
+---
+
+## Monograph at a glance (moved from the README)
+
+Before touching any file, Monomind queries **Monograph** — a SQLite-backed knowledge graph of your entire codebase. Nodes are files, classes, and functions. Edges are imports, calls, and dependencies.
+
+```bash
+/mastermind:understand          # build the graph
+/mastermind:graph-status        # nodes · edges · freshness
+
+# Inside Claude Code, Monograph runs automatically:
+# → "what files does auth.ts import?"
+# → "what breaks if I change UserService?"
+# → "find all callers of validateToken()"
+```
+
+<!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
+
+The MCP server advertises a lean core of <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> tools by default to keep Claude's context small. Every other tool stays callable by name, and `monomind_tool_search` finds it. `MONOMIND_MCP_FULL=1` advertises all <!-- doc-count:mcp-tools-full -->204<!-- /doc-count:mcp-tools-full --> ([MCP server](../concepts/mcp-server.md)).

@@ -364,3 +364,24 @@ It also notes a leftover `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` or `monomind.a
 ```
 
 The real file also registers `PostToolUse` hooks for `Bash` (`post-bash`) and the Monograph tools (`post-graph-tool`), the `SessionStart` helpers `monograph-freshen.cjs`, `control-start.cjs` and `monolean-activate.cjs`, `UserPromptSubmit`'s `monolean-tracker.cjs`, `PreCompact` (`compact-manual` and `compact-auto`) and `SubagentStart`. Run `monomind doctor` to check the result.
+
+
+---
+
+## Hooks and workers at a glance (moved from the README)
+
+Monomind wires 28 hook subcommands into Claude Code across edit, task, command, and session lifecycle events — logging edits and outcomes to local pattern files and picking agents.
+
+```mermaid
+flowchart LR
+    CE["Claude Code\nEvent"] --> H["Hook Router"]
+    H --> P["pre-edit\npre-task\npre-command"]
+    H --> SS["session-start\nsession-end\nnotify"]
+    H --> I["route\nlog outcomes"]
+    H --> T["teammate-idle\ntask-completed"]
+
+    I --> DB[("patterns.json\nmemory store")]
+    DB -->|next session| CE
+```
+
+**9 on-demand workers** run at session start (staleness-gated, refreshed when older than 6 hours): `health` · `ddd` · `security` · `cache` · `progress` · `map` · `audit` · `consolidate` · `reflexion`.

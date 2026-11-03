@@ -139,3 +139,24 @@ MonoFence AI reports real-time latency and threat metrics via the CLI and MCP to
 | Output Verification Scanner | [`packages/monofence-ai/src/domain/services/output-scanner.ts → scan`](packages/monofence-ai/src/domain/services/output-scanner.ts#scan) |
 | Security Lifecycle Hooks | [`packages/monofence-ai/src/hooks/security-hook.ts → registerSecurityHooks`](packages/monofence-ai/src/hooks/security-hook.ts#registerSecurityHooks) |
 | CLI MCP Security Tools | [`packages/@monomind/cli/src/mcp-tools/security-tools.ts → securityTools`](packages/@monomind/cli/src/mcp-tools/security-tools.ts#securityTools) |
+
+
+---
+
+## MonoFence AI at a glance (moved from the README)
+
+Every agent boundary is defended by **monofence-ai** — real-time detection of prompt injection, jailbreaks, homoglyphs, base64 evasion, multi-turn escalation, and PII leakage.
+
+```typescript
+import { isSafe, createMonoDefence } from 'monofence-ai';
+
+isSafe('Ignore all previous instructions');  // → false (~0.04ms)
+
+const fence = createMonoDefence({ enableContextTracking: true });
+const result = await fence.detect(userInput);
+// result.safe · result.threats · result.overallRisk
+```
+
+From the shell, `monomind security defend` runs the same detection on text you pass it. `security scan`, `cve`, `secrets`, `audit` and `redteam` cover code, dependency and prompt-library checks ([Security reference](../commands/security.md)).
+
+In Claude Code, the live pre-bash/pre-write gate is wired up via its own lazy-loaded integration in `.claude/helpers/handlers/gates-handler.cjs` (`MONOMIND_MONOFENCE_GATE=off` to disable) — not via monofence-ai's `registerSecurityHooks()` API, which is a separate integration point consumed only by `@monoes/hooks`' in-process `HookExecutor`.
