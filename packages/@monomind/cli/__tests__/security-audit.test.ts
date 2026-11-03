@@ -284,7 +284,7 @@ describe('MCP Server Input Boundaries', () => {
   it('should have buffer size limits in stdio MCP server (fixed S-5)', () => {
     // The MCP server at src/mcp-server.ts now has a MAX_BUFFER_SIZE limit
     // to prevent DoS via memory exhaustion (ADR-061 S-5 fix).
-    const mcpServerPath = path.join(__dirname, '..', 'src', 'mcp-server.ts');
+    const mcpServerPath = path.join(__dirname, '..', 'src', 'mcp-stdio-server.ts');
     const content = fs.readFileSync(mcpServerPath, 'utf-8');
 
     const hasBufferLimit = content.includes('MAX_BUFFER') ||
@@ -296,7 +296,7 @@ describe('MCP Server Input Boundaries', () => {
   it('should require method field in MCP messages', () => {
     // From mcp-server.ts:409-415 - messages without method get error response
     // This is a positive security control
-    const mcpServerPath = path.join(__dirname, '..', 'src', 'mcp-server.ts');
+    const mcpServerPath = path.join(__dirname, '..', 'src', 'mcp-stdio-handler.ts');
     const content = fs.readFileSync(mcpServerPath, 'utf-8');
     expect(content).toContain('missing method');
   });
