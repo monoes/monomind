@@ -26,10 +26,14 @@ const tag = `v${version}`;
 if (git('status', '--porcelain')) fail('working tree is dirty; commit or stash first');
 if (git('tag', '--list', tag)) fail(`tag ${tag} already exists`);
 
-const checks = spawnSync(process.execPath, [join(repoRoot, 'scripts', 'check-versions.mjs'), '--no-registry'], {
-  cwd: repoRoot,
-  stdio: 'inherit',
-});
+const checks = spawnSync(
+  process.execPath,
+  [join(repoRoot, 'scripts', 'check-versions.mjs'), '--no-registry'],
+  {
+    cwd: repoRoot,
+    stdio: 'inherit',
+  },
+);
 if (checks.status !== 0) fail('version checks failed; fix them before tagging');
 
 console.log(`\nTag ${git('rev-parse', '--short', 'HEAD')} as ${tag}. Run these yourself:\n`);

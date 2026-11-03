@@ -23,7 +23,10 @@ const offline =
   process.argv.includes('--no-registry') || process.env.MONOMIND_CHECK_VERSIONS_OFFLINE === '1';
 
 export const CHECKS = [
-  { script: 'check-publish-versions.mjs', what: 'umbrella and CLI versions agree, pin is workspace:*' },
+  {
+    script: 'check-publish-versions.mjs',
+    what: 'umbrella and CLI versions agree, pin is workspace:*',
+  },
   { script: 'check-package-bumps.mjs', what: 'changed packages are bumped, no unearned major' },
   { script: 'check-workspace-protocol.mjs', what: 'internal deps use workspace:*' },
   { script: 'check-overrides-source.mjs', what: 'overrides come from the right source' },
@@ -43,17 +46,25 @@ function main() {
       continue;
     }
     console.log(`\n=== ${check.script} ===`);
-    const res = spawnSync(process.execPath, [join(repoRoot, 'scripts', check.script), ...(check.args ?? [])], {
-      cwd: repoRoot,
-      stdio: 'inherit',
-    });
+    const res = spawnSync(
+      process.execPath,
+      [join(repoRoot, 'scripts', check.script), ...(check.args ?? [])],
+      {
+        cwd: repoRoot,
+        stdio: 'inherit',
+      },
+    );
     rows.push({ ...check, status: res.status === 0 ? 'PASS' : 'FAIL' });
   }
 
   console.log('\n=== version checks summary ===');
   for (const r of rows) console.log(`  ${r.status.padEnd(4)}  ${r.script}  (${r.what})`);
   const failed = rows.filter((r) => r.status === 'FAIL');
-  console.log(failed.length ? `\n✗ ${failed.length} of ${rows.length} checks failed` : '\n✓ all version checks passed');
+  console.log(
+    failed.length
+      ? `\n✗ ${failed.length} of ${rows.length} checks failed`
+      : '\n✓ all version checks passed',
+  );
   process.exit(failed.length ? 1 : 0);
 }
 

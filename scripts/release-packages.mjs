@@ -17,7 +17,11 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const git = (...a) =>
-  execFileSync('git', a, { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  execFileSync('git', a, {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
 
 const CLI = '@monoes/monomindcli';
 const UMBRELLA = 'monomind';
@@ -38,7 +42,9 @@ function manifestDirs() {
 
 export function previousTag() {
   const head = git('rev-parse', 'HEAD');
-  const tags = git('tag', '--merged', 'HEAD', '--sort=-v:refname', '--list', 'v[0-9]*').split('\n').filter(Boolean);
+  const tags = git('tag', '--merged', 'HEAD', '--sort=-v:refname', '--list', 'v[0-9]*')
+    .split('\n')
+    .filter(Boolean);
   return tags.find((t) => git('rev-parse', `${t}^{commit}`) !== head) ?? null;
 }
 
@@ -53,11 +59,14 @@ export function changedPackages(base) {
     if (pkg.private || !pkg.name || !pkg.version) continue;
     let before = null;
     try {
-      before = JSON.parse(git('show', `${base}:${dir === '.' ? '' : `${dir}/`}package.json`)).version;
+      before = JSON.parse(
+        git('show', `${base}:${dir === '.' ? '' : `${dir}/`}package.json`),
+      ).version;
     } catch {
       /* new package: absent at base */
     }
-    if (before !== pkg.version) out.push({ name: pkg.name, dir, version: pkg.version, previous: before });
+    if (before !== pkg.version)
+      out.push({ name: pkg.name, dir, version: pkg.version, previous: before });
   }
   return out.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
@@ -66,14 +75,17 @@ function main() {
   const i = process.argv.indexOf('--base');
   const base = i > -1 ? process.argv[i + 1] : previousTag();
   if (!base) {
-    console.error('✗ no previous v* release tag is reachable (shallow clone, or the first tagged release). Pass --base <ref>.');
+    console.error(
+      '✗ no previous v* release tag is reachable (shallow clone, or the first tagged release). Pass --base <ref>.',
+    );
     process.exit(1);
   }
   const pkgs = changedPackages(base);
   if (process.argv.includes('--json')) console.log(JSON.stringify(pkgs));
   else {
     console.log(`packages changed since ${base}:`);
-    for (const p of pkgs) console.log(`  ${p.name}  ${p.previous ?? '(new)'} -> ${p.version}  [${p.dir}]`);
+    for (const p of pkgs)
+      console.log(`  ${p.name}  ${p.previous ?? '(new)'} -> ${p.version}  [${p.dir}]`);
     if (!pkgs.length) console.log('  (none)');
   }
 }
