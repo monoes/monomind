@@ -304,7 +304,7 @@ export const semanticRouteCommand: Command = {
               { key: 'agent', header: 'Agent Slug', width: 35 },
               { key: 'score', header: 'Score', width: 10, align: 'right' },
             ],
-            data: top10.map((s) => ({
+            data: top10.map((s: { routeName: string; agentSlug: string; score: number }) => ({
               route: s.routeName,
               agent: s.agentSlug,
               score: s.score.toFixed(4),
