@@ -6,7 +6,7 @@
  * moved to the real package.
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { closeDb, countNodes, type GroupRepo, openDb, parseGroupConfig } from '@monoes/monograph';
@@ -73,7 +73,7 @@ function isRepoStale(db: Db, repoPath: string): boolean {
       | undefined;
     const lastCommit = meta?.value;
     if (!lastCommit || !/^[0-9a-f]{7,40}$/i.test(lastCommit)) return false;
-    const out = execSync(`git rev-list --count ${lastCommit}..HEAD`, {
+    const out = execFileSync('git', ['rev-list', '--count', `${lastCommit}..HEAD`], {
       cwd: repoPath,
       encoding: 'utf-8',
     }).trim();

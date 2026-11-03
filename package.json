@@ -21,7 +21,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "postinstall": "node -e \"if(process.platform!=='win32'){try{require('child_process').execSync('find node_modules -name ._* -delete 2>/dev/null',{stdio:'ignore'})}catch{}}\"",
+    "postinstall": "node scripts/clean-appledouble.mjs",
     "prepare": "node scripts/install-hooks.mjs",
     "dev": "cd packages/@monomind/cli && tsx watch src/index.ts",
     "build": "pnpm -r run build",
