@@ -171,9 +171,14 @@ function markedFiles(dir: string, name: string): string[] {
 }
 
 function resolveSkillRoot(root: string, surface: ProjectionSurface): string {
-  const location = resolveArtifactLocation(PLATFORM_REGISTRY[ADAPTER[surface]], 'skill', 'project', {
-    root,
-  });
+  const location = resolveArtifactLocation(
+    PLATFORM_REGISTRY[ADAPTER[surface]],
+    'skill',
+    'project',
+    {
+      root,
+    },
+  );
   if (!location) throw new Error(`no project skill location for ${surface}`);
   return location.path;
 }

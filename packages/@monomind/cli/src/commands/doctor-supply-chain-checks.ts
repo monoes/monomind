@@ -27,7 +27,9 @@ export function changedInstalledFiles(root: string): string[] {
   for (const [rel, want] of Object.entries(files)) {
     if (!INSTALLED_CONTENT.test(rel)) continue;
     try {
-      const got = createHash('sha256').update(readFileSync(join(root, rel))).digest('hex');
+      const got = createHash('sha256')
+        .update(readFileSync(join(root, rel)))
+        .digest('hex');
       if (got !== want) out.push(rel);
     } catch {
       /* removed: not a content change */
@@ -37,7 +39,11 @@ export function changedInstalledFiles(root: string): string[] {
 }
 
 const KNOWN_MCP = ['monomind', 'monoagent', 'monoes', 'monograph', 'monobrowse', 'monofence'];
-const fold = (s: string): string => s.normalize('NFKC').toLowerCase().replace(/[-_.\s]/g, '');
+const fold = (s: string): string =>
+  s
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[-_.\s]/g, '');
 
 function editDistance(a: string, b: string): number {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);

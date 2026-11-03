@@ -1,5 +1,6 @@
 // Scoring logic of the graph-vs-ripgrep retrieval check: rank, precision, recall,
 // MRR, path extraction from tool text, query terms, and the rg baseline ranking.
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -97,8 +98,11 @@ describe('text helpers', () => {
   });
 });
 
+const hasRg = spawnSync('rg', ['--version']).error === undefined;
+
 describe('rgRanking', () => {
-  it('ranks files by summed term hits, ties by path, and honours the glob', () => {
+  // reason: rgRanking shells out to ripgrep, which is not installed
+  it.skipIf(!hasRg)('ranks files by summed term hits, ties by path, and honours the glob', () => {
     const dir = mkdtempSync(join(tmpdir(), 'rg-rank-'));
     try {
       mkdirSync(join(dir, 'src'));
