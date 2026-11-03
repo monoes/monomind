@@ -250,7 +250,7 @@ Legacy binary `.doc`/`.ppt` and `.pages` shell out to macOS's `textutil`, which 
 
 ### Pipeline
 
-1. **SCAN** — Directory scanner classifies files by extension (22 formats). If enough match, the "documents" capability activates.
+1. **SCAN** — Directory scanner classifies files by extension (19 document extensions; indexing also takes saved web pages: `.html`, `.htm`, `.xhtml`, `.mhtml`, `.mht`). If enough match, the "documents" capability activates.
 2. **EXTRACT** — Format-specific text extraction: mammoth (DOCX), xlsx (spreadsheets), @firecrawl/pdf-inspector (PDF — native Rust, markdown with tables), ZIP+XML via `fflate` (PPTX/ODT/ODP/EPUB — pure JS, no system dependency), built-in RTF parser, textutil (legacy DOC/PPT/Pages — **macOS only**), or direct read (plain text/CSV).
 3. **CHUNK** — Each document is chunked into 3200-char segments with 400-char overlap, respecting paragraph boundaries.
 4. **INDEX** — SHA-256 content hashing for dedup. Chunks stored under `knowledge:<scope>` namespace. Metadata logged to `doc-metadata.jsonl`.
