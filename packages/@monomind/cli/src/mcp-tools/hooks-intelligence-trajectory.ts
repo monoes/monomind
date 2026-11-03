@@ -233,9 +233,6 @@ export const hooksTrajectoryEnd: MCPTool = {
       const storeFn = await getRealStoreFunction();
       if (storeFn) {
         try {
-          // Create trajectory summary for embedding
-          const _summary = `Task: ${trajectory.task} | Agent: ${trajectory.agent} | Steps: ${trajectory.steps.length} | Success: ${success}${feedback ? ` | Feedback: ${feedback}` : ''}`;
-
           persistResult = await storeFn({
             key: `trajectory-${trajectoryId}`,
             value: JSON.stringify({

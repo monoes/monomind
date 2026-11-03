@@ -54,13 +54,7 @@ function sanitizeJsonRpcMessage(value: unknown, depth = 0): unknown {
 }
 
 import * as os from 'node:os';
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { trackRequest } from './mcp-tools/request-tracker.js';
-
-// ESM-compatible __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 /**
  * MCP Server configuration

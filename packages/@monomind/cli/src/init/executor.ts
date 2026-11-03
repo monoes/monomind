@@ -5,12 +5,6 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-// ESM-compatible __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 // i-066 follow-up finding 9: shared with routes-monoes.mjs and
 // write-claude.ts — see monoes-mcp-entry.mjs's own doc comment for why this

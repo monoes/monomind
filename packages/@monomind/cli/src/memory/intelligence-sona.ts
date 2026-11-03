@@ -131,7 +131,6 @@ export class LocalSonaCoordinator {
 
     // Update pattern confidences based on reward
     let patternsUpdated = 0;
-    const _allPatterns = bank.getAll();
 
     for (const step of this.currentTrajectorySteps) {
       if (!step.embedding || step.embedding.length === 0) continue;

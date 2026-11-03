@@ -414,9 +414,6 @@ export class OrgDaemon {
   }
 
   // org-memory.ts
-  private orgMemoryNamespace(name: string, def: OrgDef): string {
-    return orgMemory.orgMemoryNamespace(name, def);
-  }
   /** @internal */
   orgMemoryDbPath(): string {
     return orgMemory.orgMemoryDbPath(this.root);

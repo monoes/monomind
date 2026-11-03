@@ -55,7 +55,7 @@ export async function selectPrompt<T = string>(
   displayChoices(selectedIndex);
 
   return new Promise<T>((resolve, reject) => {
-    const _rl = self.createInterface();
+    self.createInterface();
 
     // Enable raw mode for arrow key detection
     if (process.stdin.isTTY) {
@@ -169,7 +169,7 @@ export async function multiSelectPrompt<T = string>(
   displayChoices();
 
   return new Promise<T[]>((resolve, reject) => {
-    const _rl = self.createInterface();
+    self.createInterface();
 
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(true);
@@ -306,7 +306,7 @@ export async function autocompletePrompt<T = string>(
   displayChoices();
 
   return new Promise<T>((resolve, reject) => {
-    const _rl = self.createInterface();
+    self.createInterface();
 
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(true);

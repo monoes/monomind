@@ -48,7 +48,7 @@ export const hooksRoute: MCPTool = {
     if (!task) {
       return { error: 'task is required (non-empty string, no control chars, max 16KB)' };
     }
-    const _context = validateMcpString(params.context, 'context', MAX_ROUTE_CTX_LEN) ?? undefined;
+    validateMcpString(params.context, 'context', MAX_ROUTE_CTX_LEN) ?? undefined;
     const topK = Math.max(1, Math.min(20, Math.trunc(Number(params.topK)) || 3));
 
     const started = Date.now();

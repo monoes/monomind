@@ -55,7 +55,6 @@ export const agentPoolTools: MCPTool[] = [
           byType[agent.agentType] = (byType[agent.agentType] || 0) + 1;
           byStatus[agent.status] = (byStatus[agent.status] || 0) + 1;
         }
-        const _idleAgents = agents.filter((a) => a.status === 'idle').length;
         const busyAgents = agents.filter((a) => a.status === 'busy').length;
         const utilization = agents.length > 0 ? busyAgents / agents.length : 0;
         return {

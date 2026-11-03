@@ -27,9 +27,6 @@ export const profileCommand: Command = {
     { command: 'monomind performance profile -d 60', description: 'Profile for 60 seconds' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const typeRaw = (ctx.flags.type as string) || 'all';
-    const VALID_PROFILE_TYPES = new Set(['cpu', 'memory', 'io', 'all']);
-    const _type = VALID_PROFILE_TYPES.has(typeRaw) ? typeRaw : 'all';
     const durationRaw = parseInt((ctx.flags.duration as string) || '30', 10);
     const duration = Number.isFinite(durationRaw) ? Math.min(Math.max(1, durationRaw), 300) : 30;
 
@@ -42,7 +39,6 @@ export const profileCommand: Command = {
 
     // Collect real metrics
     const startCpu = process.cpuUsage();
-    const _startMem = process.memoryUsage();
     const startTime = process.hrtime.bigint();
 
     // Sample for a brief period

@@ -13,7 +13,6 @@ export class Progress {
   private width: number;
   private startTime: number;
   private formatter: OutputFormatter;
-  private showPercentage: boolean;
   private showETA: boolean;
   private lastRender: string = '';
 
@@ -22,7 +21,6 @@ export class Progress {
     this.current = options.current ?? 0;
     this.total = options.total;
     this.width = options.width ?? 40;
-    this.showPercentage = options.showPercentage ?? true;
     this.showETA = options.showETA ?? true;
     this.startTime = Date.now();
   }
