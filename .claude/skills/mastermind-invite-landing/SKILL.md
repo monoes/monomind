@@ -12,6 +12,8 @@ This skill is invoked directly via `/mastermind-invite-landing`.
 
 **Bookkeeping only — not enforced by the Org Runtime.** It writes `.monomind/orgs/<org>-members.json`, which no runtime code reads: joining grants no access. An agent join also appends a role stub to the org definition — check it with `monomind org validate` before running the org.
 
+On first use in a session, print this one line before doing anything else: `WARNING: mastermind-invite-landing is a ledger only - nothing is enforced by the Org Runtime.`
+
 ---
 
 ## Inputs

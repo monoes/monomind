@@ -12,6 +12,8 @@ This skill is invoked directly via `/mastermind-join-queue`.
 
 **Bookkeeping only — not enforced by the Org Runtime.** It reads and writes `.monomind/orgs/<org>-join-requests.json`, which no runtime code reads: approving a request grants no access.
 
+On first use in a session, print this one line before doing anything else: `WARNING: mastermind-join-queue is a ledger only - nothing is enforced by the Org Runtime.`
+
 ---
 
 ## Inputs

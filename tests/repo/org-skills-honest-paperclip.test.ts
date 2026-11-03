@@ -66,6 +66,14 @@ describe.each([
     expect(description.length).toBeLessThanOrEqual(260);
   });
 
+  it('has "not enforced" within the first 60 characters of the description', () => {
+    expect(description.replace(/^"/, '').slice(0, 60)).toContain('not enforced');
+  });
+
+  it('prints a one-line ledger warning on first use', () => {
+    expect(bodyIntro(md)).toContain(`WARNING: ${skill} is a ledger only`);
+  });
+
   it('says it is bookkeeping only at the top of the body', () => {
     expect(bodyIntro(md).toLowerCase()).toContain(DISCLAIMER.toLowerCase());
   });
