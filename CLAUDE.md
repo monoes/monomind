@@ -48,7 +48,8 @@
 - NEVER save to root folder — use the directories below
 - Use `/packages` for source code files
 - Use `/tests` for test files
-- Use `/docs` for documentation and markdown files
+- Use `/doc` for the GitHub Pages site and ADRs (`doc/concepts`, `doc/commands`, `doc/adrs`); use `/docs` for plans and platform notes
+- `AGENTS.md`, `GEMINI.md` and `opencode.json` stay at the repo root because the tools that read them look there
 - Use `/config` for configuration files
 - Use `/scripts` for utility scripts
 - Use `/examples` for example code
