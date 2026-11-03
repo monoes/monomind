@@ -6,12 +6,8 @@
  * the parser, the output formatter) is now passed in explicitly by the caller.
  */
 
-import {
-  getCommand,
-  getCommandAsync,
-  getCommandsByCategory,
-  hasCommand,
-} from './commands/index.js';
+import { HELP_SUMMARIES } from './commands/help-summaries.js';
+import { getCommand, getCommandAsync, hasCommand } from './commands/index.js';
 import type { OutputFormatter } from './output.js';
 import type { CommandParser } from './parser.js';
 import { versionJsonPayload } from './protocol-capabilities.js';
@@ -28,7 +24,7 @@ export async function printMainHelp(
   parser: CommandParser,
   output: OutputFormatter,
 ): Promise<void> {
-  const commandsByCategory = await getCommandsByCategory();
+  const commandsByCategory = HELP_SUMMARIES;
 
   output.writeln();
   const tagline = getUpdateTagline(version);
@@ -43,7 +39,6 @@ export async function printMainHelp(
   // Primary Commands
   output.writeln(output.bold('PRIMARY COMMANDS:'));
   for (const cmd of commandsByCategory.primary) {
-    if (cmd.hidden) continue;
     const cmdName = cmd.name.padEnd(12);
     output.writeln(`  ${output.highlight(cmdName)} ${cmd.description}`);
   }
@@ -52,7 +47,6 @@ export async function printMainHelp(
   // Advanced Commands
   output.writeln(output.bold('ADVANCED COMMANDS:'));
   for (const cmd of commandsByCategory.advanced) {
-    if (cmd.hidden) continue;
     const cmdName = cmd.name.padEnd(12);
     output.writeln(`  ${output.highlight(cmdName)} ${cmd.description}`);
   }
@@ -61,7 +55,6 @@ export async function printMainHelp(
   // Utility Commands
   output.writeln(output.bold('UTILITY COMMANDS:'));
   for (const cmd of commandsByCategory.utility) {
-    if (cmd.hidden) continue;
     const cmdName = cmd.name.padEnd(12);
     output.writeln(`  ${output.highlight(cmdName)} ${cmd.description}`);
   }
@@ -70,7 +63,6 @@ export async function printMainHelp(
   // Analysis Commands
   output.writeln(output.bold('ANALYSIS COMMANDS:'));
   for (const cmd of commandsByCategory.analysis) {
-    if (cmd.hidden) continue;
     const cmdName = cmd.name.padEnd(12);
     output.writeln(`  ${output.highlight(cmdName)} ${cmd.description}`);
   }
@@ -79,7 +71,6 @@ export async function printMainHelp(
   // Management Commands
   output.writeln(output.bold('MANAGEMENT COMMANDS:'));
   for (const cmd of commandsByCategory.management) {
-    if (cmd.hidden) continue;
     const cmdName = cmd.name.padEnd(12);
     output.writeln(`  ${output.highlight(cmdName)} ${cmd.description}`);
   }

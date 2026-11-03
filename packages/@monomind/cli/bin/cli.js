@@ -9,6 +9,16 @@
  */
 
 import { randomUUID } from 'crypto';
+import { enableCompileCache } from 'node:module';
+
+// Cache compiled module code on disk (Node 22.1+) so repeat invocations skip
+// most of the V8 parse/compile cost. Best-effort: an unsupported Node or an
+// unwritable cache dir must never stop the CLI from starting.
+try {
+  if (typeof enableCompileCache === 'function') enableCompileCache();
+} catch {
+  /* no cache — just slower */
+}
 
 // Check if we should run in MCP server mode.
 // SECURITY: only accept explicit `mcp start` plus piped stdin, OR the explicit
@@ -33,7 +43,24 @@ const isBareMCPInvocation =
 const allowAutoDetect = process.env.MONOMIND_MCP_AUTODETECT === '1';
 const isMCPMode = !process.stdin.isTTY && (isBareMCPInvocation || (allowAutoDetect && process.argv.length === 2));
 
-if (isMCPMode) {
+// `monomind --version` / `-V` (and nothing else) needs neither the command
+// registry nor the parser: read package.json, print, and leave without loading
+// the CLI. Keeps the same output as printVersionInfo (version + cached update
+// tagline) and the same background cache refresh. Any other argument (--json,
+// --no-update, ...) takes the full path below.
+const isPlainVersionInvocation =
+  cliArgs.length === 1 && (cliArgs[0] === '--version' || cliArgs[0] === '-V');
+
+if (isPlainVersionInvocation) {
+  const { readFileSync } = await import('node:fs');
+  const pkgUrl = new URL('../package.json', import.meta.url);
+  const version = JSON.parse(readFileSync(pkgUrl, 'utf-8')).version;
+  const { getUpdateTagline, refreshUpdateCacheInBackground } = await import(
+    '../dist/src/update/index.js'
+  );
+  process.stdout.write(`monomind v${version}${getUpdateTagline(version)}\n`);
+  refreshUpdateCacheInBackground();
+} else if (isMCPMode) {
   // Run MCP server mode
   const { listMCPTools, callMCPTool, hasTool } = await import('../dist/src/mcp-client.js');
 
