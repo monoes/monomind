@@ -104,3 +104,10 @@ export function formatInitFileCounts(counts: InitFileCounts): string[] {
   }
   return lines;
 }
+
+/** One-line wrap-up printed after a real init: how much was written and what to try. */
+export function initWroteLine(counts: InitFileCounts): string {
+  const n = counts.filesCreated + counts.filesUpdated;
+  const files = `${n} file${n === 1 ? '' : 's'}`;
+  return `Wrote ${files} (${counts.filesCreated} created, ${counts.filesUpdated} updated). Try next: monomind doctor`;
+}
