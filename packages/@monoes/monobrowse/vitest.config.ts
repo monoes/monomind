@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     root: '.',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', '__tests__/**/*.test.ts'],
     // '**/._*' drops the AppleDouble sidecar files the exFAT working volume
     // leaves next to every edited source file (e.g. `._ref-cache.test.ts`).
     // They are binary resource forks, not tests, and vitest would otherwise
