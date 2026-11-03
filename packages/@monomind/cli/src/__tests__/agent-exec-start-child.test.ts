@@ -127,7 +127,10 @@ describe('#724: start reports child_pid / pgid / exec_tree', () => {
           child.kill('SIGKILL');
           yield { type: 'result', session_id: 's', subtype: 'success', is_error: false };
         })();
-      const events = await exec(new ClaudeAgentRunner(queryFn as any), { access: 'full', cwd: process.cwd() });
+      const events = await exec(new ClaudeAgentRunner(queryFn as any), {
+        access: 'full',
+        cwd: process.cwd(),
+      });
       const start = events[0];
       expect(start.type).toBe('start');
       expect(start.child_pid).toBe(spawned);

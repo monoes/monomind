@@ -3,8 +3,8 @@
 import { output } from '../output.js';
 import type { Command, CommandResult } from '../types.js';
 import { approvePathsSubcommand } from './org-approve-paths.js';
-import { memorySubcommand } from './org-memory-command.js';
 import { drillGrantSubcommand } from './org-drill-grant.js';
+import { memorySubcommand } from './org-memory-command.js';
 import { signSubcommand } from './org-sign.js';
 import {
   createSubcommand,
