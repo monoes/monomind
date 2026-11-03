@@ -8,23 +8,28 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { mcpCommand, monomindNpxArgs } from '../platform-adapters/renderers/mcp.js';
 import { atomicWriteFile } from './fs-helpers.js';
 import type { InitOptions, InitResult } from './types.js';
 
 const RULE = '.clinerules/monomind.md';
 
-export const CLINE_MCP_INSTALL_COMMAND =
-  'cline mcp install monomind --yes -- npx -y monomind@latest mcp start';
+/** Pinned to the running CLI by default; `pin: 'latest'` keeps it floating. */
+export function clineInstallCommand(pin?: string): string {
+  return `cline mcp install monomind --yes -- ${mcpCommand('cline', 'linux', pin).join(' ')}`;
+}
 
-export function clineRule(): string {
+export function clineRule(pin?: string): string {
+  const npx = monomindNpxArgs(pin).join(' ');
+  const installCommand = clineInstallCommand(pin);
   return [
     '# Monomind',
     '',
     'Use the `monomind` MCP tools for graph navigation, impact analysis, memory, and organization work.',
     'For multi-step work, load only the applicable `mastermind-*` skill; do not load all workflows at once.',
-    'If MCP is unavailable, run `npx -y monomind@latest doctor` and use `npx -y monomind@latest` commands.',
+    'If MCP is unavailable, run `' + npx + ' doctor` and use `' + npx + '` commands.',
     '',
-    `cline keeps MCP servers per user: register monomind once with \`${CLINE_MCP_INSTALL_COMMAND}\`.`,
+    `cline keeps MCP servers per user: register monomind once with \`${installCommand}\`.`,
     'Messages from other agents on this host arrive only when you read them: at the start of a task call the `mesh_inbox` MCP tool (find it with `monomind_tool_search` if it is not listed), and answer with `mesh_send`.',
     '',
   ].join('\n');
@@ -37,9 +42,10 @@ export async function writeClineFiles(
 ): Promise<void> {
   const rulesDir = path.join(targetDir, '.clinerules');
   const file = path.join(targetDir, RULE);
+  const installCommand = clineInstallCommand(options.mcp?.pin);
   const note = () =>
     (result.warnings ??= []).push(
-      `cline: MCP servers are user-scope only; register monomind with \`${CLINE_MCP_INSTALL_COMMAND}\``,
+      `cline: MCP servers are user-scope only; register monomind with \`${installCommand}\``,
     );
   // A single-file `.clinerules` (cline's older form) is the user's own rule file.
   if (fs.existsSync(rulesDir) && !fs.statSync(rulesDir).isDirectory()) {
@@ -51,7 +57,7 @@ export async function writeClineFiles(
   if (exists && (!options.force || options.ifMissing)) {
     result.skipped.push(RULE);
   } else {
-    const content = clineRule();
+    const content = clineRule(options.mcp?.pin);
     if (exists && fs.readFileSync(file, 'utf8') === content) {
       result.skipped.push(RULE);
     } else {
