@@ -72,8 +72,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # check:versions compares against the last release tag
-          # (check-package-bumps.mjs); a shallow clone has no tag and skips it.
+          # Full history is kept for the version checks; the package-bump guard
+          # that compares against the last release tag is skipped on PRs below.
           fetch-depth: 0
 
       - name: Set up Node.js
@@ -125,7 +125,14 @@ jobs:
       - name: Check doc source references
         run: node scripts/check-doc-refs.mjs
 
-      - name: Check publish versions and package bumps
+      - name: Check publish versions and workspace pins
+        # The "shipped code changed without a version bump" guard
+        # (check-package-bumps.mjs) is a publish-time check: on a PR it would
+        # fail nearly every change to a package, and per-PR bumps collide.
+        # It still runs in release.yml and prepublishOnly; the other
+        # checks in check:versions run here.
+        env:
+          MONOMIND_ALLOW_STALE_PACKAGES: '1'
         run: pnpm run check:versions
 
       - name: Check test skips are justified
