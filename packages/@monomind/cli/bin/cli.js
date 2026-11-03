@@ -14,8 +14,12 @@ import { enableCompileCache } from 'node:module';
 // Cache compiled module code on disk (Node 22.1+) so repeat invocations skip
 // most of the V8 parse/compile cost. Best-effort: an unsupported Node or an
 // unwritable cache dir must never stop the CLI from starting.
+// `doctor` promises not to change any file (its read-only mode is tested down
+// to the temp dir), and the cache directory is a write, so it stays off there.
 try {
-  if (typeof enableCompileCache === 'function') enableCompileCache();
+  if (typeof enableCompileCache === 'function' && process.argv[2] !== 'doctor') {
+    enableCompileCache();
+  }
 } catch {
   /* no cache — just slower */
 }
