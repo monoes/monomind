@@ -229,26 +229,18 @@ hand-edited is left as-is and the incoming shipped version is written alongside 
 the old markers runs on the next plain `init` or `init --force` (not `init upgrade`, which
 only touches helpers, the statusline and `CLAUDE.md`/`CAPABILITIES.md`).
 
-After hand-editing `.claude/`, before committing:
+After hand-editing `.claude/`, regenerate the derived trees (they are gitignored, so nothing needs committing):
 
 ```bash
-pnpm run sync:claude-trees          # mirror
-pnpm run sync:claude-trees:check    # report only; exit 1 on divergence
+pnpm run sync:claude-trees          # generate
+pnpm run sync:claude-trees:check    # regenerate into a temp dir twice, compare; exit 1 on a problem
 ```
 
-It **mirrors only the intersection.** A path in both trees is made to agree with the root
-`.claude/` copy; a path in only one is never deleted, and is created only for the two mirrors
-that opt in: `.agents/skills` and `.gemini/skills` get a file missing inside a skill directory
-they already hold (a skill that gained a new file keeps mirroring), and `.gemini/helpers` gets
-any file missing from its full install copy of `.claude/helpers`. Nothing is ever deleted from
-any mirror. That is what keeps the shipped superset safe — its predecessor
-`sync-claude-assets.sh` had `rsync --delete` semantics, had to be hard-disabled in 2026-07, and
-is now gone.
-`tests/repo/no-skill-ownership-markers.test.ts` fails if a committed skill file carries a
-`skills:` ownership marker.
-
-The check mode runs in `pnpm run verify` and in CI. Full rationale is at the top of
-`scripts/sync-claude-trees.mjs`.
+`packages/@monomind/cli/.claude/` (the shipped tree) is the root `.claude/` plus the files in
+`packages/@monomind/cli/claude-overlay/`, minus repo-only paths. The CLI `build`, `prepack` and
+the vitest global setup run the generator, so a pack or publish always ships a fresh tree.
+`tests/repo/no-skill-ownership-markers.test.ts` fails if a skill file carries a `skills:`
+ownership marker. Full rationale is at the top of `scripts/generate-claude-trees.mjs`.
 
 ## Support
 

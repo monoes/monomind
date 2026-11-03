@@ -9,7 +9,7 @@ export default defineConfig({
     environment: 'node',
     include: ['__tests__/**/*.test.ts', 'src/__tests__/**/*.test.ts'],
     exclude: ['node_modules', 'dist', '**/._*'],
-    globalSetup: [home('isolated-home.global.ts')],
+    globalSetup: [home('claude-trees.global.ts'), home('isolated-home.global.ts')],
     setupFiles: [
       home('isolated-home.setup.ts'),
       '__tests__/setup/resource-governor.setup.ts',
