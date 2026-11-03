@@ -103,6 +103,7 @@ describe('v2 through the real daemon, scripted', () => {
       ).toBeUndefined();
       const sdk = scriptedSdk(() => ({}));
       const daemon = new OrgDaemon(root, {
+        allowUnconfined: true, // test harness: no OS sandbox is available or needed
         crossProcess: true,
         queryFn: withoutNativeChildren(sdk.queryFn),
       });

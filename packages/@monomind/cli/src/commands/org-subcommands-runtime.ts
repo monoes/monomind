@@ -77,6 +77,13 @@ export const runSubcommand: Command = {
       default: true,
     },
     {
+      name: 'allow-unconfined',
+      description:
+        'Start roles that run without an OS sandbox (they can read the operator key and sign any org definition). Refused without this flag; or install bubblewrap',
+      type: 'boolean',
+      default: false,
+    },
+    {
       name: 'dry-run',
       description: "Validate and print each role's briefing without starting any agent sessions",
       type: 'boolean',
@@ -156,6 +163,13 @@ export const serveSubcommand: Command = {
         'Discover and message orgs hosted by other monomind processes on this machine (default true)',
       type: 'boolean',
       default: true,
+    },
+    {
+      name: 'allow-unconfined',
+      description:
+        'Start roles that run without an OS sandbox (they can read the operator key and sign any org definition). Refused without this flag; or install bubblewrap',
+      type: 'boolean',
+      default: false,
     },
   ],
   action: serveAction,

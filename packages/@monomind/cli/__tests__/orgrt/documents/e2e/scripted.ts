@@ -131,7 +131,7 @@ export function useWorld(tag: string) {
     async start(raw: Record<string, any>, o: StartOptions = {}) {
       this.write(raw);
       const runner = o.runner ?? new Scripted();
-      const d = new OrgDaemon(root, { runner, forward: false, stopWaitMs: 100, bossRestartBackoffMs: [600_000], ...o.daemonOpts });
+      const d = new OrgDaemon(root, { runner, forward: false, stopWaitMs: 100, bossRestartBackoffMs: [600_000], allowUnconfined: true, ...o.daemonOpts });
       daemons.push(d);
       const gate = o.evalGate ?? Boolean(raw.sections);
       const running = await d.startOrg(raw.name, undefined, { ...(gate ? { evalGate: true } : {}), ...(o.resume ? { resume: true } : {}) });

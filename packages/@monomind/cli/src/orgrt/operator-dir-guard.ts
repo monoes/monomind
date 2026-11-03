@@ -90,9 +90,7 @@ export function drillSigningScope(
   settingsHome?: string,
 ): { ok: true } | { ok: false; reason: string } {
   // Off unless the operator allowed it in a file no role can write (#699).
-  if (
-    !allowDrillSigning(settingsHome, { org: env.MONOMIND_ORG_NAME, role: env.MONOMIND_ORG_ROLE })
-  )
+  if (!allowDrillSigning(settingsHome, { org: env.MONOMIND_ORG_NAME, role: env.MONOMIND_ORG_ROLE }))
     return {
       ok: false,
       reason:

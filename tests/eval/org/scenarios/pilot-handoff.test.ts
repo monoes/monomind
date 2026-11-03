@@ -105,6 +105,7 @@ describe('scenario: pilot document hand-off', () => {
     });
     const { root } = projectWithOrg(pilotOrgDef(baseDef, t));
     daemon = new OrgDaemon(root, {
+      allowUnconfined: true, // test harness: no OS sandbox is available or needed
       queryFn: sdk.queryFn,
       forward: false,
       stopWaitMs: 100,
@@ -159,6 +160,7 @@ describe('scenario: pilot document hand-off', () => {
     const sdk = scriptedSdk(() => ({}));
     const { root } = projectWithOrg(pilotOrgDef(baseDef, t));
     daemon = new OrgDaemon(root, {
+      allowUnconfined: true, // test harness: no OS sandbox is available or needed
       queryFn: sdk.queryFn,
       forward: false,
       stopWaitMs: 100,
