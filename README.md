@@ -69,6 +69,8 @@ Monomind is an **open-source CLI and MCP server** that plugs into Claude Code, [
 | **Source** | Fully open. Read every line at [github.com/monoes/monomind](https://github.com/monoes/monomind). |
 | **Maintenance** | Active development, regular releases on npm. |
 
+**Second Brain privacy.** Drop documents anywhere in your project and `monomind init` indexes them. Indexing and search run on your machine: a local embedding model (`Alibaba-NLP/gte-modernbert-base`, 768-dim, via transformers.js) and a local SQLite vector store. **Your notes are indexed and stored locally** — but the excerpts search returns are injected into your AI tool's prompts, and go to its model provider with the rest of the prompt. The embedding model (~90MB) is fetched once from HuggingFace's CDN when your first document is indexed, then cached locally. That download is the only outbound request the Second Brain's indexing and search make — your documents and queries are processed locally. Details: [Memory and Second Brain](doc/concepts/memory.md).
+
 ## Names
 
 | Name | Meaning |
