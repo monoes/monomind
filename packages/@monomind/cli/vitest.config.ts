@@ -15,6 +15,7 @@ export default defineConfig({
       '__tests__/setup/resource-governor.setup.ts',
       '__tests__/setup/no-jev-env.setup.ts',
       '__tests__/setup/org-signature.setup.ts',
+      '__tests__/setup/allow-unconfined.setup.ts',
     ],
     globals: true,
     // Cap worker count: this box-class (10 cores / 16 GB) cannot sustain the
