@@ -1,8 +1,14 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+
+// agent-slugs.test.ts reads the CLI's generated .claude/agents tree, which a
+// fresh checkout does not have until the generator has run.
+const home = (f: string) => fileURLToPath(new URL(`../../../tests/setup/${f}`, import.meta.url));
 
 export default defineConfig({
   test: {
     environment: 'node',
+    globalSetup: [home('claude-trees.global.ts')],
     include: ['src/__tests__/**/*.test.ts'],
     exclude: ['**/._*', '**/node_modules/**'],
     testTimeout: 10000,
