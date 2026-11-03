@@ -39,7 +39,20 @@ export function generateSettings(options: InitOptions): object {
       'Bash(node .claude/helpers/*)',
       'mcp__monomind__*',
     ],
-    deny: ['Read(./.env)', 'Read(./.env.*)'],
+    // SECURITY: an agent must not rewrite its own permissions, plant git hooks
+    // or redirect git's hook/ssh execution (all are code-execution footholds).
+    deny: [
+      'Read(./.env)',
+      'Read(./.env.*)',
+      'Write(./.claude/settings*)',
+      'Edit(./.claude/settings*)',
+      'Write(./.git/hooks/**)',
+      'Edit(./.git/hooks/**)',
+      'Bash(git config core.hooksPath*)',
+      'Bash(git config --global core.hooksPath*)',
+      'Bash(git config core.sshCommand*)',
+      'Bash(git config --global core.sshCommand*)',
+    ],
   };
 
   // Note: Claude Code expects 'model' to be a string, not an object
