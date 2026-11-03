@@ -37,6 +37,19 @@ export class HttpTransport extends HttpTransportBase implements ITransport {
       // than the HTTP side's maxRequestSize and lets a WS client force
       // memory allocations the HTTP body-size limit was meant to prevent.
       maxPayload: this.parseMaxRequestSizeBytes(),
+      // SECURITY: refuse cross-origin browser upgrades and rebound Host names.
+      verifyClient: (info, done) => {
+        const ok =
+          this.hostAllowed(info.req.headers.host) &&
+          this.originAllowed(info.origin || (info.req.headers.origin as string | undefined));
+        if (!ok) {
+          this.logger.warn('WebSocket upgrade rejected: Origin/Host not allowed', {
+            origin: info.origin,
+            host: info.req.headers.host,
+          });
+        }
+        done(ok, 403, 'Forbidden');
+      },
     });
 
     this.setupWebSocketHandlers();
@@ -139,7 +152,7 @@ export class HttpTransport extends HttpTransportBase implements ITransport {
     // SECURITY: Handle WebSocket authentication via upgrade request
     this.wss.on('connection', (ws, req) => {
       // Validate authentication if enabled
-      if (this.config.auth?.enabled) {
+      if (this.authRequired()) {
         // SECURITY: prefer the Authorization header sent during the WS
         // upgrade handshake over a query-string credential — URLs land in
         // access logs and intermediate proxy logs. Only fall back to the
@@ -168,7 +181,11 @@ export class HttpTransport extends HttpTransportBase implements ITransport {
         const effectiveAuthHeader =
           authHeaderWithScheme ?? (fromQuery ? `Bearer ${fromQuery}` : undefined);
 
-        const authResult = validateCredential(this.config.auth, effectiveAuthHeader, apiKeyHeader);
+        const authResult = validateCredential(
+          { ...this.config.auth!, enabled: true },
+          effectiveAuthHeader,
+          apiKeyHeader,
+        );
         if (!authResult.valid) {
           const noCredentialOffered = !effectiveAuthHeader && !apiKeyHeader;
           this.logger.warn('WebSocket connection rejected', { error: authResult.error });
@@ -180,7 +197,7 @@ export class HttpTransport extends HttpTransportBase implements ITransport {
       this.activeConnections.add(ws);
       this.logger.info('WebSocket client connected', {
         total: this.activeConnections.size,
-        authenticated: !!this.config.auth?.enabled,
+        authenticated: this.authRequired(),
       });
 
       ws.on('message', async (data) => {
@@ -218,7 +235,7 @@ export class HttpTransport extends HttpTransportBase implements ITransport {
 
     const connectionId = this.getOrCreateHttpConnectionId(req.socket);
 
-    const requiresAuth = this.config.auth?.enabled !== false;
+    const requiresAuth = this.config.auth ? this.authRequired() : true;
 
     if (requiresAuth && this.config.auth) {
       const authResult = this.validateAuth(req);
