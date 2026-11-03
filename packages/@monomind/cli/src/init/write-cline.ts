@@ -16,7 +16,7 @@ const RULE = '.clinerules/monomind.md';
 
 /** Pinned to the running CLI by default; `pin: 'latest'` keeps it floating. */
 export function clineInstallCommand(pin?: string): string {
-  return `cline mcp install monomind --yes -- ${mcpCommand('cline', 'linux', pin).join(' ')}`;
+  return `cline mcp install monomind --yes -- ${mcpCommand('claude', 'linux', pin).join(' ')}`;
 }
 
 export function clineRule(pin?: string): string {
