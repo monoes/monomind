@@ -39,6 +39,24 @@ export const skillsSubcommand: Command = {
       description: 'import: replace skills already in the library',
       type: 'boolean',
     },
+    {
+      name: 'commit',
+      description:
+        'import: commit id to pin a remote repository to (required for owner/repo and git URLs)',
+      type: 'string',
+    },
+    {
+      name: 'yes',
+      short: 'y',
+      description: 'import: confirm the import without prompting (required when not interactive)',
+      type: 'boolean',
+    },
+    {
+      name: 'trust',
+      description:
+        'import: mark the skills trusted and keep the tools they request (default: untrusted, no tools)',
+      type: 'boolean',
+    },
   ],
   examples: [
     {

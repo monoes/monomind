@@ -142,7 +142,8 @@ function readSkillDir(dir: string, name: string, origin: SkillMeta['origin']): S
     name,
     description: asStr(data.description) ?? '',
     tags: asList(data.tags),
-    tools: asList(data.tools),
+    // An imported skill marked `trust: untrusted` is never given tools.
+    tools: asStr(data.trust) === 'untrusted' ? [] : asList(data.tools),
     license: asStr(data.license),
     source: asStr(data.source),
     source_path: asStr(data.source_path),
