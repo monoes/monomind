@@ -4,9 +4,15 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Added
+
+- **`monomind org drill-grant`: a scoped, time-limited drill-signing path for release QA (#720).** `org.allowDrillSigning` stays off by default, so release QA could not run live org drills and 2.29.0's `org_compact_role`/`org_clear_role`, codex `allowWrite` roots and mesh roster revert were verified by unit tests only. The operator can now run `monomind org drill-grant --org release --role runtime-qa --ttl 120` in a terminal: it writes a grant (named orgs and roles, no `*`, at most 24 hours) to `~/.monomind/operator-settings.json`, and `org sign` from a role accepts it only while `MONOMIND_ORG_NAME` and `MONOMIND_ORG_ROLE` are both named in it and before it expires. The drill limits are unchanged (scratch project outside a git work tree, `MONOMIND_ORGRT_OPERATOR_DIR` inside it). The command refuses inside an org role or agent process, and roles cannot write the settings file, so no role can grant itself signing; `--revoke` turns it off.
+- **`agent exec` `start` reports the runtime child's `child_pid`, `pgid` and `exec_tree` (#724).** On an `--access full` turn that spawns an agent-CLI process, `start` gains the child's pid, its process group id (omitted on Windows) and the turn's `MONOMIND_EXEC_TREE` token, so a host can record them at launch and later require a background pid to carry exactly that token before stopping it. `start` waits for the spawn (still first); scoped/read turns and in-process runners omit the fields. `pid` is unchanged. Additive.
+
 ### Changed
 
 - **Second Brain excerpts reach the model under `MONOMIND_HOOK_QUIET=1`.** Quiet mode (what `init` writes) returned right after the `[PICK]` line, so the per-prompt Second Brain injection never ran. It is now an exception: under quiet mode the relevance floors, telemetry and the excerpt block are unchanged, while the "no match" and "skipped" notices and the other advisory banners stay quiet (and a quiet run does not use up the once-per-session notice).
+- **The Second Brain prompt-hook lines say what happened, with one marker spelling** ([#722](https://github.com/monoes/monomind/issues/722)). Every line is now `[SECOND BRAIN]` (was `[SECOND_BRAIN]`). Each injected excerpt shows its source file and its section path (`section: Title · A > B`). A search that found nothing says `no match for this prompt`, and a lookup that could not reach the document store (server down or warming, only project instructions searched) now says `skipped: document store unreachable` instead of printing nothing.
 
 ### Removed
 

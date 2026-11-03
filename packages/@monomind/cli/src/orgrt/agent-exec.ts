@@ -134,8 +134,21 @@ export async function runAgentExecOnce(
 
   // Post-done suppression: once `done` is emitted, nothing else goes out.
   let finished = false;
+  // #724: a full-access turn holds `start` (and the notices that follow it)
+  // until the runtime child is known, so `start` can carry child_pid / pgid /
+  // exec_tree. Any other event, or the child's spawn, releases it, so `start`
+  // stays first and is never lost when a runner spawns nothing.
+  let heldStart: { ev: Record<string, unknown>; notices: Record<string, unknown>[] } | null = null;
+  const releaseStart = (child?: Record<string, unknown>): void => {
+    const h = heldStart;
+    if (!h) return;
+    heldStart = null;
+    emit({ ...h.ev, ...child });
+    for (const n of h.notices) emit(n);
+  };
   const safeEmit = (ev: Record<string, unknown>): void => {
     if (finished) return;
+    releaseStart();
     emit(ev);
   };
 
@@ -148,7 +161,7 @@ export async function runAgentExecOnce(
   });
 
   const firstEmit = ctx.attempt === 1 ? safeEmit : () => {}; // rev 20: retries stay quiet
-  firstEmit({
+  const startEvent = {
     v: 1,
     type: 'start',
     runtime: opts.runtime,
@@ -164,11 +177,13 @@ export async function runAgentExecOnce(
     // §3.2/§9. Absent runtime (shouldn't happen — resolveExecRunner already
     // failed above for an unknown id) defaults to false, the safe assumption.
     streams_incrementally: runnerSpec(opts.runtime)?.streamsIncrementally ?? false,
-  });
+  };
+  if (access === 'full' && ctx.attempt === 1) heldStart = { ev: startEvent, notices: [] };
+  else firstEmit(startEvent);
   // rev 19: what a non-claude --settings turn loads, and an ignored --effort.
   const effortSupported = runnerSpec(opts.runtime)?.effort ?? false;
   for (const ev of [...sandbox.notices, ...runtimeStartupNotices({ ...opts, effortSupported })])
-    firstEmit(ev); // #482: a sandbox fallback notice first
+    heldStart ? heldStart.notices.push(ev) : firstEmit(ev); // #482: a sandbox fallback notice first
 
   // Abort hook for the runner (AgentRunArgs.signal): return() alone queues
   // behind a runner blocked in `for await (child.stdout)` and never reaches
@@ -310,6 +325,12 @@ export async function runAgentExecOnce(
         signal: abort.signal,
         onProcessSpawned: (info) => {
           getBackgroundSurvivors = info.getBackgroundSurvivors;
+          // #724: report the child, its group and the turn's tree token on `start`.
+          releaseStart({
+            child_pid: info.pid,
+            ...(info.pgid !== undefined ? { pgid: info.pgid } : {}),
+            ...(info.execTree !== undefined ? { exec_tree: info.execTree } : {}),
+          });
         }, // #359
         // Opts every runner that supports it (each subprocess runner's own
         // `streamPartials`/equivalent gate — claude, antigravity, qwen-rpc,

@@ -29,8 +29,43 @@ export function trustedHome(): string {
   }
 }
 
-/** `org.allowDrillSigning`: true only when the operator wrote exactly `true`. */
-export function allowDrillSigning(home: string = trustedHome()): boolean {
+/** Who is asking: the org and role of the calling process, and the clock. */
+export interface DrillGrantContext {
+  org?: string;
+  role?: string;
+  now?: number;
+}
+
+/** #720: the longest window one scoped grant may cover. */
+export const DRILL_GRANT_MAX_MS = 24 * 3_600_000;
+
+const names = (v: unknown): string[] | undefined =>
+  Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string' && x && x !== '*')
+    ? (v as string[])
+    : undefined;
+
+/** A scoped grant (#720): `{ orgs, roles, issuedAt, expiresAt }`. Valid only
+ *  for a named org and role, inside a window of at most 24 hours. */
+function grantAllows(g: unknown, ctx: DrillGrantContext): boolean {
+  if (!g || typeof g !== 'object') return false;
+  const { orgs, roles, issuedAt, expiresAt } = g as Record<string, unknown>;
+  const o = names(orgs);
+  const r = names(roles);
+  const from = typeof issuedAt === 'string' ? Date.parse(issuedAt) : Number.NaN;
+  const to = typeof expiresAt === 'string' ? Date.parse(expiresAt) : Number.NaN;
+  if (!o || !r || Number.isNaN(from) || Number.isNaN(to) || to - from > DRILL_GRANT_MAX_MS)
+    return false;
+  const now = ctx.now ?? Date.now();
+  if (now < from || now >= to) return false;
+  return !!ctx.org && !!ctx.role && o.includes(ctx.org) && r.includes(ctx.role);
+}
+
+/** `org.allowDrillSigning`: true when the operator wrote exactly `true`, or a
+ *  scoped, time-limited grant (#720) that matches `ctx`. */
+export function allowDrillSigning(
+  home: string = trustedHome(),
+  ctx: DrillGrantContext = {},
+): boolean {
   if (!home) return false;
   const path = join(home, '.monomind', OPERATOR_SETTINGS_FILE);
   try {
@@ -40,7 +75,8 @@ export function allowDrillSigning(home: string = trustedHome()): boolean {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
       org?: { allowDrillSigning?: unknown };
     };
-    return parsed?.org?.allowDrillSigning === true;
+    const v = parsed?.org?.allowDrillSigning;
+    return v === true || grantAllows(v, ctx);
   } catch {
     return false;
   }

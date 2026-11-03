@@ -273,6 +273,10 @@ async function _injectSecondBrain(hCtx, CWD, hookInput, prompt) {
         //                            reachable. It is labelled in the banner
         //                            rather than passed off as the Second Brain.
         var sbCorpus = 'project-instructions';
+        // True when the warm server answered (even with zero results): the
+        // document store was searched, so an empty answer is a real no-match
+        // rather than an unreachable store (#722).
+        var sbServerAnswered = false;
 
         // Semantic path: warm control-server endpoint (strictly local traffic;
         // sbAuth is the local dashboard session value from .monomind, same one
@@ -317,6 +321,7 @@ async function _injectSecondBrain(hCtx, CWD, hookInput, prompt) {
             signal: AbortSignal.timeout(250),
           });
           if (sbResp.ok) {
+            sbServerAnswered = true;
             var sbData = await sbResp.json();
             if (sbData && Array.isArray(sbData.results) && sbData.results.length > 0) {
               sbHits = sbData.results.map(function(r) {
@@ -401,12 +406,17 @@ async function _injectSecondBrain(hCtx, CWD, hookInput, prompt) {
           var sbSource = sbCorpus === 'second-brain'
             ? 'the Second Brain document store'
             : 'project instructions only (CLAUDE.md/todo — Second Brain store unreachable)';
-          var sbLines = ['[SECOND_BRAIN] ' + sbHits.length + ' relevant excerpt(s) (' + sbMethod + ') from ' + sbSource + ':'];
+          var sbLines = ['[SECOND BRAIN] ' + sbHits.length + ' relevant excerpt(s) (' + sbMethod + ') from ' + sbSource + ':'];
           for (var sbI = 0; sbI < sbHits.length; sbI++) {
             var sbH = sbHits[sbI];
             var sbSrc = (sbH.metadata && sbH.metadata.filePath) ? String(sbH.metadata.filePath).split('/').slice(-2).join('/') : sbH.key;
-            var sbText = String(sbH.value || '').replace(/\s+/g, ' ').slice(0, 160);
-            sbLines.push('  • [' + sbSrc + (sbH.global ? ' · global' : '') + '] ' + sbText);
+            // Chunks carry a leading "§ Title · A > B" line: the section path.
+            var sbRaw = String(sbH.value || '');
+            var sbSecM = /^\s*§\s*([^\n]+)\n?/.exec(sbRaw);
+            var sbSection = sbSecM ? sbSecM[1].trim() : '';
+            var sbText = (sbSecM ? sbRaw.slice(sbSecM[0].length) : sbRaw).replace(/\s+/g, ' ').slice(0, 160);
+            sbLines.push('  • [' + sbSrc + (sbH.global ? ' · global' : '') + ']'
+              + (sbSection ? ' section: ' + sbSection + ' —' : '') + ' ' + sbText);
           }
           sbLines.push('  (deeper lookup: mcp__monomind__knowledge_search or `monomind doc search -q "..."`)');
           sbLog(sbLines.join('\n'));
@@ -414,17 +424,19 @@ async function _injectSecondBrain(hCtx, CWD, hookInput, prompt) {
           // Ran but found nothing: distinguishable from "never looked" — but
           // only when the real document store was searched. A miss over the
           // project-instructions fallback says nothing about the user's
-          // documents and would print on nearly every prompt.
-          if (sbCorpus === 'second-brain') {
-            advisoryLog('[SECOND_BRAIN] no match for this prompt (searched the Second Brain document store)');
+          // documents, so it is reported as skipped (store unreachable).
+          if (sbCorpus === 'second-brain' || sbServerAnswered) {
+            advisoryLog('[SECOND BRAIN] no match for this prompt (searched the Second Brain document store)');
+          } else {
+            advisoryLog('[SECOND BRAIN] skipped: document store unreachable (server down or warming; only project instructions were searched)');
           }
         }
       } else if (!_HOOK_QUIET && noticeOncePerSession(CWD, hookInput.session_id || hookInput.sessionId, 'sb-no-store')) {
-        advisoryLog('[SECOND_BRAIN] skipped: no knowledge store in this project (shown once per session)');
+        advisoryLog('[SECOND BRAIN] skipped: no knowledge store in this project (shown once per session)');
       }
     } else if (sbPrompt.charAt(0) !== '/'
         && !_HOOK_QUIET && noticeOncePerSession(CWD, hookInput.session_id || hookInput.sessionId, 'sb-low-content')) {
-      advisoryLog('[SECOND_BRAIN] skipped: low-content prompt (shown once per session)');
+      advisoryLog('[SECOND BRAIN] skipped: low-content prompt (shown once per session)');
     }
   } catch (e) { /* non-fatal — knowledge injection must never block a prompt */ }
 }

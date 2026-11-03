@@ -90,11 +90,11 @@ export function drillSigningScope(
   settingsHome?: string,
 ): { ok: true } | { ok: false; reason: string } {
   // Off unless the operator allowed it in a file no role can write (#699).
-  if (!allowDrillSigning(settingsHome))
+  if (!allowDrillSigning(settingsHome, { org: env.MONOMIND_ORG_NAME, role: env.MONOMIND_ORG_ROLE }))
     return {
       ok: false,
       reason:
-        'the operator has not enabled org.allowDrillSigning in ~/.monomind/operator-settings.json',
+        'the operator has not enabled org.allowDrillSigning (or an unexpired `monomind org drill-grant` for this org and role) in ~/.monomind/operator-settings.json',
     };
   const override = env.MONOMIND_ORGRT_OPERATOR_DIR;
   if (!override) return { ok: false, reason: 'MONOMIND_ORGRT_OPERATOR_DIR is not set' };

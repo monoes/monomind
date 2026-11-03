@@ -196,7 +196,7 @@ Orgs carry context between runs: the coordinator records every run's outcome (`o
 
 ### Org management commands
 
-`monomind org run | stop | status | list | serve | delete | sign | memory` cover the lifecycle. `org` has <!-- doc-count:org-subcommands -->39<!-- /doc-count:org-subcommands --> subcommands total (skills, run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory, costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete, role, sign, approve-paths).
+`monomind org run | stop | status | list | serve | delete | sign | memory` cover the lifecycle. `org` has <!-- doc-count:org-subcommands -->40<!-- /doc-count:org-subcommands --> subcommands total (skills, run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory, costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete, role, sign, drill-grant, approve-paths).
 
 The repo ships one worked example beyond the sample: `config/orgs/release.json`, an autonomous `release` org that verifies, versions, publishes and confirms a Monomind release, with a preflight that asks a human once for any missing access and runs unattended after that.
 
