@@ -15,8 +15,13 @@
  * withoutExclusions() drops them from the title and brief first.
  */
 
-import { roleCatalog } from '../decision/catalogs.js';
-import { acceptAgent, jevModule, type PickOptions, pickWithJev } from '../decision/jev.js';
+import {
+  acceptAgent,
+  type CatalogItem,
+  jevModule,
+  type PickOptions,
+  pickWithJev,
+} from '../decision/jev.js';
 import { agentRoles } from './endpoint-roles.js';
 import type { OrgDef, OrgRole } from './types.js';
 
@@ -271,6 +276,17 @@ export function keywordRole(
   )
     return { role: null, method: 'none', candidates: top3, reason: 'ambiguous' };
   return { role: first.r.id, method: 'keyword', score: best.score, candidates: top3 };
+}
+
+/** Roles as Jev candidates (moved here from decision/catalogs.ts). */
+export function roleCatalog(
+  roles: Pick<OrgRole, 'id' | 'title' | 'responsibilities'>[],
+): CatalogItem[] {
+  return roles.map((r) => ({
+    id: r.id,
+    name: r.title,
+    description: [r.title, ...(r.responsibilities ?? [])].filter(Boolean).join('; '),
+  }));
 }
 
 /** The role that should own a task: agent roles only, never the caller;
