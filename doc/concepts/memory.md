@@ -29,6 +29,22 @@ The Memory Palace helper (`.claude/helpers/memory-palace.cjs`) was removed in [#
 
 **Schema Architecture**: Embedded SQLite database operating in **WAL mode** (`PRAGMA journal_mode = WAL`); the database file itself is created `chmod 0600` (owner read/write only). Supports standalone `@monoes/memory` core schema (schema version **4** — `SCHEMA_VERSION` constant, [`sql-schema.ts → SCHEMA_VERSION`](packages/@monomind/memory/src/sql-schema.ts#SCHEMA_VERSION), applied via `PRAGMA user_version`) — **5 tables**: `memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`, plus the FTS5 full-text virtual table `memory_entries_fts` ([`sql-schema.ts → createFTS5Index`](packages/@monomind/memory/src/sql-schema.ts#createFTS5Index), added for issue #66) — and CLI project memory schema (v3.0.0, 9 tables at [`memory-schema.ts → MEMORY_SCHEMA`](packages/@monomind/cli/src/memory/memory-schema.ts#MEMORY_SCHEMA): `memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
 
+### Schema versions
+
+The `@monoes/memory` store (the bridge's `memory.db` under `~/.monomind/projects/<name>-<hash>/lancedb/` and the global brain) is versioned by numbered migrations ([`sql-schema.ts → initializeSchema`](packages/@monomind/memory/src/sql-schema.ts#initializeSchema), runner in [`schema-migrations.ts → runMigrations`](packages/@monomind/memory/src/schema-migrations.ts#runMigrations)). Applied migrations are recorded in a `schema_migrations` table, one row per migration, each applied in its own transaction:
+
+| Version | Migration |
+|---------|-----------|
+| 1 | Canonical tables and indexes |
+| 2 | Copy legacy inline `memory_entries.embedding` into `memory_embeddings` (the column is kept) |
+| 3 | Dedupe `(namespace, key)` and add the unique index |
+| 4 | FTS5 index `memory_entries_fts` with its sync triggers |
+
+- A store last written by a release before the runner (`PRAGMA user_version` 4, no `schema_migrations`) is recorded at version 4 without any migration running, so none of its rows change.
+- A store whose `schema_migrations` names a version this build does not know was written by a newer monomind and is refused with `MEMORY_SCHEMA_TOO_NEW`.
+- `PRAGMA user_version` stays at 4 for older releases, which gate their repairs on it.
+- The CLI's legacy fallback database (`.swarm/memory.db`, `MEMORY_SCHEMA`) is a separate file with its own schema and does not use these migrations.
+
 ### Key Memory Stores
 
 | Store Type | Namespace / Location | Implementation File | Feature Highlights |
