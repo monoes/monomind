@@ -44,7 +44,7 @@ Run the CLI from source with `node packages/@monomind/cli/bin/cli.js <command>`.
 3. Keep changes focused: every changed line should trace to the issue. No drive-by refactors or reformatting.
 4. Keep files under 500 lines, and give public functions typed signatures.
 5. Update the docs for anything a user can see (commands, flags, MCP tools, config), in `README.md`, `doc/` and the package READMEs.
-6. If you change a skill (`SKILL.md`), keep the copies in sync: `pnpm sync:claude-trees`.
+6. If you change a skill (`SKILL.md`), edit the root `.claude/` copy; the other copies are generated (`pnpm sync:claude-trees`).
 
 ## Checks
 

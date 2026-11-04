@@ -1,5 +1,4 @@
 import { existsSync } from 'node:fs';
-import * as os from 'node:os';
 import { join } from 'node:path';
 import {
   CONFIG_JSON_CANDIDATE_PATHS,
@@ -83,8 +82,6 @@ export const systemHealthTool: MCPTool = {
       // Disk check — real free space check via os module
       {
         const t0 = performance.now();
-        const _freeMem = os.freemem();
-        const _totalMem = os.totalmem();
         const elapsed = performance.now() - t0;
         // Use memory as a proxy; real disk check would need statvfs
         checks.push({

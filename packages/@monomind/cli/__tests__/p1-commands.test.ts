@@ -536,6 +536,29 @@ describe('Start Command', () => {
       expect(result.data).toHaveProperty('maxAgents', 6);
     });
 
+    it('should read the coordination section (#737)', async () => {
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        'version: "3.0.0"\n\ncoordination:\n  topology: star\n  maxAgents: 9\n',
+      );
+
+      const result = await startCommand.action!(ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveProperty('topology', 'star');
+      expect(result.data).toHaveProperty('maxAgents', 9);
+    });
+
+    it('should let coordination win per key over legacy sections', async () => {
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        'version: "3.0.0"\n\nmonoswarm:\n  topology: ring\n  maxAgents: 6\n\ncoordination:\n  maxAgents: 3\n',
+      );
+
+      const result = await startCommand.action!(ctx);
+
+      expect(result.data).toHaveProperty('topology', 'ring');
+      expect(result.data).toHaveProperty('maxAgents', 3);
+    });
+
     it('should refuse --daemon since no long-running process exists', async () => {
       // ASL-10: `--daemon` used to spawn a detached child that did nothing but
       // watch its own pid file — no real background work happened. It now

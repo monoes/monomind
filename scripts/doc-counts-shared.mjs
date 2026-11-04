@@ -24,7 +24,14 @@ export const read = (p) => readFileSync(join(REPO_ROOT, p), 'utf8');
 /** Skill directories compiled at pack time rather than committed. */
 const GENERATED_SKILL_DIRS = [
   '.claude/skills/monodesign/',
-  'packages/@monomind/cli/.claude/skills/monodesign/',
+  // Gitignored trees written by scripts/generate-claude-trees.mjs.
+  'packages/@monomind/cli/.claude/',
+  '.agents/skills/',
+  '.gemini/skills/',
+  '.gemini/helpers/',
+  '.kimi-code/agents/',
+  '.kimi-code/plugin/commands/',
+  '.kimi-code/skills/',
 ];
 
 compileGeneratedSkills(REPO_ROOT);

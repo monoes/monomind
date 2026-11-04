@@ -153,6 +153,9 @@ importers:
       '@huggingface/transformers':
         specifier: 4.3.0
         version: 4.3.0(@types/node@20.19.39)
+      '@types/ws':
+        specifier: 8.18.1
+        version: 8.18.1
       chokidar:
         specifier: ^3.6.0
         version: 3.6.0

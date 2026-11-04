@@ -67,12 +67,19 @@ export const monofenceScanTool: MCPTool = {
             text: JSON.stringify(
               {
                 safe: result.safe,
-                threats: result.threats.map((t) => ({
-                  type: t.type,
-                  severity: t.severity,
-                  confidence: t.confidence,
-                  description: t.description,
-                })),
+                threats: result.threats.map(
+                  (t: {
+                    type: string;
+                    severity: string;
+                    confidence: number;
+                    description: string;
+                  }) => ({
+                    type: t.type,
+                    severity: t.severity,
+                    confidence: t.confidence,
+                    description: t.description,
+                  }),
+                ),
                 piiFound: result.piiFound,
                 detectionTimeMs: result.detectionTimeMs,
               },
@@ -168,11 +175,13 @@ export const monofenceAnalyzeTool: MCPTool = {
       // Search similar patterns
       if (searchSimilar) {
         const similar = await defender.searchSimilarThreats(input, { k });
-        analysis.similarPatterns = similar.map((p) => ({
-          pattern: p.pattern,
-          type: p.type,
-          effectiveness: p.effectiveness,
-        }));
+        analysis.similarPatterns = similar.map(
+          (p: { pattern: string; type: string; effectiveness: number }) => ({
+            pattern: p.pattern,
+            type: p.type,
+            effectiveness: p.effectiveness,
+          }),
+        );
       }
 
       return {

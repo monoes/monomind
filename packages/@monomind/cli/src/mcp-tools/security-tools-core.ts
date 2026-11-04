@@ -7,11 +7,7 @@
  * github.com/monoes/monomind
  */
 
-import { createRequire } from 'node:module';
 import { tryImportOrInstall } from './auto-install.js';
-
-// Create require for resolving module paths
-const _require = createRequire(import.meta.url);
 
 // monolean: local shape instead of static import of optional dep monofence-ai
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

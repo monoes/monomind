@@ -102,7 +102,7 @@ async function claudeReadTurn(steps: FakeToolCall[][], extra: Record<string, unk
     maxTurns: 5,
     toolTimeoutMs: 60_000,
     runnerOverride: new ClaudeAgentRunner(fake.queryFn),
-    emit: (ev) => {
+    emit: (ev: Record<string, any>) => {
       events.push(ev);
       // The caller answers every caller tool call.
       if (ev.type === 'tool_call')

@@ -153,18 +153,11 @@ const DOC_FILES = [
   'doc/concepts/opencode.md',
   'doc/concepts/antigravity.md',
   'doc/commands/mcp.md',
-  // Shipped slash commands: the root tree, the npm package copy and the kimi
-  // conversions all carry the same markers (scripts/sync-claude-trees.mjs).
+  // Shipped slash commands: the root tree is the source; the npm package copy
+  // and the kimi conversions are generated from it (scripts/generate-claude-trees.mjs).
   '.claude/commands/agents/agent-types.md',
-  'packages/@monomind/cli/.claude/commands/agents/agent-types.md',
-  '.kimi-code/plugin/commands/agents-agent-types.md',
-  '.kimi-code/skills/agents-agent-types/SKILL.md',
   '.claude/commands/hooks/README.md',
-  'packages/@monomind/cli/.claude/commands/hooks/README.md',
   '.claude/commands/hooks/overview.md',
-  'packages/@monomind/cli/.claude/commands/hooks/overview.md',
-  '.kimi-code/plugin/commands/hooks-overview.md',
-  '.kimi-code/skills/hooks-overview/SKILL.md',
 ];
 
 function markerRegex(name) {

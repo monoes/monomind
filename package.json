@@ -32,6 +32,8 @@
     "docs:counts:check": "node scripts/generate-doc-counts.mjs --check",
     "docs:refs:check": "node scripts/check-doc-refs.mjs",
     "sync:claude-trees": "node scripts/sync-claude-trees.mjs",
+    "generate:claude-trees": "node scripts/generate-claude-trees.mjs",
+    "generate:claude-trees:check": "node scripts/generate-claude-trees.mjs --check",
     "sync:claude-trees:check": "node scripts/sync-claude-trees.mjs --check",
     "setup:merge-drivers": "git config merge.monomind-changelog.name \"monomind CHANGELOG.md: keep released sections, move new entries to Unreleased\" && git config merge.monomind-changelog.driver \"node scripts/merge-changelog.mjs %O %A %B\"",
     "prepublishOnly": "node scripts/check-publish-versions.mjs && node scripts/check-package-bumps.mjs && node scripts/check-workspace-protocol.mjs && node scripts/check-overrides-source.mjs && node scripts/check-published-pins.mjs . && node scripts/generate-doc-counts.mjs --check && node scripts/check-doc-refs.mjs && cd packages/@monomind/cli && npm run build",
