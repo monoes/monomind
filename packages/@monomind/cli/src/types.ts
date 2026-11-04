@@ -140,6 +140,8 @@ export interface CLIPreferences {
   verbosity: 'quiet' | 'normal' | 'verbose' | 'debug';
   outputFormat: 'text' | 'json' | 'table';
   progressStyle: 'bar' | 'spinner' | 'dots' | 'none';
+  /** Opt-in local usage counters (services/usage-counters.ts). Off by default. */
+  usageCounters?: boolean;
 }
 
 export interface HooksConfig {
