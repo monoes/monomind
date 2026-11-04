@@ -128,7 +128,7 @@ export async function bridgeStoreEntry(options: {
       }
     }
 
-    const mod = await import('@monoes/memory' as string);
+    const mod = await import('@monoes/memory');
     const entry = mod.createDefaultEntry({
       key,
       content: value,
