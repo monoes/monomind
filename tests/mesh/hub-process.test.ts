@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as srcClient from '../../packages/@monomind/cli/src/mesh/client.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -91,7 +91,11 @@ async function scenario(client: Client, spawnHub?: (dir: string) => void): Promi
   const pids = await settledHubPids(dir);
   expect(pids).toHaveLength(1);
   process.kill(pids[0], 'SIGKILL');
-  await new Promise((r) => setTimeout(r, 200));
+  // the killed hub is gone before the next call has to replace it
+  await vi.waitFor(() => expect(hubPids(dir)).not.toContain(pids[0]), {
+    timeout: 10_000,
+    interval: 20,
+  });
 
   const again = await client.callWithHub(hello(9), opts);
   expect(again.ok).toBe(true);
