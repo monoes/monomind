@@ -495,14 +495,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: cli
-            dir: packages/@monomind/cli
+          # cli is not here: it runs sharded in the cli-shards job below.
           - name: monograph
             dir: packages/@monomind/monograph
           - name: memory
             dir: packages/@monomind/memory
             # The one leg that also measures coverage (report uploaded as an
-            # artifact, no thresholds). The provider is not a repo dependency,
+            # artifact; floors in its vitest.config.ts thresholds). The
+            # provider is not a repo dependency,
             # so it is added at run time, matched to the installed vitest.
             cmd: 'npm test -- --coverage'
             coverage: true
@@ -636,60 +636,6 @@ jobs:
         working-directory: ${{ matrix.dir }}
         run: npm run build --if-present
 
-      # Same reasoning as the root job's identical step: cli's doc-eval and
-      # knowledge-superseded suites need the real embedding/reranker weights
-      # on disk, provisioned as an explicit non-query-time step. Cached and
-      # retried exactly as there; see the root job's comments for the paths
-      # and the key.
-      - name: Resolve embedding model cache path
-        if: needs.changes.outputs.code == 'true' && (matrix.name == 'cli')
-        id: model-cache-path
-        working-directory: ${{ matrix.dir }}
-        run: |
-          tf_dir=$(node -p "require('fs').realpathSync('node_modules/@huggingface/transformers')")
-          tf_version=$(node -p "require('$tf_dir/package.json').version")
-          echo "dir=$tf_dir/.cache" >> "$GITHUB_OUTPUT"
-          echo "transformers=$tf_version" >> "$GITHUB_OUTPUT"
-
-      - name: Restore embedding model cache
-        if: needs.changes.outputs.code == 'true' && (matrix.name == 'cli')
-        id: model-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ${{ steps.model-cache-path.outputs.dir }}
-            ~/.monomind/models
-          key: hf-models-${{ runner.os }}-gte-modernbert-base-ettin-reranker-32m-v1-main-transformers-${{ steps.model-cache-path.outputs.transformers }}
-          restore-keys: |
-            hf-models-${{ runner.os }}-gte-modernbert-base-ettin-reranker-32m-v1-main-
-
-      - name: Provision embedding models
-        if: needs.changes.outputs.code == 'true' && (matrix.name == 'cli')
-        working-directory: ${{ matrix.dir }}
-        run: |
-          delays=(20 60)
-          for attempt in 1 2 3; do
-            if node bin/cli.js doc eval --provision-model; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              delay=${delays[$((attempt - 1))]}
-              echo "::warning::Model provisioning attempt $attempt failed; retrying in ${delay}s"
-              sleep "$delay"
-            fi
-          done
-          echo "::error::Model provisioning failed after 3 attempts"
-          exit 1
-
-      - name: Save embedding model cache
-        if: needs.changes.outputs.code == 'true' && (matrix.name == 'cli' && steps.model-cache.outputs.cache-hit != 'true')
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ${{ steps.model-cache-path.outputs.dir }}
-            ~/.monomind/models
-          key: ${{ steps.model-cache.outputs.cache-primary-key }}
-
       - name: Install coverage provider for ${{ matrix.name }}
         if: needs.changes.outputs.code == 'true' && matrix.coverage == true
         run: |
@@ -710,3 +656,144 @@ jobs:
           name: coverage-${{ matrix.name }}
           path: ${{ matrix.dir }}/coverage
           if-no-files-found: warn
+
+  # The cli suite (~850 test files, maxWorkers 4) took ~9 minutes as a single
+  # leg, so it runs as four vitest shards. Its own job rather than four legs
+  # of `packages`: the `cli` aggregate below must need exactly these shards,
+  # and `needs:` can only name a whole job, not single matrix legs. Steps
+  # mirror the `packages` job; see its comments for the reasoning.
+  cli-shards:
+    needs: changes
+    name: cli shard ${{ matrix.shard }}/4
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        if: needs.changes.outputs.code == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up pnpm
+        if: needs.changes.outputs.code == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Resolve pnpm store path
+        if: needs.changes.outputs.code == 'true'
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      # Same key as the `packages` legs that set no `node`, so the store is shared.
+      - name: Cache pnpm store
+        if: needs.changes.outputs.code == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-20-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-20-
+            pnpm-${{ runner.os }}-
+
+      - name: Install workspace dependencies
+        if: needs.changes.outputs.code == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build cli's workspace dependencies
+        if: needs.changes.outputs.code == 'true'
+        run: pnpm --filter "{packages/@monomind/cli}^..." run build
+
+      - name: Build cli
+        if: needs.changes.outputs.code == 'true'
+        working-directory: packages/@monomind/cli
+        run: npm run build --if-present
+
+      # Same reasoning as the root job's identical step: cli's doc-eval and
+      # knowledge-superseded suites need the real embedding/reranker weights
+      # on disk, provisioned as an explicit non-query-time step. Cached and
+      # retried exactly as there; see the root job's comments for the paths
+      # and the key.
+      - name: Resolve embedding model cache path
+        if: needs.changes.outputs.code == 'true'
+        id: model-cache-path
+        working-directory: packages/@monomind/cli
+        run: |
+          tf_dir=$(node -p "require('fs').realpathSync('node_modules/@huggingface/transformers')")
+          tf_version=$(node -p "require('$tf_dir/package.json').version")
+          echo "dir=$tf_dir/.cache" >> "$GITHUB_OUTPUT"
+          echo "transformers=$tf_version" >> "$GITHUB_OUTPUT"
+
+      - name: Restore embedding model cache
+        if: needs.changes.outputs.code == 'true'
+        id: model-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ steps.model-cache-path.outputs.dir }}
+            ~/.monomind/models
+          key: hf-models-${{ runner.os }}-gte-modernbert-base-ettin-reranker-32m-v1-main-transformers-${{ steps.model-cache-path.outputs.transformers }}
+          restore-keys: |
+            hf-models-${{ runner.os }}-gte-modernbert-base-ettin-reranker-32m-v1-main-
+
+      - name: Provision embedding models
+        if: needs.changes.outputs.code == 'true'
+        working-directory: packages/@monomind/cli
+        run: |
+          delays=(20 60)
+          for attempt in 1 2 3; do
+            if node bin/cli.js doc eval --provision-model; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              delay=${delays[$((attempt - 1))]}
+              echo "::warning::Model provisioning attempt $attempt failed; retrying in ${delay}s"
+              sleep "$delay"
+            fi
+          done
+          echo "::error::Model provisioning failed after 3 attempts"
+          exit 1
+
+      - name: Save embedding model cache
+        if: needs.changes.outputs.code == 'true' && (steps.model-cache.outputs.cache-hit != 'true')
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ steps.model-cache-path.outputs.dir }}
+            ~/.monomind/models
+          key: ${{ steps.model-cache.outputs.cache-primary-key }}
+
+      - name: Run cli tests (shard ${{ matrix.shard }}/4)
+        if: needs.changes.outputs.code == 'true'
+        working-directory: packages/@monomind/cli
+        run: npm test -- --shard=${{ matrix.shard }}/4
+        env:
+          CI: true
+
+  # Keeps a single check named exactly `cli` (branch protection may require
+  # it). always() so it reports even when a shard failed; on docs-only PRs
+  # the shards succeed with their heavy steps skipped, so this passes too.
+  cli:
+    name: cli
+    needs: cli-shards
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check all cli shards passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "cli shard results: $RESULTS"
+          for r in $RESULTS; do
+            if [ "$r" != "success" ]; then
+              echo "::error::A cli shard did not succeed ($r)"
+              exit 1
+            fi
+          done
