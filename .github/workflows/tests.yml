@@ -69,6 +69,13 @@ jobs:
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # On pull requests, skip the "shipped code changed without a version
+      # bump" guard (check-package-bumps.mjs): it is a publish-time check that
+      # would fail nearly every PR touching a package, and per-PR bumps
+      # collide. Pushes to main and release.yml/prepublishOnly keep it.
+      # Read by `check:versions` and by tests/repo/publish-bumps.test.ts.
+      MONOMIND_ALLOW_STALE_PACKAGES: ${{ github.event_name == 'pull_request' && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -126,13 +133,8 @@ jobs:
         run: node scripts/check-doc-refs.mjs
 
       - name: Check publish versions and workspace pins
-        # The "shipped code changed without a version bump" guard
-        # (check-package-bumps.mjs) is a publish-time check: on a PR it would
-        # fail nearly every change to a package, and per-PR bumps collide.
-        # It still runs in release.yml and prepublishOnly; the other
-        # checks in check:versions run here.
-        env:
-          MONOMIND_ALLOW_STALE_PACKAGES: '1'
+        # The package-bump guard is skipped on PRs via the job-level env above;
+        # the other checks in check:versions always run.
         run: pnpm run check:versions
 
       - name: Check test skips are justified
