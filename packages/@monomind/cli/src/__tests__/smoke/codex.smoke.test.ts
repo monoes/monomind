@@ -10,7 +10,10 @@
  */
 
 import { execSync } from 'node:child_process';
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CodexAgentRunner } from '../../orgrt/codex-runner.js';
 
 const SMOKE = process.env.MONOMIND_SMOKE === '1';
@@ -27,6 +30,14 @@ function codexAvailable(): boolean {
 const CODEX_OK = codexAvailable();
 
 describe.skipIf(!SMOKE || !CODEX_OK)('CodexAgentRunner — ChatGPT smoke (real CLI)', () => {
+  let cwd: string;
+  beforeAll(() => {
+    cwd = mkdtempSync(join(tmpdir(), 'codex-smoke-'));
+  });
+  afterAll(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
   it('responds non-empty to a simple prompt', async () => {
     const runner = new CodexAgentRunner();
     const messages: any[] = [];
@@ -38,7 +49,7 @@ describe.skipIf(!SMOKE || !CODEX_OK)('CodexAgentRunner — ChatGPT smoke (real C
       })(),
       systemPrompt: 'You are a test echo. Follow instructions exactly.',
       model: 'gpt-5.6-terra',
-      cwd: '/tmp',
+      cwd,
       env: {},
       maxTurns: 3,
     });

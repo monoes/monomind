@@ -140,6 +140,9 @@ jobs:
       - name: Check test skips are justified
         run: node scripts/ci/check-skips.mjs
 
+      - name: Check tests use no hardcoded /tmp paths
+        run: node scripts/ci/check-no-tmp-literals.mjs
+
       # The CLI imports @monoes/hooks, @monoes/memory and @monoes/monograph as
       # workspace:* deps whose package.json "types"/"main" point at dist/ — pnpm
       # symlinks the source directory, but tsc can't resolve declarations that
