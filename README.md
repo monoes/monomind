@@ -51,6 +51,16 @@ Org skills come from the bundled library, from your own Markdown files, and from
 
 `monomind init` sets up only the coding systems installed on your machine: Claude Code, Antigravity, OpenCode, Kimi Code and Codex each count when their CLI is on your `PATH` or their config directory is in your home, and Claude Code is the default when none is found. A re-run also keeps every system the project already has. It prints what it detected; `--platforms claude,codex` names the systems yourself and `--all-platforms` writes all five. It never runs `npm install` or edits your `package.json`: the code graph uses the `@monoes/monograph` copy bundled with the CLI.
 
+Platforms come in three support tiers:
+
+| Tier | Platforms | Support |
+|---|---|---|
+| 1 | Claude Code | Every feature lands here first: full `CLAUDE.md`, packs, hooks, statusline, skills, commands and agents |
+| 2 | Codex, OpenCode, Antigravity, Kimi Code | MCP config, instruction file, and skills, commands and hooks where the platform has them natively; tested every release |
+| 3 | Copilot, Cursor, VS Code, Aider, Kiro, Trae, OpenClaw, Droid, Hermes, Gemini CLI, Zed, and the Cline, Pi, Kilo, Qwen and Crush writers | Best-effort and **experimental**: an instruction block and the MCP install line, with no feature parity promise |
+
+`monomind platforms doctor` prints each platform's tier (`--json` adds `tier` and `experimental` fields), and [docs/platforms/compatibility.md](docs/platforms/compatibility.md) has the tier and capability matrix. Init writes the tier 3 extras (Copilot mesh hooks, the Pi extension, the Kilo plugin) only when that platform is selected or the project already has its files (`.github/copilot-instructions.md`, `.pi/`, `.kilo/`); a config directory in your home directory is not enough.
+
 Two things `init` leaves off unless you ask: Claude Code's experimental Agent Teams (`--agent-teams` writes `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`; nothing in Monomind reads it) and dashboard auto-start at every session (`--dashboard`). `monomind doctor` reports a leftover Agent Teams flag from an older `init`, and `monomind init upgrade --settings` removes it (a backup stays in `settings.json.bak-agent-teams`).
 
 `init` writes `.mcp.json` (and the other systems' configs) pinned to the installed version; `--pin latest` keeps the floating `monomind@latest`, and `monomind init --force` re-pins after an upgrade.

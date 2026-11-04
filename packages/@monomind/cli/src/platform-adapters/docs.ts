@@ -10,12 +10,13 @@ function symbol(level: string): string {
 }
 
 export function renderCompatibilityMatrix(registry: Record<string, PlatformAdapter>): string {
-  const header = ['Platform', ...CAPABILITIES, 'Discovery'].join(' | ');
-  const separator = ['---', ...CAPABILITIES.map(() => '---'), '---'].join(' | ');
+  const header = ['Platform', 'Tier', ...CAPABILITIES, 'Discovery'].join(' | ');
+  const separator = ['---', '---', ...CAPABILITIES.map(() => '---'), '---'].join(' | ');
   const rows = PLATFORM_IDS.map((id) => {
     const adapter = registry[id];
     return [
       adapter.displayName,
+      adapter.tier === 3 ? '3 (experimental)' : String(adapter.tier),
       ...CAPABILITIES.map((capability) => symbol(adapter.capabilities[capability])),
       adapter.requiresDiscovery ? 'required' : 'no',
     ].join(' | ');
@@ -24,6 +25,8 @@ export function renderCompatibilityMatrix(registry: Record<string, PlatformAdapt
     '# Platform compatibility',
     '',
     '> Generated from the evidence-gated adapter registry. “experimental” means Monomind does not install an unverified native artifact.',
+    '>',
+    '> Tier 1 gets every feature first; tier 2 is tested per release; tier 3 is best-effort and experimental, with no feature parity promise.',
     '',
     header,
     separator,

@@ -111,6 +111,39 @@ describe('platforms doctor output (#277)', () => {
   });
 });
 
+describe('platforms doctor tiers', () => {
+  it('prints the tier next to each platform and marks tier 3 experimental', async () => {
+    await doctor?.action?.(context(fixture()));
+
+    const text = printed();
+    expect(text).toMatch(/^claude \(Claude Code\) \[tier 1\]: /m);
+    expect(text).toMatch(/^codex \(Codex\) \[tier 2\]: /m);
+    expect(text).toMatch(/^copilot \(GitHub Copilot\) \[tier 3, experimental\]: /m);
+  });
+
+  it('adds tier and experimental to --json without changing the existing fields', async () => {
+    await doctor?.action?.(context(fixture(), { json: true }));
+
+    const reports = JSON.parse(printed()) as Record<string, unknown>[];
+    const byId = Object.fromEntries(reports.map((report) => [report.platform, report]));
+    expect(byId.claude).toMatchObject({ tier: 1, experimental: false });
+    expect(byId.kimi).toMatchObject({ tier: 2, experimental: false });
+    expect(byId.copilot).toMatchObject({ tier: 3, experimental: true });
+    for (const report of reports)
+      expect(Object.keys(report)).toEqual(
+        expect.arrayContaining([
+          'platform',
+          'capabilities',
+          'verification',
+          'artifacts',
+          'legacy',
+          'diagnostics',
+          'sanitized',
+        ]),
+      );
+  });
+});
+
 describe('legacy detection accuracy (#277)', () => {
   it('does not call a freshly installed project legacy', async () => {
     const dir = fixture();

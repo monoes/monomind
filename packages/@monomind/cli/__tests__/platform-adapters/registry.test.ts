@@ -16,6 +16,29 @@ describe('platform registry', () => {
     expect(() => assertRegistryIsVerifiable(PLATFORM_REGISTRY)).not.toThrow();
   });
 
+  // docs/mastermind/plans/2026-11-surface-reduction.md, section 3.
+  it('assigns every adapter the tier from the surface-reduction plan', () => {
+    const tiers = Object.fromEntries(PLATFORM_IDS.map((id) => [id, PLATFORM_REGISTRY[id].tier]));
+    expect(tiers).toEqual({
+      claude: 1,
+      codex: 2,
+      opencode: 2,
+      antigravity: 2,
+      kimi: 2,
+      gemini: 3,
+      cursor: 3,
+      vscode: 3,
+      copilot: 3,
+      aider: 3,
+      kiro: 3,
+      trae: 3,
+      openclaw: 3,
+      droid: 3,
+      hermes: 3,
+      zed: 3,
+    });
+  });
+
   it('normalizes legacy ids', () => {
     expect(resolvePlatformId('claw')).toBe('openclaw');
     expect(resolvePlatformId('kimicode')).toBe('kimi');

@@ -232,7 +232,10 @@ function printDoctorReports(reports: readonly PlatformDoctorReport[], scope: Ins
   for (const report of reports) {
     const adapter = PLATFORM_REGISTRY[report.platform];
     output.writeln();
-    output.writeln(`${report.platform} (${adapter.displayName}): ${adapterState(report)}`);
+    const tier = report.experimental ? `tier ${report.tier}, experimental` : `tier ${report.tier}`;
+    output.writeln(
+      `${report.platform} (${adapter.displayName}) [${tier}]: ${adapterState(report)}`,
+    );
     if (!report.artifacts.length) output.writeln('  artifacts: none declared');
     else output.writeln(output.dim('  artifacts:'));
     for (const artifact of report.artifacts)

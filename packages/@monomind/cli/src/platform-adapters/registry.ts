@@ -5,10 +5,17 @@ import {
   type Capability,
   type PlatformAdapter,
   type PlatformId,
+  type PlatformTier,
   type SupportLevel,
 } from './types.js';
 
-export type { Capability, PlatformAdapter, PlatformId, SupportLevel } from './types.js';
+export type {
+  Capability,
+  PlatformAdapter,
+  PlatformId,
+  PlatformTier,
+  SupportLevel,
+} from './types.js';
 export { CAPABILITIES } from './types.js';
 
 export const PLATFORM_IDS = [
@@ -63,6 +70,8 @@ const gated = (
 type TargetLevels = Record<Capability, SupportLevel>;
 const target = (levels: TargetLevels) => levels;
 
+// Each entry: id, display name, target levels, requiresDiscovery, and the
+// support tier (docs/mastermind/plans/2026-11-surface-reduction.md, section 3).
 export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
   [
     [
@@ -80,6 +89,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'native',
       }),
       false,
+      1,
     ],
     [
       'gemini',
@@ -96,6 +106,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       false,
+      3,
     ],
     [
       'cursor',
@@ -112,6 +123,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       false,
+      3,
     ],
     [
       'vscode',
@@ -128,6 +140,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       false,
+      3,
     ],
     [
       'copilot',
@@ -144,6 +157,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       false,
+      3,
     ],
     [
       'opencode',
@@ -160,6 +174,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'native',
       }),
       false,
+      2,
     ],
     [
       'aider',
@@ -176,6 +191,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       false,
+      3,
     ],
     [
       'kiro',
@@ -192,6 +208,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       false,
+      3,
     ],
     [
       'trae',
@@ -208,6 +225,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       true,
+      3,
     ],
     [
       'openclaw',
@@ -224,6 +242,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       false,
+      3,
     ],
     [
       'droid',
@@ -240,6 +259,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       false,
+      3,
     ],
     [
       'antigravity',
@@ -256,6 +276,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       true,
+      2,
     ],
     [
       'hermes',
@@ -272,6 +293,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       true,
+      3,
     ],
     [
       'codex',
@@ -288,6 +310,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       false,
+      2,
     ],
     [
       'kimi',
@@ -304,6 +327,7 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       false,
+      2,
     ],
     [
       'zed',
@@ -320,14 +344,22 @@ export const PLATFORM_REGISTRY: Record<PlatformId, PlatformAdapter> = (
         permissions: 'unsupported',
       }),
       true,
+      3,
     ],
-  ] as const
+  ] as const satisfies readonly (readonly [
+    PlatformId,
+    string,
+    TargetLevels,
+    boolean,
+    PlatformTier,
+  ])[]
 ).reduce(
-  (registry, [id, displayName, levels, requiresDiscovery]) => {
+  (registry, [id, displayName, levels, requiresDiscovery, tier]) => {
     const adapterVerification = verification(id);
     registry[id] = {
       id,
       displayName,
+      tier,
       capabilities: gated(levels, adapterVerification),
       verification: adapterVerification,
       paths: PLATFORM_PATHS[id],
