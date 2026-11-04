@@ -1,5 +1,5 @@
 import { hostname } from 'node:os';
-import { DaemonLockError } from '../orgrt/daemon-lock.js';
+import { DaemonLockError } from '../shared/daemon-lock.js';
 import { MeshHub, meshDir } from './hub.js';
 
 let hub: MeshHub | undefined;
