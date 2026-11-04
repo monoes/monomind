@@ -18,7 +18,6 @@ import {
   convertAgentMd,
   convertCommandMd,
   convertSkillMd,
-  generateAgentsMd,
   generateHooksPlugin,
   generateOpencodeJson,
   generateStatusCommand,
@@ -32,8 +31,8 @@ import { isConvertibleCommand } from './write-kimicode.js';
  * `components.opencode` is set. Never touches .claude/ or .gemini/.
  *
  * Tier 1: opencode.json (MCP server + permissions + instructions).
- * Tier 2 (added next): AGENTS.md + .opencode/{agent,command,skills}/ converted
- * from the Claude tree.
+ * Tier 2: .opencode/{agent,command,skills}/ converted from the Claude tree.
+ * AGENTS.md comes from writeAgentsMd.
  */
 export async function writeOpencodeFiles(
   targetDir: string,
@@ -65,32 +64,8 @@ export async function writeOpencodeFiles(
     result.skipped.push('opencode.json');
   }
 
-  // AGENTS.md — opencode's instructions file (CLAUDE.md equivalent). A raw
-  // `--force` overwrite silently destroyed hand-authored project guidance:
-  // AGENTS.md is a file projects own and write themselves, and none of the
-  // backups init takes held the pre-init text. See GH #278. Route it through
-  // the same managed-block primitive writeClaudeMd uses, so a refresh only
-  // ever touches monomind's own block — applied on the first write too, so
-  // later runs replace in place instead of appending, and a body left
-  // unwrapped by an older version is migrated rather than duplicated.
-  const agentsMdPath = path.join(targetDir, 'AGENTS.md');
-  const agentsMdExists = fs.existsSync(agentsMdPath);
-  const guard = guardFor(targetDir, options, result);
-  const agentsMd =
-    !agentsMdExists || options.force
-      ? guard.mergeBlock(
-          agentsMdPath,
-          agentsMdExists ? fs.readFileSync(agentsMdPath, 'utf-8') : '',
-          'agents-md',
-          generateAgentsMd(options.mcp?.pin),
-        )
-      : null;
-  if (agentsMd !== null) {
-    atomicWriteFile(agentsMdPath, agentsMd);
-    result.created.files.push('AGENTS.md');
-  } else {
-    result.skipped.push('AGENTS.md');
-  }
+  // AGENTS.md is written once for every selected runtime by writeAgentsMd
+  // (write-agents.ts), not here.
 
   // Hook-shim plugin (Tier 3) — bridges monomind's gate handlers into
   // opencode's tool.execute.before. .opencode/plugins/ (plural) per opencode docs.

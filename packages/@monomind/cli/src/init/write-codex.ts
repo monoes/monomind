@@ -5,7 +5,6 @@ import * as path from 'node:path';
 import {
   CODEX_STATUS_LINE_ITEMS,
   codexHooksEnabled,
-  generateCodexAgentsMd,
   generateCodexConfig,
   generateCodexHookScript,
   generateCodexHooksConfig,
@@ -131,13 +130,5 @@ export async function writeCodexFiles(
     } else {
       result.skipped.push('.codex/config.toml');
     }
-  }
-
-  const agentsPath = path.join(targetDir, 'AGENTS.md');
-  if (!fs.existsSync(agentsPath)) {
-    atomicWriteFile(agentsPath, generateCodexAgentsMd(options.mcp?.pin));
-    result.created.files.push('AGENTS.md');
-  } else {
-    result.skipped.push('AGENTS.md');
   }
 }

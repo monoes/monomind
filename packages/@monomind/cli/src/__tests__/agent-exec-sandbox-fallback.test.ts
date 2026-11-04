@@ -147,7 +147,7 @@ async function turn(runtime: string, extra: Record<string, unknown> = {}) {
     toolTimeoutMs: 1000,
     cwd: process.cwd(),
     runnerOverride: runner,
-    emit: (ev) => events.push(ev),
+    emit: (ev: Record<string, any>) => events.push(ev),
     ...extra,
   } as any);
   const notices = events.filter((e) => e.type === 'status' && e.phase === 'notice');

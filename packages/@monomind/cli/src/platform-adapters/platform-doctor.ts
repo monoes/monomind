@@ -4,6 +4,8 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, relative, resolve, sep } from 'node:path';
 import { readInitManifest } from '../init/init-manifest.js';
+import { INIT_INSTRUCTION_BLOCKS } from '../init/instruction-owner.js';
+import { readGeneratedBlock } from '../init/managed-block.js';
 import { resolveArtifactLocation } from './locations.js';
 import { findLegacySurfaces } from './migration.js';
 import { PLATFORM_IDS, PLATFORM_REGISTRY } from './registry.js';
@@ -14,6 +16,7 @@ import type {
   InstallRequest,
   PlatformAdapter,
   PlatformDoctorReport,
+  PlatformId,
 } from './types.js';
 
 /**
@@ -48,7 +51,14 @@ function artifactState(
         ? 'managed'
         : 'foreign';
     }
-    return readFileSync(path, 'utf8').includes(marker) ? 'managed' : 'foreign';
+    const text = readFileSync(path, 'utf8');
+    // init's own full block stands in for the adapter's (init/instruction-owner.ts).
+    const initBlock =
+      kind === 'instruction' ? INIT_INSTRUCTION_BLOCKS[platform as PlatformId]?.marker : undefined;
+    return text.includes(marker) ||
+      (initBlock !== undefined && readGeneratedBlock(text, initBlock) !== null)
+      ? 'managed'
+      : 'foreign';
   } catch {
     // A raced deletion or inaccessible artifact is not evidence of ownership.
     return 'foreign';

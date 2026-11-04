@@ -442,9 +442,7 @@ export const restartCommand: Command = {
       default: false,
     },
   ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const _force = ctx.flags.force as boolean;
-
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
     output.printInfo('Restarting MCP Server...');
 
     try {

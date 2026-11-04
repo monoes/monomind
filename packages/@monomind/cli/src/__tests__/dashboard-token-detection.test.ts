@@ -46,7 +46,7 @@ describe('detectDashboardTokenLeak — injectable seam, no real git (i-052 plan 
 
   it('the tracked branch: isTracked resolving true names the file, never the value', async () => {
     const reasons = await detectDashboardTokenLeak(dir, { isTracked: async () => true });
-    expect(reasons.some((r) => r.includes('.monomind/dashboard-token'))).toBe(true);
+    expect(reasons.some((r: string) => r.includes('.monomind/dashboard-token'))).toBe(true);
     expect(reasons.join(' ')).not.toContain('fake-token-value-should-never-print');
   });
 
@@ -106,7 +106,7 @@ describe('detectDashboardTokenLeak — real git, default wiring (integration con
     execFileSync('git', ['add', '.monomind/dashboard-token'], { cwd: dir });
 
     const reasons = await detectDashboardTokenLeak(dir);
-    expect(reasons.some((r) => r.includes('.monomind/dashboard-token'))).toBe(true);
+    expect(reasons.some((r: string) => r.includes('.monomind/dashboard-token'))).toBe(true);
 
     const warning = formatDashboardTokenLeakWarning(reasons);
     expect(warning).toContain('.monomind/dashboard-token');

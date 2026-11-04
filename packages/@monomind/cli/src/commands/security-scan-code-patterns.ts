@@ -71,8 +71,7 @@ function scanFileForCodePatterns(
   for (let i = 0; i < lines.length; i++) {
     for (const { pattern, type, severity, desc } of CODE_PATTERNS) {
       pattern.lastIndex = 0;
-      let m: RegExpExecArray | null;
-      while ((m = pattern.exec(lines[i])) !== null) {
+      while (pattern.exec(lines[i]) !== null) {
         findings.push({
           severity: severity === 'high' ? output.warning('HIGH') : output.warning('MEDIUM'),
           type,

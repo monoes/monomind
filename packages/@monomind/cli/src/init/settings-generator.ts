@@ -36,6 +36,8 @@ export function generateSettings(options: InitOptions): object {
       'Bash(npx monomind *)',
       'Bash(npx -y monomind *)',
       'Bash(npx monomind@*)',
+      // Generated hooks and guidance pin the scoped package (#738, #754).
+      'Bash(npx -y --package=@monoes/monomindcli@* monomind *)',
       'Bash(node .claude/helpers/*)',
       'mcp__monomind__*',
     ],

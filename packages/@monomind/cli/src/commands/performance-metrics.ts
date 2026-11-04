@@ -64,10 +64,8 @@ export const metricsCommand: Command = {
     const rssMB = (memUsage.rss / 1024 / 1024).toFixed(1);
     const memPercent = ((1 - freeMem / totalMem) * 100).toFixed(1);
     const cpuUserMs = (cpuUsage.user / 1000).toFixed(0);
-    const _cpuSystemMs = (cpuUsage.system / 1000).toFixed(0);
 
     // Try to get HNSW/cache stats from real data
-    const _cacheHitRate = 'N/A';
     let hnswEntries = 0;
     try {
       const { getHNSWStatus } = await import('../memory/memory-initializer.js');

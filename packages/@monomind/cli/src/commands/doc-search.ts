@@ -1,3 +1,4 @@
+import type { FusableResult } from '../memory/query-router.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { FILTER_OPTIONS, hasFilter, libraryFilterFromFlags } from './doc-filters.js';
@@ -157,7 +158,7 @@ export const searchDocCommand: Command = {
       );
     }
 
-    const fused = rrfFuse(
+    const fused = rrfFuse<FusableResult>(
       [
         chunkExcerpts.map((e) => ({
           ...e,

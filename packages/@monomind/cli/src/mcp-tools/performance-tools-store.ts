@@ -11,7 +11,6 @@ import { getProjectCwd } from './types.js';
 const STORAGE_DIR = '.monomind';
 const PERF_DIR = 'performance';
 const METRICS_FILE = 'metrics.json';
-const _BENCHMARKS_FILE = 'benchmarks.json';
 
 export interface PerfMetrics {
   timestamp: string;
