@@ -10,10 +10,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let transformersImported = false;
-vi.mock('@huggingface/transformers', () => {
-  transformersImported = true;
-  return { AutoTokenizer: {}, AutoModelForSequenceClassification: {}, pipeline: async () => null };
-});
+vi.mock('../utils/transformers-loader.js', async (orig) => ({
+  ...(await orig<typeof import('../utils/transformers-loader.js')>()),
+  loadTransformers: async () => {
+    transformersImported = true;
+    return {
+      AutoTokenizer: {},
+      AutoModelForSequenceClassification: {},
+      pipeline: async () => null,
+    };
+  },
+}));
 
 const VARS = ['MONOMIND_NO_LOCAL_EMBEDDINGS', 'MONOMIND_RERANKER'];
 let saved: Record<string, string | undefined> = {};

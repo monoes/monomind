@@ -5,33 +5,33 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  hono: '>=4.13.5'
-  '@hono/node-server': '>=2.0.5'
-  ws: '>=8.20.1'
-  axios: '>=1.16.0'
-  qs: '>=6.16.0'
-  esbuild: '>=0.28.1'
-  protobufjs: '>=8.6.6'
-  '@protobufjs/utf8': '>=1.1.1'
-  '@grpc/grpc-js': '>=1.14.4'
-  vite: '>=8.1.6'
-  postcss: '>=8.5.18'
-  fast-uri: '>=4.1.3'
-  '@xmldom/xmldom': '>=0.8.15'
-  form-data: '>=4.0.6'
-  ip-address: '>=10.1.1'
-  js-yaml: '>=4.2.0'
-  undici: '>=7.28.0'
-  http-proxy-middleware: '>=3.0.7'
-  follow-redirects: '>=1.16.0'
-  '@anthropic-ai/claude-code': '>=2.1.163'
-  handlebars: '>=4.7.9'
-  onnxruntime-node: '>=1.27.0'
-  sharp: '>=0.35.4'
-  adm-zip: '>=0.6.1'
-  body-parser: '>=1.20.6'
-  better-sqlite3: '>=12.0.0'
-  nanoid: '>=3.3.17'
+  hono: ^4.13.5
+  '@hono/node-server': ^2.0.5
+  ws: ^8.20.1
+  axios: ^1.16.0
+  qs: ^6.16.0
+  esbuild: ^0.28.1
+  protobufjs: ^8.6.6
+  '@protobufjs/utf8': ^1.1.1
+  '@grpc/grpc-js': ^1.14.4
+  vite: ^8.1.6
+  postcss: ^8.5.18
+  fast-uri: ^4.1.3
+  '@xmldom/xmldom': ^0.9.12
+  form-data: ^4.0.6
+  ip-address: ^10.1.1
+  js-yaml: ^4.2.0
+  undici: ^8.12.3
+  http-proxy-middleware: ^3.0.7
+  follow-redirects: ^1.16.0
+  '@anthropic-ai/claude-code': ^2.1.163
+  handlebars: ^4.7.9
+  onnxruntime-node: ^1.27.0
+  sharp: ^0.35.4
+  adm-zip: ^0.6.1
+  body-parser: ^2.4.0
+  better-sqlite3: ^12.0.0
+  nanoid: ^6.0.1
   vitest: '>=4.1.11 <5'
   '@vitest/mocker': '>=4.1.11 <5'
   '@modelcontextprotocol/sdk': '>=1.31.0 <2'
@@ -57,7 +57,7 @@ importers:
         specifier: ^20.0.0
         version: 20.19.39
       better-sqlite3:
-        specifier: '>=12.0.0'
+        specifier: ^12.0.0
         version: 12.11.1
       tsx:
         specifier: ^4.21.0
@@ -66,7 +66,7 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
       vite:
-        specifier: '>=8.1.6'
+        specifier: ^8.1.6
         version: 8.3.5(@types/node@20.19.39)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.3)
       vitest:
         specifier: '>=4.1.11 <5'
@@ -81,7 +81,7 @@ importers:
         specifier: ^12.1.0
         version: 12.1.0
       ws:
-        specifier: '>=8.20.1'
+        specifier: ^8.20.1
         version: 8.21.0
     devDependencies:
       typescript:
@@ -141,7 +141,7 @@ importers:
         specifier: ^1.12.0
         version: 1.12.0
       ws:
-        specifier: '>=8.20.1'
+        specifier: ^8.20.1
         version: 8.21.0
       zod:
         specifier: ^4.6.6
@@ -150,6 +150,9 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: 0.3.303
         version: 0.3.303(@anthropic-ai/sdk@0.111.0(zod@4.6.6))(@modelcontextprotocol/sdk@1.32.1(zod@4.6.6))(zod@4.6.6)
+      '@huggingface/transformers':
+        specifier: 4.3.0
+        version: 4.3.0(@types/node@20.19.39)
       chokidar:
         specifier: ^3.6.0
         version: 3.6.0
@@ -199,9 +202,6 @@ importers:
       '@ai-sdk/xai':
         specifier: ^4.0.0
         version: 4.0.34(zod@4.6.6)
-      '@huggingface/transformers':
-        specifier: ^4.3.0
-        version: 4.3.0(@types/node@20.19.39)
       '@monoes/hooks':
         specifier: workspace:*
         version: link:../hooks
@@ -265,7 +265,7 @@ importers:
         specifier: ^7.1.0
         version: 7.2.0
       ws:
-        specifier: '>=8.20.1'
+        specifier: ^8.20.1
         version: 8.21.0
     devDependencies:
       '@types/cors':
@@ -284,7 +284,7 @@ importers:
   packages/@monomind/memory:
     dependencies:
       better-sqlite3:
-        specifier: '>=12.0.0'
+        specifier: ^12.0.0
         version: 12.11.1
       sql.js:
         specifier: ^1.10.3
@@ -303,7 +303,7 @@ importers:
   packages/@monomind/monograph:
     dependencies:
       better-sqlite3:
-        specifier: '>=12.0.0'
+        specifier: ^12.0.0
         version: 12.11.1
       chokidar:
         specifier: ^3.6.0
@@ -852,7 +852,7 @@ packages:
     resolution: {integrity: sha512-TA//nWMqPhbfdfneACk6t5a9eqbS9lABEPyKn0/xZTah3H3U2XaVg85rJFl0/Fyit0I552YDHgXGVSf3GwqbUw==}
     engines: {node: '>=20'}
     peerDependencies:
-      hono: '>=4.13.5'
+      hono: ^4.13.5
 
   '@huggingface/jinja@0.5.10':
     resolution: {integrity: sha512-SgS1D1bglQ94ceD4ZCL6eayUDy9uV1xuyk61OjgSxU5GJh7upqZCKII0JoTYMc6wWsg3JUgaPRX0ElQzXPk3Cw==}
@@ -1380,7 +1380,7 @@ packages:
     resolution: {integrity: sha512-fKShNpKZzupWZuY0z7egydvL0sqW4INEZBEExMBMAa6izlENEVHwoXgdaTCaBZ5fwlr4xf2o1wXC83n9RpO+NA==}
     peerDependencies:
       msw: ^2.4.9
-      vite: '>=8.1.6'
+      vite: ^8.1.6
     peerDependenciesMeta:
       msw:
         optional: true
@@ -2749,7 +2749,7 @@ packages:
     peerDependencies:
       '@types/node': ^20.19.0 || >=22.12.0
       '@vitejs/devtools': ^0.7.1 || ^0.8.0
-      esbuild: '>=0.28.1'
+      esbuild: ^0.28.1
       jiti: '>=1.21.0'
       less: ^4.0.0
       sass: ^1.70.0
@@ -2801,7 +2801,7 @@ packages:
       '@vitest/ui': 4.1.11
       happy-dom: '*'
       jsdom: '*'
-      vite: '>=8.1.6'
+      vite: ^8.1.6
     peerDependenciesMeta:
       '@edge-runtime/vm':
         optional: true
@@ -3218,11 +3218,9 @@ snapshots:
     dependencies:
       hono: 4.13.11
 
-  '@huggingface/jinja@0.5.10':
-    optional: true
+  '@huggingface/jinja@0.5.10': {}
 
-  '@huggingface/tokenizers@0.2.0':
-    optional: true
+  '@huggingface/tokenizers@0.2.0': {}
 
   '@huggingface/transformers@4.3.0(@types/node@20.19.39)':
     dependencies:
@@ -3233,10 +3231,8 @@ snapshots:
       sharp: 0.35.5(@types/node@20.19.39)
     transitivePeerDependencies:
       - '@types/node'
-    optional: true
 
-  '@img/colour@1.1.0':
-    optional: true
+  '@img/colour@1.1.0': {}
 
   '@img/sharp-darwin-arm64@0.35.5':
     optionalDependencies:
@@ -3665,8 +3661,7 @@ snapshots:
       mime-types: 3.0.2
       negotiator: 1.1.0
 
-  adm-zip@0.6.1:
-    optional: true
+  adm-zip@0.6.1: {}
 
   ai@7.0.59(zod@4.6.6):
     dependencies:
@@ -3860,14 +3855,12 @@ snapshots:
       es-define-property: 1.0.1
       es-errors: 1.3.0
       gopd: 1.2.0
-    optional: true
 
   define-properties@1.2.1:
     dependencies:
       define-data-property: 1.1.4
       has-property-descriptors: 1.0.2
       object-keys: 1.1.1
-    optional: true
 
   depd@2.0.0: {}
 
@@ -3962,8 +3955,7 @@ snapshots:
 
   escape-html@1.0.3: {}
 
-  escape-string-regexp@4.0.0:
-    optional: true
+  escape-string-regexp@4.0.0: {}
 
   estree-walker@3.0.3:
     dependencies:
@@ -4109,8 +4101,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  flatbuffers@25.9.23:
-    optional: true
+  flatbuffers@25.9.23: {}
 
   forwarded@0.2.0: {}
 
@@ -4163,13 +4154,11 @@ snapshots:
       matcher: 4.0.0
       semver: 7.8.5
       serialize-error: 8.1.0
-    optional: true
 
   globalthis@1.0.4:
     dependencies:
       define-properties: 1.2.1
       gopd: 1.2.0
-    optional: true
 
   gopd@1.2.0: {}
 
@@ -4222,13 +4211,11 @@ snapshots:
       graphology-types: 0.24.8
       obliterator: 2.0.5
 
-  guid-typescript@1.0.9:
-    optional: true
+  guid-typescript@1.0.9: {}
 
   has-property-descriptors@1.0.2:
     dependencies:
       es-define-property: 1.0.1
-    optional: true
 
   has-symbols@1.1.0: {}
 
@@ -4368,8 +4355,7 @@ snapshots:
 
   lilconfig@3.1.3: {}
 
-  long@5.3.2:
-    optional: true
+  long@5.3.2: {}
 
   lop@0.4.2:
     dependencies:
@@ -4399,7 +4385,6 @@ snapshots:
   matcher@4.0.0:
     dependencies:
       escape-string-regexp: 4.0.0
-    optional: true
 
   math-intrinsics@1.1.0: {}
 
@@ -4484,8 +4469,7 @@ snapshots:
 
   object-inspect@1.13.4: {}
 
-  object-keys@1.1.1:
-    optional: true
+  object-keys@1.1.1: {}
 
   obliterator@2.0.5: {}
 
@@ -4507,18 +4491,15 @@ snapshots:
     dependencies:
       wrappy: 1.0.2
 
-  onnxruntime-common@1.27.0:
-    optional: true
+  onnxruntime-common@1.27.0: {}
 
-  onnxruntime-common@1.31.0-dev.20260911-2a43ec07e:
-    optional: true
+  onnxruntime-common@1.31.0-dev.20260911-2a43ec07e: {}
 
   onnxruntime-node@1.27.0:
     dependencies:
       adm-zip: 0.6.1
       global-agent: 4.1.3
       onnxruntime-common: 1.27.0
-    optional: true
 
   onnxruntime-web@1.31.0-dev.20260914-8d85527a0:
     dependencies:
@@ -4528,7 +4509,6 @@ snapshots:
       onnxruntime-common: 1.31.0-dev.20260911-2a43ec07e
       platform: 1.3.6
       protobufjs: 8.7.1
-    optional: true
 
   option@0.2.4: {}
 
@@ -4563,8 +4543,7 @@ snapshots:
 
   pkce-challenge@5.0.1: {}
 
-  platform@1.3.6:
-    optional: true
+  platform@1.3.6: {}
 
   postcss@8.5.23:
     dependencies:
@@ -4592,7 +4571,6 @@ snapshots:
   protobufjs@8.7.1:
     dependencies:
       long: 5.3.2
-    optional: true
 
   proxy-addr@2.0.8:
     dependencies:
@@ -4755,7 +4733,6 @@ snapshots:
   serialize-error@8.1.0:
     dependencies:
       type-fest: 0.20.2
-    optional: true
 
   serve-static@1.16.3:
     dependencies:
@@ -4811,7 +4788,6 @@ snapshots:
       '@img/sharp-win32-ia32': 0.35.5
       '@img/sharp-win32-x64': 0.35.5
       '@types/node': 20.19.39
-    optional: true
 
   shebang-command@2.0.0:
     dependencies:
@@ -5048,8 +5024,7 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  type-fest@0.20.2:
-    optional: true
+  type-fest@0.20.2: {}
 
   type-is@1.6.18:
     dependencies:

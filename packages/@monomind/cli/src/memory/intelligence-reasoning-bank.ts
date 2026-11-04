@@ -5,6 +5,7 @@
  * @module v1/cli/intelligence
  */
 
+import type { PatternStore } from '@monoes/memory';
 import { cosineSimilarity as sharedCosineSimilarity } from '../utils/cosine-similarity.js';
 import { readJsonFileSync, writeJsonFileAtomic } from '../utils/json-file.js';
 import {
@@ -20,7 +21,7 @@ import type { StoredPattern } from './intelligence-types.js';
  * Uses Map for O(1) storage and array for similarity search
  * Supports persistence to disk
  */
-export class LocalReasoningBank {
+export class LocalReasoningBank implements PatternStore {
   private patterns: Map<string, StoredPattern> = new Map();
   private patternList: StoredPattern[] = [];
   private maxSize: number;

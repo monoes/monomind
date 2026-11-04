@@ -43,6 +43,7 @@ async function run(opts: {
     ],
   });
   daemon = new OrgDaemon(root, {
+    allowUnconfined: true, // test harness: no OS sandbox is available or needed
     queryFn: sdk.queryFn,
     forward: false,
     stopWaitMs: 100,

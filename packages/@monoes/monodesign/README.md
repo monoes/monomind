@@ -11,7 +11,7 @@
 **Frontend design intelligence for AI agents** — OKLCH design tokens, a 51-rule AI-slop
 antipattern detector, and the `/monodesign` agent skill for Claude Code and Gemini agy.
 
-> Part of the [Monomind](https://github.com/monoes/monomind) ecosystem. v1.2.4 · Apache-2.0
+> Part of the [Monomind](https://github.com/monoes/monomind) ecosystem. v2.24.0 · Apache-2.0
 
 ---
 
@@ -36,7 +36,7 @@ npm install @monoes/monodesign
 
 ## Design Tokens
 
-Source: [`src/tokens.ts`](packages/@monoes/monodesign/src/tokens.ts) + [`src/tokens.css`](packages/@monoes/monodesign/src/tokens.css)
+Source: [`src/tokens.ts`](src/tokens.ts) + [`src/tokens.css`](src/tokens.css)
 
 All color tokens are in **OKLCH** — no hex colors in the token system.
 
@@ -63,7 +63,7 @@ All color tokens are in **OKLCH** — no hex colors in the token system.
   color: var(--color-ink);
   padding: var(--space-8);
   border-radius: var(--radius-lg);
-  transition: transform var(--duration-default) var(--easing-expo-out);
+  transition: transform var(--duration-base) var(--ease-out);
 }
 ```
 
@@ -81,26 +81,26 @@ console.log(radius.lg);       // 12px
 
 ## Antipattern Detection (51 Rules)
 
-Source: [`cli/engine/registry/antipatterns.mjs`](packages/@monoes/monodesign/cli/engine/registry/antipatterns.mjs) (entry point, re-exports from `antipatterns-slop.mjs`, `antipatterns-quality.mjs` and `antipatterns-provider.mjs`) — 51 entries.
+Source: [`cli/engine/registry/antipatterns.mjs`](cli/engine/registry/antipatterns.mjs) (entry point, re-exports from `antipatterns-slop.mjs`, `antipatterns-quality.mjs` and `antipatterns-provider.mjs`) — 51 entries.
 
 ### Rule Categories
 
-**`slop`** (21 rules) — AI-generation tells that make UIs feel generic:
+**`slop`** (23 rules) — AI-generation tells that make UIs feel generic:
 
 `side-tab`, `border-accent-on-rounded`, `overused-font`, `single-font`, `flat-type-hierarchy`, `gradient-text`, `ai-color-palette`, `cream-palette`, `nested-cards`, `monotonous-spacing`, `bounce-easing`, `dark-glow`, `icon-tile-stack`, `italic-serif-display`, `hero-eyebrow-chip`, `repeated-section-kickers`, `numbered-section-markers`, `em-dash-overuse`, `marketing-buzzword`, `aphoristic-cadence`, `oversized-h1`, `extreme-negative-tracking`, `broken-image`
 
-**`quality`** (24 rules) — Accessibility and design principle violations:
+**`quality`** (23 rules) — Accessibility and design principle violations:
 
 `gray-on-color`, `low-contrast`, `layout-transition`, `line-length`, `cramped-padding`, `body-text-viewport-edge`, `tight-leading`, `skipped-heading`, `justified-text`, `tiny-text`, `all-caps-body`, `wide-tracking`, `text-overflow`, `clipped-overflow-container`, `design-system-font`, `design-system-color`, `design-system-radius`, `design-system-font-size`, `missing-focus-visible`, `small-touch-target`, `hover-only-affordance`, `image-missing-dimensions`, `dark-scheme-contrast-blindspot`
 
-**Provider-gated** (4 advisory rules, opt-in via `--gpt`/`--gemini`): `gpt-thin-border-wide-shadow`, `repeating-stripes-gradient`, `codex-grid-background`, `theater-slop-phrase`
+**Provider-gated** (5 advisory rules, opt-in via `--gpt`/`--gemini`): `gpt-thin-border-wide-shadow`, `repeating-stripes-gradient`, `codex-grid-background`, `theater-slop-phrase`, `image-hover-transform`
 
 ### Detection Engines
 
 | Engine | Method | Optional dep |
 |---|---|---|
 | `regex` | Source text / CSS-in-JS scan | none |
-| `static-html` | HTMLparser2 static DOM parse | none |
+| `static-html` | htmlparser2 static DOM parse | none |
 | `browser` | Live-page scan | `@monoes/monobrowse` (optional) with an installed Chrome, Chromium or Edge, else a `puppeteer` you install yourself |
 | `visual` | Visual contrast analysis | `@monoes/monobrowse` (optional) |
 
@@ -112,7 +112,7 @@ Source: [`cli/engine/registry/antipatterns.mjs`](packages/@monoes/monodesign/cli
 
 ## OKLCH Palette Seed Library
 
-Source: [`packages/@monomind/cli/src/commands/design-palette.ts#SEEDS`](packages/@monomind/cli/src/commands/design-palette.ts#SEEDS), with the seed data in [`design-palette-seeds-1.ts`](packages/@monomind/cli/src/commands/design-palette-seeds-1.ts) and [`design-palette-seeds-2.ts`](packages/@monomind/cli/src/commands/design-palette-seeds-2.ts)
+Source: `SEEDS` in [`packages/@monomind/cli/src/commands/design-palette.ts`](../../@monomind/cli/src/commands/design-palette.ts), with the seed data in [`design-palette-seeds-1.ts`](../../@monomind/cli/src/commands/design-palette-seeds-1.ts) and [`design-palette-seeds-2.ts`](../../@monomind/cli/src/commands/design-palette-seeds-2.ts)
 
 - **129 hand-curated seeds** spanning the full hue wheel (0°–360°)
 - Each seed: `{ id, oklch: [L, C, H], mood: string, strategy: string }`
@@ -123,11 +123,11 @@ Source: [`packages/@monomind/cli/src/commands/design-palette.ts#SEEDS`](packages
 
 ## The `/monodesign` Agent Skill
 
-Source: [`skill/SKILL.src.md`](packages/@monoes/monodesign/skill/SKILL.src.md) · v2.0.0 · Apache-2.0
+Source: [`skill/SKILL.src.md`](skill/SKILL.src.md) · v2.0.0 · Apache-2.0
 
 Triggers: `/monodesign`, `/design`, `/frontend-design`, plus 40+ natural-language triggers.
 
-### 24 Skill Commands
+### 28 Skill Commands
 
 | Category | Commands |
 |---|---|
@@ -171,14 +171,14 @@ Manage via `monomind design ignores` or `/monodesign hooks <on|off|status|ignore
 |---|---|
 | `monomind design detect [-t <path>] [--json]` | Scan HTML/CSS for antipatterns |
 | `monomind design fix [-t <path>] [--dry-run] [--json] [--rule <ids>]` | Auto-fix with safe codemods |
-| `monomind design ignores <list\|add-rule\|add-file\|add-value\|remove-rule>` | Manage detector ignores |
+| `monomind design ignores <list\|add-rule\|add-file\|add-value\|remove-rule\|remove-file\|remove-value\|clear>` | Manage detector ignores |
 | `monomind design palette [--id <id>] [--from <key>] [--random] [--json]` | Pick OKLCH brand seed |
 
 ---
 
 ## Design System Consistency
 
-Source: [`cli/engine/design-system.mjs`](packages/@monoes/monodesign/cli/engine/design-system.mjs) (entry point, split across `design-system-parse.mjs` and `design-system-checks.mjs`)
+Source: [`cli/engine/design-system.mjs`](cli/engine/design-system.mjs) (entry point, split across `design-system-parse.mjs` and `design-system-checks.mjs`)
 
 Parses `DESIGN.md` / `.monodesign/design.json` to enforce consistency rules (`design-system-font`, `design-system-color`, `design-system-radius`, `design-system-font-size`). The skill writes `DESIGN.md`; the detector reads it for drift detection.
 
@@ -190,7 +190,7 @@ Search order: `DESIGN.md` → `.agents/context/DESIGN.md` → `docs/DESIGN.md`.
 
 ```json
 {
-  ".":                   "./src/index.ts",
+  ".":                   "./dist/index.js",
   "./tokens":            "./src/tokens.css",
   "./engine":            "./cli/engine/detect-antipatterns.mjs",
   "./engine/browser":    "./cli/engine/detect-antipatterns-browser.js"

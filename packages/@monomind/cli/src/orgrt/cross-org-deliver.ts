@@ -1,6 +1,6 @@
 // packages/@monomind/cli/src/orgrt/cross-org-deliver.ts
 // Split out of cross-org.ts (file-size sweep) — the local-process deliver() entry point.
-import { checkResources, waitForCapacity } from '../utils/resource-governor.js';
+import { checkResources, waitForCapacity } from '../shared/resource-governor.js';
 import { clearDeferredSpawn, isDeferredSpawn, markDeferredSpawn } from './cross-org-deferred.js';
 import { pushMessage, resolveAddress } from './cross-org-mail.js';
 import { deliverRemote } from './cross-org-remote.js';

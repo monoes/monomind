@@ -2,7 +2,7 @@
 // Split out of cross-org.ts (file-size sweep) — cross-process delivery: the
 // outbound leg (deliverRemote) and the inbound handler (receiveRemote).
 import { timingSafeEqual } from 'node:crypto';
-import { checkResources } from '../utils/resource-governor.js';
+import { checkResources } from '../shared/resource-governor.js';
 import { lookupOrg, normalizeRoot } from './broker.js';
 import { clearDeferredSpawn, isDeferredSpawn, markDeferredSpawn } from './cross-org-deferred.js';
 import { federationAllows, federationDef, federationDenied } from './cross-org-federation.js';

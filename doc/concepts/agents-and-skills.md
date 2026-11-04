@@ -214,7 +214,7 @@ In this repository the root `.claude/` is the only hand-edited tree. `packages/@
   pnpm run lint:agent-refs         # every subagent_type, agentSlug and Skill(...) named in shipped files exists
   pnpm run sync:claude-trees:check # the derived trees regenerate deterministically and match disk
   pnpm run lint:skills             # monomind commands named in skills exist; synced skills are identical
-  pnpm run pick:eval               # top-1/top-3 picks on tests/pick-eval (60 tasks)
+  pnpm run pick:eval               # top-1/top-3 picks on tests/pick-eval (82 tasks)
   pnpm run docs:counts             # refresh the counts on this page and the site
   ```
 

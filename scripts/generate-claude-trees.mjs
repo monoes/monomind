@@ -15,7 +15,9 @@
  *                                    packages/@monomind/cli/claude-overlay/
  *                                    (the files that ship but are not part of
  *                                    this repo's own `.claude/`)
- *   .agents/skills, .gemini/skills   full copies of .claude/skills
+ *   .agents/skills, .gemini/skills   full copies of .claude/skills; the
+ *                                    Antigravity-only .gemini/skills/monomind/SKILL.md
+ *                                    stays tracked
  *   .gemini/helpers                  copy of .claude/helpers (minus the repo's
  *                                    git hooks); statusline.sh stays tracked
  *   .kimi-code/{agents,plugin/commands,skills}
@@ -93,7 +95,7 @@ const KIMI_CONVERTER = `${PKG}/dist/src/init/write-kimicode.js`;
 const OWNED = [
   { dir: PKG_TREE },
   { dir: '.agents/skills' },
-  { dir: '.gemini/skills' },
+  { dir: '.gemini/skills', keep: ['monomind/SKILL.md'] },
   { dir: '.gemini/helpers', keep: ['statusline.sh'] },
   { dir: '.kimi-code/agents', kimi: true },
   { dir: '.kimi-code/plugin/commands', kimi: true },

@@ -6,7 +6,7 @@
  * moved to the real package.
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { closeDb, countNodes, type GroupRepo, openDb, parseGroupConfig } from '@monoes/monograph';
@@ -14,6 +14,7 @@ import { realOrResolved } from '../utils/input-guards.js';
 import { getProjectCwd } from './types.js';
 
 type Db = ReturnType<typeof openDb>;
+type ExportedNodeRow = { name: string; file_path: string | null; start_line: number | null };
 
 // ── Group config reader ───────────────────────────────────────────────────────
 
@@ -65,15 +66,13 @@ function readGroupConfig(configPath: string): GroupRepo[] {
  */
 function isRepoStale(db: Db, repoPath: string): boolean {
   try {
-    const meta = ((db as any)
-      .prepare("SELECT value FROM index_meta WHERE key = 'last_commit_hash'")
-      .get() ??
-      (db as any).prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get()) as
+    const meta = (db.prepare("SELECT value FROM index_meta WHERE key = 'last_commit_hash'").get() ??
+      db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get()) as
       | { value: string }
       | undefined;
     const lastCommit = meta?.value;
     if (!lastCommit || !/^[0-9a-f]{7,40}$/i.test(lastCommit)) return false;
-    const out = execSync(`git rev-list --count ${lastCommit}..HEAD`, {
+    const out = execFileSync('git', ['rev-list', '--count', `${lastCommit}..HEAD`], {
       cwd: repoPath,
       encoding: 'utf-8',
     }).trim();
@@ -102,11 +101,11 @@ export async function getGroupContracts(
     if (!existsSync(dbPath)) continue;
     try {
       const db = openDb(dbPath);
-      const exported = (db as any)
+      const exported = db
         .prepare(
           "SELECT * FROM nodes WHERE is_exported = 1 AND label NOT IN ('File','Folder','Community','Concept') LIMIT 100",
         )
-        .all() as any[];
+        .all() as ExportedNodeRow[];
       closeDb(db);
       for (const n of exported) {
         result.push({
@@ -162,14 +161,14 @@ export async function getGroupStatus(configPath: string): Promise<{
     try {
       const db = openDb(dbPath);
       const nc = countNodes(db);
-      const contracts = (db as any)
-        .prepare("SELECT COUNT(*) as n FROM nodes WHERE label = 'Route'")
-        .get() as any;
-      const meta = (db as any)
+      const contracts = db.prepare("SELECT COUNT(*) as n FROM nodes WHERE label = 'Route'").get() as
+        | { n?: number }
+        | undefined;
+      const meta = db
         .prepare(
           "SELECT value FROM index_meta WHERE key IN ('ua_last_commit','lastCommit') LIMIT 1",
         )
-        .get() as any;
+        .get() as { value?: string } | undefined;
       const stale = isRepoStale(db, repoPath);
       closeDb(db);
       groups.push({

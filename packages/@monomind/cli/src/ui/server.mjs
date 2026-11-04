@@ -250,6 +250,8 @@ export async function startServer({
   });
 
   const _handleRequest = async (req, res) => {
+    // GET subresources (SSE) may carry ?token= in the URL: never leak it via Referer.
+    res.setHeader('Referrer-Policy', 'no-referrer');
     const gate = checkRequestGate({
       req,
       res,

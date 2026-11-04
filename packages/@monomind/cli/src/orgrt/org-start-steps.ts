@@ -113,9 +113,9 @@ export async function prepareOrgStart(
     daemon.releaseDaemonLock(name);
     daemon.daemonLocks.set(name, await acquireDaemonLock(daemon.root, name));
   }
-  // #502 review: the single enforcement point for unconfined roles (warn-only
-  // until the operator decides whether to refuse them).
-  enforceConfinement(def, name);
+  // #502 review: the single enforcement point for unconfined roles. Fails
+  // closed unless the operator opted in (--allow-unconfined).
+  enforceConfinement(def, name, { allowUnconfined: daemon.opts.allowUnconfined });
   // #502 review round 4: quarantine whatever a role planted, including
   // during a run that crashed or was killed, before anything starts.
   const notifier = () => ({

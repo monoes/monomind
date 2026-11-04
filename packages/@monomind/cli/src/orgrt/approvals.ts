@@ -4,7 +4,7 @@
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { writeJsonFileAtomic } from '../utils/json-file.js';
+import { writeJsonFileAtomic } from '../shared/json-file.js';
 import {
   type ApprovalWaitResult,
   notifyApprovalWaiters,

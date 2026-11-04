@@ -79,6 +79,7 @@ export type {
 // ===== Document Chunker & Knowledge Base =====
 export { chunkDocument, KnowledgeRetriever, KnowledgeStore } from './knowledge/index.js';
 export { createMigrator, MemoryMigrator, migrateMultipleSources } from './migration.js';
+export type { PatternStore, StoredPatternRecord } from './pattern-store.js';
 export type {
   DiffResult,
   PromptExperiment,

@@ -7,6 +7,17 @@ import type { MCPTool } from '../types.js';
 import { ambiguityResult } from './impact-tools-shared.js';
 import { getDbPath, text } from './shared.js';
 
+/** Node fields read for display; rows may be camelCase (typed nodes) or snake_case (raw SQL rows). */
+interface DisplayNode {
+  id?: string;
+  name?: string;
+  label?: string;
+  filePath?: string | null;
+  file_path?: string | null;
+  startLine?: number | null;
+  start_line?: number | null;
+}
+
 // ── monograph_context ─────────────────────────────────────────────────────────
 
 export const monographContextTool: MCPTool = {
@@ -56,7 +67,7 @@ export const monographContextTool: MCPTool = {
       if (!result?.node) return text(`No symbol found: ${ctxName}`);
 
       // Format context as structured text for direct LLM consumption
-      const n = result.node as any;
+      const n = result.node as DisplayNode;
       const loc = n.filePath
         ? n.startLine != null
           ? `${n.filePath}:${n.startLine}`
@@ -64,7 +75,7 @@ export const monographContextTool: MCPTool = {
         : '';
       const lines: string[] = [`[${n.label ?? '?'}] ${n.name}  ${loc}`, ''];
 
-      const formatNodes = (nodes: any[], label: string) => {
+      const formatNodes = (nodes: DisplayNode[], label: string) => {
         if (!Array.isArray(nodes) || nodes.length === 0) return;
         lines.push(`${label} (${nodes.length}):`);
         for (const node of nodes.slice(0, 20)) {
@@ -77,10 +88,10 @@ export const monographContextTool: MCPTool = {
         lines.push('');
       };
 
-      formatNodes(result.callers as any, 'Callers');
-      formatNodes(result.callees as any, 'Callees');
-      formatNodes(result.imports as any, 'Imports');
-      formatNodes(result.importedBy as any, 'ImportedBy');
+      formatNodes(result.callers as DisplayNode[], 'Callers');
+      formatNodes(result.callees as DisplayNode[], 'Callees');
+      formatNodes(result.imports as DisplayNode[], 'Imports');
+      formatNodes(result.importedBy as DisplayNode[], 'ImportedBy');
       formatNodes(result.testedBy, 'Tested by (calls this symbol)');
       formatNodes(result.fileTests, 'Tests of its file (imports it)');
 
@@ -153,8 +164,9 @@ export const monographNeighborsTool: MCPTool = {
         );
       }
       if (!result.node) return text(`No node found with name: ${target}`);
-      const nodeFilePath = (result.node as any).filePath ?? '';
-      const nodeStartLine = (result.node as any).startLine ?? (result.node as any).start_line;
+      const nodeFilePath = (result.node as DisplayNode).filePath ?? '';
+      const nodeStartLine =
+        (result.node as DisplayNode).startLine ?? (result.node as DisplayNode).start_line;
       const nodeLoc = nodeFilePath
         ? nodeStartLine != null
           ? `${nodeFilePath}:${nodeStartLine}`
@@ -167,8 +179,8 @@ export const monographNeighborsTool: MCPTool = {
           : `Neighbors: ${result.neighbors.length} (complete)`,
         '',
         ...result.neighbors.map((n) => {
-          const fp = (n.node as any).filePath ?? (n.node as any).file_path ?? '';
-          const ln = (n.node as any).startLine ?? (n.node as any).start_line;
+          const fp = (n.node as DisplayNode).filePath ?? (n.node as DisplayNode).file_path ?? '';
+          const ln = (n.node as DisplayNode).startLine ?? (n.node as DisplayNode).start_line;
           const loc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
           return `  ${n.direction === 'inbound' ? '←' : '→'} [${n.node.label}] ${n.node.name}  (${n.relation})  ${loc}`;
         }),
@@ -198,7 +210,9 @@ export const monographGetNodeTool: MCPTool = {
     try {
       let node = getNode(db, input.id as string);
       if (!node) {
-        const row = db.prepare('SELECT * FROM nodes WHERE name = ? LIMIT 1').get(input.id) as any;
+        const row = db
+          .prepare('SELECT * FROM nodes WHERE name = ? LIMIT 1')
+          .get(input.id) as typeof node;
         if (row) node = row;
       }
       if (!node) return text(`Node not found: ${input.id}`);

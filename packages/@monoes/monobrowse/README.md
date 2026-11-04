@@ -23,31 +23,30 @@ npm install @monoes/monobrowse
 ```bash
 # Via monomind
 monomind browse open https://example.com
-monomind browse screenshot --output page.png
-monomind browse click "button.submit"
+monomind browse snapshot            # list elements with @eN refs
+monomind browse screenshot page.png
+monomind browse click @e1
 monomind browse eval "document.title"
 ```
 
 ## Programmatic usage
 
 ```typescript
-import { Browser } from '@monoes/monobrowse';
+import { launchBrowser, createBrowserPage } from '@monoes/monobrowse';
 
-const browser = new Browser();
-await browser.connect();
+const port = await launchBrowser({ headless: true });   // resolves to the CDP port
+const page = await createBrowserPage('https://example.com', port);
 
-await browser.navigate('https://example.com');
-await browser.click('button.login');
-await browser.fill('input[name="email"]', 'user@example.com');
-await browser.screenshot({ path: 'result.png' });
-
-const title = await browser.evaluate('document.title');
-await browser.close();
+console.log(await page.url());
+console.log(await page.evaluate<string>('document.title'));
+await page.close();
 ```
+
+The package also exports the lower-level building blocks (`CdpClient`, `captureScreenshot`, `clickElement`, `fillElement`, `evaluateJs`, and more) for custom flows.
 
 ## Features
 
-- **Zero dependencies** on browser automation frameworks
+- **No browser automation framework** — only `ws` and `commander` as runtime dependencies
 - Direct CDP WebSocket connection to Chrome/Chromium
 - Navigate, click, type, screenshot, evaluate JS
 - Session management for multi-page workflows
@@ -65,4 +64,4 @@ Monobrowse talks CDP directly — no 50+ MB framework download, no binary manage
 
 ## License
 
-MIT
+Apache-2.0

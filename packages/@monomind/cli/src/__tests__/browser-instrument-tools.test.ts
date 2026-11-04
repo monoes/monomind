@@ -80,7 +80,7 @@ vi.mock('@monoes/monobrowse', () => {
     },
     stopHarRecording: async (_c: unknown, _s: string, outputPath?: string) => {
       mb.harRecording = false;
-      const p = outputPath ?? '/tmp/fallback.har';
+      const p = outputPath!;
       mkdirSync(dirname(p), { recursive: true });
       writeFileSync(p, JSON.stringify({ log: { entries: mb.harRequests } }));
       return p;

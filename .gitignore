@@ -317,7 +317,10 @@ test-results/
 # files only the package ships live in packages/@monomind/cli/claude-overlay/.
 packages/@monomind/cli/.claude/
 .agents/skills/
-.gemini/skills/
+.gemini/skills/*
+!.gemini/skills/monomind/
+.gemini/skills/monomind/*
+!.gemini/skills/monomind/SKILL.md
 .gemini/helpers/*
 !.gemini/helpers/statusline.sh
 .kimi-code/agents/

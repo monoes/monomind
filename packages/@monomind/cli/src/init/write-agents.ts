@@ -13,17 +13,19 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { monomindNpx } from '../platform-adapters/renderers/mcp.js';
 import { atomicWriteFile } from './fs-helpers.js';
 import type { InitOptions, InitResult } from './types.js';
 
-export function generateAgentsOnlyMd(): string {
+export function generateAgentsOnlyMd(pin?: string): string {
+  const npx = monomindNpx(pin);
   return [
     '# AGENTS.md — Monomind',
     '',
     'When the monomind MCP server is available (tools named `mcp__monomind__*` or',
     '`monomind_*`), use it for code navigation, impact analysis, persistent memory,',
     'and agent routing in this project. If MCP is unavailable, the same features',
-    'are available through `npx -y monomind@latest` commands.',
+    `are available through \`${npx}\` commands.`,
     '',
     '## Code navigation',
     '',
@@ -45,23 +47,19 @@ export function generateAgentsOnlyMd(): string {
     '',
     '- Never hardcode secrets or commit `.env` files.',
     '- Validate input at system boundaries.',
-    '- Run `npx monomind@latest security scan` after security-related changes.',
+    `- Run \`${npx} security scan\` after security-related changes.`,
     '',
   ].join('\n');
 }
 
 /** Creates AGENTS.md when absent; an existing one is never touched (with or
  *  without --force/--if-missing — it may be the user's own). */
-export function writeAgentsOnly(
-  targetDir: string,
-  _options: InitOptions,
-  result: InitResult,
-): void {
+export function writeAgentsOnly(targetDir: string, options: InitOptions, result: InitResult): void {
   const file = path.join(targetDir, 'AGENTS.md');
   if (fs.existsSync(file)) {
     result.skipped.push('AGENTS.md');
     return;
   }
-  atomicWriteFile(file, generateAgentsOnlyMd());
+  atomicWriteFile(file, generateAgentsOnlyMd(options.mcp?.pin));
   result.created.files.push('AGENTS.md');
 }

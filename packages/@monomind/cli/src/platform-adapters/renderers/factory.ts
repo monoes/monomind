@@ -26,9 +26,10 @@ export function renderPlatformPlan(
   const core = renderCoreArtifacts(adapter, {
     scope: request.scope,
     enableHooks: request.enableHooks,
+    pin: request.pin,
   });
   const enhancements = renderEnhancements(adapter, { scope: request.scope });
-  const mcp = renderMcpArtifacts(adapter, { scope: request.scope });
+  const mcp = renderMcpArtifacts(adapter, { scope: request.scope, pin: request.pin });
   const hooks = renderHookArtifacts(adapter, {
     scope: request.scope,
     enableHooks: request.enableHooks,

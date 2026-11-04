@@ -48,8 +48,8 @@ async function main() {
   const cacheDir = findCacheDir();
   if (!cacheDir) {
     console.error(
-      'Error: @huggingface/transformers is not installed (optionalDependency).\n' +
-        'Reinstall with optional dependencies enabled: npm install --include=optional',
+      'Error: @huggingface/transformers is not installed (a devDependency of this checkout).\n' +
+        'Run pnpm install, or use `monomind download-embeddings`, which installs the runtime for you.',
     );
     process.exit(1);
   }

@@ -228,12 +228,12 @@ describe('7. skills listing and the confinement enforcement point', () => {
     expect((await checkOrgSkills(root))[1].message).toMatch(/1 from the project or user library/);
   });
 
-  it('one function decides and one point enforces (warn-only for now)', () => {
+  it('one function decides and one point enforces (refuses unless the operator opts in)', () => {
     const warnings: string[] = [];
     const loose = enforceConfinement(
       { roles: [{ id: 'boss' }, { id: 'full', policy: { access: 'full' } }] },
       'o',
-      (m) => warnings.push(m),
+      { allowUnconfined: true, warn: (m) => warnings.push(m) },
     );
     // Whether `boss` is confined depends on this host's sandbox/bubblewrap
     // (unconfinedRoles is tested with injected availability elsewhere); a

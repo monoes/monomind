@@ -21,13 +21,13 @@
     "LICENSE"
   ],
   "scripts": {
-    "postinstall": "node -e \"if(process.platform!=='win32'){try{require('child_process').execSync('find node_modules -name ._* -delete 2>/dev/null',{stdio:'ignore'})}catch{}}\"",
+    "postinstall": "node bin/clean-appledouble.mjs",
     "prepare": "node scripts/install-hooks.mjs",
     "dev": "cd packages/@monomind/cli && tsx watch src/index.ts",
     "build": "pnpm -r run build",
     "build:ts": "cd packages/@monomind/cli && npm run build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "check:versions": "node scripts/check-publish-versions.mjs && node scripts/check-package-bumps.mjs && node scripts/check-workspace-protocol.mjs && node scripts/check-overrides-source.mjs",
+    "check:versions": "node scripts/check-versions.mjs --no-registry",
     "docs:counts": "node scripts/generate-doc-counts.mjs",
     "docs:counts:check": "node scripts/generate-doc-counts.mjs --check",
     "docs:refs:check": "node scripts/check-doc-refs.mjs",
@@ -69,10 +69,10 @@
     "@monoes/monograph": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.0.0",
-    "better-sqlite3": ">=12.0.0",
+    "better-sqlite3": "^12.0.0",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
-    "vite": ">=8.1.6",
+    "vite": "^8.1.6",
     "vitest": "^4.1.11",
     "yaml": "2.8.3"
   },

@@ -252,3 +252,68 @@ describe('credentials in source URLs', () => {
     expect(existsSync(packagesDir(root))).toBe(false);
   });
 });
+
+describe('pinned remote sources', () => {
+  const gitOut = (cwd: string, ...args: string[]) =>
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], {
+      cwd,
+      encoding: 'utf-8',
+    }).trim();
+  function bareRemote(): { url: string; head: string; tagObject: string } {
+    const work = gitRepo({ LICENSE: MIT, 'skills/example/SKILL.md': skillMd('example') });
+    const head = gitOut(work, 'rev-parse', 'HEAD');
+    gitOut(work, 'tag', '-a', 'v1', '-m', 'v1');
+    const tagObject = gitOut(work, 'rev-parse', 'v1');
+    const bare = mkdtempSync(join(tmpdir(), 'cat-bare-'));
+    gitOut(bare, 'clone', '-q', '--bare', work, '.');
+    // A later commit: an unpinned clone would stage this one instead.
+    writeFileSync(join(work, 'skills/example/SKILL.md'), skillMd('example', ' Moved.'));
+    gitOut(work, 'commit', '-q', '-am', 'moved');
+    gitOut(work, 'push', '-q', bare, 'HEAD:refs/heads/master', 'HEAD:refs/heads/main');
+    return { url: `file://${bare}`, head, tagObject };
+  }
+
+  it('refuses a remote source without --commit, or with a short one', async () => {
+    const root = newRoot();
+    const { url, head } = bareRemote();
+    await expect(stage(root, url, { actor: 't', fence: clean })).rejects.toThrow(/--commit/);
+    await expect(stage(root, url, { actor: 't', fence: clean, commit: head.slice(0, 12) })).rejects.toThrow(
+      /full 40-character/,
+    );
+    expect(existsSync(packagesDir(root))).toBe(false);
+  });
+
+  it('stages exactly the pinned commit and records it as provenance', async () => {
+    const root = newRoot();
+    const { url, head } = bareRemote();
+    const r = await stage(root, url, { actor: 't', fence: clean, commit: head });
+    expect(r.entry.source).toMatchObject({ kind: 'git', url, commit: head, path: 'skills/example' });
+    expect(readFileSync(join(r.dir, 'SKILL.md'), 'utf8')).not.toContain('Moved.');
+  });
+
+  it('refuses a pin that does not resolve to that commit', async () => {
+    const root = newRoot();
+    const { url, tagObject } = bareRemote();
+    // An annotated tag's object id fetches, but HEAD is the tagged commit.
+    await expect(stage(root, url, { actor: 't', fence: clean, commit: tagObject })).rejects.toThrow(
+      /not the pinned/,
+    );
+    await expect(stage(root, url, { actor: 't', fence: clean, commit: 'f'.repeat(40) })).rejects.toThrow(
+      /could not fetch/,
+    );
+    expect(existsSync(packagesDir(root))).toBe(false);
+  });
+
+  it('checks a local work tree against --commit when one is given', async () => {
+    const root = newRoot();
+    const repo = gitRepo({ LICENSE: MIT, 'skills/example/SKILL.md': skillMd('example') });
+    await expect(stage(root, repo, { actor: 't', fence: clean, commit: 'a'.repeat(40) })).rejects.toThrow(
+      /not the pinned/,
+    );
+    const head = gitOut(repo, 'rev-parse', 'HEAD');
+    expect((await stage(root, repo, { actor: 't', fence: clean, commit: head })).entry.source).toMatchObject({
+      kind: 'local',
+      commit: head,
+    });
+  });
+});

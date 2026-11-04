@@ -1,23 +1,29 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterAll } from 'vitest';
 import { getEventListeners } from 'node:events';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { runAgentSession, type SessionOpts } from '../../src/orgrt/session.js';
 import { Mailbox } from '../../src/orgrt/mailbox.js';
 import { PolicyEngine } from '../../src/orgrt/policy.js';
 import { OrgBus } from '../../src/orgrt/bus.js';
 import { OrgDefSchema } from '../../src/orgrt/types.js';
 
+const dir = mkdtempSync(join(tmpdir(), 'external-abort-'));
+afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
 function baseOpts(externalAbort: AbortController, runner: unknown): SessionOpts {
   const def = OrgDefSchema.parse({ name: 'x', roles: [{ id: 'worker' }] });
   const mailbox = new Mailbox();
-  const bus = new OrgBus('x', 'run-1', '/tmp');
-  const policy = new PolicyEngine('worker', { maxTokens: 1000 }, bus, '/tmp');
+  const bus = new OrgBus('x', 'run-1', dir);
+  const policy = new PolicyEngine('worker', { maxTokens: 1000 }, bus, dir);
   return {
     org: 'x',
     role: def.roles[0],
     bus,
     policy,
     mailbox,
-    cwd: '/tmp',
+    cwd: dir,
     def,
     deliver: async () => 'ok',
     externalAbort,

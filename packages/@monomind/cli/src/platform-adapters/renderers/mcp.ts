@@ -37,15 +37,27 @@ export const MCP_FLOATING_PIN = 'latest';
  * against every already-published version, including those predating the
  * package-named bin.
  */
+/**
+ * The `npx` prefix that runs the monomind bin: pinned to `pin` (default the
+ * running CLI) or the floating `monomind@latest` when `pin` is `latest`.
+ */
+export function monomindNpxArgs(pin: string = VERSION): string[] {
+  return pin === MCP_FLOATING_PIN
+    ? ['npx', '-y', 'monomind@latest']
+    : ['npx', '-y', `--package=${MCP_SCOPED_PACKAGE}@${pin}`, 'monomind'];
+}
+
+/** {@link monomindNpxArgs} as one line, for the command hints in generated guidance. */
+export function monomindNpx(pin?: string): string {
+  return monomindNpxArgs(pin).join(' ');
+}
+
 export function mcpCommand(
   _platform: PlatformAdapter['id'],
   os: NodeJS.Platform = process.platform,
   pin: string = VERSION,
 ): string[] {
-  const command =
-    pin === MCP_FLOATING_PIN
-      ? ['npx', '-y', 'monomind@latest', 'mcp', 'start']
-      : ['npx', '-y', `--package=${MCP_SCOPED_PACKAGE}@${pin}`, 'monomind', 'mcp', 'start'];
+  const command = [...monomindNpxArgs(pin), 'mcp', 'start'];
   return os === 'win32' ? ['cmd', '/c', ...command] : command;
 }
 

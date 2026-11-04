@@ -5,7 +5,7 @@
  * pick such a model for a subagent itself; the coder pin only constrains a
  * launch to the pinned model when coder mode set one.
  */
-import { isBlockedModel } from '../model-guard.js';
+import { isBlockedModel } from '../shared/model-guard.js';
 
 export async function modelGuardPreToolUse(hook: {
   hook_event_name?: string;

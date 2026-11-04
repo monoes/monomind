@@ -3,12 +3,15 @@
  * File-size sweep: split out of kimi-generator.ts.
  */
 
+import { monomindNpx } from '../platform-adapters/renderers/mcp.js';
+
 /**
  * Generate AGENTS.md for kimi — workspace instructions (CLAUDE.md equivalent).
  * Only written when no AGENTS.md exists (the opencode target may already have
  * written one; both are generic monomind instructions).
  */
-export function generateKimiAgentsMd(): string {
+export function generateKimiAgentsMd(pin?: string): string {
+  const npx = monomindNpx(pin);
   const lines = [
     '# AGENTS.md — Monomind on Kimi Code',
     '',
@@ -38,7 +41,7 @@ export function generateKimiAgentsMd(): string {
     '## Security',
     '- NEVER hardcode secrets/keys in source. NEVER commit .env.',
     '- Always validate input at system boundaries.',
-    '- Run `npx monomind@latest security scan` after security-related changes.',
+    `- Run \`${npx} security scan\` after security-related changes.`,
     '',
     '## Conventions',
     '- Agents live in `.kimi-code/agents/`, skills in `.kimi-code/skills/`.',

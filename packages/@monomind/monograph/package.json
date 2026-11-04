@@ -3,6 +3,7 @@
   "version": "2.25.3",
   "type": "module",
   "description": "Code intelligence engine for monomind — tree-sitter WASM grammars + SQLite knowledge graph, no native builds",
+  "license": "Apache-2.0",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "exports": {
@@ -28,6 +29,7 @@
   },
   "files": [
     "dist",
+    "!dist/tsconfig.tsbuildinfo",
     "README.md"
   ],
   "publishConfig": {

@@ -6,6 +6,7 @@
  * @module v1/cli/embedding-operations
  */
 
+import { loadTransformers } from '../utils/transformers-loader.js';
 import {
   BRIDGE_EMBEDDING_DIMS,
   BRIDGE_EMBEDDING_MODEL,
@@ -91,7 +92,7 @@ export async function loadEmbeddingModel(options?: {
       : // Try to import @huggingface/transformers for ONNX embeddings
         // (@huggingface/transformers is the maintained successor to @xenova/transformers,
         // same maintainers/API — this is the package actually declared as a dependency)
-        await import('@huggingface/transformers').catch(() => null);
+        await loadTransformers().catch(() => null);
 
     if (transformers) {
       if (verbose) {

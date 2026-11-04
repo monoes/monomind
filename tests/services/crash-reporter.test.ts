@@ -5,15 +5,21 @@
  * per-repo rate limiting, normal report flow, and concurrent access safety.
  */
 
-import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Isolated temp directory so tests never touch the real ~/.monomind
-const TEST_HOME = join(
-  process.env.TMPDIR || '/tmp',
-  `crash-reporter-test-${process.pid}-${Date.now()}`,
-);
+const TEST_HOME = mkdtempSync(join(tmpdir(), 'crash-reporter-test-'));
 const STATE_DIR = join(TEST_HOME, '.monomind');
 const LEDGER_PATH = join(STATE_DIR, 'crash-reports.json');
 const LOCK_PATH = join(STATE_DIR, 'crash-reports.lock');

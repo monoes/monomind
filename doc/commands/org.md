@@ -11,7 +11,7 @@
 |---|---|
 | [`run`](#run) | Start org foreground daemon |
 | [`stop`](#stop) | Stop a running org |
-| [`pause`](#pause) | Pause org (suspend message delivery) |
+| [`pause`](#pause) | Pause org (`org serve` skips its scheduled ticks) |
 | [`resume`](#resume) | Resume a paused org |
 | [`reload`](#reload) | Hot-reload an org definition without stopping sessions |
 | [`status`](#status) | Show org runtime status |
@@ -111,7 +111,7 @@ monomind org stop <name>
 
 ## `pause`
 
-Write a pause sentinel to `.monomind/orgs/<name>/pause`, suspending message delivery.
+Write a pause sentinel to `.monomind/orgs/<name>/pause`. While it exists, `org serve` skips the org's scheduled ticks; a turn or run already in progress finishes and is not interrupted.
 
 ```bash
 monomind org pause <name>
@@ -121,7 +121,7 @@ monomind org pause <name>
 
 ## `resume`
 
-Clear the pause sentinel, resuming message delivery. This is all it does: it does not run the host sandbox preflight. A host that can no longer sandbox (for example `bwrap` gone from `PATH`) is refused with "cannot resume on this host" on the next `org run` (or `org run --resume`), not by `org resume`.
+Clear the pause sentinel, so the next scheduled tick starts a cycle. This is all it does: it does not run the host sandbox preflight. A host that can no longer sandbox (for example `bwrap` gone from `PATH`) is refused with "cannot resume on this host" on the next `org run` (or `org run --resume`), not by `org resume`.
 
 ```bash
 monomind org resume <name>
@@ -616,7 +616,7 @@ monomind org gate-reject <name> <gate-id> ["<reason>"] [--by <resolver>]
 Time-travel debugging — re-emit all bus events from a historical run.
 
 ```bash
-monomind org replay <name> --run <run-id>
+monomind org replay <name> <run-id>
 ```
 
 **Source:** [`commands/org.ts`](packages/@monomind/cli/src/commands/org.ts) (subcommand entry) → [`orgrt/daemon.ts → replayFrom`](packages/@monomind/cli/src/orgrt/daemon.ts#replayFrom) (`replayFrom()`, now a 2-line delegate) → [`orgrt/checkpoint-ops.ts → replayFrom`](packages/@monomind/cli/src/orgrt/checkpoint-ops.ts#replayFrom)
@@ -783,12 +783,14 @@ monomind org role set-access <org> <role> scoped
 | `--yes-i-understand` | Skip the interactive confirmation for a `full` grant (required outside a TTY) |
 
 **`full` refuses outright if it detects an agent context** — env `CLAUDECODE`,
-`CLAUDE_CODE_ENTRYPOINT`, `MONOMIND_ORG_ROLE`, `MONOMIND_SDK_AGENT`, or `MONOMIND_AGENT_EXEC` (set
-on `agent exec`'s runner child env) — with a "run this yourself in a terminal" message, exit
+`CLAUDE_CODE_ENTRYPOINT`, `MONOMIND_ORG_ROLE`, `MONOMIND_SDK_AGENT`, `MONOMIND_AGENT_EXEC` (set
+on `agent exec`'s runner child env), or any of the other coding CLIs' own markers (`AI_AGENT`,
+`CODEX_SANDBOX`, `OPENCODE`, `GEMINI_CLI`, …; the full list is `AGENT_CONTEXT_ENV_MARKERS` in
+`orgrt/agent-context.ts`) — with a "run this yourself in a terminal" message, exit
 non-zero, checked BEFORE anything else and not overridable by `--yes-i-understand` or a TTY. This
 is what stops a scoped chat/org from reaching a grant through an allowed `monomind org …` Bash
 prefix. Outside an agent context, `full` refuses a role whose resolved runtime doesn't support full
-access (`agent scan --json`'s `full_access` field — `claude` only today), then requires either an
+access (`agent scan --json`'s `full_access` field; vercel, hermes and qwen-rpc have none), then requires either an
 interactive confirmation or `--yes-i-understand`.
 
 Once confirmed, it creates (idempotently, mode `0600`) a machine-local signing key in the
@@ -1171,6 +1173,7 @@ With paths, it asks on a TTY and refuses without one, and it refuses inside an o
 unchanged and reported. `org sign`'s review warns when paths are waiting.
 
 **Source:** [`commands/org-approve-paths.ts → approvePathsAction`](packages/@monomind/cli/src/commands/org-approve-paths.ts#approvePathsAction)
+
 ---
 
 ## Name Validation

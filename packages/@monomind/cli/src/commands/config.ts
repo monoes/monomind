@@ -29,8 +29,8 @@ export const configCommand: Command = {
   options: [],
   examples: [
     { command: 'monomind config init --v1', description: 'Initialize v1 config' },
-    { command: 'monomind config get monoswarm.topology', description: 'Get config value' },
-    { command: 'monomind config set monoswarm.maxAgents 20', description: 'Set config value' },
+    { command: 'monomind config get coordination.topology', description: 'Get config value' },
+    { command: 'monomind config set coordination.maxAgents 20', description: 'Set config value' },
   ],
   action: async (_ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();

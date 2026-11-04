@@ -136,6 +136,9 @@ export interface ImportSpec {
   tools?: string[];
   /** Relative .md files to take (SKILL.md implied); default all. */
   files?: string[];
+  /** The operator reviewed this skill and accepts the `tools` it asks for.
+   *  Without it the skill is written `trust: untrusted` with no tools. */
+  trusted?: boolean;
 }
 
 export type ImportResult =
@@ -164,7 +167,10 @@ export function importSkill(spec: ImportSpec, destRoot: string, overwrite = fals
     `name: ${name}`,
     `description: ${q(description)}`,
     `tags: ${q(spec.tags ?? [])}`,
-    `tools: ${q(spec.tools ?? [])}`,
+    // Tool-granting keys of the source (allowed-tools, tools, ...) are never
+    // copied; tools are written only for a skill the operator confirmed.
+    `tools: ${q(spec.trusted ? (spec.tools ?? []) : [])}`,
+    `trust: ${spec.trusted ? 'trusted' : 'untrusted'}`,
     `license: ${verdict.license}`,
     `source: ${spec.source}`,
     `source_path: ${q(relative(spec.repoRoot, spec.srcDir) || '.')}`,
@@ -184,8 +190,15 @@ export function importSkill(spec: ImportSpec, destRoot: string, overwrite = fals
   return { ok: true, name, license: verdict.license, dir: dest };
 }
 
-/** `owner/repo`, a git URL, or a local path → a checkout to read from. */
-export function checkout(src: string): {
+const COMMIT_RE = /^[0-9a-f]{7,40}$/i;
+
+/** `owner/repo`, a git URL, or a local path → a checkout to read from.
+ *  A remote source is checked out at `opts.commit`; with `requirePin` a remote
+ *  source without one is refused, so what is imported cannot move under you. */
+export function checkout(
+  src: string,
+  opts: { commit?: string; requirePin?: boolean } = {},
+): {
   root: string;
   source: string;
   commit?: string;
@@ -205,48 +218,147 @@ export function checkout(src: string): {
   }
   const url = /^[\w.-]+\/[\w.-]+$/.test(src) ? `https://github.com/${src}` : src;
   if (!/^(https:\/\/|git@)/.test(url)) throw new Error(`not a path, owner/repo or git URL: ${src}`);
+  if (opts.commit !== undefined && !COMMIT_RE.test(opts.commit))
+    throw new Error(`--commit must be a 7-40 character hex commit id, got "${opts.commit}"`);
+  if (opts.requirePin && !opts.commit)
+    throw new Error(
+      'importing from a remote repository requires a pinned commit: pass --commit <sha> (git rev-parse HEAD in the source)',
+    );
   const tmp = mkdtempSync(join(tmpdir(), 'org-skill-import-'));
-  execFileSync('git', ['clone', '--quiet', '--depth', '1', url, tmp], { stdio: 'ignore' });
-  const commit = execFileSync('git', ['-C', tmp, 'rev-parse', 'HEAD'], {
-    encoding: 'utf-8',
-  }).trim();
-  return {
-    root: tmp,
-    source: url.replace(/\.git$/, ''),
-    commit,
-    cleanup: () => rmSync(tmp, { recursive: true, force: true }),
-  };
+  const cleanup = () => rmSync(tmp, { recursive: true, force: true });
+  try {
+    if (opts.commit) {
+      execFileSync('git', ['init', '--quiet', tmp], { stdio: 'ignore' });
+      execFileSync('git', ['-C', tmp, 'remote', 'add', 'origin', url], { stdio: 'ignore' });
+      execFileSync('git', ['-C', tmp, 'fetch', '--quiet', '--depth', '1', 'origin', opts.commit], {
+        stdio: 'ignore',
+      });
+      execFileSync('git', ['-C', tmp, 'checkout', '--quiet', '--detach', 'FETCH_HEAD'], {
+        stdio: 'ignore',
+      });
+    } else {
+      execFileSync('git', ['clone', '--quiet', '--depth', '1', url, tmp], { stdio: 'ignore' });
+    }
+    const commit = execFileSync('git', ['-C', tmp, 'rev-parse', 'HEAD'], {
+      encoding: 'utf-8',
+    }).trim();
+    if (opts.commit && !commit.startsWith(opts.commit.toLowerCase()))
+      throw new Error(`fetched ${commit}, not the pinned ${opts.commit}`);
+    return { root: tmp, source: url.replace(/\.git$/, ''), commit, cleanup };
+  } catch (err) {
+    cleanup();
+    throw err;
+  }
+}
+
+export interface ImportOptions {
+  only?: string[];
+  overwrite?: boolean;
+  tags?: string[];
+  /** Pinned commit of a remote source. Required for owner/repo and git URLs. */
+  commit?: string;
+  /** Mark the imported skills trusted and keep their requested tools. */
+  trusted?: boolean;
+}
+
+/** Skill directories to import, one per name (first, shallowest claim wins). */
+function candidates(root: string, only?: string[]): Array<{ dir: string; name: string }> {
+  const dirs = findSkillDirs(root).sort(
+    (a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b),
+  );
+  const seen = new Set<string>();
+  const out: Array<{ dir: string; name: string }> = [];
+  for (const dir of dirs) {
+    const { data } = parseFrontmatter(readFileSync(join(dir, 'SKILL.md'), 'utf-8'));
+    const name = toSkillName(typeof data.name === 'string' ? data.name : basename(dir));
+    if (seen.has(name) || (only && !only.includes(name))) continue;
+    seen.add(name);
+    out.push({ dir, name });
+  }
+  return out;
+}
+
+/** What an import would bring in, for the operator to confirm: per skill the
+ *  files taken and the tool-granting frontmatter keys that will be dropped. */
+export function describeImport(
+  source: string,
+  commit: string | undefined,
+  items: Array<{ dir: string; name: string }>,
+  destRoot: string,
+): string[] {
+  const lines = [
+    `Import from ${source}${commit ? ` @ ${commit}` : ' (no commit)'} into ${destRoot}:`,
+  ];
+  for (const { dir, name } of items) {
+    const { data, body } = parseFrontmatter(readFileSync(join(dir, 'SKILL.md'), 'utf-8'));
+    const granting = ['allowed-tools', 'allowed_tools', 'tools'].filter(
+      (k) => data[k] !== undefined,
+    );
+    const files = ['SKILL.md', ...mdFiles(dir)];
+    lines.push(
+      `  ${name}: ${files.length} file(s), ${body.length} chars of instructions` +
+        (existsSync(join(destRoot, name)) ? ' [replaces an existing skill]' : '') +
+        (granting.length ? ` [drops tool keys: ${granting.join(', ')}]` : ''),
+    );
+    const first = body.trim().split('\n').find(Boolean);
+    if (first) lines.push(`      starts: ${first.slice(0, 100)}`);
+  }
+  return lines;
+}
+
+function importItems(
+  co: { root: string; source: string; commit?: string },
+  items: Array<{ dir: string; name: string }>,
+  destRoot: string,
+  opts: ImportOptions,
+): ImportResult[] {
+  return items.map(({ dir }) =>
+    importSkill(
+      {
+        srcDir: dir,
+        repoRoot: co.root,
+        source: co.source,
+        commit: co.commit,
+        tags: opts.tags,
+        trusted: opts.trusted,
+      },
+      destRoot,
+      opts.overwrite,
+    ),
+  );
 }
 
 /** Import every eligible skill in a repository (or just `only`). The first
  *  directory to claim a name wins, so translated copies deeper in a repo
- *  don't shadow the original. */
+ *  don't shadow the original. A remote source needs `opts.commit`; imported
+ *  skills are untrusted and carry no tools unless `opts.trusted`. */
 export function importRepo(
   src: string,
   destRoot: string,
-  opts: { only?: string[]; overwrite?: boolean; tags?: string[] } = {},
+  opts: ImportOptions = {},
 ): ImportResult[] {
-  const co = checkout(src);
+  const co = checkout(src, { commit: opts.commit, requirePin: true });
   try {
-    const dirs = findSkillDirs(co.root).sort(
-      (a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b),
-    );
-    const seen = new Set<string>();
-    const results: ImportResult[] = [];
-    for (const dir of dirs) {
-      const { data } = parseFrontmatter(readFileSync(join(dir, 'SKILL.md'), 'utf-8'));
-      const name = toSkillName(typeof data.name === 'string' ? data.name : basename(dir));
-      if (seen.has(name) || (opts.only && !opts.only.includes(name))) continue;
-      seen.add(name);
-      results.push(
-        importSkill(
-          { srcDir: dir, repoRoot: co.root, source: co.source, commit: co.commit, tags: opts.tags },
-          destRoot,
-          opts.overwrite,
-        ),
-      );
-    }
-    return results;
+    return importItems(co, candidates(co.root, opts.only), destRoot, opts);
+  } finally {
+    co.cleanup();
+  }
+}
+
+/** Like importRepo, but shows the operator what would be imported first.
+ *  `confirm` receives the summary and must resolve true to proceed; when it
+ *  declines nothing is written and an empty list comes back. */
+export async function importRepoConfirmed(
+  src: string,
+  destRoot: string,
+  opts: ImportOptions & { confirm: (summary: string[]) => Promise<boolean> | boolean },
+): Promise<{ results: ImportResult[]; summary: string[]; declined: boolean }> {
+  const co = checkout(src, { commit: opts.commit, requirePin: true });
+  try {
+    const items = candidates(co.root, opts.only);
+    const summary = describeImport(co.source, co.commit, items, destRoot);
+    if (!(await opts.confirm(summary))) return { results: [], summary, declined: true };
+    return { results: importItems(co, items, destRoot, opts), summary, declined: false };
   } finally {
     co.cleanup();
   }

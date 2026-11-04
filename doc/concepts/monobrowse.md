@@ -43,7 +43,7 @@ When running in headless mode, Monobrowse automatically monitors the page URL an
 - Monobrowse grabs the authenticated cookies and localStorage, shuts down the headed browser, and restores the session in a fresh headless window.
 
 ### 2.3 Dashboard Server
-Includes an embedded dashboard (`browser/dashboard/server.js`) that hosts a live view of the browser's DOM, network logs, and console output.
+Includes an embedded dashboard that hosts a live view of the browser's DOM, network logs, and console output (`src/browser/dashboard/server.ts`).
 
 ---
 
@@ -91,6 +91,14 @@ If the requested port is held by a process that is not Chrome, a launch scans up
     "./cli": {
       "types": "./dist/src/cli.d.ts",
       "import": "./dist/src/cli.js"
+    },
+    "./cli/commands": {
+      "types": "./dist/src/cli/commands.d.ts",
+      "import": "./dist/src/cli/commands.js"
+    },
+    "./cli/types": {
+      "types": "./dist/src/cli/types.d.ts",
+      "import": "./dist/src/cli/types.js"
     }
   }
 }
