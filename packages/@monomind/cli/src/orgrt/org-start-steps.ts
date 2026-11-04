@@ -88,8 +88,13 @@ export async function prepareOrgStart(
     /* best-effort: not a git repo, git missing, or a wedged hook */
   }
   // The live model catalog behind the newest-model defaults (latest-models.ts):
-  // re-read at most once a day, and never a reason for a start to fail.
-  await refreshLatestModels({ maxAgeMs: 24 * 60 * 60 * 1000 }).catch(() => {});
+  // re-read at most once a day, never with MONOMIND_MODEL_REFRESH=0, and never
+  // a reason for a start to fail.
+  if (process.env.MONOMIND_MODEL_REFRESH !== '0')
+    await refreshLatestModels({
+      maxAgeMs: 24 * 60 * 60 * 1000,
+      list: async (runtime) => (await import('./agent-models.js')).runtimeModelIds(runtime),
+    }).catch(() => {});
   const defPath = join(daemon.root, ORG_DIR, `${name}.json`);
   const rawDef: unknown = JSON.parse(readFileSync(defPath, 'utf8'));
   // #502: every start path (org run, serve's runfile poll and schedule,

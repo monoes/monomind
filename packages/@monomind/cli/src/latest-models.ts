@@ -160,25 +160,22 @@ export function outdatedModelHint(model: string, opts: { file?: string } = {}): 
   return best && bp && newer(bp.version, p.version) ? best : undefined;
 }
 
-/** Re-reads each runtime's model list into the cache. A runtime whose listing
- *  fails keeps its old entry. Skipped while the cache is younger than `maxAgeMs`,
- *  and entirely (with the real listers) when MONOMIND_MODEL_REFRESH=0. */
-export async function refreshLatestModels(
-  opts: {
-    file?: string;
-    now?: () => number;
-    maxAgeMs?: number;
-    timeoutMs?: number;
-    list?: (runtime: ModelRuntime) => Promise<string[]>;
-  } = {},
-): Promise<void> {
-  if (process.env.MONOMIND_MODEL_REFRESH === '0' && !opts.list) return;
+/** Re-reads each runtime's model list (`list`) into the cache. A runtime whose
+ *  listing fails keeps its old entry. Skipped while the cache is younger than
+ *  `maxAgeMs`. The real listers live with the runtimes (orgrt/agent-models.ts
+ *  runtimeModelIds), which pass them in, so this module never imports orgrt. */
+export async function refreshLatestModels(opts: {
+  file?: string;
+  now?: () => number;
+  maxAgeMs?: number;
+  list: (runtime: ModelRuntime) => Promise<string[]>;
+}): Promise<void> {
   const file = opts.file ?? catalogFile();
   const now = (opts.now ?? Date.now)();
   const updatedAt = Number(readRaw(file)._updatedAt);
   if (opts.maxAgeMs !== undefined && Number.isFinite(updatedAt) && now - updatedAt < opts.maxAgeMs)
     return;
-  const list = opts.list ?? (async (runtime) => listIds(runtime, opts.timeoutMs ?? 8000));
+  const { list } = opts;
   const next: Catalog = readCatalog(file);
   await Promise.all(
     RUNTIMES.map(async (runtime) => {
@@ -196,9 +193,4 @@ export async function refreshLatestModels(
 /** The ids a runtime's model list names: each entry's id and resolved id. */
 export function catalogIds(models: readonly { id: string; resolved_id?: string }[]): string[] {
   return models.flatMap((m) => [m.id, m.resolved_id].filter((x): x is string => !!x));
-}
-
-async function listIds(runtime: ModelRuntime, timeoutMs: number): Promise<string[]> {
-  const { listRuntimeModels } = await import('./orgrt/agent-models.js');
-  return catalogIds((await listRuntimeModels(runtime, { timeoutMs })).models);
 }
