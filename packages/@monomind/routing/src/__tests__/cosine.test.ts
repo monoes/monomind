@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { computeCentroid, cosineSimilarity } from '../cosine.js';
 
 describe('cosineSimilarity', () => {
@@ -31,8 +31,13 @@ describe('cosineSimilarity', () => {
     expect(cosineSimilarity([0, 0], [0, 0])).toBe(0);
   });
 
-  it('throws on length mismatch', () => {
-    expect(() => cosineSimilarity([1, 2], [1, 2, 3])).toThrow('Vector length mismatch');
+  it('returns 0 on length mismatch instead of throwing', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(cosineSimilarity([1, 2], [1, 2, 3])).toBe(0);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('handles single-element vectors', () => {

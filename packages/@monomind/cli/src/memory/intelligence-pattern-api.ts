@@ -5,6 +5,7 @@
  * @module v1/cli/intelligence
  */
 
+import { cosineSimilarity } from '../utils/cosine-similarity.js';
 import { initializeIntelligence, reasoningBank, savePersistedStats } from './intelligence.js';
 import { loadSonaRoutingPatterns } from './intelligence-sona-routing.js';
 import type { Pattern } from './intelligence-types.js';
@@ -112,18 +113,7 @@ export async function compactPatterns(threshold: number = 0.95): Promise<{
       const embB = patternB.embedding;
       if (!embB || embB.length === 0 || embA.length !== embB.length) continue;
 
-      // Compute cosine similarity
-      let dotProduct = 0;
-      let normA = 0;
-      let normB = 0;
-
-      for (let k = 0; k < embA.length; k++) {
-        dotProduct += embA[k] * embB[k];
-        normA += embA[k] * embA[k];
-        normB += embB[k] * embB[k];
-      }
-
-      const similarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+      const similarity = cosineSimilarity(embA, embB);
 
       if (similarity >= threshold) {
         // Remove the one with lower usage count

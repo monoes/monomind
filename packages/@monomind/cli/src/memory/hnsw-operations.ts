@@ -15,6 +15,8 @@
  * @module v1/cli/hnsw-operations
  */
 
+import { cosineSimilarity, warnVectorLengthMismatch } from '../utils/cosine-similarity.js';
+
 // ============================================================================
 // INT8 VECTOR QUANTIZATION (4x memory reduction)
 // ============================================================================
@@ -87,20 +89,8 @@ export function quantizedCosineSim(
   b: Int8Array,
   _bScale: number,
 ): number {
-  if (a.length !== b.length) return 0;
-
-  let dot = 0,
-    normA = 0,
-    normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-
   // Scales cancel out in cosine similarity for normalized vectors
-  const mag = Math.sqrt(normA * normB);
-  return mag === 0 ? 0 : dot / mag;
+  return cosineSimilarity(a, b);
 }
 
 /**
@@ -155,7 +145,11 @@ export function batchCosineSim(
   // Compute similarities
   for (let v = 0; v < n; v++) {
     const vec = vectors[v];
-    const len = Math.min(query.length, vec.length);
+    if (vec.length !== query.length) {
+      warnVectorLengthMismatch(query.length, vec.length);
+      continue; // scores[v] stays 0
+    }
+    const len = query.length;
     let dot = 0,
       vecNorm = 0;
 
