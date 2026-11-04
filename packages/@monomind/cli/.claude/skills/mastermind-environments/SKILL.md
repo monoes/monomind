@@ -12,6 +12,8 @@ This skill is invoked directly via `/mastermind-environments`.
 
 **Bookkeeping only — not enforced by the Org Runtime.** It writes `.monomind/orgs/<org>-environments.json`, which no runtime code reads: creating an environment or changing the default does not change where agents run.
 
+On first use in a session, print this one line before doing anything else: `WARNING: mastermind-environments is a ledger only - nothing is enforced by the Org Runtime.`
+
 ---
 
 ## Inputs

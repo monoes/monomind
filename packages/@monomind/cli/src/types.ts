@@ -69,7 +69,7 @@ export interface MonomindConfig {
   agents: AgentConfig;
 
   // Swarm configuration
-  monoswarm: MonoswarmConfig;
+  coordination: MonoswarmConfig;
 
   // Memory configuration
   memory: MemoryConfig;

@@ -16,7 +16,12 @@ import { listingBudgetWarning } from '../init/listing-size.js';
 import { wantsAgentsDirs, wantsGeminiDirs } from '../init/platform-dirs.js';
 import { formatIndexSummary } from '../init/project-indexes.js';
 import { resolveInitOptions } from '../init/resolve-options.js';
-import { countInitFiles, formatInitFileCounts, snapshotInitFiles } from '../init/written-files.js';
+import {
+  countInitFiles,
+  formatInitFileCounts,
+  initWroteLine,
+  snapshotInitFiles,
+} from '../init/written-files.js';
 import { ingestDirectory } from '../knowledge/document-pipeline.js';
 import { output } from '../output.js';
 import { mcpAddHint } from '../platform-adapters/renderers/mcp.js';
@@ -56,6 +61,11 @@ export const initAction = async (ctx: CommandContext): Promise<CommandResult> =>
       return { success: false, exitCode: 1, message };
     }
     cwd = resolvedProject;
+  }
+
+  if (ctx.flags['dry-run'] === true || ctx.flags.dryRun === true) {
+    const { runInitDryRun } = await import('./init-dry-run.js');
+    return runInitDryRun(ctx, cwd);
   }
 
   // `--json` (#358): a machine-readable, headless workspace-init path —
@@ -248,7 +258,8 @@ export const initAction = async (ctx: CommandContext): Promise<CommandResult> =>
     output.writeln();
 
     // #420: counted on disk — result.created/skipped list items, not files.
-    const summary = formatInitFileCounts(countInitFiles(cwd, filesBefore));
+    const fileCounts = countInitFiles(cwd, filesBefore);
+    const summary = formatInitFileCounts(fileCounts);
 
     // o-38: a retirement is a destructive action and must never be folded
     // into "Files: N created" — that is exactly how the original data-loss
@@ -260,6 +271,8 @@ export const initAction = async (ctx: CommandContext): Promise<CommandResult> =>
     }
 
     output.printBox(summary.join('\n'), 'Summary');
+    output.writeln();
+    output.writeln(initWroteLine(fileCounts));
     output.writeln();
 
     if (result.removed.length > 0) {

@@ -61,6 +61,33 @@ The CLI registers and exports domain tool modules under `packages/@monomind/cli/
 
 Every other tool, including the `agent_*`, `task_*`, `session_*`, `config_*`, `system_*`, `guidance_*` and `hooks_*` state-file tools and `mcp_status`, is still registered and callable by name. `monomind_tool_search` finds it and returns its schema. Set `MONOMIND_MCP_FULL=1` on the server to advertise the whole registry (<!-- doc-count:mcp-tools-full -->204<!-- /doc-count:mcp-tools-full --> tools, about 95 KB). Set `MONOMIND_MCP_PROFILE=lean` to advertise only six (`monograph_query`, `monograph_brief`, `monograph_impact`, `monograph_context`, `pick`, `monomind_tool_search`); the rest of the default roster stays callable and is found through `monomind_tool_search`.
 
+
+### Token cost by profile
+
+Every advertised tool's schema is sent to the model at the start of each session, so the roster size is a fixed token cost.
+
+| Profile | Tools advertised | Approximate cost | How to select |
+|---|---|---|---|
+| Default | <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> | about 4.3k tokens | nothing to set |
+| Full | <!-- doc-count:mcp-tools-full -->204<!-- /doc-count:mcp-tools-full --> | about 26k tokens | `MONOMIND_MCP_FULL=1` |
+| Lean | 6 | smallest; only code-graph navigation, `pick` and `monomind_tool_search` | `MONOMIND_MCP_PROFILE=lean` |
+
+`monomind init` keeps the default profile. To opt in to lean, add the variable to the server entry's `env` in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "monomind": {
+      "command": "npx",
+      "args": ["-y", "monomind@<version>", "mcp", "start"],
+      "env": { "MONOMIND_MCP_PROFILE": "lean" }
+    }
+  }
+}
+```
+
+With the Claude Code CLI, `claude mcp add monomind -e MONOMIND_MCP_PROFILE=lean -- npx -y monomind@<version> mcp start` does the same. Tools outside the roster stay callable by name; `monomind_tool_search` returns their schemas. `monomind init --force` keeps an `env` value you set.
+
 ---
 
 ## Guidance Tools (`guidance_*`)

@@ -11,7 +11,6 @@
   },
   "bin": {
     "monomindcli": "./bin/cli.js",
-    "cli": "./bin/cli.js",
     "monomind": "./bin/cli.js",
     "monomind-mcp": "./bin/mcp-server.js"
   },

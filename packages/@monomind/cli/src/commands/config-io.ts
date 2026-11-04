@@ -20,7 +20,7 @@ export const resetCommand: Command = {
       name: 'section',
       description: 'Reset specific section only',
       type: 'string',
-      choices: ['agents', 'monoswarm', 'memory', 'mcp', 'providers', 'all'],
+      choices: ['agents', 'coordination', 'monoswarm', 'memory', 'mcp', 'providers', 'all'],
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -33,7 +33,8 @@ export const resetCommand: Command = {
         if (!confirmed) return { success: true, message: 'Reset cancelled' };
       }
 
-      const section = ctx.flags.section as string | undefined;
+      const requested = ctx.flags.section as string | undefined;
+      const section = requested === 'monoswarm' ? 'coordination' : requested; // legacy spelling
       if (section && section !== 'all') {
         // Scoped reset: remove only the specified section key from the config.
         // Setting to undefined causes JSON serialization to omit the key, effectively removing it.
