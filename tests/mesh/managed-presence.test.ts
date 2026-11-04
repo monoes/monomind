@@ -108,8 +108,11 @@ describe('joinManaged', () => {
       return { id: 'x', ok: true, addr: 'h/p/s', key: 'k' };
     };
     expect(await joinManaged({ ...base, call, timeoutMs: 20 })).toBeUndefined();
-    await new Promise((r) => setTimeout(r, 300));
-    expect(seen.map((r) => r.op)).toContain('bye');
+    // the late hello answer is withdrawn with a bye once it arrives (200ms on)
+    await vi.waitFor(() => expect(seen.map((r) => r.op)).toContain('bye'), {
+      timeout: 5000,
+      interval: 20,
+    });
   });
 
   it('unreadBlock seals peer messages and survives a failing inbox', async () => {

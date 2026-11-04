@@ -164,13 +164,13 @@ describe('doctorCommand', () => {
     const data = resultData(result);
     expect(Array.isArray(data.results)).toBe(true);
     // alwaysOnChecks (29, including #502 review's org-skills, planted-config and MCP-approval and i-055 doctor follow-up's crash-reporting
-    // check, o-16's Project Root disclosure check and the hook-settings
-    // check) + codeOnlyChecks (11,
+    // check, o-16's Project Root disclosure check, the hook-settings
+    // check and the surface-reduction Deprecated Skills check) + codeOnlyChecks (11,
     // including platform adapters, the native-binding probe, i-066's
     // monoes token-exposure check, the graph semantic-search check, #328's hook graph rebuild check and the
-    // running MCP server version check) — no
+    // running MCP server version check) + the opt-in usage-counters row — no
     // fingerprint present, so isCodeProject defaults to true and the full set runs.
-    expect(data.results.length).toBe(42 + JEV_ROW);
+    expect(data.results.length).toBe(44 + JEV_ROW);
     expect(data.results.map((r) => r.name)).toEqual(
       expect.arrayContaining(['Claude runtime', 'Agent runtime readiness']),
     );
@@ -238,7 +238,8 @@ describe('doctorCommand', () => {
     expect(names).toContain('Config File');
     expect(names).toContain('Crash Reporting');
     expect(names).toContain('Memory Project Root');
-    expect(data.results.length).toBe(31 + JEV_ROW);
+    expect(names).toContain('Usage Counters');
+    expect(data.results.length).toBe(33 + JEV_ROW);
   }, 60000); // full default check set shells out — see the bare-project test above
 
   it('--fix applies the real local Helper Files fix and re-checks it in place', async () => {

@@ -8,12 +8,12 @@
  * packages produce a clear actionable error instead of a crash.
  */
 
-import { LATEST_FLOOR, latestModel } from '../latest-models.js';
+import { latestModel } from '../latest-models.js';
 
-/** The newest Sonnet known at this release: the floor under the default below,
- *  for consumers that need a fixed value (price aliases, tests). Never used to
- *  route; routing calls defaultClaudeModel(). */
-export const DEFAULT_CLAUDE_MODEL = LATEST_FLOOR.claude.sonnet;
+/** The newest Sonnet known at this release (latest-models.ts): the floor under
+ *  the default below, for consumers that need a fixed value (price aliases,
+ *  tests). Never used to route; routing calls defaultClaudeModel(). */
+export { DEFAULT_CLAUDE_MODEL } from '../latest-models.js';
 
 /** Default model for Claude org roles — the claude runtime's fallback in
  *  session.ts resolveModel() and the anthropic vendor default below: the

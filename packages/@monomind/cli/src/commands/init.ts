@@ -216,7 +216,7 @@ export const initCommand: Command = {
     },
     {
       name: 'start-all',
-      description: 'Auto-start swarm and seed worker metrics after init (default: true)',
+      description: 'Seed worker metrics after init (default: true)',
       type: 'boolean',
       default: true,
     },

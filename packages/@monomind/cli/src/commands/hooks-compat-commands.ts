@@ -12,7 +12,7 @@ export const routeTaskCommand: Command = {
   examples: [
     {
       command: 'monomind hooks route-task --auto-swarm true',
-      description: 'Route with auto-swarm (v2 compat)',
+      description: 'Route with the removed --auto-swarm flag (accepted and ignored, v2 compat)',
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {

@@ -2,6 +2,7 @@
  * Neural optimize and export commands
  */
 
+import { patternDbStats, readPatternDbRecords } from '../memory/intelligence-pattern-db.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { redact } from '../utils/redaction.js';
@@ -58,8 +59,10 @@ export const optimizeCommand: Command = {
       const patternDir = path.join(process.cwd(), '.monomind', 'neural');
       let beforeSize = 0;
       try {
+        const dbStats = patternDbStats(patternDir);
         const patternFile = path.join(patternDir, 'patterns.json');
-        if (fs.existsSync(patternFile)) beforeSize = fs.statSync(patternFile).size;
+        if (dbStats) beforeSize = dbStats.size;
+        else if (fs.existsSync(patternFile)) beforeSize = fs.statSync(patternFile).size;
       } catch {
         /* ignore */
       }
@@ -252,16 +255,20 @@ export const exportCommand: Command = {
 
       const memoryDir = path.join(process.cwd(), '.monomind', 'neural');
       const patternsFile = path.join(memoryDir, 'patterns.json');
+      const dbRecords = readPatternDbRecords(memoryDir);
 
-      if (fs.existsSync(patternsFile)) {
+      if (dbRecords || fs.existsSync(patternsFile)) {
         const MAX_PATTERNS_BYTES = 100 * 1024 * 1024;
-        const patStat = fs.statSync(patternsFile);
-        if (patStat.size > MAX_PATTERNS_BYTES) {
-          spinner.fail(`patterns.json too large to export safely (${patStat.size} bytes)`);
-          return { success: false, exitCode: 1 };
+        let patternsJson: unknown = dbRecords;
+        if (!dbRecords) {
+          const patStat = fs.statSync(patternsFile);
+          if (patStat.size > MAX_PATTERNS_BYTES) {
+            spinner.fail(`patterns.json too large to export safely (${patStat.size} bytes)`);
+            return { success: false, exitCode: 1 };
+          }
+          const patternsRaw = fs.readFileSync(patternsFile, 'utf8');
+          patternsJson = JSON.parse(patternsRaw);
         }
-        const patternsRaw = fs.readFileSync(patternsFile, 'utf8');
-        const patternsJson = JSON.parse(patternsRaw);
         // patterns.json is always a top-level array (see intelligence.ts's
         // flushToDisk) — `'constructor' in patternsJson` on an array is
         // always true (inherited via Array.prototype), so that check flagged

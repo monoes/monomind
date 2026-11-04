@@ -364,3 +364,25 @@ Each mastermind command loads/saves brain context:
 ## Delegation
 
 Agents that mastermind commands spawn carry the `mastermind-delegation` capability block (an internal skill, never invoked directly), so a subagent can delegate further by spawning its own sub-agents. Routing a request to the right command is the job of `/mastermind` (and `/mastermind:master`), not of the individual commands.
+
+
+---
+
+## Looping workflows (moved from the README)
+
+For code, the `/mastermind:*` workflows can loop instead of running once. Add `--tillend` to `/mastermind:review`, `/mastermind:improve`, `/mastermind:debug` and most other workflows (`/mastermind:help` lists them) to repeat until a round finds nothing left to do.
+
+```bash
+/mastermind:review --tillend                     # review → fix → verify until a round finds nothing
+/mastermind:improve --repeat 3 the auth flow     # exactly 3 improvement passes
+/mastermind:plan add rate limiting               # then /mastermind:execute the plan
+```
+
+#### Loop flags
+
+| Flag | Purpose |
+|---|---|
+| `--tillend` | Repeat until an empty round (zero findings, zero actions) |
+| `--repeat <N>` | Repeat exactly N times |
+| `--maxruns <N>` | Safety cap for `--tillend` (default 50) |
+| `--wait <seconds>` | Pause between runs |

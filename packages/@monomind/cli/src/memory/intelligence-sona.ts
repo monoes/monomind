@@ -5,7 +5,7 @@
  * @module v1/cli/intelligence
  */
 
-import type { LocalReasoningBank } from './intelligence-reasoning-bank.js';
+import type { ReasoningBankStore } from './intelligence-sqlite-store.js';
 import type { Signal, SonaConfig, TrajectoryStep } from './intelligence-types.js';
 
 // ============================================================================
@@ -112,7 +112,7 @@ export class LocalSonaCoordinator {
    */
   async endTrajectory(
     verdict: 'success' | 'failure' | 'partial',
-    bank: LocalReasoningBank,
+    bank: ReasoningBankStore,
   ): Promise<{ reward: number; patternsUpdated: number }> {
     const rewardMap: Record<string, number> = {
       success: 1.0,
@@ -169,7 +169,7 @@ export class LocalSonaCoordinator {
    * increases the pattern's stored confidence by confidenceLearningRate * reward.
    * Before applying updates, checks EWC penalty to prevent catastrophic forgetting.
    */
-  async distillLearning(bank: LocalReasoningBank): Promise<{
+  async distillLearning(bank: ReasoningBankStore): Promise<{
     patternsDistilled: number;
     ewcPenalty: number;
   }> {

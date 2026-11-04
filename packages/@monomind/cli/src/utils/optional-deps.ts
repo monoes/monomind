@@ -65,7 +65,7 @@ import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { defaultIdentity } from '../orgrt/sandbox-stubs-ledger.js';
+import { defaultIdentity } from '../shared/process-identity.js';
 import { npmInvocation } from './npm-command.js';
 import {
   type CodePins,

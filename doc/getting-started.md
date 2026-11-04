@@ -43,7 +43,7 @@ monomind init --platforms claude,codex   # exactly these, installed or not
 monomind init --all-platforms            # all five platforms (same as --target all)
 ```
 
-`--full` also writes all five, along with every component and pack. `monomind init wizard` asks the same question, with the detected systems pre-selected (all five for the Full preset). Re-running `monomind init --yes` (or `--force`, which also refreshes the managed files) keeps every system the project already has, so it re-pins their MCP entries after an upgrade. `monomind init upgrade` refreshes the Claude Code helpers, statusline and CLAUDE.md, and with `--add-missing` copies new skills into `.gemini/` and `.agents/` only if the project has them; it does not refresh `.codex/`, `opencode.json`/`.opencode/` or `.kimi-code/`, and never adds a system. To add one later, run `monomind init --platforms claude,codex --yes`.
+`--full` also writes all five, along with every component and pack. `monomind init wizard` asks the same question, with the detected systems pre-selected (all five for the Full preset). Re-running `monomind init --yes` (or `--force`, which also refreshes the managed files) keeps every system the project already has, so it re-pins their MCP entries after an upgrade. `monomind init upgrade` refreshes the Claude Code helpers, statusline and CLAUDE.md, adds any Monomind allow rule that `.claude/settings.json` lacks (appended after yours, with a backup in `.monomind/backups/`; your own rules and deny/ask entries are left as they are), and with `--add-missing` copies new skills into `.gemini/` and `.agents/` only if the project has them; it does not refresh `.codex/`, `opencode.json`/`.opencode/` or `.kimi-code/`, and never adds a system. To add one later, run `monomind init --platforms claude,codex --yes`.
 
 Init also sets up the memory database (`.swarm/memory.db`, the same one `monomind memory init` creates, copied to `.claude/memory.db`), so `monomind doctor` reports **Memory Database ✓** straight away. Re-running init keeps an existing database and everything in it. Pass `--no-memory` to skip it; `--only-claude` skips it too, since that mode writes no runtime state, and `--skip-claude` creates the database without the `.claude/` copy. If the database can't be created (for example, `sql.js` is missing), init still finishes and prints a warning: run `monomind memory init` to retry.
 
@@ -91,7 +91,7 @@ The wizard asks about topology, memory backend, embeddings model, etc. Most user
 claude mcp add monomind -- npx -y monomind@latest mcp start
 ```
 
-This tells Claude Code how to reach monomind's MCP tools. The generated Codex, OpenCode, Kimi Code, and Antigravity configurations register the same local server using each platform's native format.
+`monomind init` already wrote `.mcp.json` for the project, so this step is only needed to register the server outside that file (for example at user scope). It tells Claude Code how to reach monomind's MCP tools. The generated Codex, OpenCode, Kimi Code, and Antigravity configurations register the same local server using each platform's native format.
 
 `init` pins the MCP entries it generates (`.mcp.json`, Codex, OpenCode, Kimi Code, Antigravity) to the monomind version that ran it: `npx -y --package=@monoes/monomindcli@<version> monomind mcp start`. A floating `@latest` re-resolves the npm dist-tag on every start (3–4 s), can hang on a cold npx cache, and can change version mid-session. Pass `--pin latest` (or `--no-pin`) to keep `monomind@latest`, or `--pin <version>` for another version; after upgrading monomind, run `monomind init --force` to re-pin (`monomind update` does not rewrite these configs).
 
@@ -205,3 +205,111 @@ monomind org run my-team --budget-usd 5     # hard-stop at $5
 - `doc/concepts/monograph.md` — how the code graph works
 - `doc/concepts/memory.md` — memory tiers and search
 - `doc/concepts/org-runtime.md` — multi-agent daemon
+
+---
+
+## Init details and platform guides (moved from the README)
+
+`monomind init` installs the **core pack**: the everyday `/mastermind:*` workflows (plan, execute, review, debug, do, …), 20 core agents and the memory, GitHub and browser toolkits, small enough that Claude Code shows every description. Everything else ships as opt-in packs (`orgs`, `org-admin`, `swarm`, `github`, `testing`, `specialists`, `business`, `extras`): pick them with `monomind init --packs orgs,github` or `--all-packs`, or add one later with `monomind packs add <pack>`. `monomind packs list` shows each pack and how much of the listing it uses.
+
+Org skills come from the bundled library, from your own Markdown files, and from imports: `monomind org skills import` pulls MIT or Apache-2.0 skills from another repo and records the licence, source and commit on each one (the library includes a bundle from `anthropics/knowledge-work-plugins`). For skills you want reviewed before roles can use them, `monomind catalog` stages, approves and activates them under a policy ([Catalog](concepts/catalog.md)).
+
+`monomind init` sets up only the coding systems installed on your machine: Claude Code, Antigravity, OpenCode, Kimi Code and Codex each count when their CLI is on your `PATH` or their config directory is in your home, and Claude Code is the default when none is found. A re-run also keeps every system the project already has. It prints what it detected; `--platforms claude,codex` names the systems yourself and `--all-platforms` writes all five. It never runs `npm install` or edits your `package.json`: the code graph uses the `@monoes/monograph` copy bundled with the CLI.
+
+Two things `init` leaves off unless you ask: Claude Code's experimental Agent Teams (`--agent-teams` writes `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`; nothing in Monomind reads it) and dashboard auto-start at every session (`--dashboard`). `monomind doctor` reports a leftover Agent Teams flag from an older `init`, and `monomind init upgrade --settings` removes it (a backup stays in `settings.json.bak-agent-teams`).
+
+`init` writes `.mcp.json` (and the other systems' configs) pinned to the installed version; `--pin latest` keeps the floating `monomind@latest`, and `monomind init --force` re-pins after an upgrade.
+
+<details>
+<summary><strong>Using Antigravity (agy)?</strong></summary>
+
+Nothing extra to do when Antigravity is installed (`agy`/`gemini` on PATH or `~/.gemini`): `monomind init` then writes `GEMINI.md`, `.gemini/rules/`, and a live status bar wired through `.gemini/settings.json`. The MCP server config is shared with Claude Code (`.mcp.json`). See [Antigravity guide →](concepts/antigravity.md).
+
+</details>
+
+<details>
+<summary><strong>Using opencode instead?</strong></summary>
+
+```bash
+monomind init --target opencode # initialize only OpenCode
+```
+
+`monomind init` sets up the coding systems it detects on your machine (CLI on PATH or config directory in your home), OpenCode included when it is installed. `--target opencode` initializes only OpenCode; the legacy `--opencode` flag remains an alias. You get the same MCP tools, agent roster, commands, skills, and security gates, plus a `/monomind-status` command. See [OpenCode guide →](concepts/opencode.md).
+
+</details>
+
+<details>
+<summary><strong>Using Kimi Code instead?</strong></summary>
+
+```bash
+monomind init --target kimicode # initialize only Kimi Code
+```
+
+`monomind init` includes Kimi Code when it is installed (`kimi` on PATH or `~/.kimi`). `--target kimicode` initializes only Kimi Code; the legacy `--kimicode` flag remains an alias. You get the same MCP tools, agent roster, skills, and commands (as project-level flow skills). Install the generated plugin once for `/monomind:*` slash commands and security gates: `/plugins install ./.kimi-code/plugin`. See [Kimi Code guide →](concepts/kimicode.md).
+
+</details>
+
+<details>
+<summary><strong>Using Codex?</strong></summary>
+
+```bash
+codex login
+monomind init --codex
+```
+
+This emits a project-scoped `.codex/config.toml` that registers Monomind's MCP
+server, plus `AGENTS.md` with Codex-specific guidance. Codex must trust the
+project before it loads project-scoped configuration. To run persistent
+Monomind organizations through Codex, set `"runtime": "codex"` in the org
+definition.
+
+Use `monomind init --target codex` (or `--codex`) to initialize only Codex. See [Codex guide →](concepts/codex.md).
+
+</details>
+
+### Install notes
+
+`monomind doctor` also reports Token Cost Settings (an effort env var overriding `effortLevel`, a huge compaction window, tool search off, duplicate hooks). `doctor --json` prints every check for programs to read, and `--read-only` / `--offline` keep it from changing files or using the network.
+
+> **Semantic routing (opt-in download):** embedding-based task routing needs a local model (~88 MB, `Snowflake/snowflake-arctic-embed-xs` via transformers.js). `monomind init` asks interactively whether to download it — the default is No, and non-interactive/CI installs never download it silently. Declining is fine: agent picking (`monomind pick`, the `[PICK]` hook line, `hooks route`) never needs the model; only `route semantic`, `hooks_route_semantic` and `agent spawn --task` use it, after the picker, and fall back to keyword and hash matching without it. Fetch it any time with `monomind download-embeddings` (or `node scripts/download-embedding-model.mjs` on a source checkout).
+
+> **Native module install blocked?** If `doctor` reports a missing `better-sqlite3` binding (`Could not locate the bindings file`, or npm logs an install script that was "blocked because it is not covered by allowScripts"), your npm's `allowScripts` policy blocked its native build — this isn't a Monomind bug. Run `npm install-scripts approve better-sqlite3 && npm rebuild better-sqlite3`, then re-run `monomind doctor --fix`.
+
+Open Claude Code. The core `/mastermind:*` workflows are available (all <!-- doc-count:mastermind-commands -->40<!-- /doc-count:mastermind-commands --> come with `monomind packs add` or `init --all-packs`):
+
+```bash
+/mastermind:review --tillend      # review and fix until nothing is left
+monomind org run sample-team      # run your first AI org (init writes sample-team.json; the first run offers to review and sign it)
+/mastermind:help                  # show all commands
+```
+
+## How it is built (moved from the README)
+
+```mermaid
+graph TD
+    CC["Claude Code"]
+    MCP["MCP Server\nmonomind mcp start"]
+    D["Background Workers\n(@monoes/hooks, in-process)"]
+    ORG["OrgDaemon\nmonomind org run\nreal SDK sessions"]
+
+    CC <-->|"MCP tools: monograph, memory"| MCP
+    MCP <--> D
+
+    D --> ADB[("Memory store\npatterns + episodes")]
+    D --> MG[("Monograph\ncode graph")]
+    D --> HK["Hooks\n28 subcommands"]
+
+    CC -->|"Task tool - spawns agents"| AG["In-session agents\narchitect, coder\ntester, reviewer\nsecurity, perf"]
+    AG <-->|reads and writes| ADB
+    ORG -->|"spawns, policy-gated"| RA["Role agents"]
+    ORG <-->|reads and writes| ADB
+
+    style CC fill:#00D2AA22,stroke:#00D2AA
+    style AG fill:#8B5CF622,stroke:#8B5CF6
+    style ADB fill:#F59E0B22,stroke:#F59E0B
+    style ORG fill:#F59E0B22,stroke:#F59E0B
+```
+
+The earlier `monoswarm` and `autopilot` commands are gone (removed in 2.22.0); use the Task tool or `monomind org run` instead.
+
+**Claude Code's Task tool drives in-session multi-agent work; `monomind org run` drives persistent background orgs.** Monomind keeps its own state on your machine; the AI tools it drives send prompts and code to their model providers — see [Trust & Security](../README.md#trust--security).

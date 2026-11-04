@@ -1,5 +1,5 @@
 // packages/@monomind/cli/__tests__/orgrt/issue-140.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -246,10 +246,10 @@ describe('Issue 140 Comprehensive Fixes', () => {
       expect(resumed).toBeDefined();
       expect(resumed.agents.get('boss')).toBeDefined();
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      expect(receivedMessages.some((m) => m.includes('Restored task A'))).toBe(true);
-      expect(receivedMessages.some((m) => m.includes('Restored task B'))).toBe(true);
+      await vi.waitFor(() => {
+        expect(receivedMessages.some((m) => m.includes('Restored task A'))).toBe(true);
+        expect(receivedMessages.some((m) => m.includes('Restored task B'))).toBe(true);
+      }, { timeout: 5000, interval: 20 });
 
       await daemon.stopOrg(orgName);
     });

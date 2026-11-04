@@ -19,6 +19,7 @@ import { resolveDoctorMode } from './commands/doctor-mode.js';
 import { getCommand, getCommandAsync, getCommandNames, hasCommand } from './commands/index.js';
 import { type OutputFormatter, output } from './output.js';
 import { type CommandParser, commandParser } from './parser.js';
+import { recordUsage } from './services/usage-counters.js';
 import { suggestCommand } from './suggest.js';
 import type { Command, CommandContext } from './types.js';
 import { refreshUpdateCacheInBackground } from './update/index.js';
@@ -231,6 +232,9 @@ export class CLI {
       // Handle subcommand (supports nested subcommands)
       let targetCommand = command;
       let subcommandArgs = positional;
+      // Canonical names of the resolved command chain, for the opt-in usage
+      // counters: declared names only, never the user's arguments.
+      const resolvedPath = [command.name];
 
       // Process command path (e.g., ['hooks', 'worker', 'list'])
       // Note: When parser includes subcommand in commandPath, positional already excludes it
@@ -253,6 +257,7 @@ export class CLI {
           const next = findChild(targetCommand, segment);
           if (!next) break;
           targetCommand = next;
+          resolvedPath.push(next.name);
         }
         subcommandArgs = positional;
       } else if (positional.length > 0 && command.subcommands) {
@@ -262,6 +267,7 @@ export class CLI {
           const next = findChild(targetCommand, subcommandArgs[consumed]);
           if (!next) break;
           targetCommand = next;
+          resolvedPath.push(next.name);
           consumed++;
         }
         subcommandArgs = subcommandArgs.slice(consumed);
@@ -287,6 +293,11 @@ export class CLI {
 
       // Execute command
       if (targetCommand.action) {
+        // Opt-in, local-only usage counter (off by default). Fire-and-forget:
+        // it never throws and is not awaited. Read-only runs write nothing.
+        if (!doctorMode?.readOnly && !probe) {
+          void recordUsage('cli', resolvedPath.join(' '), { config: ctx.config ?? null });
+        }
         if (this.output.isVerbose()) {
           this.output.printDebug(`Executing: ${targetCommand.name}`);
         }

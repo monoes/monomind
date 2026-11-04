@@ -16,6 +16,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { catalogIds } from '../latest-models.js';
 import { withoutBlockedModels } from '../shared/model-guard.js';
 import {
   type ClaudeCodeInfo,
@@ -231,6 +232,12 @@ export async function listRuntimeModels(
 ): Promise<ModelsResult> {
   const result = await listAllRuntimeModels(runtime, opts);
   return { ...result, models: withoutBlockedModels(result.models) };
+}
+
+/** The ids `runtime`'s model list names, for latest-models.ts
+ *  refreshLatestModels (its `list`): each entry's id and resolved id. */
+export async function runtimeModelIds(runtime: string, timeoutMs = 8000): Promise<string[]> {
+  return catalogIds((await listRuntimeModels(runtime, { timeoutMs })).models);
 }
 
 async function listAllRuntimeModels(runtime: string, opts: ListOpts): Promise<ModelsResult> {

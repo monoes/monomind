@@ -125,3 +125,19 @@ CLAUDE.md mandates `monomind browse` over Playwright/Puppeteer with no exception
 - **A Chrome process orphaned by an earlier crash** (e.g. the CLI process itself was killed with `SIGKILL`, which no handler can intercept) can still be cleaned up: `open` persists the launched PID to that session's record, `.monomind/monobrowse/sessions/<port>.json` (`ref-cache.ts`'s `saveSessionRecord`), and a later `monomind browse close` run in a *fresh* process reads that file and kills the PID directly — this is what makes `closeBrowser()`'s PID-kill fallback work across CLI invocations, not just within one.
 - **If none of the above helps** (e.g. the persisted PID file itself is stale or was deleted): find and kill the process manually — `ps aux | grep remote-debugging-port` — then run `monomind browse open` again to start fresh. This manual step is the actual last-resort exception to "no exceptions," and should be rare now that the three mechanisms above cover hang, interrupt, and orphan-after-crash.
 - **Chromium profile directories no longer pile up in `os.tmpdir()`.** Every browser monobrowse launches gets its own `--user-data-dir` (`monomind-browser-*`, `monomind-browse-*`); that directory is now deleted once its Chrome has exited — on a graceful close, on the PID-kill fallback above, on `browse close` from a later process, and when a launch fails. Each launch also sweeps profile directories left by a crashed or killed process: only exact monobrowse names directly under tmpdir, real directories (never symlinks), older than 10 minutes, whose owning PID is dead and that no live Chrome still has open (checked via `/proc` on Linux and the profile's `SingletonLock` everywhere). A `userDataDir` you passed in yourself is never deleted.
+
+
+---
+
+## Browser automation at a glance (moved from the README)
+
+`monomind browse` drives Chrome over the DevTools Protocol with a native TypeScript client, so there is no external binary to install. It takes accessibility snapshots with ref handles (`@e1`), then clicks, fills, uploads, takes screenshots and handles tabs, cookies and storage.
+
+```bash
+monomind browse open https://example.com
+monomind browse snapshot             # element refs: @e1, @e2, ...
+monomind browse click @e1
+monomind browse screenshot page.png
+```
+
+The CDP port defaults to 9422 and falls back across bridge endpoints; `--session <name>` selects an isolated named session. Without an installed Chrome, Chromium or Edge, the first run installs Chrome (see [Trust & Security](../../README.md#trust--security)). Details: [Browse reference](../commands/browse.md).

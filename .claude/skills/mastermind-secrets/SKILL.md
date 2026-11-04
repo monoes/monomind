@@ -1,6 +1,6 @@
 ---
 name: mastermind-secrets
-description: "Mastermind secrets — bookkeeping only — not enforced by the Org Runtime. Keeps org secrets in a local file store no agent or runtime reads; set, rotate, list, audit."
+description: "Deprecated: bookkeeping only — not enforced by the Org Runtime. Mastermind secrets: Keeps org secrets in a local file store no agent or runtime reads; set, rotate, list, audit."
 type: domain-skill
 default_mode: confirm
 pick: low

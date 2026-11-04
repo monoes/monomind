@@ -48,7 +48,8 @@
 - NEVER save to root folder — use the directories below
 - Use `/packages` for source code files
 - Use `/tests` for test files
-- Use `/docs` for documentation and markdown files
+- Use `/doc` for the GitHub Pages site and ADRs (`doc/concepts`, `doc/commands`, `doc/adrs`); use `/docs` for plans and platform notes
+- `AGENTS.md`, `GEMINI.md` and `opencode.json` stay at the repo root because the tools that read them look there
 - Use `/config` for configuration files
 - Use `/scripts` for utility scripts
 - Use `/examples` for example code
@@ -131,7 +132,7 @@ pnpm run lint
 | `hooks` | 28 | Edit/outcome logging, agent routing + 9 background workers |
 
 > Note: there is no `neural` CLI command. Its pattern commands live under
-> `hooks intelligence` — a local JSON pattern store; no model is trained.
+> `hooks intelligence` — a local pattern store (SQLite `patterns.db`, JSON fallback); no model is trained.
 
 ### Quick CLI Examples
 
@@ -240,4 +241,4 @@ If MCP is unavailable, run `npx -y monomind@latest doctor` and use `npx -y monom
 
 ## Asset Trees
 
-- After changing a skill, command or agent, edit the root `.claude/` copy, then run `pnpm run sync:claude-trees` (mirrors it to the package, `.agents`, `.gemini` and `.kimi-code` trees and regenerates the kimi agents/commands); CI fails on `pnpm run sync:claude-trees:check`.
+- After changing a skill, command or agent, edit the root `.claude/` copy, then run `pnpm run sync:claude-trees` (regenerates the gitignored package, `.agents`, `.gemini` and `.kimi-code` trees; the CLI build and the test setup run it too; files that ship but are not in the root tree live in `packages/@monomind/cli/claude-overlay/`); CI fails on `pnpm run sync:claude-trees:check`.

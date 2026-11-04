@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
@@ -117,8 +117,7 @@ describe('RunningOrg.roleSlots', () => {
     // 15 more live tokens pushes the effective total (90 retired + 15 live = 105) over 100.
     running.agents.get('worker')!.policy.addUsage(15);
     running.bus.emit({ type: 'usage', from: 'worker', data: { tokens: 15 } });
-    await new Promise((r) => setTimeout(r, 10));
-    expect(orgBudgetExhausted).toBe(true);
+    await vi.waitFor(() => expect(orgBudgetExhausted).toBe(true), { timeout: 5000, interval: 10 });
     await daemon.stopOrg('retired-usage-org');
   });
 

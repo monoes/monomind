@@ -91,9 +91,43 @@ all have importers/tests), HNSW/quantizer merge (not identical).
 | id | item | effort |
 |----|------|--------|
 | F1 | Decide: promote mcp/memory/routing/hooks to `dependencies`, then switch lazy imports to static; check publish size, `--omit=optional` installs, doctor checks | 1-2 d |
-| F2 | Cosine unification with shared parity tests (4 impls) | 0.5 d |
-| F3 | Quantizer parity test, then pick one of `quantizeInt8` / `Quantizer` | 1 d |
+| F2 | Cosine unification with shared parity tests (4 impls) — DONE, see below | 0.5 d |
+| F3 | Quantizer parity test, then pick one of `quantizeInt8` / `Quantizer` — parity test DONE (they differ; no merge) | 1 d |
 | F4 | Move schema/migrations (`memory-schema.ts`, `memory-migrations.ts`) next to `sql-schema.ts`; one source of DDL | 3-4 d |
 | F5 | Remove inline chunker fallback once F1 lands | 0.5 d |
 | F6 | SQLite-backed `PatternStore` + migration from patterns JSON (format change, needs its own plan) | 3 d |
 | F7 | Slim `MCPServerManager` to lifecycle only after the mcp-server.ts split | 1-2 d |
+
+### F2 result (branch refactor/dedupe-routing-cosine)
+Parity tests: `tests/cli/vector-math-parity.test.ts` (imports each package's
+source directly; inputs include zero, empty, NaN and different-length vectors).
+- Centroid: cli `meanCentroid` (private, `cli/src/routing/embedder.ts`) and
+  `computeCentroid` (`routing/src/cosine.ts`) gave equal output on every case
+  (zero, NaN, ragged, empty vectors; both throw on an empty list, messages
+  differ). The cli copy is deleted; `createSemanticRouting` now calls
+  `computeCentroid` through a lazy `import('@monoes/routing')` (the embed
+  worker has already loaded the package). The test keeps a verbatim copy of
+  the removed function as the reference.
+- Cosine: kept all four, because they differ on length mismatch only:
+  cli `cosineSimilarity` truncates to the shorter vector; routing throws
+  `Vector length mismatch`; memory `math-utils` returns 0; memory
+  `cosineDistance` reads past the shorter vector and returns NaN. cli
+  `batchCosineSim` (`hnsw-operations.ts`) also differs there (query norm over
+  the whole query, vector norm over the overlap) and returns Float32 scores.
+  They agree on equal-length input, zero vectors (0, distance 1), empty
+  vectors (0) and NaN (NaN). cli `cosineSimilarity` also returns 0 for
+  null/undefined, where the others throw. Merging needs a decision on the
+  mismatch semantics first, plus F1 (the cli cannot statically import either
+  package).
+- Not touched: inline cosine in `cli/src/memory/intelligence-pattern-api.ts`
+  (cli-internal; no zero-magnitude guard, so it yields NaN where the shared
+  cli helper yields 0) and `quantizedCosineSim` (Int8 input, uses
+  `sqrt(normA*normB)`).
+
+### F3 result
+Same test file pins how cli `quantizeInt8` and memory `Quantizer`
+(`type: 'scalar', bits: 8`) differ: Int8 symmetric with per-vector scale
+(`absMax/127`, round-trips via `dequantizeInt8`) vs Float32 affine min/max
+mapping into [0, 1] (no round-trip to input scale); a constant vector keeps its
+magnitude in `quantizeInt8` but collapses to zeros in `Quantizer`; `Quantizer`
+enforces a fixed dimension. Not interchangeable; no merge.

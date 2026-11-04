@@ -1,5 +1,5 @@
 // Test: Semantic checkpoint/resume with full state restoration
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
@@ -145,10 +145,11 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
     const resumedAgent = resumed!.agents.get('boss');
     expect(resumedAgent).toBeDefined();
 
-    // Wait a tick for the live session to process restored queued messages
-    await new Promise((r) => setTimeout(r, 100));
-    expect(receivedPrompts.some((p) => p.includes('Queued message 1'))).toBe(true);
-    expect(receivedPrompts.some((p) => p.includes('Queued message 2'))).toBe(true);
+    // Wait for the live session to process restored queued messages
+    await vi.waitFor(() => {
+      expect(receivedPrompts.some((p) => p.includes('Queued message 1'))).toBe(true);
+      expect(receivedPrompts.some((p) => p.includes('Queued message 2'))).toBe(true);
+    }, { timeout: 5000, interval: 20 });
     await daemon.stopOrg(orgName);
   });
 

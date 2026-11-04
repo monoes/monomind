@@ -9,6 +9,27 @@ import type { InitOptions } from './types.js';
 import { detectPlatform } from './types.js';
 
 /**
+ * The allow rules monomind owns in .claude/settings.json. `init` writes them;
+ * `init upgrade` adds any an existing file lacks (upgrade-steps.ts).
+ *
+ * SECURITY: tightened allowlist patterns.
+ *   `Bash(npx monomind*)` previously matched any package starting with
+ *   "monomind" (including a hypothetical future typosquat). Anchor to the
+ *   official scope/namespaces only, with an explicit space between command
+ *   tokens so partial-prefix matches are rejected.
+ */
+export const MONOMIND_ALLOW_RULES: readonly string[] = [
+  'Bash(npx @monomind/*)',
+  'Bash(npx monomind *)',
+  'Bash(npx -y monomind *)',
+  'Bash(npx monomind@*)',
+  // Generated hooks and guidance pin the scoped package (#738, #754).
+  'Bash(npx -y --package=@monoes/monomindcli@* monomind *)',
+  'Bash(node .claude/helpers/*)',
+  'mcp__monomind__*',
+];
+
+/**
  * Generate the complete settings.json content
  */
 export function generateSettings(options: InitOptions): object {
@@ -24,23 +45,9 @@ export function generateSettings(options: InitOptions): object {
     settings.statusLine = generateStatusLineConfig(options);
   }
 
-  // Add permissions
-  // SECURITY: tightened allowlist patterns.
-  //   `Bash(npx monomind*)` previously matched any package starting with
-  //   "monomind" (including a hypothetical future typosquat). Anchor to the
-  //   official scope/namespaces only, with an explicit space between command
-  //   tokens so partial-prefix matches are rejected.
+  // Add permissions (allow list: MONOMIND_ALLOW_RULES above)
   settings.permissions = {
-    allow: [
-      'Bash(npx @monomind/*)',
-      'Bash(npx monomind *)',
-      'Bash(npx -y monomind *)',
-      'Bash(npx monomind@*)',
-      // Generated hooks and guidance pin the scoped package (#738, #754).
-      'Bash(npx -y --package=@monoes/monomindcli@* monomind *)',
-      'Bash(node .claude/helpers/*)',
-      'mcp__monomind__*',
-    ],
+    allow: [...MONOMIND_ALLOW_RULES],
     // SECURITY: an agent must not rewrite its own permissions, plant git hooks
     // or redirect git's hook/ssh execution (all are code-execution footholds).
     deny: [

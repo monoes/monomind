@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import type { OrgDef } from '../orgrt/types.js';
 import { verifyEntry } from './digest.js';
 import { buildSnapshot, eligible } from './snapshot.js';
 import { CATALOG_NAME_RE } from './types.js';
@@ -30,8 +29,22 @@ export const BlueprintSchema = z
 
 export type Blueprint = z.infer<typeof BlueprintSchema>;
 
-export interface ResolvedBlueprints {
-  def: OrgDef;
+/** The role fields blueprint resolution reads and fills — structurally a
+ *  subset of the Org Runtime's OrgRole, so the catalog needs no orgrt types. */
+export interface BlueprintRole {
+  id: string;
+  blueprint?: string;
+  skills?: string[];
+  skill_pool?: string[];
+}
+
+/** An org definition as blueprint resolution sees it (structurally OrgDef). */
+export interface BlueprintOrgDef {
+  roles: BlueprintRole[];
+}
+
+export interface ResolvedBlueprints<D extends BlueprintOrgDef = BlueprintOrgDef> {
+  def: D;
   errors: string[];
   notes: string[];
 }
@@ -83,11 +96,11 @@ export function blueprintDigest(root: string, name: string): string {
  * `blueprint:<name>`), a blueprint is used only if the bytes read now have
  * that digest (#571), so what the operator signed is what the roles get.
  */
-export function resolveOrgDefBlueprints(
-  def: OrgDef,
+export function resolveOrgDefBlueprints<D extends BlueprintOrgDef>(
+  def: D,
   root: string,
   digests?: Record<string, string>,
-): ResolvedBlueprints {
+): ResolvedBlueprints<D> {
   if (!def.roles.some((r) => r.blueprint !== undefined)) return { def, errors: [], notes: [] };
   const errors: string[] = [];
   const notes: string[] = [];
@@ -120,5 +133,6 @@ export function resolveOrgDefBlueprints(
       skill_pool: role.skill_pool ?? bp.skill_pool,
     };
   });
-  return { def: { ...def, roles }, errors, notes };
+  // Each role is spread whole, so every field of D's own role type survives.
+  return { def: { ...def, roles: roles as D['roles'] }, errors, notes };
 }

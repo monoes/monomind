@@ -44,6 +44,13 @@ const RETIRED_FILES = [
   'commands/optimization/auto-topology.md',
   'agents/templates/coordinator-monoswarm-init.md',
 ];
+/** Deprecated agents removed in the 2026-11 surface reduction (C4). */
+const RETIRED_AGENTS = [
+  'agents/engineering/engineering-code-reviewer.md',
+  'agents/github/monoswarm-issue.md',
+  'agents/github/monoswarm-pr.md',
+  'agents/specialized/mobile/spec-mobile-react-native.md',
+];
 /** Helper scripts removed after 2.29.0: nothing loads them any more. */
 const RETIRED_HELPERS = ['helpers/intelligence.cjs', 'helpers/router.cjs'];
 /** READMEs still shipped whose old versions named the removed commands. */
@@ -125,7 +132,7 @@ function convertOne(rel, text) {
   }
 }
 
-const sources = new Set([...RETIRED_FILES, ...RETIRED_HELPERS]);
+const sources = new Set([...RETIRED_FILES, ...RETIRED_AGENTS, ...RETIRED_HELPERS]);
 for (const dir of RETIRED_DIRS) {
   for (const tree of TREES) {
     for (const p of pathsEverUnder(`${tree}/${dir}`)) sources.add(p.slice(tree.length + 1));

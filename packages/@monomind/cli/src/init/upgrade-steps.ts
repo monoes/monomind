@@ -5,12 +5,14 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { backup } from '../platform-adapters/mutation.js';
 import type { FileGuard } from './file-guard.js';
+import { atomicWriteFile } from './fs-helpers.js';
 import { FORCE_SYNC_GENERATORS, FORCE_SYNC_HELPERS, helperFileMode } from './helpers-generator.js';
 import { type HooksByEvent, mergeMonomindHooks } from './hook-settings.js';
 import { buildProjectIndexes, type ProjectIndexCounts } from './project-indexes.js';
-import { generateSettings } from './settings-generator.js';
-import { GENERATED_HELPERS } from './shared.js';
+import { generateSettings, MONOMIND_ALLOW_RULES } from './settings-generator.js';
+import { GENERATED_HELPERS, MAX_EXEC_FILE_BYTES } from './shared.js';
 import { DEFAULT_INIT_OPTIONS } from './types.js';
 
 /**
@@ -149,6 +151,63 @@ export function mergeSettingsForUpgrade(
   };
 
   return merged;
+}
+
+/**
+ * Add the monomind allow rules (MONOMIND_ALLOW_RULES) that `settings` lacks to
+ * the end of `permissions.allow`. The user's rules keep their order and every
+ * other permissions key (deny, ask, ...) is left as it is. Returns the rules
+ * added (none on a second run), or `null` when `permissions` or
+ * `permissions.allow` has a shape this cannot extend without rewriting it.
+ */
+export function addMonomindAllowRules(settings: Record<string, unknown>): string[] | null {
+  const permissions = settings.permissions ?? {};
+  if (typeof permissions !== 'object' || Array.isArray(permissions)) return null;
+  const perms = permissions as Record<string, unknown>;
+  const allow = perms.allow ?? [];
+  if (!Array.isArray(allow)) return null;
+  const added = MONOMIND_ALLOW_RULES.filter((rule) => !allow.includes(rule));
+  if (added.length > 0) settings.permissions = { ...perms, allow: [...allow, ...added] };
+  return added;
+}
+
+/**
+ * `init upgrade` step: append the monomind allow rules an existing
+ * `.claude/settings.json` lacks, backing the file up into the run's backup
+ * directory first. Writes nothing when no rule is missing, and creates no file.
+ */
+export function addAllowRulesToSettings(
+  targetDir: string,
+  result: UpgradeResult,
+  guard: FileGuard,
+): void {
+  const settingsPath = path.join(targetDir, '.claude', 'settings.json');
+  if (!fs.existsSync(settingsPath) || fs.statSync(settingsPath).size > MAX_EXEC_FILE_BYTES) return;
+  let settings: unknown;
+  try {
+    settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+  } catch {
+    // reported below
+  }
+  const added =
+    settings && typeof settings === 'object' && !Array.isArray(settings)
+      ? addMonomindAllowRules(settings as Record<string, unknown>)
+      : null;
+  if (added === null) {
+    guard.warnings.push(
+      '.claude/settings.json: not valid JSON or `permissions.allow` is not a list; monomind allow rules not added',
+    );
+    return;
+  }
+  if (added.length === 0) return;
+  backup(settingsPath, targetDir, false, guard.backupDir);
+  atomicWriteFile(settingsPath, JSON.stringify(settings, null, 2));
+  if (!result.updated.includes('.claude/settings.json'))
+    result.updated.push('.claude/settings.json');
+  result.settingsUpdated = [
+    ...(result.settingsUpdated ?? []),
+    ...added.map((rule) => `permissions.allow: ${rule}`),
+  ];
 }
 
 /**
