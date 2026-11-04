@@ -152,6 +152,14 @@ describe('the pins stay in step with the pinned versions and lockfiles', () => {
       expect(await sha256File(join(pkgDir, f?.file as string)), f?.file).toBe(f?.sha256);
   });
 
+  it('pins @huggingface/transformers at its version, to the entry of the copy this checkout resolves', async () => {
+    const tf = OPTIONAL_DEPENDENCY_CODE_PINS['@huggingface/transformers'];
+    expect(tf?.version).toBe(OPTIONAL_DEPENDENCIES['@huggingface/transformers'].version);
+    const entry = createRequire(import.meta.url).resolve('@huggingface/transformers');
+    expect(entry.endsWith(tf?.entry.file as string)).toBe(true);
+    expect(await sha256File(entry)).toBe(tf?.entry.sha256);
+  });
+
   it('pins every optional dependency or lists it as unpinned, with a reason', () => {
     for (const name of Object.keys(OPTIONAL_DEPENDENCIES)) {
       const pinned = !!OPTIONAL_DEPENDENCY_CODE_PINS[name];

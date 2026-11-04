@@ -97,6 +97,7 @@
   },
   "devDependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.303",
+    "@huggingface/transformers": "4.3.0",
     "chokidar": "^3.6.0",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
@@ -136,7 +137,6 @@
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "ai": "^7.0.58",
     "ollama-ai-provider-v2": "^4.0.0",
-    "@huggingface/transformers": "^4.3.0",
     "@monoes/hooks": "workspace:*",
     "@monoes/mcp": "workspace:*",
     "@monoes/memory": "workspace:*",

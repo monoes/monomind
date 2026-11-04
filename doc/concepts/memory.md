@@ -70,7 +70,7 @@ Monomind uses Reciprocal Rank Fusion (RRF) to combine dense vector representatio
 
 ### 1. Dense Embeddings
 - **Model:** `Alibaba-NLP/gte-modernbert-base` (768 dimensions) ([`memory-bridge-core.ts → BRIDGE_EMBEDDING_MODEL`](packages/@monomind/cli/src/memory/memory-bridge-core.ts#BRIDGE_EMBEDDING_MODEL)).
-- **Engine:** `@xenova/transformers` ONNX feature extraction (`embedding-operations.ts:84-100`).
+- **Engine:** `@huggingface/transformers` ONNX feature extraction (`embedding-operations.ts`). The runtime (about 500 MB with onnxruntime) is not installed with monomind: the first command that embeds installs it into `~/.monomind/deps` with a download notice, model weights go to `~/.monomind/models`, and `MONOMIND_NO_AUTO_INSTALL=1` refuses the install and prints the command. Without it, search uses keyword matching.
 - **HNSW (size-gated):** semantic search goes through `SqlBackend.search()` in `@monoes/memory` ([`memory-read.ts → searchEntries`](packages/@monomind/cli/src/memory/memory-read.ts#searchEntries) → `bridgeSearchEntries`). Below `MONOMIND_HNSW_THRESHOLD` (default 100,000 active embedded entries) it uses brute-force cosine; above it, an HNSW ANN index is built once, reused until the entry set changes, and cached next to the SQLite file ([`sql-backend.ts`](packages/@monomind/memory/src/sql-backend.ts)). `memory search --build-hnsw` forces an early build. The old standalone pure-JS HNSW layer in `hnsw-operations.ts` was removed.
 
 ### 2. Lexical Okapi BM25

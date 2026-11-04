@@ -28,14 +28,17 @@ function fakeEmbedding(text: string): Float32Array {
   return v;
 }
 
-vi.mock('@huggingface/transformers', () => ({
-  pipeline: async () => {
-    if (embedMode === 'pipeline-fails') throw new Error('mocked: embedding model unavailable');
-    return async (text: string) => {
-      if (embedMode === 'extract-fails') throw new Error('mocked: inference failed');
-      return { data: fakeEmbedding(text) };
-    };
-  },
+vi.mock('../utils/transformers-loader.js', async (orig) => ({
+  ...(await orig<typeof import('../utils/transformers-loader.js')>()),
+  loadTransformers: async () => ({
+    pipeline: async () => {
+      if (embedMode === 'pipeline-fails') throw new Error('mocked: embedding model unavailable');
+      return async (text: string) => {
+        if (embedMode === 'extract-fails') throw new Error('mocked: inference failed');
+        return { data: fakeEmbedding(text) };
+      };
+    },
+  }),
 }));
 
 import { bridgeSearchEntries, bridgeStoreEntry, shutdownBridge } from '../memory/memory-bridge.js';
