@@ -68,7 +68,8 @@ describe('notices, the role cap, a section overshoot and a reload that reopens i
     // coder spends 17 of its own 20: its own warning goes to the coordinator and, new in Phase 4, to its section lead
     await go('coder', 17, 17);
     expect(await waitFor(() => runner.texts('dev-lead').some((t) => t.includes('"coder" has spent $17.00 of its $20 budget_usd (85%)')))).toBe(true);
-    expect(runner.texts('boss').some((t) => t.includes('"coder" has spent $17.00'))).toBe(true);
+    // the coordinator's copy is its own dispatch, read whenever the boss's session next takes a turn: wait for it too
+    expect(await waitFor(() => runner.texts('boss').some((t) => t.includes('"coder" has spent $17.00')))).toBe(true);
     expect(runner.texts('qa-lead').join('\n')).not.toContain('has spent');
 
     // the lead's 7 brings the section to 24 of 30, 80 percent: ONE notice to the lead and the root, nobody else

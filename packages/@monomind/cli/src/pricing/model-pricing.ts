@@ -10,7 +10,7 @@
  * Consumers: src/ui/collector.mjs and src/ui/server.mjs both
  * derive their inline pricing tables from this canonical list.
  */
-import { DEFAULT_CLAUDE_MODEL } from '../orgrt/vercel-providers.js';
+import { DEFAULT_CLAUDE_MODEL } from '../latest-models.js';
 
 export interface ModelPrice {
   in: number;

@@ -4,6 +4,7 @@
 // record (pid + start identity), and `org status` / `org run` / `org serve`
 // mark a dead run crashed with an audit line.
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
+import { once } from 'node:events';
 import {
   chmodSync,
   existsSync,
@@ -170,7 +171,7 @@ describe('org status on a dead run (#573)', () => {
 
   it('leaves a live run running and its record untouched', async () => {
     child = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' });
-    await new Promise((r) => setTimeout(r, 50));
+    await once(child, 'spawn');
     const pidStart = processStartId(child.pid as number);
     writeRt({ pid: child.pid, pidStart });
     const before = readFileSync(rtPath(), 'utf8');
@@ -198,7 +199,7 @@ describe('other runtime.json readers (#573)', () => {
       writeRt({ pid: deadPid() });
       expect((await runtimeView(root, ORG))?.status).toBe('crashed');
       child = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' });
-      await new Promise((r) => setTimeout(r, 50));
+      await once(child, 'spawn');
       writeRt({ pid: child.pid, pidStart: processStartId(child.pid as number) });
       expect((await runtimeView(root, ORG))?.status).toBe('running');
     } finally {
@@ -231,7 +232,7 @@ describe('reconcileStaleRun at org run / serve start (#573)', () => {
 
   it('reports a live run with its pid so a second run is refused', async () => {
     child = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' });
-    await new Promise((r) => setTimeout(r, 50));
+    await once(child, 'spawn');
     writeRt({ pid: child.pid, pidStart: processStartId(child.pid as number) });
     expect(reconcileStaleRun(root, ORG, 'org run')).toEqual({ outcome: 'live', pid: child.pid });
     expect(readRt().status).toBe('running');

@@ -78,13 +78,20 @@ describe('org run applies org reload', () => {
     const { daemon, state } = stubDaemon('growth');
     const wait = waitForRunEnd(cwd, 'growth', daemon, TICK);
 
+    const reloadFile = join(cwd, ORG_DIR, 'growth', 'reload');
+    // a request is handled once its file is consumed and the reload ran; then the count is exact
+    const handled = (n: number) =>
+      vi.waitFor(() => expect(!existsSync(reloadFile) && state.reloads >= n).toBe(true), {
+        timeout: 5000,
+        interval: TICK,
+      });
     signal('growth', 'reload');
-    await sleep(TICK * 6);
+    await handled(1);
     expect(state.reloads).toBe(1);
-    expect(existsSync(join(cwd, ORG_DIR, 'growth', 'reload'))).toBe(false);
+    expect(existsSync(reloadFile)).toBe(false);
 
     signal('growth', 'reload');
-    await sleep(TICK * 6);
+    await handled(2);
     expect(state.reloads).toBe(2);
 
     state.running = false;
@@ -104,8 +111,10 @@ describe('org run applies org reload', () => {
     const { daemon, state } = stubDaemon('growth', { failReload: true });
     const wait = waitForRunEnd(cwd, 'growth', daemon, TICK);
     signal('growth', 'reload');
-    await sleep(TICK * 6);
-    expect(existsSync(join(cwd, ORG_DIR, 'growth', 'reload'))).toBe(false);
+    await vi.waitFor(() => expect(existsSync(join(cwd, ORG_DIR, 'growth', 'reload'))).toBe(false), {
+      timeout: 5000,
+      interval: TICK,
+    });
     state.running = false;
     await expect(wait).resolves.toEqual({ stoppedManually: false });
   });

@@ -54,6 +54,8 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
     verbosity: 'normal',
     outputFormat: 'text',
     progressStyle: 'spinner',
+    // Opt-in local usage counters (services/usage-counters.ts). Off by default.
+    usageCounters: false,
   },
   hooks: {
     enabled: true,

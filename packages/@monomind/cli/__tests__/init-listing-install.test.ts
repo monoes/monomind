@@ -108,7 +108,6 @@ describe('copyAgents', () => {
       ),
     );
     expect(deprecated).toEqual([]);
-    expect(installed).not.toContain(path.join('github', 'monoswarm-pr.md'));
     expect(result.summary.agentsCount).toBe(installed.length);
   });
 });

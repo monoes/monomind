@@ -1,6 +1,6 @@
 ---
 name: mastermind-join-queue
-description: "Mastermind join-queue — bookkeeping only — not enforced by the Org Runtime. Lists, approves or rejects join requests recorded in a side file, by type and status."
+description: "Deprecated: bookkeeping only — not enforced by the Org Runtime. Mastermind join-queue: Lists, approves or rejects join requests recorded in a side file, by type and status."
 type: domain-skill
 default_mode: auto
 pick: low

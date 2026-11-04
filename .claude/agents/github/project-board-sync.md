@@ -335,4 +335,4 @@ gh project item-list $PROJECT_NUMBER --owner $OWNER --limit 500 --format json \
   jq -s --argjson since "$SINCE" 'map(select(.closedAt and ((.closedAt | fromdate) >= $since))) | length'
 ```
 
-See also: [monoswarm-issue.md](./monoswarm-issue.md), [monoswarm-multi-repo.md](./monoswarm-multi-repo.md)
+See also: [issue-tracker.md](./issue-tracker.md), [monoswarm-multi-repo.md](./monoswarm-multi-repo.md)

@@ -20,7 +20,15 @@ function fixture(root: string, name: string): void {
   }));
 }
 
-const hangingQuery = () => (async function* () { await new Promise(() => {}); })();
+// Hangs until the runner aborts it, as a real query does, so stopOrg does not wait out its 15s drain ceiling.
+const hangingQuery = ({ options }: any) =>
+  (async function* () {
+    const signal: AbortSignal | undefined = options?.abortController?.signal;
+    await new Promise<void>((r) => {
+      if (signal?.aborted) r();
+      signal?.addEventListener('abort', () => r(), { once: true });
+    });
+  })();
 
 describe('persistCrashStateAll', () => {
   it('writes the given error message into runtime.json', async () => {

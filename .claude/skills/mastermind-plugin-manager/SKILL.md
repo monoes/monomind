@@ -1,6 +1,6 @@
 ---
 name: mastermind-plugin-manager
-description: "Mastermind plugin-manager — bookkeeping only — not enforced by the Org Runtime. npm-installs packages and records enabled state in `.monomind/plugins/registry.json`, which nothing loads."
+description: "Deprecated: bookkeeping only — not enforced by the Org Runtime. Mastermind plugin-manager: npm-installs packages and records enabled state in `.monomind/plugins/registry.json`, which nothing loads."
 type: domain-skill
 default_mode: confirm
 pick: low

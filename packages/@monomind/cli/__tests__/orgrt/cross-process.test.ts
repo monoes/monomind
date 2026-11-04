@@ -7,6 +7,12 @@ import { OrgDaemon } from '../../src/orgrt/daemon.js';
 import { startOrgServer } from '../../src/orgrt/server.js';
 import { lookupOrg, registerOrg } from '../../src/orgrt/broker.js';
 
+const waitUntil = async (pred: () => boolean, ms = 5000): Promise<boolean> => {
+  const end = Date.now() + ms;
+  while (Date.now() < end && !pred()) await new Promise(r => setTimeout(r, 20));
+  return pred();
+};
+
 const echoQuery = ({ prompt }: any) => (async function* () {
   for await (const m of prompt) {
     yield { type: 'assistant', message: { content: [{ type: 'text', text: `echo: ${m.message.content}` }] } };
@@ -70,7 +76,8 @@ describe('cross-process inter-org delivery', () => {
 
     // receiver side: xorg recorded in project B's bus, AND the message actually
     // reached beta's boss mailbox (echo agent will surface it as a chat reply)
-    await new Promise(r => setTimeout(r, 300));
+    await waitUntil(() => beta.busEvents().some(e =>
+      e.type === 'chat' && e.from === 'boss' && (e.msg ?? '').includes('hello from project A')));
     expect(beta.busEvents().some(e =>
       e.type === 'xorg' && e.from === 'alpha:boss' && e.msg === 'hello from project A')).toBe(true);
     expect(beta.busEvents().some(e =>
@@ -229,8 +236,7 @@ describe('cross-process inter-org delivery', () => {
     // A correctly-credentialed message from the real alpha still succeeds.
     const receipt = await daemonA.deliver('alpha', 'boss', 'beta:boss', 'legit', 'really from alpha');
     expect(receipt).toMatch(/delivered to beta:boss \(remote\)/);
-    await new Promise(r => setTimeout(r, 200));
-    expect(beta.busEvents().some(e => e.type === 'xorg' && e.subject === 'legit')).toBe(true);
+    expect(await waitUntil(() => beta.busEvents().some(e => e.type === 'xorg' && e.subject === 'legit'))).toBe(true);
   });
 
   it('receiveRemote rejects a fromOrg claim with no matching registered credential, and accepts a matching one', async () => {

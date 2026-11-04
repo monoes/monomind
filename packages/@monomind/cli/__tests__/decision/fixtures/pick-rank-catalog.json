@@ -147,13 +147,6 @@
    "category": "engineering",
    "description": "Expert site reliability engineer specializing in SLOs, error budgets, observability, chaos engineering, and toil reduction for production systems at scale.",
    "text": "engineering SLO and error budget management observability and monitoring chaos engineering incident response toil reduction automation slo-definition observability-setup incident-response reliability-review"
-  },
-  {
-   "id": "spec-mobile-react-native",
-   "name": "mobile-dev",
-   "category": "specialized",
-   "description": "Expert agent for React Native mobile application development across iOS and Android",
-   "text": "specialized"
   }
  ],
  "skills": [

@@ -305,3 +305,49 @@ export function fixAppleDoubleSidecars(cwd: string): number {
   }
   return removed;
 }
+
+/** Skill trees `init` writes into a project. */
+const PROJECT_SKILL_TREES = [
+  '.claude/skills',
+  '.agents/skills',
+  '.gemini/skills',
+  '.kimi-code/skills',
+];
+
+/** Names of installed skills whose frontmatter description starts with
+ *  "Deprecated:" — the marker a skill carries for one release before removal. */
+export function findDeprecatedSkills(cwd: string): string[] {
+  const names = new Set<string>();
+  for (const tree of PROJECT_SKILL_TREES) {
+    let dirs: string[];
+    try {
+      dirs = readdirSync(join(cwd, tree));
+    } catch {
+      continue;
+    }
+    for (const dir of dirs) {
+      let text: string;
+      try {
+        text = readFileSync(join(cwd, tree, dir, 'SKILL.md'), 'utf8');
+      } catch {
+        continue;
+      }
+      const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1] ?? '';
+      if (/^description:\s*["']?Deprecated:/m.test(fm)) names.add(dir);
+    }
+  }
+  return [...names].sort();
+}
+
+export async function checkDeprecatedSkills(cwd = process.cwd()): Promise<HealthCheck> {
+  const name = 'Deprecated Skills';
+  const found = findDeprecatedSkills(cwd);
+  if (found.length === 0)
+    return { name, status: 'pass', message: 'No deprecated skills installed' };
+  return {
+    name,
+    status: 'warn',
+    message: `${found.length} deprecated skill(s) installed, removed in the next release: ${found.join(', ')}`,
+    fix: `Stop relying on them and delete their directories from ${PROJECT_SKILL_TREES.join(', ')}`,
+  };
+}

@@ -5,14 +5,14 @@ description: Lifecycle hooks that log edits, outcomes and trajectories to local 
 
 # Hooks System Overview
 
-Lifecycle hooks that connect Claude Code tool events to Monomind's outcome logging, agent routing, and session persistence. Hooks log edits, outcomes and trajectories to local JSON pattern files; no model is trained.
+Lifecycle hooks that connect Claude Code tool events to Monomind's outcome logging, agent routing, and session persistence. Hooks log edits, outcomes and trajectories to a local pattern store (SQLite `patterns.db`, JSON fallback); no model is trained.
 
 ## How It Works
 
 Claude Code fires hook events (PreToolUse, PostToolUse, etc.) which trigger `npx monomind hooks <subcommand>` commands. The hooks system:
 
 1. **Routes** tasks to agents through the keyword picker (pick stats act as a bounded ranking prior)
-2. **Records** outcomes (edits, commands, tasks) in local JSON pattern files
+2. **Records** outcomes (edits, commands, tasks) in a local pattern store (SQLite, JSON fallback)
 3. **Persists** session state across conversations
 4. **Scans** the repository (file types, import lines) into the memory store and local pattern log (`hooks pretrain`)
 
