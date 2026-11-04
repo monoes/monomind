@@ -6,6 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL } from '../init/types.js';
+import { readPatternDbRecords, writePatternDbRecords } from '../memory/intelligence-pattern-db.js';
 import { validateMcpString } from '../utils/input-guards.js';
 import { mergeRecordsById } from '../utils/json-file.js';
 import { getIntelligenceStatsFromMemory, getSONAOptimizer } from './hooks-embedding.js';
@@ -243,8 +244,13 @@ export const hooksTransfer: MCPTool = {
     let sourcePatterns: NeuralPattern[] = [];
 
     const MAX_SOURCE_PATTERNS_BYTES = 50 * 1024 * 1024; // 50 MB — matches other store readers
+    // The source's SQLite store (patterns.db, opened read-only) when it has
+    // one, else its patterns.json.
+    const sourceDbRecords = readPatternDbRecords(join(resolvedSource, '.monomind', 'neural'));
     try {
-      if (
+      if (sourceDbRecords) {
+        sourcePatterns = sourceDbRecords as NeuralPattern[];
+      } else if (
         existsSync(sourcePatternsPath) &&
         statSync(sourcePatternsPath).size <= MAX_SOURCE_PATTERNS_BYTES
       ) {
@@ -290,8 +296,11 @@ export const hooksTransfer: MCPTool = {
     const destDir = join(getProjectCwd(), '.monomind', 'neural');
     const destPatternsPath = join(destDir, 'patterns.json');
     let destPatterns: NeuralPattern[] = [];
+    const destDbRecords = readPatternDbRecords(destDir);
     try {
-      if (
+      if (destDbRecords) {
+        destPatterns = destDbRecords as NeuralPattern[];
+      } else if (
         existsSync(destPatternsPath) &&
         statSync(destPatternsPath).size <= MAX_SOURCE_PATTERNS_BYTES
       ) {
@@ -306,9 +315,11 @@ export const hooksTransfer: MCPTool = {
     const { merged, added } = mergeRecordsById(destPatterns, qualifying);
 
     if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
-    const tmpDest = `${destPatternsPath}.${process.pid}.${Date.now()}.tmp`;
-    writeFileSync(tmpDest, JSON.stringify(merged, null, 2), 'utf-8');
-    renameSync(tmpDest, destPatternsPath);
+    if (!writePatternDbRecords(destDir, merged, 'add')) {
+      const tmpDest = `${destPatternsPath}.${process.pid}.${Date.now()}.tmp`;
+      writeFileSync(tmpDest, JSON.stringify(merged, null, 2), 'utf-8');
+      renameSync(tmpDest, destPatternsPath);
+    }
 
     // Real counts of what was actually transferred, grouped by each pattern's
     // own `type` field (falling back to 'unknown' when absent).

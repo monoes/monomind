@@ -2,6 +2,7 @@
  * Neural registry commands — import pattern sets from a local file
  */
 
+import { readPatternDbRecords, writePatternDbRecords } from '../memory/intelligence-pattern-db.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { mergeRecordsById } from '../utils/json-file.js';
@@ -198,8 +199,11 @@ export const importCommand: Command = {
 
       const patternsFile = path.join(memoryDir, 'patterns.json');
       let existingPatterns: Array<{ id: string }> = [];
+      const dbRecords = merge ? readPatternDbRecords(memoryDir) : null;
 
-      if (
+      if (dbRecords) {
+        existingPatterns = dbRecords as Array<{ id: string }>;
+      } else if (
         merge &&
         fs.existsSync(patternsFile) &&
         fs.statSync(patternsFile).size <= 50 * 1024 * 1024
@@ -213,9 +217,13 @@ export const importCommand: Command = {
       );
       const finalPatterns = merge ? mergedPatterns : validPatterns;
 
-      const tmpPatterns = `${patternsFile}.${process.pid}.${Date.now()}.tmp`;
-      fs.writeFileSync(tmpPatterns, JSON.stringify(finalPatterns, null, 2), { flag: 'wx' });
-      fs.renameSync(tmpPatterns, patternsFile);
+      // SQLite store when available ('add' = the merge's keep-existing rule),
+      // else rewrite patterns.json as before.
+      if (!writePatternDbRecords(memoryDir, finalPatterns, merge ? 'add' : 'replace')) {
+        const tmpPatterns = `${patternsFile}.${process.pid}.${Date.now()}.tmp`;
+        fs.writeFileSync(tmpPatterns, JSON.stringify(finalPatterns, null, 2), { flag: 'wx' });
+        fs.renameSync(tmpPatterns, patternsFile);
+      }
 
       spinner.succeed('Import complete');
 

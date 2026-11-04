@@ -20,10 +20,16 @@
 
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { PATTERNS_DB_FILE } from './intelligence-pattern-db.js';
 import { getDataDir, getPatternsPath, getStatsPath } from './intelligence-persistence.js';
 import { LocalReasoningBank } from './intelligence-reasoning-bank.js';
 import { LocalSonaCoordinator } from './intelligence-sona.js';
 import { loadSonaRoutingPatterns } from './intelligence-sona-routing.js';
+import {
+  openSqlitePatternStore,
+  type ReasoningBankStore,
+  SqlitePatternStore,
+} from './intelligence-sqlite-store.js';
 import type { IntelligenceStats, SonaConfig } from './intelligence-types.js';
 
 // ============================================================================
@@ -46,7 +52,7 @@ const DEFAULT_SONA_CONFIG: SonaConfig = {
 // ============================================================================
 
 export let sonaCoordinator: LocalSonaCoordinator | null = null;
-export let reasoningBank: LocalReasoningBank | null = null;
+export let reasoningBank: ReasoningBankStore | null = null;
 let intelligenceInitialized = false;
 let initPromise: Promise<{
   success: boolean;
@@ -121,11 +127,14 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
     // Initialize local SONA (optimized for <0.05ms)
     sonaCoordinator = new LocalSonaCoordinator(finalConfig);
 
-    // Initialize local ReasoningBank with persistence enabled
-    reasoningBank = new LocalReasoningBank({
-      maxSize: finalConfig.maxPatterns,
-      persistence: true,
-    });
+    // Initialize local ReasoningBank with persistence enabled: SQLite
+    // (patterns.db) when better-sqlite3 loads, else the JSON file.
+    reasoningBank =
+      openSqlitePatternStore(getDataDir(), finalConfig.maxPatterns) ??
+      new LocalReasoningBank({
+        maxSize: finalConfig.maxPatterns,
+        persistence: true,
+      });
 
     // Load persisted stats if available
     loadPersistedStats();
@@ -286,7 +295,7 @@ export function getSonaCoordinator(): LocalSonaCoordinator | null {
 /**
  * Get ReasoningBank for advanced operations
  */
-export function getReasoningBank(): LocalReasoningBank | null {
+export function getReasoningBank(): ReasoningBankStore | null {
   return reasoningBank;
 }
 
@@ -294,6 +303,7 @@ export function getReasoningBank(): LocalReasoningBank | null {
  * Clear intelligence state
  */
 export function clearIntelligence(): void {
+  if (reasoningBank instanceof SqlitePatternStore) reasoningBank.close();
   sonaCoordinator = null;
   reasoningBank = null;
   intelligenceInitialized = false;
@@ -330,7 +340,10 @@ export function getPersistenceStatus(): {
   statsExist: boolean;
 } {
   const dataDir = getDataDir();
-  const patternsFile = getPatternsPath();
+  const patternsFile =
+    reasoningBank instanceof SqlitePatternStore
+      ? join(dataDir, PATTERNS_DB_FILE)
+      : getPatternsPath();
   const statsFile = getStatsPath();
 
   return {

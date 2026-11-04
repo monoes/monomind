@@ -111,7 +111,7 @@ Fallback when picking returns nothing — real core agents:
 | \`hooks\` | ${subcommandCount(hooksCommand)} | Edit/outcome logging, agent routing + ${hooksAvailable ? `${WORKER_COUNT} ` : ''}background workers${hooksAvailable ? '' : ' (background workers unavailable in this install)'} |
 
 > Note: there is no \`workflow\`, \`neural\`, \`embeddings\`, \`claims\`, \`migrate\`, or \`process\` CLI command.
-> The old \`neural\` pattern commands live under \`hooks intelligence\` — a local JSON pattern store; no model is trained.
+> The old \`neural\` pattern commands live under \`hooks intelligence\` — a local pattern store (SQLite \`patterns.db\`, JSON fallback); no model is trained.
 
 ### Advanced Commands
 | Command | Subcommands | Description |
@@ -196,7 +196,7 @@ session start when their output is >6h old; run on demand with
 ### Intelligence System
 - **Keyword routing**: Deterministic task→agent routing with outcome measurement
 - **ANN pattern search**: Indexed vector search via SQLite
-- **Pattern store**: Hooks log edits, outcomes and trajectories to local JSON pattern files for retrieval
+- **Pattern store**: Hooks log edits, outcomes and trajectories to a local pattern store (SQLite, JSON fallback) for retrieval
 - **Pick stats**: Pick adherence and subagent outcomes (\`.monomind/pick-stats.json\`) act as a bounded ranking prior on later picks
 - **Int8 Quantization**: ~4x memory reduction for stored embeddings
 
@@ -226,7 +226,7 @@ npx monomind memory init --force
 |--------|--------|--------|
 | ANN Search | Indexed vector search | ✅ Implemented (SQLite) |
 | Memory Reduction | 50-75% | ✅ Implemented (~4x via Int8 quantization) |
-| Pattern Logging | Recorded + retrievable | ✅ Implemented (local JSON pattern store) |
+| Pattern Logging | Recorded + retrievable | ✅ Implemented (local SQLite pattern store, JSON fallback) |
 | MCP Response | <100ms | ✅ Achieved |
 | CLI Startup | <500ms | ✅ Achieved |
 | Graph Build (1k) | <200ms | ✅ 2.78ms (71.9x headroom) |

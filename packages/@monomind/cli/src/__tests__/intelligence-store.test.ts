@@ -171,7 +171,8 @@ describe('pattern store maintenance', () => {
     await intel.initializeIntelligence();
     await intel.recordStep({ type: 'action', content: 'persist me', timestamp: Date.now() });
     intel.flushPatterns();
-    expect(existsSync(join(dir, '.monomind', 'neural', 'patterns.json'))).toBe(true);
+    // SQLite store by default (patterns.json is only the fallback).
+    expect(existsSync(join(dir, '.monomind', 'neural', 'patterns.db'))).toBe(true);
   });
 });
 

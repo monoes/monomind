@@ -5,14 +5,16 @@
  * data, but nothing was actually transferred.
  *
  * This test proves patterns physically land in the destination project's
- * `.monomind/neural/patterns.json`, deduped by id via the same merge logic
+ * pattern store (`.monomind/neural/patterns.db`; patterns.json when SQLite is
+ * unavailable), deduped by id via the same merge logic
  * `hooks intelligence import` uses (mergeRecordsById in utils/json-file.ts),
  * and that the reported byType counts match what was actually written.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { readPatternDbRecords } from '../src/memory/intelligence-pattern-db.js';
 import { hooksTransfer } from '../src/mcp-tools/hooks-routing.js';
 
 describe('hooks_transfer', () => {
@@ -48,6 +50,7 @@ describe('hooks_transfer', () => {
     expect(result.transferred).toEqual({ total: 0, byType: {} });
     // Nothing should have been written to the destination.
     expect(existsSync(join(destDir, '.monomind', 'neural', 'patterns.json'))).toBe(false);
+    expect(existsSync(join(destDir, '.monomind', 'neural', 'patterns.db'))).toBe(false);
   });
 
   it('actually copies qualifying patterns into the destination, with correct type counts', async () => {
@@ -67,9 +70,7 @@ describe('hooks_transfer', () => {
       byType: { 'file-pattern': 2, routing: 1 },
     });
 
-    const destPatternsPath = join(destDir, '.monomind', 'neural', 'patterns.json');
-    expect(existsSync(destPatternsPath)).toBe(true);
-    const written = JSON.parse(readFileSync(destPatternsPath, 'utf-8')) as Array<{ id: string }>;
+    const written = readPatternDbRecords(join(destDir, '.monomind', 'neural')) as Array<{ id: string }>;
     const ids = written.map((p) => p.id).sort();
     expect(ids).toEqual(['p1', 'p2', 'p3']);
   });
@@ -109,7 +110,10 @@ describe('hooks_transfer', () => {
     // Only the genuinely new pattern counts as "transferred".
     expect(result.transferred).toEqual({ total: 1, byType: { 'file-pattern': 1 } });
 
-    const written = JSON.parse(readFileSync(join(destNeuralDir, 'patterns.json'), 'utf-8')) as Array<{
+    // The destination's existing patterns.json was imported into patterns.db
+    // first (and kept as patterns.json.imported), then merged into.
+    expect(existsSync(join(destNeuralDir, 'patterns.json.imported'))).toBe(true);
+    const written = readPatternDbRecords(destNeuralDir) as Array<{
       id: string;
       confidence: number;
     }>;

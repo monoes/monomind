@@ -1,6 +1,6 @@
 # Memory Systems
 
-> Monomind has two memory layers that work together: a JSON pattern store with episodic recall (the hot path — no vector database involved) and Monograph (code knowledge graph). Each serves a different retrieval pattern.
+> Monomind has two memory layers that work together: a local pattern store (SQLite, JSON fallback) with episodic recall (the hot path — no vector database involved) and Monograph (code knowledge graph). Each serves a different retrieval pattern.
 
 ---
 
@@ -11,7 +11,7 @@
 │                         MEMORY ARCHITECTURE                         │
 │                                                                      │
 │  Pattern store + episodic    Monograph (code graph)                 │
-│  patterns.json,              .monomind/monograph.db                 │
+│  patterns.db (or .json),     .monomind/monograph.db                 │
 │  auto-memory-store.json,     SQLite + dependency graph              │
 │  episodic/episodes.jsonl                                             │
 │         ↓ recall injected at prompt time                            │
