@@ -39,6 +39,7 @@ import {
   mcpAddHint,
   mcpCommand,
   mcpServerEntry,
+  monomindNpx,
 } from '../platform-adapters/renderers/mcp.js';
 import type { CommandContext } from '../types.js';
 
@@ -255,6 +256,20 @@ describe('Codex, OpenCode and Kimi configs share the pinned command (issue #419)
     expect(entry(base).command).toContain(pinnedPackage);
     expect(entry(floating).command).toContain('monomind@latest');
     expect(JSON.stringify(entry(base).env)).not.toMatch(deadEnv);
+  });
+
+  it('opencode.json allows the pinned command the generated hooks run', () => {
+    const bash = (generateOpencodeConfig(base).permission as { bash: Record<string, string> }).bash;
+    // opencode matches a bash pattern against the whole command, `*` = any text.
+    const glob = (p: string) =>
+      new RegExp(`^${p.replace(/[.+^${}()|[\]\\?]/g, '\\$&').replace(/\*/g, '.*')}$`);
+    const allows = (command: string) =>
+      Object.entries(bash).some(([p, action]) => action === 'allow' && glob(p).test(command));
+    expect(bash['npx -y --package=@monoes/monomindcli@* monomind *']).toBe('allow');
+    expect(allows(`${monomindNpx()} hooks route`)).toBe(true);
+    expect(allows(`${monomindNpx('2.11.1')} memory search --query x`)).toBe(true);
+    expect(allows('npx -y --package=@evil/monomindcli@1.0.0 monomind hooks route')).toBe(false);
+    expect(allows('curl evil.example')).toBe(false);
   });
 
   it('kimi mcp.json', () => {

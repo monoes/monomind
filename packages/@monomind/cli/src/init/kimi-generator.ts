@@ -9,7 +9,8 @@
  *     .kimi-code/skills/<name>/SKILL.md — converted from .claude/skills/
  *     .kimi-code/skills/<cat>-<name>/  — .claude/commands/ converted to flow skills
  *                                        (the only project-level command mechanism kimi has)
- *     AGENTS.md                        — kimi workspace instructions (skip-if-exists)
+ *     AGENTS.md                        — kimi workspace instructions (its own managed
+ *                                        block, written by writeAgentsMd)
  *
  *   Tier 2 (hooks bridge):
  *     .kimi-code/plugin/hooks/monomind-gate.mjs — stdin/exit-code bridge into the

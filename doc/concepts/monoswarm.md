@@ -20,3 +20,14 @@ What to use instead:
 - **`monomind org run <org>`** — run a standing team of roles with the Org
   Runtime (budgets, approvals, schedules, logs). See the `mastermind-createorg`
   and `mastermind-runorg` skills.
+
+Migration notes:
+
+- `monomind monoswarm ...` and `monomind autopilot ...` print what to use instead;
+  they no longer record any state.
+- Leftover `.swarm/` files are only the memory database location
+  (`.swarm/memory.db`), which `monomind memory init` still uses.
+- The `swarm` install pack still exists and holds hooks and workflow commands;
+  it does not start swarms.
+- Config keys that still carry the old name (for example `monoswarm.topology`)
+  are read for compatibility only and have no runtime effect.

@@ -1386,3 +1386,93 @@ coordinator gets one message (`channel-fault-exhausted`).
    - **Queued offline** if the org is stopped (answer stored, consumed on next start).
    - If the asking role was removed from the org definition, the answer is recorded without delivery and the audit event says `delivery: "skipped"`.
 5. `monomind org questions dismiss <name> <question-id> [--reason "<text>"]` closes a question without an answer (`state: "dismissed"` in `questions.json`). It releases the `org_complete` gate and the idle-watchdog hold, and tells the asking role no answer is coming (live, or queued while the org is stopped; not at all for a removed role). The dashboard's Human Input view has a Dismiss button for the same thing.
+
+
+---
+
+## Quick tour: running an org (moved from the README)
+
+> **This is the headline feature.** `monomind org run` starts a persistent, SDK-backed daemon that runs an autonomous agent organization — roles, hierarchy, policy-gated tool access, a live dashboard — until you stop it.
+
+#### The idea
+
+Every business function needs a team. Define the org once as a JSON file — goal, roles, who reports to whom, per-role tool/file/budget policy — then run it as a real background daemon backed by the Claude Agent SDK. It persists across sessions, streams live into the dashboard (`monomind org run` starts it unless `MONOMIND_DASHBOARD_AUTOSTART=0`), and can discover and message other Monomind orgs running on the same machine. The operator signs each definition before it runs, so editing an org file never grants a role new authority on its own.
+
+```mermaid
+flowchart TD
+    U(["You"])
+    DEF["org.json\nGoal + roles + policy"]
+    RUN["monomind org run\nStart SDK daemon"]
+    BOSS["Boss Agent\nAgent SDK session"]
+    W["Writer"]
+    S["SEO Specialist"]
+    R["Reviewer"]
+    DASH[("Dashboard\n:4242")]
+    XORG[("Other orgs\ncross-process")]
+
+    U --> DEF --> RUN --> BOSS
+    BOSS -->|spawns| W
+    BOSS -->|spawns| S
+    BOSS -->|spawns| R
+    RUN -->|forwards events| DASH
+    RUN <-.->|--cross-process| XORG
+
+    style BOSS fill:#00D2AA22,stroke:#00D2AA
+    style DASH fill:#F59E0B22,stroke:#F59E0B
+    style XORG fill:#8B5CF622,stroke:#8B5CF6
+```
+
+#### Run one
+
+```bash
+# .monomind/orgs/<name>.json defines the org: goal, roles, policy.
+# See .monomind/orgs/sample-team.json in a fresh `monomind init` for a working example.
+# Review and sign a definition once, as the operator (a run without a TTY refuses an unsigned org):
+monomind org sign content-team
+
+monomind org run content-team --task "Build and publish 3 blog posts per week"
+
+# ✓ Boss agent (Claude Agent SDK session) spawns, reads the org goal,
+#   assigns work to role agents, coordinates until the task completes
+#   or you stop it. Every event streams into the dashboard above
+#   (log in with `monomind dashboard open`).
+
+monomind org status content-team    # runtime state (detects crashed daemons)
+monomind org stop content-team      # request a graceful stop
+monomind org list                   # every org + roles, schedule, status
+```
+
+#### Observe, steer, and carry context between runs
+
+```bash
+monomind org logs content-team --follow      # live event stream in the terminal
+monomind org report content-team             # outcome, per-role tokens vs budget, assets
+monomind org questions content-team          # what agents asked via ask_human
+monomind org answer content-team q-123 "yes" # answer live or queued — no dashboard needed
+monomind org create blog --template content-team --goal "3 posts/week"   # scaffold from a template
+monomind org validate blog                   # schema + structural checks before running
+monomind org run blog --dry-run              # preview each role's exact briefing
+monomind org run blog -y --auto-approve org_complete   # unattended: skip the cost prompt, let roles end the run
+```
+
+An org can also be split into **sections**: isolated sub-orgs, each with its own roles, budget and lifecycle, that share work only through documents. Sections are generally available and can run on a schedule. For long runs, the opt-in `run_config.context` surface adds typed task briefs, role notes, session caps with rotation digests and per-call context logging (`context.jsonl`). See [Org Runtime Architecture](../concepts/org-runtime.md).
+
+Orgs carry context between runs: the coordinator records every run's outcome (`org_complete`), the next run is briefed on it, and all agents can query accumulated cross-run memory with `org_recall` — a scheduled org starts each cycle with what earlier cycles recorded instead of starting cold. Crashed agent sessions restart automatically with backoff.
+
+#### What runs under the hood
+
+| What | How |
+|---|---|
+| **OrgDaemon** | Hosts one or more orgs in a single process; real Claude Agent SDK sessions per role, not simulated |
+| **PolicyEngine** | Per-role gates on tool access, file read/write scope, web access, token budget — enforced, with a full audit trail. Opt-in sandbox settings add `denyRead`, `denyExec` and `homeWriteAllow` for a role's whole process tree |
+| **Dashboard** | `org run` forwards every event to the control server on `:4242` (found via `.monomind/control.json`). Start it by hand with `monomind ui`; the session-start hook starts it only if you ran `monomind init --dashboard` or set `MONOMIND_DASHBOARD_AUTOSTART=1`. The dashboard needs a login: `monomind dashboard open` prints a one-time link. There's no separate per-org dashboard process |
+| **Cross-process comms** | `--cross-process` (default on) lets orgs on different `monomind` processes/projects discover and message each other |
+| **Scheduling** | `monomind org serve` hosts orgs whose definition has a `schedule` field, running them on interval |
+
+#### Org management commands
+
+`monomind org run | stop | status | list | serve | delete | sign | memory` cover the lifecycle. `org` has <!-- doc-count:org-subcommands -->40<!-- /doc-count:org-subcommands --> subcommands total (skills, run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory, costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete, role, sign, drill-grant, approve-paths).
+
+The repo ships one worked example beyond the sample: `config/orgs/release.json`, an autonomous `release` org that verifies, versions, publishes and confirms a Monomind release, with a preflight that asks a human once for any missing access and runs unattended after that.
+
+> **Note:** `/mastermind:runorg` delegates directly to the Org Runtime daemon (the same path as `monomind org run`) — there is no boss agent, no monotask board, and no manual curl calls in this path. `/mastermind:runorg` converts legacy-format org config files with `monomind org migrate` before starting the daemon. New orgs should use `monomind org run` (or `/mastermind:runorg`) against a hand-authored `.monomind/orgs/<name>.json`.

@@ -7,6 +7,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { VERSION } from '../index.js';
 import { generateGeminiMd } from '../init/geminimd-generator.js';
 import { DEFAULT_INIT_OPTIONS, detectPlatform, type InitResult } from '../init/types.js';
 import { writeGeminiFiles } from '../init/write-antigravity.js';
@@ -36,6 +37,14 @@ const options = (force: boolean) => ({
   targetDir,
   force,
   components: { ...DEFAULT_INIT_OPTIONS.components, helpers: true },
+});
+
+describe('GEMINI.md version', () => {
+  it('names the running CLI version, not a hard-coded one', () => {
+    const body = generateGeminiMd(options(false));
+    expect(body.split('\n')[0]).toBe(`# Monomind for Antigravity (agy) — v${VERSION}`);
+    expect(VERSION).not.toBe('2.8.0');
+  });
 });
 
 describe('GEMINI.md under --force', () => {

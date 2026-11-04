@@ -18,7 +18,6 @@ import {
   convertKimiCommandToFlowSkill,
   convertKimiPluginCommandMd,
   convertKimiSkillMd,
-  generateKimiAgentsMd,
   generateKimiGateScript,
   generateKimiMcpJson,
   generateKimiMeshScript,
@@ -33,7 +32,7 @@ import type { InitOptions, InitResult } from './types.js';
  * Write Kimi Code artifacts. ADDITIVE — only invoked when
  * `components.kimicode` is set. Never touches .claude/, .gemini/, .opencode/.
  *
- * Tier 1: .kimi-code/mcp.json (merged, never clobbered), AGENTS.md (skip-if-exists),
+ * Tier 1: .kimi-code/mcp.json (merged, never clobbered),
  *         .kimi-code/{agents,skills}/ converted from the Claude tree.
  * Tier 2: .kimi-code/plugin/hooks/monomind-gate.mjs — stdin/exit-code bridge into
  *         the existing .claude/helpers gate handlers (kimi has no project-level
@@ -71,18 +70,8 @@ export async function writeKimiFiles(
     }
   }
 
-  // AGENTS.md — kimi's workspace instructions file. Skip-if-exists, ALWAYS:
-  // the opencode target or a hand-written file may already provide one, and
-  // under --force the two generators would otherwise flip the file depending
-  // on write order. Users who want regeneration delete the file first —
-  // same never-clobber spirit as the mcp.json merge above.
-  const agentsMdPath = path.join(targetDir, 'AGENTS.md');
-  if (!fs.existsSync(agentsMdPath)) {
-    atomicWriteFile(agentsMdPath, generateKimiAgentsMd(options.mcp?.pin));
-    result.created.files.push('AGENTS.md');
-  } else {
-    result.skipped.push('AGENTS.md');
-  }
+  // AGENTS.md is written once for every selected runtime by writeAgentsMd
+  // (write-agents.ts), not here.
 
   const { agentCount, skillCount, commandCount } = writeKimiTree(targetDir, options, result);
   const pluginDir = path.join(kimiDir, 'plugin');

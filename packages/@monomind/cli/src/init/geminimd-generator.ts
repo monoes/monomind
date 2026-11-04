@@ -9,12 +9,12 @@
  *  - .gemini/settings.json — wires the status bar command into agy
  */
 
+import { VERSION } from '../index.js';
 import type { InitOptions } from './types.js';
 
 /** Generate GEMINI.md — the Antigravity equivalent of CLAUDE.md */
 export function generateGeminiMd(_options: InitOptions): string {
-  const version = '2.8.0';
-  return `# Monomind for Antigravity (agy) — v${version}
+  return `# Monomind for Antigravity (agy) — v${VERSION}
 
 > Monomind extends agy with a codebase knowledge graph (Monograph), persistent
 > cross-session memory, semantic Second Brain document search, and autonomous
