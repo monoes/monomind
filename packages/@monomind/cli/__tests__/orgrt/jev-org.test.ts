@@ -11,7 +11,13 @@ import { AUTO_ASSIGNEE, buildOrgTools, type SessionOpts } from '../../src/orgrt/
 import { TaskDag } from '../../src/orgrt/task-dag.js';
 import { ORG_DIR, OrgDefSchema, type OrgRole } from '../../src/orgrt/types.js';
 
-const settle = (): Promise<void> => new Promise((r) => setTimeout(r, DISPATCH_COALESCE_MS + 200));
+/** Wait until the coalesced dispatch to `dev` (DISPATCH_COALESCE_MS, plus any skill line still resolving) reached its mailbox. */
+async function dispatched(running: RunningOrg, dev: AgentRuntime, ms = DISPATCH_COALESCE_MS + 5000): Promise<void> {
+  const end = Date.now() + ms;
+  const done = () => !running.pendingDispatch?.has('dev') && dev.mailbox.serialize().queue.length > 0;
+  while (Date.now() < end && !done()) await new Promise((r) => setTimeout(r, 10));
+  expect(done(), 'the dispatch to dev was delivered').toBe(true);
+}
 
 function makeAgent(): AgentRuntime {
   return {
@@ -92,7 +98,7 @@ describe('per-task skill suggestions at dispatch', () => {
     const { daemon, running, dev } = setup();
     const task = JSON.parse(dagCreateTask(daemon, 'acme', 'boss', 'design the REST endpoints', 'dev', []));
     running.pendingDispatch?.get('dev')?.lines.push('briefing: use the v2 schema');
-    await settle();
+    await dispatched(running, dev);
     const delivered = dev.mailbox.serialize().queue.join('\n');
     expect(delivered).toContain(`[task:${task.id}] design the REST endpoints`);
     expect(delivered).toContain('Skills that fit this task (load with org_skill_load): api-design, api-designer');
@@ -114,11 +120,11 @@ describe('per-task skill suggestions at dispatch', () => {
       ),
     );
     vi.stubGlobal('fetch', fetchSpy);
-    const { daemon, dev } = setup();
+    const { daemon, running, dev } = setup();
     const task = JSON.parse(
       dagCreateTask(daemon, 'acme', 'boss', 'design the REST endpoints', 'dev', [], undefined, 'Use the v2 schema; no breaking changes.'),
     );
-    await settle();
+    await dispatched(running, dev);
     const delivered = dev.mailbox.serialize().queue.join('\n');
     expect(delivered).toContain(`[task:${task.id}] design the REST endpoints`);
     expect(delivered).toContain('Use the v2 schema; no breaking changes.');
@@ -134,7 +140,7 @@ describe('per-task skill suggestions at dispatch', () => {
     vi.stubGlobal('fetch', fetchSpy);
     const { daemon, running, dev } = setup();
     const task = JSON.parse(dagCreateTask(daemon, 'acme', 'boss', 'design the REST endpoints', 'dev', []));
-    await settle();
+    await dispatched(running, dev);
     const delivered = dev.mailbox.serialize().queue.join('\n');
     expect(delivered).toContain(`[task:${task.id}] design the REST endpoints`);
     expect(delivered).toMatch(/Skills that fit this task \(load with org_skill_load\): api-design/);
@@ -148,7 +154,7 @@ describe('per-task skill suggestions at dispatch', () => {
     vi.stubEnv('TYPESAFE_API_KEY', '');
     const { daemon, running, dev } = setup();
     const task = JSON.parse(dagCreateTask(daemon, 'acme', 'boss', 'book a flight', 'dev', []));
-    await settle();
+    await dispatched(running, dev);
     expect(dev.mailbox.serialize().queue.join('\n')).not.toContain('Skills that fit');
     expect(running.taskDag?.get(task.id)?.suggestedSkills).toBeUndefined();
     daemon.orgs.delete('acme');

@@ -54,6 +54,8 @@ describe('the 80 percent notice', () => {
     expect((runner.turns.get('dev-lead') ?? []).join('\n')).toContain(
       '[budget] "coder" has spent $17.00 of its $20 budget_usd (85%). At the cap its session closes and tasks assigned to it are blocked; its role cap sits inside the section allocation',
     );
+    // the coordinator's copy is a separate dispatch: it may be read after the lead's
+    await waitUntil(() => (runner.turns.get('boss') ?? []).some((t) => t.includes('"coder" has spent $17.00')));
     expect((runner.turns.get('boss') ?? []).join('\n')).toContain('[budget] "coder" has spent $17.00 of its $20 budget_usd (85%). At the cap its session closes');
     // the lead spends 85 percent of its own cap: the coordinator hears, the lead is not told of itself
     await spend(s, running, 'dev-lead', 8.5, 8.5);
@@ -193,6 +195,10 @@ describe('the soft closure of a section', () => {
     const { s, running } = await closed();
     const receipt = await s.daemon.respawnRole(s.name, 'boss', { roleId: 'research-lead', reason: 'test', briefing: 'test' });
     expect(receipt.success, receipt.error).toBe(true);
+    // The replacement's own briefing turn reports its usage inside the start window, before it is published, so
+    // it cannot be that event. Drive the next one from an open role in another section instead of relying on a
+    // notice turn that may already have happened.
+    await spend(s, running, 'observer', 1, 1);
     expect(await waitUntil(() => running.agents.get('research-lead')!.mailbox.isClosed)).toBe(true);
   });
 });

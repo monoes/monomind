@@ -17,7 +17,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentMessage, AgentRunner } from '../orgrt/agent-runner.js';
 import { OrgBus } from '../orgrt/bus.js';
 import type { AgentRuntime, RunningOrg } from '../orgrt/daemon.js';
@@ -45,12 +45,20 @@ function makeAgent(): AgentRuntime {
   };
 }
 
-/** The nudge is queued through the same coalescing window as a dispatch. */
-const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 600));
+/** The nudge is queued through the same coalescing window as a dispatch: run the (fake) clock past it. */
+const settle = async (): Promise<void> => {
+  await vi.advanceTimersByTimeAsync(600);
+};
 
 describe('open-task nudge at turn end', () => {
   let tmp = '';
+  // The coalescing window is a plain setTimeout: fake it, so "delivered after the window" and "nothing was
+  // delivered" are exact rather than a real 600ms wait.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  });
   afterEach(async () => {
+    vi.useRealTimers();
     await sealBuses();
     if (tmp) rmSync(tmp, { recursive: true, force: true });
   });
@@ -153,6 +161,7 @@ describe('open-task nudge at turn end', () => {
   // The check above is only worth anything if something actually calls it when
   // the role's turn ends: session.ts fires onTurnEnd on the runner's `result`.
   it('is reached from a real session when its turn ends', async () => {
+    vi.useRealTimers(); // a real session; nothing here waits on the window
     const { running, task, publisher, events } = setup();
     const fakeRunner: AgentRunner = {
       async *run(): AsyncIterable<AgentMessage> {

@@ -226,6 +226,11 @@ describe('message fence chokepoint — every inbound path is scanned', () => {
     return root;
   }
   const settle = () => new Promise(r => setTimeout(r, 300));
+  const waitUntil = async (pred: () => boolean, ms = 5000): Promise<boolean> => {
+    const end = Date.now() + ms;
+    while (Date.now() < end && !pred()) await new Promise(r => setTimeout(r, 20));
+    return pred();
+  };
 
   it('pushMessage() is the chokepoint: blocks a flagged body, delivers a clean one', async () => {
     const root = mkdtempSync(join(tmpdir(), 'fence-push-'));
@@ -275,8 +280,7 @@ describe('message fence chokepoint — every inbound path is scanned', () => {
 
     const ok = await daemon.receiveRemote('alpha', 'boss', 'other:boss', 's', 'benign hello', 'other-cred');
     expect(ok.ok).toBe(true);
-    await settle();
-    expect(alpha.busEvents().some(e => e.type === 'chat' && (e.msg ?? '').includes('benign hello'))).toBe(true);
+    expect(await waitUntil(() => alpha.busEvents().some(e => e.type === 'chat' && (e.msg ?? '').includes('benign hello')))).toBe(true);
     await daemon.stopAll();
   });
 
@@ -286,10 +290,10 @@ describe('message fence chokepoint — every inbound path is scanned', () => {
     queueMessage(root, 'alpha', { fromQualified: 'other:boss', toRole: 'boss', subject: 's', body: 'queued benign', ts: Date.now() });
     const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
     const alpha = await daemon.startOrg('alpha');
-    await settle();
+    // the benign message was queued after the injected one: once it is echoed, the injected one had its chance
+    expect(await waitUntil(() => alpha.busEvents().some(e => e.type === 'chat' && (e.msg ?? '').includes('queued benign')))).toBe(true);
     expect(alpha.busEvents().some(e => e.reason === 'fence-message')).toBe(true);
     expect(alpha.busEvents().some(e => e.type === 'chat' && (e.msg ?? '').includes('INJECT'))).toBe(false);
-    expect(alpha.busEvents().some(e => e.type === 'chat' && (e.msg ?? '').includes('queued benign'))).toBe(true);
     await daemon.stopAll();
   });
 });
