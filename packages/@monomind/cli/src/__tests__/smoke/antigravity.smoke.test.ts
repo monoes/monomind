@@ -11,7 +11,10 @@
  */
 
 import { execSync } from 'node:child_process';
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AntigravityAgentRunner } from '../../orgrt/antigravity-runner.js';
 
 const SMOKE = process.env.MONOMIND_SMOKE === '1';
@@ -28,6 +31,14 @@ function agyAvailable(): boolean {
 const AGY_OK = agyAvailable();
 
 describe.skipIf(!SMOKE || !AGY_OK)('AntigravityAgentRunner — Gemini Pro smoke (real CLI)', () => {
+  let cwd: string;
+  beforeAll(() => {
+    cwd = mkdtempSync(join(tmpdir(), 'agy-smoke-'));
+  });
+  afterAll(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
   it('responds non-empty to a simple prompt', async () => {
     const runner = new AntigravityAgentRunner();
     const messages: any[] = [];
@@ -39,7 +50,7 @@ describe.skipIf(!SMOKE || !AGY_OK)('AntigravityAgentRunner — Gemini Pro smoke 
       })(),
       systemPrompt: 'You are a test echo. Follow instructions exactly.',
       model: 'gemini-3.6-flash-high',
-      cwd: '/tmp',
+      cwd,
       env: {},
       maxTurns: 3,
     });
