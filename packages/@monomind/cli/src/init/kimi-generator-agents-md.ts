@@ -7,8 +7,7 @@ import { monomindNpx } from '../platform-adapters/renderers/mcp.js';
 
 /**
  * Generate AGENTS.md for kimi — workspace instructions (CLAUDE.md equivalent).
- * Only written when no AGENTS.md exists (the opencode target may already have
- * written one; both are generic monomind instructions).
+ * Written as kimi's own managed block by writeAgentsMd (write-agents.ts).
  */
 export function generateKimiAgentsMd(pin?: string): string {
   const npx = monomindNpx(pin);

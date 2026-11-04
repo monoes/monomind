@@ -1,9 +1,14 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { generateCodexAgentsMd } from '../init/codex-generator.js';
+import { generateKimiAgentsMd } from '../init/kimi-generator.js';
 import { generateAgentsMd } from '../init/opencode-generator.js';
 import { DEFAULT_INIT_OPTIONS, detectPlatform, type InitResult } from '../init/types.js';
+import { writeAgentsMd } from '../init/write-agents.js';
+import { writeCodexFiles } from '../init/write-codex.js';
+import { writeKimiFiles } from '../init/write-kimicode.js';
 import { writeOpencodeFiles } from '../init/write-opencode.js';
 
 // The title line generateAgentsMd() stamps on monomind's own body — counting
@@ -41,7 +46,7 @@ go test ./...
 - Commit messages: conventional style (\`type(scope): description\`).
 `;
 
-describe('writeOpencodeFiles AGENTS.md preserves project-owned content (GH #278)', () => {
+describe('opencode AGENTS.md block preserves project-owned content (GH #278)', () => {
   let tmp: string;
   let projectDir: string;
   let agentsMdPath: string;
@@ -69,7 +74,7 @@ describe('writeOpencodeFiles AGENTS.md preserves project-owned content (GH #278)
   it('keeps a hand-written AGENTS.md verbatim on --force', async () => {
     writeFileSync(agentsMdPath, HAND_WRITTEN);
 
-    await writeOpencodeFiles(projectDir, forceOptions(), freshResult());
+    await writeAgentsMd(projectDir, forceOptions(), freshResult());
 
     const after = readFileSync(agentsMdPath, 'utf-8');
     expect(after).toContain('# AGENTS.md — mono-agent');
@@ -83,7 +88,7 @@ describe('writeOpencodeFiles AGENTS.md preserves project-owned content (GH #278)
   it('still writes monomind guidance, confined to its own managed block', async () => {
     writeFileSync(agentsMdPath, HAND_WRITTEN);
 
-    await writeOpencodeFiles(projectDir, forceOptions(), freshResult());
+    await writeAgentsMd(projectDir, forceOptions(), freshResult());
 
     const after = readFileSync(agentsMdPath, 'utf-8');
     expect(after).toContain('<!-- monomind-block:agents-md -->');
@@ -94,7 +99,7 @@ describe('writeOpencodeFiles AGENTS.md preserves project-owned content (GH #278)
   it('grows the file instead of replacing it (negative control for the raw overwrite)', async () => {
     writeFileSync(agentsMdPath, HAND_WRITTEN);
 
-    await writeOpencodeFiles(projectDir, forceOptions(), freshResult());
+    await writeAgentsMd(projectDir, forceOptions(), freshResult());
 
     const after = readFileSync(agentsMdPath, 'utf-8');
     // The buggy behavior produced exactly generateAgentsMd()'s output.
@@ -104,7 +109,7 @@ describe('writeOpencodeFiles AGENTS.md preserves project-owned content (GH #278)
 
   it('refreshes the managed block in place on a second --force, without duplicating it', async () => {
     writeFileSync(agentsMdPath, HAND_WRITTEN);
-    await writeOpencodeFiles(projectDir, forceOptions(), freshResult());
+    await writeAgentsMd(projectDir, forceOptions(), freshResult());
     const afterFirst = readFileSync(agentsMdPath, 'utf-8');
 
     // Make the block look like an older monomind version generated it.
@@ -116,7 +121,7 @@ describe('writeOpencodeFiles AGENTS.md preserves project-owned content (GH #278)
       ),
     );
 
-    await writeOpencodeFiles(projectDir, forceOptions(), freshResult());
+    await writeAgentsMd(projectDir, forceOptions(), freshResult());
     const afterSecond = readFileSync(agentsMdPath, 'utf-8');
 
     expect(afterSecond).toContain('## Code navigation — graph first');
@@ -134,7 +139,7 @@ describe('writeOpencodeFiles AGENTS.md preserves project-owned content (GH #278)
     const preamble = '# AGENTS.md — mono-agent\n\nProject preamble the user wrote.\n\n';
     writeFileSync(agentsMdPath, `${preamble}${generateAgentsMd()}`);
 
-    await writeOpencodeFiles(projectDir, forceOptions(), freshResult());
+    await writeAgentsMd(projectDir, forceOptions(), freshResult());
 
     const after = readFileSync(agentsMdPath, 'utf-8');
     expect(after.split(GENERATED_TITLE).length - 1).toBe(1);
@@ -151,17 +156,109 @@ describe('writeOpencodeFiles AGENTS.md preserves project-owned content (GH #278)
       components: { ...DEFAULT_INIT_OPTIONS.components, opencode: true },
     };
 
-    await writeOpencodeFiles(projectDir, options, freshResult());
+    await writeAgentsMd(projectDir, options, freshResult());
 
     expect(readFileSync(agentsMdPath, 'utf-8')).toBe(HAND_WRITTEN);
   });
 
   it('writes a fresh AGENTS.md already wrapped in the managed block', async () => {
-    await writeOpencodeFiles(projectDir, forceOptions(), freshResult());
+    await writeAgentsMd(projectDir, forceOptions(), freshResult());
 
     const content = readFileSync(agentsMdPath, 'utf-8');
     expect(content).toContain('<!-- monomind-block:agents-md -->');
     expect(content).toContain('<!-- /monomind-block:agents-md -->');
     expect(content).toContain(GENERATED_TITLE);
+  });
+});
+
+// Four init writers used to write AGENTS.md (codex, opencode, kimi: two
+// skip-if-exists, one managed block under --force), so which body won
+// depended on write order. writeAgentsMd is now the one writer: one managed
+// block per selected runtime, always written in the same order.
+describe('AGENTS.md has one owner (writeAgentsMd)', () => {
+  let projectDir: string;
+  let agentsMdPath: string;
+
+  beforeEach(() => {
+    projectDir = mkdtempSync(join(tmpdir(), 'monomind-agents-md-owner-'));
+    agentsMdPath = join(projectDir, 'AGENTS.md');
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  const TITLES = [
+    '# AGENTS.md — Monomind on Codex',
+    '# AGENTS.md — Monomind on opencode',
+    '# AGENTS.md — Monomind on Kimi Code',
+  ];
+  const count = (text: string, needle: string) => text.split(needle).length - 1;
+
+  function allThree(force: boolean) {
+    return {
+      ...DEFAULT_INIT_OPTIONS,
+      targetDir: projectDir,
+      force,
+      components: {
+        ...DEFAULT_INIT_OPTIONS.components,
+        codex: true,
+        opencode: true,
+        kimicode: true,
+      },
+    };
+  }
+
+  it('the per-runtime writers no longer write AGENTS.md themselves', async () => {
+    const options = allThree(true);
+    await writeCodexFiles(projectDir, options, freshResult());
+    await writeOpencodeFiles(projectDir, options, freshResult());
+    await writeKimiFiles(projectDir, options, freshResult());
+    expect(existsSync(agentsMdPath)).toBe(false);
+  });
+
+  it('writes one block per selected runtime, in a fixed order', () => {
+    const result = freshResult();
+    writeAgentsMd(projectDir, allThree(false), result);
+
+    const text = readFileSync(agentsMdPath, 'utf-8');
+    for (const title of TITLES) expect(count(text, title)).toBe(1);
+    const markers = ['agents-md:codex', 'agents-md', 'agents-md:kimi'];
+    for (const marker of markers) expect(count(text, `<!-- monomind-block:${marker} -->`)).toBe(1);
+    const positions = markers.map((marker) => text.indexOf(`<!-- monomind-block:${marker} -->`));
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    expect(result.created.files).toEqual(['AGENTS.md']);
+  });
+
+  it('is byte-identical on a re-run, with and without --force', () => {
+    writeAgentsMd(projectDir, allThree(false), freshResult());
+    const first = readFileSync(agentsMdPath, 'utf-8');
+    writeAgentsMd(projectDir, allThree(true), freshResult());
+    expect(readFileSync(agentsMdPath, 'utf-8')).toBe(first);
+    const result = freshResult();
+    writeAgentsMd(projectDir, allThree(false), result);
+    expect(readFileSync(agentsMdPath, 'utf-8')).toBe(first);
+    expect(result.skipped).toContain('AGENTS.md');
+  });
+
+  it('heals a file an older skip-if-exists writer left unmarked, one copy per runtime', () => {
+    // Codex won the race in an older release: its body, unwrapped.
+    writeFileSync(agentsMdPath, `# Project\n\nOur notes.\n\n${generateCodexAgentsMd()}`);
+    writeAgentsMd(projectDir, allThree(true), freshResult());
+    const healed = readFileSync(agentsMdPath, 'utf-8');
+    for (const title of TITLES) expect(count(healed, title)).toBe(1);
+    expect(healed.startsWith('# Project\n\nOur notes.')).toBe(true);
+
+    // Kimi won it instead: same blocks, same order, whatever wrote first.
+    writeFileSync(agentsMdPath, `# Project\n\nOur notes.\n\n${generateKimiAgentsMd()}`);
+    writeAgentsMd(projectDir, allThree(true), freshResult());
+    const other = readFileSync(agentsMdPath, 'utf-8');
+    for (const title of TITLES) expect(count(other, title)).toBe(1);
+    expect(other.replace(/\n+/g, '\n')).toBe(healed.replace(/\n+/g, '\n'));
+  });
+
+  it('writes nothing when no AGENTS.md runtime is selected', () => {
+    writeAgentsMd(projectDir, { ...DEFAULT_INIT_OPTIONS, targetDir: projectDir }, freshResult());
+    expect(existsSync(agentsMdPath)).toBe(false);
   });
 });

@@ -29,6 +29,7 @@ import { finalizeGuard, guardFor, pruneBackups } from './file-guard.js';
 import { recordPacks } from './init-manifest.js';
 import { initProjectMemory, seedProjectMemory } from './init-memory.js';
 import { initKnowledgeGraph, runDoctorFix } from './init-post-steps.js';
+import { claimInstructionFile } from './instruction-owner.js';
 import { installedPacks, packsOnDisk } from './pack-install.js';
 import { PACK_NAMES } from './packs.js';
 import { wantsAgentsDirs, wantsGeminiDirs } from './platform-dirs.js';
@@ -56,7 +57,7 @@ function claudeOnlyMemorySeeds(targetDir: string): ReturnType<typeof generateMem
 
 import type { InitOptions, InitResult } from './types.js';
 import { detectPlatform } from './types.js';
-import { writeAgentsOnly } from './write-agents.js';
+import { writeAgentsMd, writeAgentsOnly } from './write-agents.js';
 import { writeAiderConf } from './write-aider.js';
 import { writeGeminiFiles } from './write-antigravity.js';
 import { writeClaudeMd, writeHelpers, writeMCPConfig, writeStatusline } from './write-claude.js';
@@ -338,7 +339,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     }
 
     // Generate Kimi Code artifacts (opt-in via components.kimicode, default false).
-    // Purely additive: only writes .kimi-code/ + AGENTS.md when enabled.
+    // Purely additive: only writes .kimi-code/ when enabled.
     if (options.components.kimicode) {
       await writeKimiFiles(targetDir, options, result);
     }
@@ -359,17 +360,24 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       await writeCodexFiles(targetDir, options, result);
     }
 
+    // AGENTS.md for codex, opencode and kimi: one writer, one block each.
+    writeAgentsMd(targetDir, options, result);
+
     // The legacy target writers above remain compatibility projections. The
     // adapter registry is additionally invoked for each explicit platform so
     // all new surfaces share the same evidence-gated lifecycle contract.
     for (const platform of options.selectedPlatforms ?? []) {
+      // Where init wrote its full block (CLAUDE.md), the adapter adds no second one.
+      const owned = claimInstructionFile(targetDir, platform, options, guard.backupDir, result);
+      const protectedPaths = guard.keptPaths();
+      if (owned) protectedPaths.add(owned);
       const applied = await installPlatform({
         platform,
         path: targetDir,
         scope: 'project',
         yes: true,
         enableHooks: options.enablePlatformHooks,
-        protectedPaths: guard.keptPaths(),
+        protectedPaths,
         backupDir: guard.backupDir,
         fileGuard: guard,
         pin: options.mcp?.pin,
