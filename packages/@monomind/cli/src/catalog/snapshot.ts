@@ -8,7 +8,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseFrontmatter, skillRoots } from '../orgrt/skill-library.js';
+import { parseFrontmatter, skillRoots } from '../shared/skill-roots.js';
 import { verifyEntry } from './digest.js';
 import { loadCatalogState, statePath } from './state.js';
 import {

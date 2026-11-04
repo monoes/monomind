@@ -4,15 +4,8 @@
  * a keyword role match for auto-assignment, and a keyword pool match for
  * per-task skills.
  */
-import {
-  keywordSkills,
-  PICK_BRIEF_CHARS,
-  pickTaskRole,
-  skillOutcomePrior,
-  type TaskOutcome,
-} from '../orgrt/task-match.js';
+import { pickTaskRole } from '../orgrt/task-match.js';
 import type { OrgRole } from '../orgrt/types.js';
-import { jevVisible, orgSkillCatalog } from './catalogs.js';
 import {
   acceptAgent,
   acceptSkills,
@@ -28,7 +21,11 @@ import {
   pickMinConfidence,
   pickWithJev,
 } from './jev.js';
+import { jevVisible } from './jev-visible.js';
 import { applyAgentPriors } from './pick-stats.js';
+
+// Moved to the Org Runtime for the orgrt import cycle; re-exported here.
+export { suggestTaskSkills } from '../orgrt/task-skills.js';
 
 /** Jev tail entries under this probability are noise, not candidates. */
 const MIN_RANKED_PROBABILITY = 0.02;
@@ -198,45 +195,6 @@ export async function rankForTask(
     agents,
     skills,
   };
-}
-
-/** Up to two skills from a role's pool that fit this task; [] = no suggestion.
- *  Jev decides when it answers (its "none" included); without a decision
- *  model, or when it fails, a keyword match over the pool does, biased by
- *  `history` toward skills whose tasks finished done. Either way only names
- *  from the pool can come back. */
-export async function suggestTaskSkills(
-  title: string,
-  pool: string[],
-  root: string,
-  opts: PickOptions & {
-    brief?: string;
-    onMethod?: (method: 'jev' | 'keyword') => void;
-    history?: TaskOutcome[];
-  } = {},
-): Promise<string[]> {
-  const { brief, onMethod, history, ...pickOpts } = opts;
-  const skills = orgSkillCatalog(root, pool);
-  if (skills.length === 0) return [];
-  const excerpt = brief?.slice(0, PICK_BRIEF_CHARS);
-  const picked = await pickWithJev(
-    excerpt ? `${title}\n\n${excerpt}` : title,
-    { skills },
-    { ...pickOpts, skillInstructions: 'Which of these skills would help most with this task?' },
-  );
-  // Only names from the pool that was sent reach the assignee's mailbox.
-  const sent = new Set(skills.map((s) => s.id));
-  if (picked?.skill) {
-    onMethod?.('jev');
-    return acceptSkills(picked.skill, pickOpts.env, 2).filter((id) => sent.has(id));
-  }
-  onMethod?.('keyword');
-  return keywordSkills(
-    { title, brief },
-    skills,
-    2,
-    history?.length ? skillOutcomePrior(history) : undefined,
-  );
 }
 
 /** The role that should own a task: Jev first, then a keyword match (see

@@ -7,7 +7,6 @@
  * (OrgTask.loadedSkills). Re-exported by decisions.ts.
  */
 
-import { suggestTaskSkills } from '../decision/picks.js';
 import { contextSurface } from './context-surface.js';
 import type { OrgDaemon, RunningOrg } from './daemon.js';
 import { taskTag } from './loadouts.js';
@@ -15,6 +14,7 @@ import { dispatchParts, recordPacket, renderReferences } from './packet.js';
 import { roleSkillNames } from './skill-library.js';
 import { isTerminalStatus, type OrgTask } from './task-dag.js';
 import type { TaskPick } from './task-match.js';
+import { suggestTaskSkills } from './task-skills.js';
 
 /** A new task's provenance: explicit, or auto-assigned with its `pick`. */
 export function recordTaskPick(

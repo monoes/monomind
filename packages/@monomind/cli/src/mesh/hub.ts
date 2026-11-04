@@ -3,7 +3,11 @@ import { chmodSync, lstatSync, mkdirSync, readFileSync, unlinkSync, writeFileSyn
 import { createServer, type Server, type Socket } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { acquireDaemonLock, DaemonLockError, type DaemonLockHandle } from '../orgrt/daemon-lock.js';
+import {
+  acquireDaemonLock,
+  DaemonLockError,
+  type DaemonLockHandle,
+} from '../shared/daemon-lock.js';
 import { hashKey, issueKey, keysMatch } from './identity.js';
 import { buildAddr, type Request, RequestSchema } from './protocol.js';
 import { DEFAULT_LIST_LIMIT, MeshStore, StoreError } from './store.js';

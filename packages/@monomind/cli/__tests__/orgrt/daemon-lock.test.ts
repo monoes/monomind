@@ -18,7 +18,7 @@ import {
 import { sectionsRaw } from './support/sections-defs.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const LOCK_TS = join(HERE, '..', '..', 'src', 'orgrt', 'daemon-lock.ts');
+const LOCK_TS = join(HERE, '..', '..', 'src', 'shared', 'daemon-lock.ts');
 
 let root: string;
 beforeEach(() => {
