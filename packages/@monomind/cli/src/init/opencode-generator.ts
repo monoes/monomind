@@ -15,7 +15,7 @@
  *     narrow rules go last.
  */
 
-import { mcpCommand } from '../platform-adapters/renderers/mcp.js';
+import { mcpCommand, monomindNpx } from '../platform-adapters/renderers/mcp.js';
 import { MESH_PLUGIN_HELPERS, MESH_PLUGIN_HOOKS } from './opencode-mesh-plugin.js';
 import type { InitOptions } from './types.js';
 
@@ -279,7 +279,7 @@ export function convertSkillMd(src: string, fallbackName: string): string {
  * runs the SAME statusline.cjs (unchanged) and reports a formatted summary.
  * Reuses the helper verbatim; only the command wrapper is opencode-shaped.
  */
-export function generateStatusCommand(): string {
+export function generateStatusCommand(pin?: string): string {
   const lines = [
     '---',
     'description: Show the monomind statusline (version, git, swarm, security, hooks, token cost).',
@@ -288,7 +288,7 @@ export function generateStatusCommand(): string {
     'Run the monomind statusline and report project status. Execute exactly one of these (first that exists):',
     '',
     '1. `node .claude/helpers/statusline.cjs --compact`',
-    '2. `npx -y monomind@latest hooks statusline --json`  (fallback if the helper is absent)',
+    `2. \`${monomindNpx(pin)} hooks statusline --json\`  (fallback if the helper is absent)`,
     '',
     'Parse the JSON and present a concise, readable summary. Include these fields if present:',
     '- monomind version (if discoverable) and git branch',
@@ -309,7 +309,7 @@ export function generateStatusCommand(): string {
  * Built as a joined string array so inline-code backticks are literal chars
  * (no template-literal escaping pitfalls).
  */
-export function generateAgentsMd(): string {
+export function generateAgentsMd(pin?: string): string {
   const lines = [
     '# AGENTS.md — Monomind on opencode',
     '',
@@ -333,7 +333,7 @@ export function generateAgentsMd(): string {
     '## Security',
     '- NEVER hardcode secrets/keys in source. NEVER commit .env.',
     '- Always validate input at system boundaries.',
-    '- Run `npx monomind@latest security scan` after security-related changes.',
+    `- Run \`${monomindNpx(pin)} security scan\` after security-related changes.`,
     '',
     '## Conventions',
     '- Agents live in `.opencode/agent/` (subagents), commands in `.opencode/command/`.',

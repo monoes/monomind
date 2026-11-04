@@ -78,7 +78,7 @@ export async function writeKimiFiles(
   // same never-clobber spirit as the mcp.json merge above.
   const agentsMdPath = path.join(targetDir, 'AGENTS.md');
   if (!fs.existsSync(agentsMdPath)) {
-    atomicWriteFile(agentsMdPath, generateKimiAgentsMd());
+    atomicWriteFile(agentsMdPath, generateKimiAgentsMd(options.mcp?.pin));
     result.created.files.push('AGENTS.md');
   } else {
     result.skipped.push('AGENTS.md');

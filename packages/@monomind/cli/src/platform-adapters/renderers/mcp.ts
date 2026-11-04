@@ -47,6 +47,11 @@ export function monomindNpxArgs(pin: string = VERSION): string[] {
     : ['npx', '-y', `--package=${MCP_SCOPED_PACKAGE}@${pin}`, 'monomind'];
 }
 
+/** {@link monomindNpxArgs} as one line, for the command hints in generated guidance. */
+export function monomindNpx(pin?: string): string {
+  return monomindNpxArgs(pin).join(' ');
+}
+
 export function mcpCommand(
   _platform: PlatformAdapter['id'],
   os: NodeJS.Platform = process.platform,

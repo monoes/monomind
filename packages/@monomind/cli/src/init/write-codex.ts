@@ -135,7 +135,7 @@ export async function writeCodexFiles(
 
   const agentsPath = path.join(targetDir, 'AGENTS.md');
   if (!fs.existsSync(agentsPath)) {
-    atomicWriteFile(agentsPath, generateCodexAgentsMd());
+    atomicWriteFile(agentsPath, generateCodexAgentsMd(options.mcp?.pin));
     result.created.files.push('AGENTS.md');
   } else {
     result.skipped.push('AGENTS.md');
