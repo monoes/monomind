@@ -5,7 +5,7 @@
  * formats are covered in tests/mesh/inbox-hook.test.ts.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -17,9 +17,11 @@ import {
 } from '../init/codex-generator.js';
 import { generateGeminiRulesMd } from '../init/geminimd-generator.js';
 import { generateHooksPlugin } from '../init/opencode-generator.js';
+import { PI_MESH_EXTENSION_FILE } from '../init/pi-generator.js';
 import { DEFAULT_INIT_OPTIONS, detectPlatform, type InitResult } from '../init/types.js';
 import { generateAgentsOnlyMd } from '../init/write-agents.js';
 import { writeGeminiFiles } from '../init/write-antigravity.js';
+import { writePiMeshExtension } from '../init/write-pi.js';
 
 const ROOT = resolve(__dirname, '../../../../..');
 const readRepo = (p: string) => readFileSync(join(ROOT, p), 'utf8');
@@ -102,6 +104,53 @@ describe('instruction line for CLIs without a verified hook', () => {
     expect(md).toContain('mesh_inbox');
     expect(md).toContain('mesh_who');
     expect(md).toContain('mesh_send');
+  });
+});
+
+describe('Pi mesh extension', () => {
+  const saved: Record<string, string | undefined> = {};
+  const homeVars = [
+    'HOME',
+    'XDG_DATA_HOME',
+    'XDG_STATE_HOME',
+    'XDG_CONFIG_HOME',
+    'XDG_CACHE_HOME',
+    'XDG_RUNTIME_DIR',
+  ];
+  let home: string;
+  let project: string;
+  beforeEach(() => {
+    // A throwaway HOME with Pi installed (~/.pi), never the real one.
+    home = mkdtempSync(join(tmpdir(), 'pi-home-'));
+    for (const name of homeVars) saved[name] = process.env[name];
+    process.env.HOME = home;
+    for (const name of homeVars.slice(1)) process.env[name] = join(home, name.toLowerCase());
+    mkdirSync(join(home, '.pi'));
+    project = join(dir, 'project');
+    mkdirSync(project);
+  });
+  afterEach(() => {
+    for (const name of homeVars) {
+      if (saved[name] === undefined) delete process.env[name];
+      else process.env[name] = saved[name];
+    }
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  it('is not written into a project just because ~/.pi exists', () => {
+    const result = freshResult();
+    writePiMeshExtension(project, { ...DEFAULT_INIT_OPTIONS, targetDir: project }, result);
+    expect(existsSync(join(project, PI_MESH_EXTENSION_FILE))).toBe(false);
+    expect(existsSync(join(project, '.pi'))).toBe(false);
+    expect(result.created.files).toEqual([]);
+  });
+
+  it('is written for a project that uses Pi (a .pi directory in it)', () => {
+    mkdirSync(join(project, '.pi'));
+    const result = freshResult();
+    writePiMeshExtension(project, { ...DEFAULT_INIT_OPTIONS, targetDir: project }, result);
+    expect(existsSync(join(project, PI_MESH_EXTENSION_FILE))).toBe(true);
+    expect(result.created.files).toEqual([PI_MESH_EXTENSION_FILE]);
   });
 });
 
