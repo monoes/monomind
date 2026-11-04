@@ -4,6 +4,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { monomindNpx } from '../platform-adapters/renderers/mcp.js';
 import { atomicWriteFile, writeGeneratedFile } from './fs-helpers.js';
 import { MONOMIND_NEVER_COMMIT } from './never-commit.js';
 import { mergeGitignoreBlock, mergeYamlDefaults } from './runtime-config-merge.js';
@@ -347,7 +348,7 @@ export async function writeInitialMetrics(
       cvesFixed: 0,
       totalCves: 3,
       lastScan: null,
-      _note: 'Run: npx monomind@latest security scan',
+      _note: `Run: ${monomindNpx(options.mcp?.pin)} security scan`,
     };
     atomicWriteFile(auditPath, JSON.stringify(audit, null, 2));
     result.created.files.push('.monomind/security/audit-status.json');

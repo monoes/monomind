@@ -105,7 +105,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => monographSection(),
     (_opts) => intelligenceSystem(),
     (_opts) => envVars(),
-    (_opts) => setupAndBoundary(),
+    setupAndBoundary,
   ],
   security: [
     behavioralRules,
@@ -122,7 +122,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => memoryCommands(),
     secondBrainSection,
     (_opts) => monographSection(),
-    (_opts) => setupAndBoundary(),
+    setupAndBoundary,
   ],
   performance: [
     behavioralRules,
@@ -141,7 +141,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     secondBrainSection,
     (_opts) => monographSection(),
     (_opts) => intelligenceSystem(),
-    (_opts) => setupAndBoundary(),
+    setupAndBoundary,
   ],
   solo: [
     behavioralRules,
