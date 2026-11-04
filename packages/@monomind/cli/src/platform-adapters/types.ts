@@ -16,6 +16,12 @@ export type Capability = (typeof CAPABILITIES)[number];
 export type SupportLevel = 'native' | 'cli_fallback' | 'unsupported' | 'experimental';
 export type VerificationLevel = 'none' | 'fixture' | 'schema' | 'runtime';
 export type InstallScope = 'project' | 'user';
+/**
+ * Support tier (docs/mastermind/plans/2026-11-surface-reduction.md, section 3):
+ * 1 gets every feature first, 2 is tested per release, 3 is best-effort and
+ * labelled experimental.
+ */
+export type PlatformTier = 1 | 2 | 3;
 export type ArtifactKind =
   | 'instruction'
   | 'skill'
@@ -72,6 +78,7 @@ export interface PlatformPaths {
 export interface PlatformAdapter {
   id: PlatformId;
   displayName: string;
+  tier: PlatformTier;
   capabilities: Record<Capability, SupportLevel>;
   verification: Record<Capability, VerificationEvidence>;
   activationNotes?: Readonly<Partial<Record<Capability, 'manual-step'>>>;
@@ -190,6 +197,9 @@ export interface ApplyResult {
 
 export interface PlatformDoctorReport {
   platform: PlatformId;
+  tier: PlatformTier;
+  /** True for tier 3: best-effort support, no feature parity promise. */
+  experimental: boolean;
   capabilities: Record<Capability, SupportLevel>;
   verification: Record<Capability, VerificationLevel>;
   artifacts: readonly {

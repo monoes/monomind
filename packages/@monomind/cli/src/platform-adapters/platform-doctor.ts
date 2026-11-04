@@ -131,6 +131,8 @@ export async function runPlatformsDoctor(request: {
       diagnostics.push(`${adapter.displayName}: native enhancements require successful discovery.`);
     return {
       platform,
+      tier: adapter.tier,
+      experimental: adapter.tier === 3,
       capabilities: { ...adapter.capabilities },
       verification: Object.fromEntries(
         Object.entries(adapter.verification).map(([capability, evidence]) => [

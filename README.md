@@ -58,6 +58,16 @@ Monomind is an **open-source CLI and MCP server** that plugs into Claude Code, [
 | **Packs** | Orgs, GitHub, testing, specialists, business domains, extras | `monomind init --packs ...` / `monomind packs add` |
 | **Orgs and runtimes** | Persistent policy-gated org daemon and dashboard; roles on other coding agents | `monomind org run`, `monomind agent exec` |
 
+### Platform tiers
+
+| Tier | Platforms | Support |
+|---|---|---|
+| 1 | Claude Code | Every feature lands here first |
+| 2 | Codex, OpenCode, Antigravity, Kimi Code | MCP config, instruction file, and native skills, commands and hooks; tested every release |
+| 3 | Copilot, Cursor, VS Code, Aider, Kiro, Trae, OpenClaw, Droid, Hermes, Gemini CLI, Zed, and the Cline, Pi, Kilo, Qwen and Crush writers | Best-effort and **experimental**: an instruction block and the MCP install line |
+
+`monomind platforms doctor` prints each platform's tier; [docs/platforms/compatibility.md](docs/platforms/compatibility.md) has the full matrix.
+
 ## Trust & Security
 
 | Concern | Answer |
