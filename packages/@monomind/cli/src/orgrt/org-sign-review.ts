@@ -88,20 +88,38 @@ export function unconfinedRoles(
   return out;
 }
 
+/** Env spelling of the `--allow-unconfined` opt-in, for harnesses and service units. */
+export const ALLOW_UNCONFINED_ENV = 'MONOMIND_ALLOW_UNCONFINED';
+
+export function confinementRefusal(org: string, loose: Array<{ id: string; why: string }>): string {
+  const roles = loose.map((r) => `  - ${r.id}: ${r.why}`).join('\n');
+  return (
+    `org ${org} has roles that would run without an OS sandbox, so they can read the operator key and sign any org definition:\n${roles}\n` +
+    `Fix: install bubblewrap (Linux), use the claude runtime below policy.git push with the sandbox on, ` +
+    `or explicitly accept the risk with --allow-unconfined (org run / org serve) or ${ALLOW_UNCONFINED_ENV}=1.`
+  );
+}
+
 /** THE enforcement point for unconfined roles, called once per org start
  *  (prepareOrgStart). A role that runs with neither the SDK sandbox nor the
- *  mask can read the operator key and so sign any org definition. Such roles
- *  are allowed by decision (#502): the operator is warned, naming each role
- *  and why it runs without an OS sandbox, and the run continues. */
+ *  mask can read the operator key and so sign any org definition. Fails
+ *  closed (supersedes the warn-only decision of #502): the start is refused
+ *  unless the operator passed the explicit `allowUnconfined` opt-in
+ *  (`--allow-unconfined` / MONOMIND_ALLOW_UNCONFINED=1), in which case each
+ *  role is still named in a warning so the opt-in is on the record. */
 export function enforceConfinement(
   def: unknown,
   org: string,
-  warn: (msg: string) => void = (m) => console.warn(m),
+  opts: { allowUnconfined?: boolean; warn?: (msg: string) => void } = {},
 ): Array<{ id: string; why: string }> {
+  const warn = opts.warn ?? ((m: string) => console.warn(m));
   const loose = unconfinedRoles(def);
+  if (loose.length === 0) return loose;
+  const allowed = opts.allowUnconfined === true || process.env[ALLOW_UNCONFINED_ENV] === '1';
+  if (!allowed) throw new Error(confinementRefusal(org, loose));
   for (const r of loose)
     warn(
-      `[orgrt] org ${org}: role ${r.id} runs unconfined (${r.why}) — it runs without an OS sandbox, so it can read the operator key and sign any org definition. Allowed; to confine it, use the claude runtime below policy.git push with the sandbox on, or install bubblewrap (Linux)`,
+      `[orgrt] org ${org}: role ${r.id} runs unconfined by operator opt-in (--allow-unconfined) (${r.why}) — it runs without an OS sandbox and can read the operator key and sign any org definition`,
     );
   return loose;
 }

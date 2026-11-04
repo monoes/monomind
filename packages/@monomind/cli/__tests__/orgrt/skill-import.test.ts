@@ -1,14 +1,25 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { classifyLicense, importRepo } from '../../src/orgrt/skill-import.js';
+import { afterAll, describe, expect, it } from 'vitest';
+import { parseFrontmatter } from '../../src/orgrt/skill-library.js';
+import { classifyLicense, importRepo, importRepoConfirmed } from '../../src/orgrt/skill-import.js';
+
+const made: string[] = [];
+const mk = (prefix: string): string => {
+  const d = mkdtempSync(join(tmpdir(), prefix));
+  made.push(d);
+  return d;
+};
+afterAll(() => {
+  for (const d of made) rmSync(d, { recursive: true, force: true });
+});
 
 const MIT = 'MIT License\n\nCopyright (c) 2025 Someone\n\nPermission is hereby granted, free of charge, to any person...\nTHE SOFTWARE IS PROVIDED "AS IS"';
 const APACHE = '                                 Apache License\n                           Version 2.0, January 2004';
 
 function fixtureRepo(): string {
-  const root = mkdtempSync(join(tmpdir(), 'repo-'));
+  const root = mk('repo-');
   writeFileSync(join(root, 'LICENSE'), MIT);
   const skill = (dir: string, fm: string, extra: Record<string, string> = {}) => {
     mkdirSync(join(root, dir), { recursive: true });
@@ -38,7 +49,7 @@ describe('classifyLicense', () => {
 
 describe('importRepo', () => {
   const repo = fixtureRepo();
-  const dest = mkdtempSync(join(tmpdir(), 'lib-'));
+  const dest = mk('lib-');
   const results = importRepo(repo, dest);
   const byName = Object.fromEntries(results.map((r) => [r.name, r]));
 
@@ -71,5 +82,56 @@ describe('importRepo', () => {
   it('does not overwrite an existing skill unless asked', () => {
     expect(importRepo(repo, dest, { only: ['good'] })[0]).toMatchObject({ ok: false, reason: 'already in the library' });
     expect(importRepo(repo, dest, { only: ['good'], overwrite: true })[0]).toMatchObject({ ok: true });
+  });
+});
+
+describe('trust boundary', () => {
+  const repo = mk('repo-trust-');
+  writeFileSync(join(repo, 'LICENSE'), MIT);
+  mkdirSync(join(repo, 's/risky'), { recursive: true });
+  writeFileSync(
+    join(repo, 's/risky/SKILL.md'),
+    '---\nname: risky\ndescription: wants tools\nallowed-tools: Bash, Write\ntools: [monograph_query]\n---\nDo things.\n',
+  );
+
+  it('refuses a remote source without a pinned commit, or with a malformed one', () => {
+    const dest = mk('lib-');
+    expect(() => importRepo('owner/repo', dest)).toThrow(/pinned commit/);
+    expect(() => importRepo('https://example.com/o/r.git', dest, { commit: 'main' })).toThrow(/hex commit/);
+  });
+
+  it('writes imported skills untrusted with no tools and drops allowed-tools', () => {
+    const dest = mk('lib-');
+    importRepo(repo, dest, { tags: ['x'] });
+    const md = readFileSync(join(dest, 'risky', 'SKILL.md'), 'utf-8');
+    expect(md).toContain('trust: untrusted');
+    expect(md).toContain('tools: []');
+    expect(md).not.toContain('allowed-tools');
+    expect(md).not.toContain('Bash');
+  });
+
+  it('keeps requested tools only for a trusted import, and the library ignores tools of untrusted skills', () => {
+    const dest = mk('lib-');
+    importRepo(repo, dest, { trusted: true });
+    expect(readFileSync(join(dest, 'risky', 'SKILL.md'), 'utf-8')).toContain('trust: trusted');
+    writeFileSync(
+      join(dest, 'risky', 'SKILL.md'),
+      '---\nname: risky\ndescription: d\ntools: ["monograph_query"]\ntrust: untrusted\n---\nb\n',
+    );
+    const got = parseFrontmatter(readFileSync(join(dest, 'risky', 'SKILL.md'), 'utf-8'));
+    expect(got.data.trust).toBe('untrusted');
+  });
+
+  it('shows a summary and writes nothing when the operator declines', async () => {
+    const dest = mk('lib-');
+    let shown: string[] = [];
+    const declined = await importRepoConfirmed(repo, dest, {
+      confirm: (s) => ((shown = s), false),
+    });
+    expect(declined.declined).toBe(true);
+    expect(shown.join('\n')).toMatch(/risky: 1 file.*drops tool keys: allowed-tools, tools/);
+    expect(existsSync(join(dest, 'risky'))).toBe(false);
+    const ok = await importRepoConfirmed(repo, dest, { confirm: () => true });
+    expect(ok.results[0]).toMatchObject({ ok: true });
   });
 });

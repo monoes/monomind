@@ -57,7 +57,7 @@ test, not just this page, if you need the full reasoning.
 
 | Trigger | Destination | When | Opt-out |
 |---|---|---|---|
-| Startup update check | `registry.npmjs.org` | Every command, rate-limited to once per 24h | `--no-update`, `MONOMIND_AUTO_UPDATE=false`, or any CI environment (`CI=true`/`CONTINUOUS_INTEGRATION=true`) |
+| Startup update check (notify only: nothing is installed unless you run `monomind update` or opt in to auto-update) | `registry.npmjs.org` | Every command, rate-limited to once per 24h | `--no-update`, `MONOMIND_AUTO_UPDATE=false`, or any CI environment (`CI=true`/`CONTINUOUS_INTEGRATION=true`) |
 | `npx monomind@latest` launch | `registry.npmjs.org` — made by npx, not by monomind | Every launch through `npx monomind@latest` (a hook, MCP server entry or shell command written that way), because npx re-resolves the `latest` tag each time and downloads the package when its cached copy is older | Install it (`npm i -g monomind`) and run `monomind`, or pin an exact version (`npx monomind@<version>`) |
 | `doctor` version freshness | `npm view monomind version` (→ npm registry) | Every `monomind doctor` run | `doctor --component <name>` limits the run to one non-network check, or skip `doctor` |
 | `doctor` companion-tool freshness | `api.github.com/repos/monoes/mono-agent/releases/latest` | Only when you run `monomind doctor -c monoes-tools`, on macOS, with the separate `monoagentcli` tool installed | Don't run that component |
