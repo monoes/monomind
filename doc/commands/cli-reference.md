@@ -24,7 +24,7 @@
 | `performance` | Profiling, benchmarking, real metrics | 4 — benchmark, profile, metrics, bottleneck |
 | `guidance` | Wire enforcement gates into Claude Code hooks | 1 — setup |
 | `config` | Configuration management | 7 — init, get, set, providers, reset, export, import |
-| `doctor` | System diagnostics — flat command, no subcommands | 0 — flags only: `--fix`, `--install`, `--verbose`, `--json`, `--read-only`, `--offline`, `--component` (`--component` accepts one of 51 named categories — see below) |
+| `doctor` | System diagnostics — flat command, no subcommands | 0 — flags only: `--fix`, `--install`, `--verbose`, `--json`, `--read-only`, `--offline`, `--component` (`--component` accepts one of 52 named categories — see below) |
 | `completions` | Shell completion scripts | 4 — bash, zsh, fish, powershell |
 | `analyze` | Codebase analysis — diff classification, change risk | 7 — diff, code, deps, ast, complexity, symbols, imports |
 | `route` | Task-to-agent routing (`route task` through the central picker; `route semantic` picker first, then the embedding cascade). See [Route Command Reference](./route.md) & [Routing Concept](../concepts/routing.md). | 9 — task (default), semantic, list-agents, stats, feedback, reset, export, import, coverage (alias: cov) |
@@ -61,13 +61,13 @@
 - **MCP mode gate**: MCP server mode requires piped stdin AND either `mcp`/`mcp start` as argv, or the env var `MONOMIND_MCP_AUTODETECT=1` with zero args. Older versions treated any non-TTY invocation as an MCP server; that was removed as a privilege-escalation fix — plain non-interactive shell usage no longer risks silently starting an MCP server.
 - `bin/cli.js` always reads its version from `package.json` at runtime — never hardcoded, so it can't drift from what's installed (confirmed live: `node bin/cli.js --help` reports the installed version). **Exception:** the separate `monomind-mcp` binary (`bin/mcp-server.js`) hardcodes `const VERSION = '3.0.0'` (`bin/mcp-server.js:13`) and reports it in its MCP `initialize` response (`:124`) regardless of the real installed version — a real version-drift bug specific to that one entry point.
 
-## `doctor --component` categories (51)
+## `doctor --component` categories (52)
 
-`monomind doctor` (flags: `--fix`, `--install`, `--verbose`, `--json`, `--read-only`, `--offline`, `--component`) — `--component` accepts one of **51** named values, dispatched via the `componentMap` lookup table in `doctor.ts`. `monomind doctor --component bogus` prints the live list, which is the authority if this page drifts.
+`monomind doctor` (flags: `--fix`, `--install`, `--verbose`, `--json`, `--read-only`, `--offline`, `--component`) — `--component` accepts one of **52** named values, dispatched via the `componentMap` lookup table in `doctor.ts`. `monomind doctor --component bogus` prints the live list, which is the authority if this page drifts.
 
-Full 51, alphabetical: agent-runtimes, api, appledouble, catalog, claude, claude-runtime, config, cost-settings, crash-reporting, dashboard-token, decision, disk, doc-extractors, documents, freshness, gates, git, gitignore, graph-freshness, graph-semantic, helpers, hook-monograph, hook-settings, jev, kg, mcp, mcp-running, memory, memory-pkg, memory-proficiency, metrics-freshness, monoes, monoes-token, monoes-tools, monograph, native, native-modules, node, npm, org-skills, pick, platforms, project-root, registry, second-brain, security-audit, sidecars, supply-chain, typescript, usage-counters, version.
+Full 52, alphabetical: agent-runtimes, api, appledouble, catalog, claude, claude-runtime, config, cost-settings, crash-reporting, dashboard-token, decision, deprecated, disk, doc-extractors, documents, freshness, gates, git, gitignore, graph-freshness, graph-semantic, helpers, hook-monograph, hook-settings, jev, kg, mcp, mcp-running, memory, memory-pkg, memory-proficiency, metrics-freshness, monoes, monoes-token, monoes-tools, monograph, native, native-modules, node, npm, org-skills, pick, platforms, project-root, registry, second-brain, security-audit, sidecars, supply-chain, typescript, usage-counters, version.
 
-Several are aliases: `freshness` is `version`; `sidecars` is `appledouble`; `native-modules` is `native`; `doc-extractors` is `documents`; `decision` is `jev`; `dashboard-token` is `monoes-token`. The `-c` help string names only 39 of the 51 and has drifted from the table; trust the table.
+Several are aliases: `freshness` is `version`; `sidecars` is `appledouble`; `native-modules` is `native`; `doc-extractors` is `documents`; `decision` is `jev`; `dashboard-token` is `monoes-token`. The `-c` help string names only 39 of the 52 and has drifted from the table; trust the table.
 
 **What the newer checks report**
 
@@ -79,13 +79,14 @@ Several are aliases: `freshness` is `version`; `sidecars` is `appledouble`; `nat
 - `hook-monograph`: fails when the monograph index is more than 50 commits behind and the hooks cannot rebuild it, naming a missing `@monoes/monograph` package or an unbuilt `better-sqlite3`.
 - `catalog`: checks catalog store and state consistency.
 - `supply-chain` ("Supply Chain Pins", `doctor-supply-chain-checks.ts`): read-only, local files only. Looks for projected catalog skills edited after approval, installed skills/commands/agents whose bytes differ from the hash `init` recorded, `.mcp.json` servers that imitate a monomind one, and repository git config keys that git executes (`fsmonitor`, `hooksPath`, `sshCommand`, `!` aliases, filter/diff/merge drivers).
+- `deprecated` ("Deprecated Skills", `doctor-project-checks.ts`): read-only. Warns when `.claude/skills`, `.agents/skills`, `.gemini/skills` or `.kimi-code/skills` holds a skill whose description starts with `Deprecated:`, the marker a skill carries for one release before it is removed, and names each one.
 - `jev`: `doctor -c jev` probes each configured Jev provider (network).
 
 **`--json`, `--read-only`, `--offline`.** `--json` puts one JSON document on stdout (human text goes to stderr) with every check's result, the `component` id that re-runs it, and how its fix is applied. `--json` implies `--read-only` unless you add `--fix` or `--install`: a read-only run changes no file in the project or `$HOME` (no fixes, no registry refresh, no update check). `--offline` skips the checks that use the network and reports them as skipped. The "update available" notice goes to stderr, so it never lands ahead of the JSON.
 
-**Default sweep versus `-c`.** A plain `monomind doctor` runs its own `alwaysOnChecks` and `codeOnlyChecks` arrays in `doctor.ts`, not the 51-value list.
+**Default sweep versus `-c`.** A plain `monomind doctor` runs its own `alwaysOnChecks` and `codeOnlyChecks` arrays in `doctor.ts`, not the 52-value list.
 
-- Always on: version, node, npm, claude, claude-runtime, agent-runtimes, config, project-root, memory, disk, monograph, memory-pkg, helpers, monoes, gates, hook-settings, registry, git, api, memory-proficiency, metrics-freshness, security-audit, second-brain, kg, appledouble, documents, jev, crash-reporting, usage-counters, cost-settings, org-skills, supply-chain.
+- Always on: version, node, npm, claude, claude-runtime, agent-runtimes, config, project-root, memory, disk, monograph, memory-pkg, helpers, monoes, gates, hook-settings, registry, git, api, memory-proficiency, metrics-freshness, security-audit, second-brain, kg, appledouble, documents, jev, crash-reporting, usage-counters, cost-settings, org-skills, supply-chain, deprecated.
 - Added for code projects only (the capability fingerprint puts code confidence at 0.1 or more): git-repo, native, mcp, mcp-running, typescript, graph-freshness, graph-semantic, hook-monograph, gitignore, monoes-token, platforms.
 - Never in the default sweep, only with `-c`: `monoes-tools`, `catalog` and `pick`. `git-repo` is a sweep id only and is not a valid `-c` value.
 

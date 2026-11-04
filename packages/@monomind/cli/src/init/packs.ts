@@ -224,9 +224,6 @@ export const OPTIONAL_PACKS: readonly AssetPack[] = [
       'github/repo-architect.md',
       'github/sync-coordinator.md',
       'github/workflow-automation.md',
-      // Deprecated (never installed) — listed so the category is fully owned.
-      'github/monoswarm-issue.md',
-      'github/monoswarm-pr.md',
     ],
   },
   {
@@ -255,7 +252,6 @@ export const OPTIONAL_PACKS: readonly AssetPack[] = [
       'engineering/engineering-ai-engineer.md',
       'engineering/engineering-autonomous-optimization-architect.md',
       'engineering/engineering-backend-architect.md',
-      'engineering/engineering-code-reviewer.md', // deprecated, never installed
       'engineering/engineering-database-optimizer.md',
       'engineering/engineering-data-engineer.md',
       'engineering/engineering-embedded-firmware-engineer.md',

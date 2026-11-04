@@ -438,4 +438,4 @@ gh run view "$RUN_ID" --json jobs --jq '.jobs[] | .name as $j | .steps[] |
   {job: $j, step: .name, seconds: ((.completedAt | fromdate) - (.startedAt | fromdate))}'
 ```
 
-See also: [monoswarm-pr.md](./monoswarm-pr.md), [monoswarm-issue.md](./monoswarm-issue.md), [sync-coordinator.md](./sync-coordinator.md)
+See also: [pr-manager.md](./pr-manager.md), [issue-tracker.md](./issue-tracker.md), [sync-coordinator.md](./sync-coordinator.md)

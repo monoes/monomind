@@ -1,6 +1,6 @@
 ---
 name: mastermind-invite-landing
-description: "Mastermind invite-landing — bookkeeping only — not enforced by the Org Runtime. Records accepting an org invite as a human or agent member in a side file."
+description: "Deprecated: bookkeeping only — not enforced by the Org Runtime. Mastermind invite-landing: Records accepting an org invite as a human or agent member in a side file."
 type: domain-skill
 default_mode: confirm
 pick: low

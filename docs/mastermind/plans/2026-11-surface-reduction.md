@@ -1,7 +1,9 @@
 # Surface reduction: a proposal (2026-11)
 
-Status: **Proposed**, for the maintainer to decide. Nothing here is implemented;
-no agent, skill, command, generator or code was changed while writing it.
+Status: **Accepted in part** (2026-11). The maintainer's decisions are recorded
+under [Decisions for the maintainer](#decisions-for-the-maintainer). Stage 2 is
+done for C1 and C4; everything else below is still a proposal. The inventory and
+candidate tables describe `origin/main` as it was when the plan was written.
 
 All file references are against `origin/main` at the time of writing. Paths
 without a prefix are under `packages/@monomind/cli/src/`. Counts marked
@@ -81,7 +83,7 @@ minor later) removes it and adds its hashes to `retired-files-data.ts`.
 | C4 | **Deprecated agents still shipped** (4) | `deprecated: true` already set (`.claude/agents/github/monoswarm-pr.md:8`, `…/monoswarm-issue.md:8`, `.claude/agents/engineering/engineering-code-reviewer.md:7`, `.claude/agents/specialized/mobile/spec-mobile-react-native.md:7`); packs mark two "never installed" (`init/packs.ts:226-228`, `:258`) | None (never ranked, never installed) | Already at stage N: go straight to removal | Very low |
 | C5 | **`specialists` pack** (31 agents: WeChat, Feishu, Solidity, embedded, …) | None of the 31 in the used list (`init/packs.ts:14-17`) | Opt-in only. Removing it means specialist picks fall back to core agents | Demote: ship them as Org skills or a separate catalog (`catalog` command, `commands/index.ts:34`) rather than as installable agents; or simply keep opt-in and stop counting them in headline numbers | Low on usage; **reputation risk**: "83 agents" is marketing copy (`README.md:39`) |
 | C6 | **`swarm` pack commands** (41 command files across coordination, automation, stream-chain, agents, hooks, analysis, monitoring, optimization, workflows, truth: `init/packs.ts:189-203`) | Zero non-mastermind slash commands used (`init/packs.ts:19-20`); `coordination:agent-spawn` "starts no process" (`commands/agent-lifecycle-spawn.ts:18`) | Opt-in only | Retire commands that only describe a CLI call; keep `hooks:setup` | Low |
-| C7 | **`business` and low-use `extras` mastermind commands** (marketing, sales, finance, content, ops; okf-export/import, master, understand, graph-status) | Unused (`init/packs.ts:19-20`) | `/mastermind:*` count drops from 40 | Deprecate → remove; keep `adr`, `code-review`, `release`, `techport` in `extras` | Low–medium: `business` is a positioning bet, not a usage one; maintainer call |
+| C7 | **`business` and low-use `extras` mastermind commands** (marketing, sales, finance, content, ops; okf-export/import, master, understand, graph-status). **Decision: `business` stays** (positioning bet); only the `extras` part remains a candidate | Unused (`init/packs.ts:19-20`) | `/mastermind:*` count drops from 40 | Deprecate → remove; keep `adr`, `code-review`, `release`, `techport` in `extras` | Low–medium: `business` is a positioning bet, not a usage one; maintainer call |
 | C8 | **CLI overlap: `route` vs `pick`** | `route` is "routing through the central picker" (`commands/route.ts:1-4`, `:29`); `pick` is the picker (`commands/index.ts:33`) | Scripts calling `monomind route` see a deprecation line | Fold `route`'s outcome subcommands (`commands/route.ts:9-21`) under `pick`; `route` becomes a hidden alias (`types.ts:31`) for one release | Medium: hooks call route; grep `.claude/helpers` before |
 | C9 | **CLI: `agent spawn` / `task` / `session` record-keeping** | `agent spawn` "Record a new agent in the agent store (starts no process)" (`commands/agent-lifecycle-spawn.ts:18`) | Unknown, no data | **Needs data first**: add opt-in local counters (stage 0) before deciding | Unknown, so do nothing yet |
 | C10 | **MCP tools beyond the 21 advertised** (~183) | No call telemetry exists | None by default (not advertised) | **Needs data first**: log tool name + count locally (stage 0), then retire tools with zero calls over two releases; `claims_*` (~12) and duplicate `hooks_*` routing tools are the first suspects | Medium: other platforms' instruction files name tools directly (`init/geminimd-generator.ts:41-46`); `pnpm run lint:tool-refs` catches stale references (`package.json:46`) |
@@ -202,7 +204,7 @@ each one before deleting it.
 |---|---|---|---|
 | 0 | **Measure.** Opt-in, local-only counters: CLI command name, MCP tool name, slash command / skill invoked (the pick-adherence log already exists, `commands/doctor-pick-checks.ts:66-69`). `doctor` reports them | 2–3 d | — |
 | 1 | **Deprecation plumbing.** `deprecated` on skills, commands, CLI commands and MCP tools; doctor check "deprecated asset installed / used"; stderr line | 2 d | — |
-| 2 | **Quick retirements:** C4 (remove 4 deprecated agents), C1 (deprecate 7 bookkeeping skills), C6/C7 deprecate | 1 d + 0.5 d removal in N+1 | 1 |
+| 2 | **Quick retirements:** C4 (remove 4 deprecated agents), C1 (deprecate 7 bookkeeping skills), C6/C7 deprecate (C7 without `business`). **C1 and C4 done**; C1's removal waits for N+1 | 1 d + 0.5 d removal in N+1 | 1 |
 | 3 | **Platform tiers:** tier field on `PLATFORM_REGISTRY`, gate implicit pi/kilo/copilot writers, tier column in `platforms`, README platform section | 2–3 d | — |
 | 4 | **Shared instruction generator:** `init/instructions/*`, migrate CLAUDE.md first (snapshot must match today's block byte-for-byte), then GEMINI.md, then the four AGENTS.md writers in one go; single AGENTS.md block | 5–7 d | 3 |
 | 5 | **Drop the duplicate CLAUDE.md block:** skip the adapter instruction pass for platforms whose block section 4 now writes | 0.5 d | 4 |
@@ -227,6 +229,23 @@ counts and the four asset trees move with every removal.
 ## Decisions for the maintainer
 
 1. Accept the tier table (section 3), especially moving copilot to tier 3.
+   **Accepted**, with copilot in tier 3.
 2. Approve C1 + C4 now (evidence is in the files themselves).
+   **Approved, and done in the stage-2 PR** (`chore/surface-stage2-retirements`):
+   - C4: the four deprecated agents (`monoswarm-pr`, `monoswarm-issue`,
+     `Code Reviewer` / `engineering-code-reviewer`, `mobile-dev` /
+     `spec-mobile-react-native`) are deleted. References in sibling agents,
+     `init/packs.ts`, the knowledge-eval golden set, the pick-rank fixture and the
+     package `CLAUDE.md` point at their replacements (`pr-manager`,
+     `issue-tracker`, `reviewer`, `Mobile App Builder`). Their shipped hashes are
+     in `init/retired-files-data.ts`, so an upgrade retires unmodified copies.
+   - C1: the seven skills' descriptions start with `Deprecated:`, and
+     `monomind doctor -c deprecated` ("Deprecated Skills") warns when one is
+     installed. They stay in the `org-admin` pack until the next release, which
+     removes them from the pack and retires the files.
 3. Approve stage 0 measurement before touching CLI and MCP surfaces.
+   **Approved.**
 4. Decide whether `business` (C7) stays as a positioning bet.
+   **Kept** as a positioning bet: the five `business` commands (marketing, sales,
+   finance, content, ops) are not deprecated. C7 now covers only the low-use
+   `extras` commands.

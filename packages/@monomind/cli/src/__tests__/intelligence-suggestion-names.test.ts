@@ -12,7 +12,7 @@ vi.mock('../memory/intelligence.js', () => ({
     { type: 'security-architect', similarity: 0.99 },
     { type: 'Security Engineer', similarity: 0.9 },
     { type: 'action', similarity: 0.95 },
-    { type: 'mobile-dev', similarity: 0.5 },
+    { type: 'Mobile App Builder', similarity: 0.5 },
     { type: 'backend-dev', similarity: 0.97 },
   ],
 }));
@@ -22,6 +22,6 @@ const { suggestAgentsFromIntelligence } = await import('../mcp-tools/hooks-embed
 describe('suggestAgentsFromIntelligence', () => {
   it('suggests registry agent names only', async () => {
     const r = await suggestAgentsFromIntelligence('secure the login');
-    expect(r?.agents).toEqual(['Security Engineer', 'mobile-dev']);
+    expect(r?.agents).toEqual(['Security Engineer', 'Mobile App Builder']);
   });
 });

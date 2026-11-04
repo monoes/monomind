@@ -193,17 +193,16 @@ npx monomind@latest security scan --depth full
 npx monomind@latest performance benchmark --suite all
 ```
 
-## Available Agents (<!-- doc-count:bundled-agents -->87<!-- /doc-count:bundled-agents --> shipped, <!-- doc-count:pickable-agents -->83<!-- /doc-count:pickable-agents --> pickable)
+## Available Agents (<!-- doc-count:bundled-agents -->83<!-- /doc-count:bundled-agents --> shipped, <!-- doc-count:pickable-agents -->83<!-- /doc-count:pickable-agents --> pickable)
 
 **Counts are for THIS package, not the repo root.** `packages/@monomind/cli/.claude/agents/`
-holds 96 `.md` files. The 9 under `reengineer-squad/` are repo-only: `package.json`'s `files`
+holds 92 `.md` files. The 9 under `reengineer-squad/` are repo-only: `package.json`'s `files`
 array excludes them and the registry builder skips them, so npm users get the rest, and
 `monomind init` copies the core pack's share of them into `.claude/agents/` (the rest come
-with opt-in packs — `src/init/packs.ts`, `monomind packs add`). Of those, 4 carry `deprecated: true`
-(`Code Reviewer`, `monoswarm-pr`, `monoswarm-issue`, `mobile-dev`): they stay
-spawnable by name but are never picked.
+with opt-in packs — `src/init/packs.ts`, `monomind packs add`). An agent marked
+`deprecated: true` stays spawnable by name but is never picked; none ships today.
 
-By directory: engineering 23, specialized 15, github 12, testing 9, reengineer-squad 9,
+By directory: engineering 22, specialized 14, github 10, testing 9, reengineer-squad 9,
 core 6, optimization 5, marketing 5, monoswarm 5, consensus 2, templates 1, plus one
 file each in architecture, design, goal, and specialists.
 
