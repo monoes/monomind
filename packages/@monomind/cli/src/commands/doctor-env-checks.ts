@@ -13,6 +13,12 @@ import { promisify } from 'node:util';
 import { type ClaudeCodeInfo, claudeCodeInfo } from '../orgrt/claude-sdk.js';
 import { output } from '../output.js';
 import { getConsentState } from '../services/crash-reporter.js';
+import {
+  readUsageCounters,
+  type UsageOptions,
+  usageCountersEnabled,
+  usageCountersPath,
+} from '../services/usage-counters.js';
 
 export const MAX_DOCTOR_PKG_BYTES = 1024 * 1024; // 1 MB
 export const MAX_DOCTOR_CONFIG_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -390,6 +396,28 @@ export async function checkCrashReporting(): Promise<HealthCheck> {
     status: 'info',
     message:
       "unanswered — you'll be asked on your next interactive crash; until then, a non-interactive crash (CI, agents) never asks and only saves locally. Change with: monomind crash-reporting enable or monomind crash-reporting disable",
+  };
+}
+
+/**
+ * Opt-in local usage counters (surface-reduction stage 0): whether they are
+ * on, how many names they hold and where. Reads only; never writes.
+ */
+export async function checkUsageCounters(opts: UsageOptions = {}): Promise<HealthCheck> {
+  const env = opts.env ?? process.env;
+  const file = usageCountersPath(env);
+  if (!usageCountersEnabled({ ...opts, env })) {
+    return {
+      name: 'Usage Counters',
+      status: 'info',
+      message: `off — nothing is recorded. Opt in (local only, never sent) with MONOMIND_USAGE_COUNTERS=1 or monomind config set cli.usageCounters true`,
+    };
+  }
+  const n = Object.keys(readUsageCounters(env).entries).length;
+  return {
+    name: 'Usage Counters',
+    status: 'info',
+    message: `on, ${n} ${n === 1 ? 'entry' : 'entries'} in ${file} (local only, never sent; delete the file to clear it)`,
   };
 }
 
