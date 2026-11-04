@@ -200,6 +200,9 @@ export function activeRoleCount(org: RunningOrg): number {
 }
 
 export interface DaemonOpts {
+  /** Operator opt-in (`--allow-unconfined`): start orgs whose roles run without
+   *  an OS sandbox. Off by default — such a start is refused. */
+  allowUnconfined?: boolean;
   queryFn?: typeof query;
   /** Explicit agent runner (takes precedence over everything). When unset,
    *  session.ts builds a ClaudeAgentRunner from queryFn/the default — so the

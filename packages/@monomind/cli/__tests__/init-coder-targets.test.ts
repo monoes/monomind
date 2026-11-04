@@ -16,7 +16,7 @@ import { resolveInitOptions } from '../src/init/resolve-options.js';
 import type { InitOptions, InitResult } from '../src/init/types.js';
 import { generateAgentsOnlyMd } from '../src/init/write-agents.js';
 import { mergeAiderRead, writeAiderConf } from '../src/init/write-aider.js';
-import { CLINE_MCP_INSTALL_COMMAND, writeClineFiles } from '../src/init/write-cline.js';
+import { clineInstallCommand, writeClineFiles } from '../src/init/write-cline.js';
 import { output } from '../src/output.js';
 import type { CommandContext } from '../src/types.js';
 
@@ -163,7 +163,7 @@ describe('init writers', () => {
     await writeClineFiles(dir, base, r);
     expect(fs.readFileSync(rule, 'utf8')).toContain('monomind');
     expect(r.created.files).toEqual(['.clinerules/monomind.md']);
-    expect(r.warnings?.[0]).toContain(CLINE_MCP_INSTALL_COMMAND);
+    expect(r.warnings?.[0]).toContain(clineInstallCommand());
 
     fs.writeFileSync(rule, 'mine');
     r = emptyResult();

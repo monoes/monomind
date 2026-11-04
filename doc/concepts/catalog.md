@@ -153,7 +153,7 @@ staged packages, approvals and grants unless `--purge-data` is given (#579).
 | `monomind catalog show <id>` | One entry: digest, source, inspection summary, grants, history |
 | `monomind catalog search <text> [--target <t>] [--limit n]` | Ranked by the same scorer as `org skills search`; revoked entries excluded |
 | `monomind catalog audit` | Re-hashes every entry; exits non-zero when an active entry has a problem |
-| `monomind catalog stage <owner/repo\|git-url\|path> --actor <name> [--only <name>] [--kind skill\|archetype\|blueprint]` | Copies one candidate into the store and records it staged or quarantined |
+| `monomind catalog stage <owner/repo\|git-url\|path> --actor <name> [--commit <sha>] [--only <name>] [--kind skill\|archetype\|blueprint]` | Copies one candidate into the store and records it staged or quarantined |
 | `monomind catalog inspect <id>` | The stored inspection (see §4) |
 | `monomind catalog approve <id> --target <t> [--target <t>]… [--grant-tool <tool>]… [--replaces-legacy] --actor <name>` | staged → approved; prints what each target will expose |
 | `monomind catalog activate <id> --actor <name>` | approved/disabled → active |
@@ -165,9 +165,14 @@ staged packages, approvals and grants unless `--purge-data` is given (#579).
 | `monomind catalog unproject <id> --surface … [--apply]` | Removes one projected copy |
 | `monomind doctor -c catalog` | Health check (see §8) |
 
-`stage` fetches a Git source with the same checkout as
-`monomind org skills import` and records the fetched `HEAD` commit; a local
-path is recorded with its commit when it is a Git work tree. The candidate is
+`stage` fetches a remote Git source (`owner/repo`, `https://`, `git@` or
+`file:///`) only at a pinned commit: `--commit <sha>` is required and must
+be the full 40-character id. Exactly that commit is fetched, the checkout's
+`HEAD` is verified to equal it, and it is recorded as the entry's
+`source.commit`; a remote source without `--commit`, a short id, or a pin that
+does not resolve to that commit is refused and nothing is stored. A local
+path needs no pin and is recorded with its commit when it is a Git work tree;
+when `--commit` is given, its `HEAD` must equal it. The candidate is
 copied first and the copy is what gets inspected, hashed and stored, so a
 source edited mid-stage cannot reach the store. A URL carrying credentials
 (`https://user:token@host/…`) is refused rather than recorded; use a Git
@@ -234,7 +239,7 @@ description — never prompts, commands, URLs, providers, `policy` or
 A role opts in with `"blueprint": "<name>"`.
 [`resolveOrgDefBlueprints`](packages/@monomind/cli/src/catalog/blueprints.ts#resolveOrgDefBlueprints)
 runs where the Org definition is parsed — daemon start and hot reload,
-checkpoint replay, `org validate` and `org run --dryRun` — and fills only what
+checkpoint replay, `org validate` and `org run --dry-run` — and fills only what
 the role leaves unset:
 
 - `skills` ← `[archetype, ...blueprint.skills]` when the role has no `skills`
@@ -242,7 +247,7 @@ the role leaves unset:
 - `skill_pool` ← the blueprint's when the role has none;
 - `policy` and `tool_providers` are never produced;
 - `runtimeHints` and `recommendedPolicy` are printed by `org validate` and
-  `org run --dryRun` as notes ending in `(not applied)` and are not applied.
+  `org run --dry-run` as notes ending in `(not applied)` and are not applied.
 
 The blueprint must be active for `org`, and every skill it names must resolve
 in the library (a legacy skill or an active `org` catalog entry), or
@@ -309,7 +314,7 @@ unchanged.
 **Add a skill for the Org library**
 
 ```bash
-monomind catalog stage owner/skills-repo --only code-review --actor alice
+monomind catalog stage owner/skills-repo --commit <full-sha> --only code-review --actor alice
 monomind catalog inspect skill:code-review
 monomind catalog approve skill:code-review --target org --grant-tool monograph_query --actor alice
 monomind catalog activate skill:code-review --actor alice
@@ -320,7 +325,7 @@ monomind org skills list --format json   # origin "catalog", tools = the grants
 
 ```bash
 monomind catalog disable skill:code-review --actor alice --reason "updating"
-monomind catalog stage owner/skills-repo --only code-review --actor alice   # new revision, approval cleared
+monomind catalog stage owner/skills-repo --commit <new-sha> --only code-review --actor alice   # new revision, approval cleared
 monomind catalog approve skill:code-review --target org --actor alice
 monomind catalog activate skill:code-review --actor alice
 ```

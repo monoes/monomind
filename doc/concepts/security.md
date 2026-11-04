@@ -115,10 +115,10 @@ MonoFence AI reports real-time latency and threat metrics via the CLI and MCP to
 
 | Tool Name | Parameters | Purpose |
 |---|---|---|
-| `monofence_scan` | `input` (string, max 64KB), `options` | Scans prompt or payload for prompt injection, jailbreaks, and evasions |
-| `monofence_analyze` | `input` (string), `context` | Detailed risk breakdown across threat categories and evasion layers |
+| `monofence_scan` | `input` (string, max 64KB), `quick` (boolean) | Scans prompt or payload for prompt injection, jailbreaks, and evasions |
+| `monofence_analyze` | `input` (string), `searchSimilar` (boolean), `k` (number) | Deep analysis of an input, with similar known patterns and mitigation recommendations |
 | `monofence_stats` | `none` | Returns telemetry metrics (total scans, average latency in ms, learned patterns, mitigation effectiveness) |
-| `monofence_learn` | `pattern`, `category`, `mitigation` | Registers a newly discovered attack pattern or mitigation rule |
+| `monofence_learn` | `input` (string), `wasAccurate` (boolean), optional `verdict`, `threatType`, `mitigationStrategy`, `mitigationSuccess` | Records detection feedback and, optionally, how a mitigation worked |
 | `monofence_is_safe` | `input` (string) | Fast boolean check that input is safe |
 | `monofence_has_pii` | `input` (string) | Checks input for PII (emails, SSNs, API keys, passwords and similar) |
 | `monofence_scan_output` | `output` (string), `originalPrompt` (string, optional) | Scans LLM output for PII, prompt echo and policy violations; passing the original prompt enables echo detection |

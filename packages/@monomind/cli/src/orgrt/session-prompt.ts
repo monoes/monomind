@@ -1,7 +1,7 @@
 // packages/@monomind/cli/src/orgrt/session-prompt.ts
 // Extracted from session.ts — a role session's system prompt and model.
 import { latestModel } from '../latest-models.js';
-import { assertModelAllowed } from '../model-guard.js';
+import { assertModelAllowed } from '../shared/model-guard.js';
 import { documentGuidance } from './documents/guidance.js';
 import { endpointBriefingLines } from './endpoint-roles.js';
 import { readVerifiedInstructions } from './instructions-file.js';

@@ -3,7 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
-import { writeJsonFileAtomic } from '../utils/json-file.js';
+import { writeJsonFileAtomic } from '../shared/json-file.js';
 import { OrgBus } from './bus.js';
 import {
   isCheckpointExpired,

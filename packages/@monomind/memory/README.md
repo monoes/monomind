@@ -27,17 +27,19 @@ npm install @monoes/memory
 ### Schema Architecture & Storage Engine
 - **Storage Driver**: Operates over SQLite with WAL mode (`PRAGMA journal_mode = WAL`) using `better-sqlite3` with a WASM `sql.js` fallback.
 - **Dual Schema Support**:
-  - Standalone `@monoes/memory` core schema ([`packages/@monomind/memory/src/sql-schema.ts:28`](packages/@monomind/memory/src/sql-schema.ts#L28)): `SCHEMA_VERSION = 2` managing **4 tables** (`memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`).
-  - CLI project memory schema ([`packages/@monomind/cli/src/memory/memory-schema.ts:15`](packages/@monomind/cli/src/memory/memory-schema.ts#L15)): Schema version `3.0.0` managing **9 tables** (`memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
+  - Standalone `@monoes/memory` core schema ([`src/sql-schema.ts`](src/sql-schema.ts)): `SCHEMA_VERSION = 4` (stored in `PRAGMA user_version`) managing **4 tables** (`memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`).
+  - CLI project memory schema ([`packages/@monomind/cli/src/memory/memory-schema.ts`](../cli/src/memory/memory-schema.ts)): Schema version `3.0.0` managing **9 tables** (`memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
 
 ## Hybrid Search: ONNX ModernBERT 768d + BM25 RRF
+
+> The retrieval pipeline below (BM25, RRF, query router, OKF, EWC, SONA) is implemented in `@monoes/monomindcli` (`packages/@monomind/cli/src/memory/` and `src/knowledge/`), on top of the storage primitives this package exports.
 
 Retrieval uses a dual-arm hybrid search architecture combined with Reciprocal Rank Fusion (RRF):
 
 1. **Dense Vector Search**:
    - Model: `Alibaba-NLP/gte-modernbert-base` (768 dimensions).
    - Embedding Pipeline: `@xenova/transformers` ONNX feature extraction.
-   - Acceleration: Standalone pure-JS `HNSWIndex` (`dimensions=768`, `M=16`, `efConstruction=200`, `metric='cosine'`).
+   - Acceleration: Standalone pure-JS `HNSWIndex` (set `dimensions: 768` for this model; defaults are `dimensions=1536`, `M=16`, `efConstruction=200`, `metric='cosine'`).
 2. **Lexical Arm (In-Process Okapi BM25)**:
    - Parameters: $k_1 = 1.2$, $b = 0.75$.
    - Tokenizer: Exact parity with the evaluation harness (`text-tokens.ts`).
@@ -69,11 +71,11 @@ Supports document and memory export/import via Open Knowledge Format (OKF) Markd
 | Export | What it does |
 |---|---|
 | `SQLiteBackend` / `SqlJsBackend` | Structured key-value storage in SQLite WAL mode (native + WASM fallback) |
-| `HNSWIndex` | Standalone pure-JS approximate nearest-neighbor index (`768d`) |
+| `HNSWIndex` | Standalone pure-JS approximate nearest-neighbor index (`dimensions` configurable, default `1536`) |
 | `chunkDocument`, `KnowledgeStore`, `KnowledgeRetriever` | Document chunking + retrieval pipeline |
 | `QueryBuilder` / `query()` | Fluent query construction |
 | `CacheManager` | In-memory LRU caching with size/TTL limits |
-| `SwarmCheckpointer` | Persist/restore swarm agent state snapshots |
+| `MonoswarmCheckpointer` | Persist/restore swarm agent state snapshots |
 | `MemoryMigrator` | Import from SQLite, JSON, or Markdown sources |
 | `PromptVersionStore` | Prompt version history & prompt experiment tracking |
 
@@ -91,5 +93,5 @@ everywhere including Windows without a toolchain).
 
 ## License
 
-MIT
+Apache-2.0
 

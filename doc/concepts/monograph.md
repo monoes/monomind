@@ -7,7 +7,7 @@
 
 ## Executive Overview
 
-Monomind Monograph (`@monoes/monograph` `v1.5.6`) is an in-process, SQLite-backed codebase knowledge graph subsystem. It parses source files into ASTs using Tree-sitter, extracts code symbols and structural relationships into SQLite database tables, performs graph analysis (blast radius calculation, one-hop neighbor-expansion reranking, central god nodes detection, graph surprisingness, and community clustering), tracks graph freshness via Git commits and file content hashing, and exposes native MCP tools for agentic code intelligence.
+Monomind Monograph (`@monoes/monograph` `v2.25.3`) is an in-process, SQLite-backed codebase knowledge graph subsystem. It parses source files into ASTs using Tree-sitter, extracts code symbols and structural relationships into SQLite database tables, performs graph analysis (blast radius calculation, one-hop neighbor-expansion reranking, central god nodes detection, graph surprisingness, and community clustering), tracks graph freshness via Git commits and file content hashing, and exposes native MCP tools for agentic code intelligence.
 
 Defined in `packages/@monomind/monograph/` ([package.json](packages/@monomind/monograph/package.json)) and integrated into CLI MCP tools at `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`.
 
@@ -17,7 +17,7 @@ Defined in `packages/@monomind/monograph/` ([package.json](packages/@monomind/mo
 
 Monograph uses Tree-sitter for deterministic, full-fidelity AST symbol extraction across 25 file extensions, with a regex-based parser fallback for 5 additional languages.
 
-### Supported Language Extensions (30 total)
+### Supported Language Extensions (33 total)
 
 - **Tree-sitter AST Engine (25 extensions)**: `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.py`, `.go`, `.rs`, `.java`, `.c`, `.h`, `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hxx`, `.cs`, `.rb`, `.swift`, `.php`, `.vue` (isolated `<script>` blocks), `.kt`, `.kts`, `.dart` ([`loader.ts → loadConfig`](packages/@monomind/monograph/src/parsers/loader.ts#loadConfig)).
 - **Regex Fallback Extractor (5 languages)**: Scala (`.scala`, `.sc`), Lua (`.lua`), Zig (`.zig`), PowerShell (`.ps1`, `.psm1`), Elixir (`.ex`, `.exs`) ([`language-parsers.ts → extractSymbolsForLanguage`](packages/@monomind/monograph/src/parsers/language-parsers.ts#extractSymbolsForLanguage)).
@@ -90,11 +90,11 @@ Monograph detects likely staleness through a three-layer system. It reduces the 
 2. **SHA-256 File Content Hashing** ([`file-cache.ts → hashFileContent`](packages/@monomind/monograph/src/storage/file-cache.ts#hashFileContent)):
    Computes file content hashes and compares against the `file_cache` table to skip unchanged files during incremental graph builds.
 3. **Live File System Watcher** (`monograph_watch`, [`mcp-tools/monograph/build-tools.ts → monographWatchTool`](packages/@monomind/cli/src/mcp-tools/monograph/build-tools.ts#monographWatchTool), backed by [`packages/@monomind/monograph/src/watch/watcher.ts`](packages/@monomind/monograph/src/watch/watcher.ts)):
-   Listens for file system change events and keeps the graph in sync during an active editing session, with two distinct thresholds:
-   - **`INCREMENTAL_THRESHOLD = 20`** ([`monograph/src/pipeline/orchestrator.ts → buildIncrementalAsync`](packages/@monomind/monograph/src/pipeline/orchestrator.ts#buildIncrementalAsync)) — if a batch of changed files exceeds 20, the watcher falls back to a full rebuild instead of an incremental update.
-   - **`FULL_REBUILD_IDLE_MS = 60_000`** ([`watch/watcher.ts → FULL_REBUILD_IDLE_MS`](packages/@monomind/monograph/src/watch/watcher.ts#FULL_REBUILD_IDLE_MS)) — after 60s of no further file-change events, the watcher schedules one deferred full rebuild to reconcile any drift from the incremental updates it applied in between.
+   Listens for file system change events and keeps the graph in sync during an active editing session, with two timers:
+   - **Rebuild on change** ([`orchestrator.ts → buildIncrementalAsync`](packages/@monomind/monograph/src/pipeline/orchestrator.ts#buildIncrementalAsync)) — each batch of changed files triggers a build that currently runs the same full pipeline as `monograph_build` with `incremental: false` (correctness over speed); there is no changed-file-count threshold.
+   - **`FULL_REBUILD_IDLE_MS = 60_000`** ([`watch/watcher.ts → FULL_REBUILD_IDLE_MS`](packages/@monomind/monograph/src/watch/watcher.ts#FULL_REBUILD_IDLE_MS)) — after 60s of no further file-change events, the watcher schedules one deferred full rebuild to refresh the aggregate phases (communities, god nodes, surprises, churn, report).
 
-   (This is unrelated to any separate watcher idle/auto-stop timeout elsewhere in the CLI — the two numbers above are the incremental-vs-full-rebuild mechanics specific to this watcher, not a "stop watching" timeout.)
+   The watcher also auto-stops after 30 minutes without a change (`idleTimeoutMs`, default `30 * 60_000`), which is separate from the two timers above.
 
 ### Known freshness limitations
 
@@ -144,15 +144,14 @@ category boundary (default vs. advanced-gated):
 15. `monograph_impact` ([`impact-tools.ts → monographImpactTool`](packages/@monomind/cli/src/mcp-tools/monograph/impact-tools.ts#monographImpactTool)): Computes change blast radius, affected downstream files and the tests to run (`affectedTests`, from `TESTS` edges).
 16. `monograph_cypher` ([`query-tools-graph.ts → monographCypherTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-graph.ts#monographCypherTool)): Executes custom subset Cypher pattern queries against the SQLite graph.
 
-> **The 15 tools listed above are not a meaningful subset — they're carried over from an
-> earlier, smaller version of this section (14 tools) plus the one addition below, not a
-> deliberately curated "most important" or "most used" list.** The real, principled category
-> boundary is default vs. advanced-gated. The full registry
-> ([`mcp-tools/monograph/index.ts`](packages/@monomind/cli/src/mcp-tools/monograph/index.ts)) exposes **19 tools by default** plus **27 more
-> gated behind `MONOGRAPH_MCP_ADVANCED=1`** — 46 total (matching the count already correctly
-> stated in `doc/index.html`'s package table). Of the 15 above, `monograph_shortest_path`,
+> **The 16 tools listed above are not a meaningful subset — they're carried over from an
+> earlier, smaller version of this section, not a deliberately curated "most important" or
+> "most used" list.** The real, principled category boundary is default vs. advanced-gated.
+> The full registry
+> ([`mcp-tools/monograph/index.ts`](packages/@monomind/cli/src/mcp-tools/monograph/index.ts)) exposes **20 tools by default** plus **27 more
+> gated behind `MONOGRAPH_MCP_ADVANCED=1`** — 47 total. Of the 16 above, `monograph_shortest_path`,
 > `monograph_community`, `monograph_surprises`, and `monograph_cypher` happen to be in the
-> advanced-gated set ([`index.ts → advancedMonographTools`](packages/@monomind/cli/src/mcp-tools/monograph/index.ts#advancedMonographTools)); the other 11 happen to be in the default set. The
+> advanced-gated set ([`index.ts → advancedMonographTools`](packages/@monomind/cli/src/mcp-tools/monograph/index.ts#advancedMonographTools)); the other 12 are in the default set. The
 > remaining ~31 tools (including `monograph_doctor`, `monograph_dead_code`, `monograph_rename`,
 > `monograph_wiki`, the `monograph_group_*` family, `monograph_agent_*` family, and more)
 > aren't individually catalogued here yet.
@@ -187,6 +186,6 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 # → "find all callers of validateToken()"
 ```
 
-<!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
+20 Monograph MCP tools by default (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
 
 The MCP server advertises a lean core of <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> tools by default to keep Claude's context small. Every other tool stays callable by name, and `monomind_tool_search` finds it. `MONOMIND_MCP_FULL=1` advertises all <!-- doc-count:mcp-tools-full -->204<!-- /doc-count:mcp-tools-full --> ([MCP server](../concepts/mcp-server.md)).

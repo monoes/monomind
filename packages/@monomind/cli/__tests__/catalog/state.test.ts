@@ -91,6 +91,8 @@ describe('CatalogEntrySchema', () => {
     expect(() => CatalogEntrySchema.parse(git('https://tok@github.com/o/r.git'))).toThrow();
     expect(CatalogEntrySchema.parse(git('https://github.com/o/r.git')).source).toMatchObject({ kind: 'git' });
     expect(CatalogEntrySchema.parse(git('git@github.com:o/r.git')).source).toMatchObject({ kind: 'git' });
+    expect(CatalogEntrySchema.parse(git('file:///srv/git/r.git')).source).toMatchObject({ kind: 'git' });
+    expect(() => CatalogEntrySchema.parse(git('file://host/r.git'))).toThrow();
   });
   it('rejects the unknown target platform:codex', () => {
     const bad = { ...entry(), targets: ['platform:codex'] };

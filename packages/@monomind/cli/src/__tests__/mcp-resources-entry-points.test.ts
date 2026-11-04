@@ -7,7 +7,7 @@
  *   bin/cli.js          the fast path for a bare `monomind mcp start` — what
  *                       Claude Desktop and friends actually spawn
  *   bin/mcp-server.js   the `monomind-mcp` binary
- *   src/mcp-server.ts   MCPServerManager.startStdioServer
+ *   src/mcp-stdio-handler.ts   handleMCPMessage (MCPServerManager stdio)
  *
  * All three advertised a `resources` capability. Only the third implemented
  * `resources/list`, so a client on either of the other two was told the server
@@ -27,7 +27,7 @@ import { describe, expect, it } from 'vitest';
 const PKG = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (rel: string) => fs.readFileSync(join(PKG, rel), 'utf-8');
 
-const ENTRY_POINTS = ['bin/cli.js', 'bin/mcp-server.js', 'src/mcp-server.ts'];
+const ENTRY_POINTS = ['bin/cli.js', 'bin/mcp-server.js', 'src/mcp-stdio-handler.ts'];
 
 describe('GLU-07 stdio entry points', () => {
   it.each(ENTRY_POINTS)('%s answers resources/list, read and templates', (file) => {

@@ -50,13 +50,14 @@ picked up on the next change.
 
 ## Native MCP Tools
 
-Monomind exposes 19 core `monograph_*` tools for Model Context Protocol integration ([`monograph-tools.ts`](packages/@monomind/cli/src/mcp-tools/monograph-tools.ts)). A further 27 advanced tools register only when `MONOGRAPH_MCP_ADVANCED=1` is set.
+Monomind exposes 20 core `monograph_*` tools for Model Context Protocol integration ([`monograph-tools.ts`](packages/@monomind/cli/src/mcp-tools/monograph-tools.ts)). A further 27 advanced tools register only when `MONOGRAPH_MCP_ADVANCED=1` is set.
 
 | Tool Name | Key Arguments | Purpose |
 |---|---|---|
 | `monograph_build` | `path`, `codeOnly`, `force`, `incremental` | Build or update the knowledge graph. |
 | `monograph_query` | `query` (required), `limit`, `label`, `mode`, `scope`, `expandNeighbors`, `damping`, `tokenBudget` | Search by name and by plain-language description. Lexical ranking (BM25 over names and stemmed summaries, LIKE and fuzzy fallback; `mode=bm25` for BM25 only) is fused with semantic similarity once the index has been embedded; `scope` picks code, docs or agents. |
 | `monograph_suggest` | `task`, `limit`, `checkStaleness` | Nodes most relevant to a task, with `file:line`; without `task`, graph-topology questions. |
+| `monograph_brief` | `task` (required), `entryPoints` (default 5, max 10), `docs` (default 3, max 10) | Task in plain words to the best code entry points (callers, callees, covering tests), the docs that describe it, and the top hit's blast radius (risk, files, tests to run). Use instead of chaining suggest, context and impact. |
 | `monograph_impact` | `name` (required), `nodeId`, `filePath`, `depth` | Blast radius: direct and transitive callers of a symbol, with a risk score. When a name matches several definitions the candidates are listed; re-query with `nodeId` or `filePath`. |
 | `monograph_context` | `name` (required), `nodeId`, `filePath` | 360-degree view of a symbol: callers, callees, imports, importedBy, community and processes. |
 | `monograph_neighbors` | `name`, `nodeId`, `filePath`, `relationFilter`, `includeInbound`, `limit` | Directly connected nodes with their relation types. |

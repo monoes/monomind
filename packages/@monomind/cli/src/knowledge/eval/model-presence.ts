@@ -26,6 +26,7 @@
 import * as fs from 'node:fs';
 import { createRequire } from 'node:module';
 import * as path from 'node:path';
+import { loadTransformers, modelCacheDir } from '../../utils/transformers-loader.js';
 
 export interface ModelPresence {
   model: string;
@@ -55,6 +56,8 @@ function transformersCacheDirs(searchRoots: string[]): string[] {
   // Explicit override wins, and is the documented provisioning hook.
   if (process.env.TRANSFORMERS_CACHE) dirs.push(process.env.TRANSFORMERS_CACHE);
   if (process.env.MONOMIND_MODEL_CACHE) dirs.push(process.env.MONOMIND_MODEL_CACHE);
+  // The runtime installed in ~/.monomind/deps keeps its weights here.
+  dirs.push(modelCacheDir());
 
   for (const root of searchRoots) {
     try {
@@ -148,7 +151,7 @@ export async function provisionModel(log: (m: string) => void): Promise<ModelPre
   } else {
     log(`fetching ${MODEL_ID} — this is the provisioning step and it REQUIRES network access.`);
     log('It is deliberately separate from measurement; `doc eval` itself never fetches.');
-    const t = await import('@huggingface/transformers');
+    const t = await loadTransformers();
     await (t as any).pipeline('feature-extraction', MODEL_ID, { revision: 'main', dtype: 'q8' });
     const after = checkModelPresence([process.cwd()]);
     if (!after.present)
@@ -209,7 +212,7 @@ export async function provisionReranker(log: (m: string) => void): Promise<Model
     return already;
   }
   log(`fetching ${RERANKER_MODEL_ID} — provisioning the cross-encoder reranker.`);
-  const t = await import('@huggingface/transformers');
+  const t = await loadTransformers();
   // text-classification pipeline loads the cross-encoder architecture.
   // No dtype override — ettin uses non-standard quantized filenames (e.g.
   // model_qint8_arm64.onnx) that don't match the _quantized suffix convention.

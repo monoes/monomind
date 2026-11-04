@@ -9,7 +9,7 @@
 ```bash
 npm install -g monomind
 cd your-project
-monomind init                   # initializes all supported coding systems
+monomind init                   # initializes the coding systems it finds installed
 monomind init --target antigravity # initializes only Antigravity
 ```
 

@@ -82,7 +82,7 @@ export async function writeOpencodeFiles(
           agentsMdPath,
           agentsMdExists ? fs.readFileSync(agentsMdPath, 'utf-8') : '',
           'agents-md',
-          generateAgentsMd(),
+          generateAgentsMd(options.mcp?.pin),
         )
       : null;
   if (agentsMd !== null) {
@@ -110,7 +110,7 @@ export async function writeOpencodeFiles(
   const statusCmdPath = path.join(targetDir, '.opencode', 'command', 'monomind-status.md');
   if (!fs.existsSync(statusCmdPath) || options.force) {
     fs.mkdirSync(path.dirname(statusCmdPath), { recursive: true });
-    atomicWriteFile(statusCmdPath, generateStatusCommand());
+    atomicWriteFile(statusCmdPath, generateStatusCommand(options.mcp?.pin));
     result.created.files.push('.opencode/command/monomind-status.md');
   } else {
     result.skipped.push('.opencode/command/monomind-status.md');

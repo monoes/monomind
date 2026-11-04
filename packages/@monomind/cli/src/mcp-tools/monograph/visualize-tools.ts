@@ -3,6 +3,17 @@ import type { MCPTool } from '../types.js';
 import { getProjectCwd } from '../types.js';
 import { getDbPath, text } from './shared.js';
 
+type MonographModule = typeof import('@monoes/monograph');
+type RenderNodes = Parameters<MonographModule['toJson']>[0];
+type RenderEdges = Parameters<MonographModule['toJson']>[1];
+type TopNodeRow = {
+  name: string;
+  label: string;
+  file_path: string | null;
+  start_line: number | null;
+  degree: number;
+};
+
 // Columns needed to render/export the graph — deliberately excludes `embedding`,
 // which can be several KB per node (384D vectors) and would otherwise bloat
 // tool-result payloads and written files by many MB.
@@ -37,7 +48,7 @@ export const monographVisualizeTool: MCPTool = {
           : 500;
       const nodes = db
         .prepare(`SELECT ${NODE_RENDER_COLUMNS} FROM nodes LIMIT ?`)
-        .all(limit) as any[];
+        .all(limit) as RenderNodes;
       // Only include edges where both endpoints are in the visible node set
       const edges = db
         .prepare(`
@@ -46,14 +57,14 @@ export const monographVisualizeTool: MCPTool = {
           AND e.target_id IN (SELECT id FROM nodes LIMIT ?)
         LIMIT ?
       `)
-        .all(limit, limit, limit * 3) as any[];
+        .all(limit, limit, limit * 3) as RenderEdges;
       const fmt = (input.format as string | undefined) ?? 'html';
       const rendered =
         fmt === 'json'
-          ? toJson(nodes as any, edges as any)
+          ? toJson(nodes, edges)
           : fmt === 'svg'
-            ? toSvg(nodes as any, edges as any)
-            : toHtml(nodes as any, edges as any);
+            ? toSvg(nodes, edges)
+            : toHtml(nodes, edges);
       const ext = fmt === 'json' ? 'json' : fmt === 'svg' ? 'svg' : 'html';
       const outDir = resolve(join(getProjectCwd(), '.monomind', 'visualize'));
       mkdirSync(outDir, { recursive: true });
@@ -93,8 +104,8 @@ export const monographExportTool: MCPTool = {
     try {
       // Exclude `embedding` — a several-KB-per-node vector column that would
       // otherwise bloat exported files by many MB for no rendering benefit.
-      const nodes = db.prepare(`SELECT ${NODE_RENDER_COLUMNS} FROM nodes`).all() as any[];
-      const edges = db.prepare('SELECT * FROM edges').all() as any[];
+      const nodes = db.prepare(`SELECT ${NODE_RENDER_COLUMNS} FROM nodes`).all() as RenderNodes;
+      const edges = db.prepare('SELECT * FROM edges').all() as RenderEdges;
       const fmt = input.format as string;
       const requestedOut =
         (input.outputPath as string | undefined) ?? join(getProjectCwd(), '.monomind', 'export');
@@ -107,31 +118,31 @@ export const monographExportTool: MCPTool = {
 
       if (fmt === 'json') {
         const p = join(outDir, 'graph.json');
-        writeFileSync(p, toJson(nodes as any, edges as any));
+        writeFileSync(p, toJson(nodes, edges));
         return text(`Exported JSON to ${p}`);
       }
       if (fmt === 'svg') {
         const p = join(outDir, 'graph.svg');
-        writeFileSync(p, toSvg(nodes as any, edges as any));
+        writeFileSync(p, toSvg(nodes, edges));
         return text(`Exported SVG to ${p}`);
       }
       if (fmt === 'graphml') {
         const p = join(outDir, 'graph.graphml');
-        writeFileSync(p, toGraphml(nodes as any, edges as any));
+        writeFileSync(p, toGraphml(nodes, edges));
         return text(`Exported GraphML to ${p}`);
       }
       if (fmt === 'cypher') {
         const p = join(outDir, 'graph.cypher');
-        writeFileSync(p, toCypher(nodes as any, edges as any));
+        writeFileSync(p, toCypher(nodes, edges));
         return text(`Exported Cypher to ${p}`);
       }
       if (fmt === 'obsidian') {
-        toObsidian(nodes as any, edges as any, outDir);
+        toObsidian(nodes, edges, outDir);
         return text(`Exported Obsidian vault to ${outDir}`);
       }
       if (fmt === 'canvas') {
         const p = join(outDir, 'graph.canvas');
-        writeFileSync(p, toCanvas(nodes as any, edges as any));
+        writeFileSync(p, toCanvas(nodes, edges));
         return text(`Exported Canvas to ${p}`);
       }
       return text(`Format ${fmt} export written to ${outDir}`);
@@ -343,14 +354,14 @@ export const monographReportTool: MCPTool = {
         WHERE n.label NOT IN ('File','Folder','Community','Concept')
         GROUP BY n.id ORDER BY degree DESC LIMIT 10
       `)
-        .all() as any[];
+        .all() as TopNodeRow[];
 
       const report = [
         '# Graph Report\n',
         `**Generated:** ${new Date().toISOString()}`,
         `**Nodes:** ${nodeCount}  **Edges:** ${edgeCount}\n`,
         '## Top 10 Most Connected Entities\n',
-        ...topNodes.map((n: any, i: number) => {
+        ...topNodes.map((n, i) => {
           const loc = n.file_path
             ? n.start_line != null
               ? `${n.file_path}:${n.start_line}`

@@ -210,7 +210,7 @@ export async function createConfiguredRouteLayer(
   opts: { debug?: boolean } = {},
 ): Promise<ConfiguredRouteLayer> {
   const { RouteLayer, KeywordPreFilter, LLMFallbackRouter, ALL_ROUTES } = await import(
-    '@monoes/routing' as string
+    '@monoes/routing'
   );
   const { createClaudeLLMCaller } = await import('./llm-caller.js');
 

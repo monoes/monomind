@@ -7,8 +7,6 @@
   },
   "permissions": {
     "allow": [
-      "Bash(npx @monomind*)",
-      "Bash(npx monomind*)",
       "Bash(node .claude/*)",
       "Bash(npm run:*)",
       "Bash(npm test:*)",
@@ -17,29 +15,37 @@
       "Bash(git log:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push)",
-      "Bash(git config:*)",
       "Bash(git tag:*)",
       "Bash(git branch:*)",
       "Bash(git checkout:*)",
       "Bash(git stash:*)",
       "Bash(jq:*)",
-      "Bash(node:*)",
       "Bash(which:*)",
       "Bash(pwd)",
       "Bash(ls:*)",
-      "Bash(npx:*)",
       "mcp__monomind__*",
-      "Bash(npx @monomind/*)",
       "Bash(npx monomind *)",
       "Bash(npx -y monomind *)",
       "Bash(npx monomind@*)",
-      "Bash(node .claude/helpers/*)"
+      "Bash(node .claude/helpers/*)",
+      "Bash(npx @monomind/*)",
+      "Bash(git config --get:*)",
+      "Bash(git config --list)",
+      "Bash(git config user.name)",
+      "Bash(git config user.email)"
     ],
     "deny": [
       "Read(./.env)",
       "Read(./.env.*)",
-      "Bash(rm -rf /)"
+      "Bash(rm -rf /)",
+      "Write(./.claude/settings*)",
+      "Edit(./.claude/settings*)",
+      "Write(./.git/hooks/**)",
+      "Edit(./.git/hooks/**)",
+      "Bash(git config core.hooksPath*)",
+      "Bash(git config --global core.hooksPath*)",
+      "Bash(git config core.sshCommand*)",
+      "Bash(git config --global core.sshCommand*)"
     ]
   },
   "hooks": {

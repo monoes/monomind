@@ -100,11 +100,23 @@ const openSubcommand: Command = {
   },
 };
 
+/** `monomind dashboard logout` — revoke every dashboard browser session. */
+const logoutSubcommand: Command = {
+  name: 'logout',
+  description: 'Revoke all dashboard browser sessions (log every browser out)',
+  action: async (): Promise<CommandResult> => {
+    const auth = await import('../ui/human-auth.mjs');
+    const n = auth.revokeAllSessions();
+    output.printSuccess(`Revoked ${n} dashboard session${n === 1 ? '' : 's'}.`);
+    return { success: true, data: { revoked: n } };
+  },
+};
+
 export const uiCommand: Command = {
   name: 'ui',
   aliases: ['dashboard'],
   description: 'Start the Monomind Neural Control Room (web UI dashboard)',
-  subcommands: [openSubcommand],
+  subcommands: [openSubcommand, logoutSubcommand],
   options: [
     {
       name: 'port',

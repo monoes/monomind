@@ -3,7 +3,7 @@
 Org roles and `monomind agent exec` run on whichever coding agent you have installed, through the [Agent Exec Protocol](../agent-exec-protocol.md): one turn in, NDJSON events out, the same shape for every runtime.
 
 ```bash
-monomind agent scan                              # which runtimes are installed (19 known: claude, codex, opencode, kimicode, kilo, qwen, grok, copilot, hermes, aider, …)
+monomind agent scan                              # which runtimes are installed (18 known: claude, codex, opencode, kimicode, kilo, qwen, grok, copilot, hermes, aider, …)
 monomind agent models --runtime codex --json     # a runtime's own model list
 monomind agent test claude --json                # smoke-test a runtime with one tiny turn
 monomind agent exec --runtime codex --prompt "summarize ./README" --effort high

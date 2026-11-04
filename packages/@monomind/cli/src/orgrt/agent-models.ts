@@ -16,7 +16,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { withoutBlockedModels } from '../model-guard.js';
+import { withoutBlockedModels } from '../shared/model-guard.js';
 import {
   type ClaudeCodeInfo,
   claudeCodeInfo,

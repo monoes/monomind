@@ -8,7 +8,7 @@
 
 Mastermind is a command namespace for high-level autonomous operations. Each command follows a common pattern:
 
-1. **Brain Load** — loads context from the monomind memory store (`mastermind:*` namespace) via the _protocol.md Brain Load Procedure
+1. **Brain Load** — loads context from the monomind memory store (`mastermind:*` namespace) via the Brain Load Procedure in the `mastermind-protocol` skill
 2. **Intake** — optional 5-question intake if the prompt is vague
 3. **Skill execution** — delegates to the corresponding skill file
 4. **Brain Write** — saves results and context back to the memory store
@@ -74,11 +74,11 @@ Mode flags (`--auto` / `--confirm`) are parsed per command, not universally — 
 
 ### `/mastermind:techport`
 
-**Purpose:** Technical portfolio — assess and document the technical state of the project.
+**Purpose:** Tech Port — deep-analyze a foreign project folder, check the current monomind project for conflicts, then recommend and (with `--auto`, or after approval with `--confirm`) port its valuable features, patterns or infrastructure. `--partial` limits it to selective ports.
 
 ```
-/mastermind:techport
-/mastermind:techport security posture
+/mastermind:techport ../other-project
+/mastermind:techport ~/code/other-project --confirm authentication patterns
 ```
 
 ---
@@ -120,7 +120,7 @@ Mode flags (`--auto` / `--confirm`) are parsed per command, not universally — 
 
 ### `/mastermind:idea`
 
-**Purpose:** Idea generation and evaluation for the project.
+**Purpose:** Brainstorm products, features and pivots. Default mode: confirm.
 
 ```
 /mastermind:idea what features would drive the most growth?
@@ -131,7 +131,7 @@ Mode flags (`--auto` / `--confirm`) are parsed per command, not universally — 
 
 ### `/mastermind:ops`
 
-**Purpose:** Operations planning and tracking.
+**Purpose:** Workflow automation, reporting and process optimization. Default mode: auto.
 
 ```
 /mastermind:ops weekly review
@@ -235,7 +235,7 @@ An org must carry an operator signature before it runs. `/mastermind:createorg` 
 
 ### `/mastermind:master`
 
-**Purpose:** High-level project master control — run all major workflows.
+**Purpose:** Single entry point: loads the brain, routes a request to the right mastermind skill, keeps work on track, and spawns domain managers for multi-domain work.
 
 ```
 /mastermind:master
@@ -363,14 +363,7 @@ Each mastermind command loads/saves brain context:
 
 ## Delegation
 
-When a mastermind command receives a query that better fits another command, `_delegation.md` routes it automatically:
-
-| Trigger | Routes to |
-|---|---|
-| "review", "check", "audit code" | `mastermind:review` |
-| "research", "investigate", "analyze" | `mastermind:research` |
-| "release", "version", "publish" | `mastermind:release` |
-| "idea", "suggest improvements" | `mastermind:idea` |
+Agents that mastermind commands spawn carry the `mastermind-delegation` capability block (an internal skill, never invoked directly), so a subagent can delegate further by spawning its own sub-agents. Routing a request to the right command is the job of `/mastermind` (and `/mastermind:master`), not of the individual commands.
 
 
 ---

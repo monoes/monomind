@@ -97,6 +97,13 @@ export const initCommand: Command = {
       default: false,
     },
     {
+      name: 'dry-run',
+      description:
+        'List every file init would create, modify or skip (path + action) and write nothing',
+      type: 'boolean',
+      default: false,
+    },
+    {
       name: 'agent-teams',
       description:
         "Enable Claude Code's experimental Agent Teams (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 " +
@@ -269,6 +276,10 @@ export const initCommand: Command = {
     {
       command: 'monomind init --no-start-all',
       description: 'Initialize without auto-starting services',
+    },
+    {
+      command: 'monomind init --dry-run',
+      description: 'Preview the files init would create, modify or skip, without writing',
     },
     { command: 'monomind init --minimal', description: 'Initialize with minimal configuration' },
     { command: 'monomind init --full', description: 'Initialize with all components' },

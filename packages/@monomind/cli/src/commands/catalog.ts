@@ -204,11 +204,16 @@ const stageVerb: Verb = async ({ root, rest, flags, json }) => {
   const actor = actorOf(flags);
   if (!src || !actor)
     return fail(
-      'usage: monomind catalog stage <owner/repo|git-url|path> --actor <name> [--only <name>] [--kind skill|archetype|blueprint]',
+      'usage: monomind catalog stage <owner/repo|git-url|path> --actor <name> [--commit <sha>] [--only <name>] [--kind skill|archetype|blueprint]',
     );
   const kind = flags.kind === undefined ? undefined : CatalogKindSchema.safeParse(flags.kind);
   if (kind && !kind.success) return fail('--kind must be skill, archetype or blueprint');
-  const r = await stage(root, src, { actor, only: str(flags, 'only'), kind: kind?.data });
+  const r = await stage(root, src, {
+    actor,
+    commit: str(flags, 'commit'),
+    only: str(flags, 'only'),
+    kind: kind?.data,
+  });
   const before = r.entry.history.length > 1 ? r.entry.history.at(-1)?.from : null;
   const payload = {
     id: r.entry.id,
@@ -431,6 +436,11 @@ export const catalogCommand: Command = {
       type: 'string',
     },
     { name: 'kind', description: 'stage: skill, archetype or blueprint', type: 'string' },
+    {
+      name: 'commit',
+      description: 'stage: full commit sha to fetch (required for a remote source)',
+      type: 'string',
+    },
     {
       name: 'grant-tool',
       description: 'approve: grant one requested, grantable tool (repeatable)',

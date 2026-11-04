@@ -3,6 +3,8 @@
  * memory helper (fallback content for .claude/helpers/).
  */
 
+import { monomindNpxArgs } from '../platform-adapters/renderers/mcp.js';
+
 /**
  * Generate pre-commit hook script
  */
@@ -39,7 +41,8 @@ echo "✅ Pre-commit checks complete"
 /**
  * Generate post-commit hook script
  */
-export function generatePostCommitHook(): string {
+export function generatePostCommitHook(pin?: string): string {
+  const npx = monomindNpxArgs(pin).join(' ');
   return `#!/bin/bash
 # Monomind Post-Commit Hook
 # Records commit metrics and trains patterns
@@ -50,7 +53,7 @@ COMMIT_MSG=$(git log -1 --pretty=%B)
 echo "📊 Recording commit metrics..."
 
 # Notify monomind of commit
-npx monomind@latest hooks notify \\
+${npx} hooks notify \\
   --message "Commit: $COMMIT_MSG" \\
   --level info \\
   --metadata '{"hash": "'$COMMIT_HASH'"}' 2>/dev/null || true

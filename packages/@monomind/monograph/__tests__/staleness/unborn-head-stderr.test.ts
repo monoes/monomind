@@ -5,6 +5,7 @@
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -13,7 +14,7 @@ const src = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src');
 let repo: string;
 
 beforeEach(() => {
-  repo = mkdtempSync(join(process.env.TMPDIR ?? '/tmp', 'mg-unborn-'));
+  repo = mkdtempSync(join(tmpdir(), 'mg-unborn-'));
   execFileSync('git', ['init', '-q', repo]);
 });
 

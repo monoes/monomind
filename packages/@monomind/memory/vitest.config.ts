@@ -18,6 +18,15 @@ export default defineConfig({
       reportsDirectory: './coverage',
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts', 'src/**/*.d.ts', 'benchmarks/**'],
+      // Ratchet floor, checked only when coverage runs (CI's memory leg).
+      // Measured 2026-11-04: 57.27% statements, 53.01% branches,
+      // 55.28% functions, 58% lines. Raise these as coverage grows.
+      thresholds: {
+        statements: 56,
+        branches: 51,
+        functions: 54,
+        lines: 56,
+      },
     },
   },
 });

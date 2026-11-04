@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { request as httpRequest } from 'node:http';
 import { WebSocket } from 'ws';
 import { createHttpTransport, type HttpTransport } from '../src/transport/http.js';
 import { createWebSocketTransport, type WebSocketTransport } from '../src/transport/websocket.js';
@@ -314,5 +315,86 @@ describe('WebSocket transport auth (P0-8)', () => {
     expect(pingReply.result).toEqual({ ok: true });
 
     ws.close();
+  });
+});
+
+describe('HTTP transport Origin/Host guard and auth predicate', () => {
+  let transport: HttpTransport;
+  afterEach(async () => {
+    await transport?.stop();
+  });
+
+  async function startT(auth?: any, extra: Record<string, unknown> = {}) {
+    transport = createHttpTransport(createMockLogger(), {
+      host: '127.0.0.1',
+      port: 0,
+      corsEnabled: false,
+      ...(auth ? { auth } : {}),
+      ...extra,
+    });
+    transport.onRequest(okHandler);
+    await transport.start();
+    return (transport as any).server.address().port as number;
+  }
+
+  const wsOutcome = (url: string, opts: any) =>
+    new Promise<string>((resolve) => {
+      const ws = new WebSocket(url, opts);
+      ws.on('open', () => setTimeout(() => resolve('open'), 150));
+      ws.on('unexpected-response', (_q, r) => resolve(`http-${r.statusCode}`));
+      ws.on('close', (code) => resolve(code === 1005 ? 'open' : `close-${code}`));
+      ws.on('error', () => {});
+    });
+
+  it('refuses a cross-origin WebSocket upgrade but allows loopback origin', async () => {
+    const port = await startT();
+    expect(await wsOutcome(`ws://127.0.0.1:${port}/ws`, { origin: 'https://evil.example' })).toBe(
+      'http-403',
+    );
+    expect(await wsOutcome(`ws://127.0.0.1:${port}/ws`, { origin: `http://localhost:${port}` })).toBe(
+      'open',
+    );
+  });
+
+  it('honours the configured Origin allow-list', async () => {
+    const port = await startT(undefined, { allowedOrigins: ['https://ok.example'] });
+    expect(await wsOutcome(`ws://127.0.0.1:${port}/ws`, { origin: 'https://ok.example' })).toBe(
+      'open',
+    );
+  });
+
+  it('refuses a disallowed Host on HTTP and WS', async () => {
+    const port = await startT();
+    const status = await new Promise<number>((resolve, reject) => {
+      const r = httpRequest(
+        { host: '127.0.0.1', port, path: '/health', headers: { Host: 'evil.example' } },
+        (res) => {
+          res.resume();
+          resolve(res.statusCode ?? 0);
+        },
+      );
+      r.on('error', reject);
+      r.end();
+    });
+    expect(status).toBe(403);
+    expect(await wsOutcome(`ws://127.0.0.1:${port}/ws`, { headers: { Host: 'evil.example' } })).toBe(
+      'http-403',
+    );
+    const ok = await fetch(`http://127.0.0.1:${port}/health`);
+    expect(ok.status).toBe(200);
+  });
+
+  it('treats auth with enabled omitted as enforced on both HTTP and WS', async () => {
+    const port = await startT({ method: 'token', tokens: [authOk] });
+    const res = await fetch(`http://127.0.0.1:${port}/rpc`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
+    });
+    expect(res.status).toBe(401);
+    expect(await wsOutcome(`ws://127.0.0.1:${port}/ws`, {})).toBe('close-4001');
+    expect(
+      await wsOutcome(`ws://127.0.0.1:${port}/ws`, { headers: { Authorization: `Bearer ${authOk}` } }),
+    ).toBe('open');
   });
 });

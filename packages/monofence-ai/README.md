@@ -43,11 +43,12 @@ if (!result.safe) {
 
 ```typescript
 const fence = createMonoDefence({
-  enableLearning: true,        // persist learned patterns (default: false)
-  enableContextTracking: true, // track multi-turn escalation (default: false)
-  enablePIIDetection: true,    // detect PII (default: true)
-  maxContextTurns: 20,         // rolling window (default: 20)
-  confidenceThreshold: 0.5,    // minimum detection confidence (default: 0.5)
+  enableLearning: true,        // learn from detections (default: false)
+  vectorStore,                 // optional custom VectorStore (default: in-memory)
+  trackContext: true,          // track multi-turn context (default: true)
+  enablePIIDetection: true,    // detect PII
+  confidenceThreshold: 0.5,    // drop threats below this confidence (default: no filtering)
+  allowlistRules: [],          // rules that bypass detection for known-safe inputs
 });
 ```
 
@@ -57,7 +58,7 @@ const fence = createMonoDefence({
 |--------|---------|-------------|
 | `fence.detect(input)` | `Promise<DetectionResult>` | Full async scan with threats, risk score, timing |
 | `fence.quickScan(input)` | `{ threat, confidence }` | Synchronous sub-millisecond check |
-| `fence.hasPII(input)` | `boolean` | Check for emails, SSNs, API keys, passwords |
+| `fence.hasPII(input)` | `boolean` | Check for emails, SSNs, credit cards, API keys, tokens, passwords |
 | `fence.scanOutput(output, prompt?)` | `Promise<OutputScanResult>` | Scan LLM output for leakage/echo/policy violations |
 | `fence.isAllowed(input)` / `fence.addAllowlistRule(rule)` | — | Allowlist bypass for known-safe inputs |
 | `fence.getStats()` | `Promise<Stats>` | Detection + learning statistics |
@@ -94,7 +95,7 @@ const strategy = await fence.getBestMitigation('prompt_injection');
 - Homoglyph substitution (Cyrillic, Unicode lookalikes)
 - Base64 encoded payloads
 - Multi-turn escalation patterns
-- PII (emails, SSNs, API keys, passwords)
+- PII (emails, SSNs, credit cards, API keys, tokens, passwords)
 - Role-play manipulation
 - Context window abuse
 
@@ -106,4 +107,4 @@ const strategy = await fence.getBestMitigation('prompt_injection');
 
 ## License
 
-MIT
+Apache-2.0

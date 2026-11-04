@@ -4,6 +4,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { monomindNpx } from '../platform-adapters/renderers/mcp.js';
 import { foldLegacySharedSkills } from '../platform-adapters/shared-surface.js';
 import { refreshBundledAgents } from './agent-refresh.js';
 import { isCommandDoc, isDeprecatedAgent } from './asset-maps.js';
@@ -279,7 +280,7 @@ export async function executeUpgrade(
         cvesFixed: 0,
         totalCves: 3,
         lastScan: null,
-        _note: 'Run: npx monomind@latest security scan',
+        _note: `Run: ${monomindNpx()} security scan`,
       };
       atomicWriteFile(auditPath, JSON.stringify(audit, null, 2));
       result.created.push('.monomind/security/audit-status.json');

@@ -57,7 +57,7 @@ describe('CapabilityManager', () => {
     mgr.register(code);
 
     const scan = makeScan();
-    await mgr.activateFromScan(scan, '/tmp/test');
+    await mgr.activateFromScan(scan, tmpDir);
     expect(mgr.isActive('documents' as any)).toBe(true);
     expect(mgr.isActive('code' as any)).toBe(false);
   });
@@ -73,7 +73,7 @@ describe('CapabilityManager', () => {
     mgr.register(graph);
     mgr.register(timeline);
 
-    await mgr.activateFromScan(makeScan(), '/tmp/test');
+    await mgr.activateFromScan(makeScan(), tmpDir);
     expect(mgr.isActive('graph' as any)).toBe(true);
     expect(mgr.isActive('timeline' as any)).toBe(true);
   });
@@ -85,7 +85,7 @@ describe('CapabilityManager', () => {
     mgr.register(docs);
     mgr.register(graph);
 
-    await mgr.activateFromScan(makeScan(), '/tmp/test');
+    await mgr.activateFromScan(makeScan(), tmpDir);
     expect(mgr.isActive('graph' as any)).toBe(false);
   });
 
@@ -95,7 +95,7 @@ describe('CapabilityManager', () => {
     mgr.register(makeCap('code', 0.01));
     mgr.register(makeCap('media', 0.4));
 
-    await mgr.activateFromScan(makeScan(), '/tmp/test');
+    await mgr.activateFromScan(makeScan(), tmpDir);
     const active = mgr.getActive();
     expect(active.map(a => a.name)).toEqual(['documents', 'media']);
   });
