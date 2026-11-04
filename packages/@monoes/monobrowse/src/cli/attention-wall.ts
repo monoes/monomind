@@ -8,7 +8,6 @@
 
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { sessionProfileDirPath } from '../browser/profile-dir.js';
 import type { CdpClient } from '../index.js';
 import { output } from './output.js';
