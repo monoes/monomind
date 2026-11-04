@@ -87,7 +87,7 @@ escalate to a human checkpoint, or abort the branch. Per-node, not just per-role
 | Dynamic Agent Orgs | Roles lazy-spawned on first message | Cannot spawn new agent types mid-run. Cannot cancel branches when evidence changes. |
 | Handoff protocols | `org_send` mailbox messages, OrgBus events | Messages are freeform text. No structured typed envelope schema. |
 | Work graph generators | Boss agent decomposes tasks manually via prompt | No programmatic task->graph generation tool. |
-| Graph observability | OrgBus logs 10 event types to `bus.jsonl` | No per-node latency/cost trace. No divergence-from-plan metric. No replay command. |
+| Graph observability | OrgBus logs 13 event types to `bus.jsonl` | No per-node latency/cost trace. No divergence-from-plan metric. No replay command. |
 | Failure recovery per node | Boss crash recovery, `circuit_breaker` per role | No per-node routing (retry vs fallback vs escalate). |
 | Advisor-Orchestrator | Mixed-runtime orgs possible | Not a first-class documented pattern. |
 | Zone Defense | Roles own domains, accumulate context | **Covered.** |
@@ -99,15 +99,16 @@ escalate to a human checkpoint, or abort the branch. Per-node, not just per-role
 
 Each row is a unit of work. Status moves pending -> in-progress -> done as the change lands
 and its tests pass.
+File paths are relative to `packages/@monomind/cli/src/orgrt/`.
 
 | # | Improvement | File(s) | Status |
 |---|---|---|---|
 | 1 | Dynamic TaskDag: `split()` / `merge()` / `cancel()` | `task-dag.ts` | **done** |
-| 2 | Structured Handoff Protocol (`OrgHandoff` interface) | `types.ts` | **done** |
-| 3 | Per-node failure routing (`failure_routing` config) | `types.ts`, `daemon.ts` | **done** |
-| 4 | Graph observability: `trace` bus event type + per-node timing | `types.ts`, `bus.ts` | **done** |
-| 5 | Work graph generator: `org_plan_graph` tool | `session.ts`, `decisions.ts` | **done** |
-| 6 | Wire new TaskDag ops into agent tools (`org_task_split` etc.) | `session.ts`, `daemon.ts` | **done** |
+| 2 | Structured Handoff Protocol (`OrgHandoff` interface) | `types-handoff.ts` | **done** |
+| 3 | Per-node failure routing (`failure_routing` config) | `types-handoff.ts`, `types.ts` | **done** |
+| 4 | Graph observability: `trace` bus event type + per-node timing | `types-events.ts`, `bus.ts` | **done** |
+| 5 | Work graph generator: `org_plan_graph` tool | `org-tools.ts`, `role-session-opts.ts`, `decisions.ts` | **done** |
+| 6 | Wire new TaskDag ops into agent tools (`org_task_split` etc.) | `org-tools.ts`, `task-dag.ts` | **done** |
 | 7 | Multi-agent KG extraction org template + advisor-orchestrator template | `templates.ts` | **done** |
 
 **Explicitly deferred** (high complexity, low immediate value):
@@ -121,10 +122,10 @@ and its tests pass.
 Every change under this initiative must pass:
 
 1. **Unit tests** — new behavior covered by vitest tests in `tests/orgrt/`.
-2. **No regressions** — `npm test` stays green.
-3. **Build succeeds** — `npm run build` produces clean output.
-4. **Lint clean** — `npm run lint` reports no new violations.
-5. **Versioning** — patch digit only (`2.9.3` -> `2.9.4` -> ...), per project policy.
+2. **No regressions** — `pnpm test` stays green.
+3. **Build succeeds** — `pnpm run build` produces clean output.
+4. **Lint clean** — `pnpm run lint` reports no new violations.
+5. **Versioning** — patch digit only (`2.29.1` -> `2.29.2` -> ...), per project policy.
 
 ---
 

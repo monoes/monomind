@@ -131,4 +131,4 @@ this package is just types + registry/executor + workers.
 
 ## License
 
-MIT
+Apache-2.0

@@ -24,7 +24,7 @@ Open the project in opencode. The monomind MCP server (knowledge graph, memory, 
 |---|---|
 | **MCP server + tools** (Monograph graph, memory) | `opencode.json` → `mcp.monomind`. <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> tools by default (<!-- doc-count:mcp-tools-full -->204<!-- /doc-count:mcp-tools-full --> with `MONOMIND_MCP_FULL=1`) as the `monomind` server (`monograph_query`, `memory_pattern-search`, …). |
 | **Agents** | `.opencode/agent/*.md` — your agent roster (coder, reviewer, planner, …) as opencode subagents (`mode: subagent`). |
-| **Commands** | `.opencode/command/*.md` — the `mastermind-*` workflows as opencode slash commands (flat namespace, e.g. `/mastermind-build`). |
+| **Commands** | `.opencode/command/*.md` — the `mastermind-*` workflows as opencode slash commands (flat namespace, e.g. `/mastermind-plan`). |
 | **Skills** | `.opencode/skills/*/SKILL.md` — same SKILL.md shape Claude Code uses. |
 | **Security gates** | `.opencode/plugins/monomind-hooks.ts` — a plugin that runs monomind's existing pre-bash / pre-write gate handlers (destructive-op blocking, secret detection) inside opencode's `tool.execute.before`. |
 | **Statusline data** | `/monomind-status` command — runs the monomind statusline and reports version, git, swarm, security, hooks, token cost. |

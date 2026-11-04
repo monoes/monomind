@@ -63,9 +63,9 @@ does not understand the workspace protocol — it copies package.json verbatim, 
 a published tarball would depend on the literal string `workspace:*`, which no
 consumer can resolve. Nothing looks wrong at publish time; the package simply
 installs for nobody. Root has always used `workspace:*` to pin the CLI. Since
-issue #130, the CLI package *itself* also uses `workspace:*` for five sibling
-deps (`@monoes/monograph`, `@monoes/hooks`, `@monoes/mcp`, `@monoes/memory`,
-`@monoes/routing`) — both packages are affected, not just root. Each has its own
+issue #130, the CLI package *itself* also uses `workspace:*` for eight sibling
+deps (`@monoes/monobrowse`, `@monoes/monodesign`, `@monoes/monograph`, `@monoes/hooks`,
+`@monoes/mcp`, `@monoes/memory`, `@monoes/routing`, `monofence-ai`) — both packages are affected, not just root. Each has its own
 `prepublishOnly` guard (`scripts/check-publish-versions.mjs` for root,
 `packages/@monomind/cli/scripts/check-workspace-deps.mjs` for the CLI) that
 blocks a non-pnpm publish (override with `MONOMIND_ALLOW_NPM_PUBLISH=1` only if
@@ -283,6 +283,3 @@ is now gone.
 
 The check mode runs in `pnpm run verify` and in CI. Full rationale is at the top of
 `scripts/sync-claude-trees.mjs`.
-
-## Support
-

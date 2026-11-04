@@ -284,7 +284,7 @@
   - rev 13 (2026-09-28): **threat model + guardrails** (issue #360). `agent exec --access full`
     now appends one JSON line per turn to `~/.monomind/logs/agent-exec-full-access.log`
     (`MONOMIND_FULL_ACCESS_LOG` overrides), regardless of how the turn ended — `ts, cwd, runtime,
-    session_id?, exit_code, tool_calls` (the number of native `tool_activity` starts observed) —
+    sessionId?, exitCode, toolCalls` (the number of native `tool_activity` starts observed) —
     never for `scoped` access; best-effort (a write failure never fails the turn). No protocol
     surface (flags/events/capabilities) changed — see `doc/concepts/coder-mode-security.md` for
     the full write-up, including the audited set of paths (MCP tools, the org runtime, workflow/
@@ -591,7 +591,7 @@ progress go to stderr. A caller must be able to `JSON.parse` every stdout line.
 
 | Flag | Req | Meaning |
 |---|---|---|
-| `--runtime <id>` | ✓ | Runner id: `claude, codex, kimicode, opencode, antigravity, grok, qwen, qwen-rpc, crush, copilot, pi, pi-rpc, vercel, gemini, cursor` (set grows with monomind releases). **rev 31**: also accepts the runtime's CLI binary name when it differs from the id and is unambiguous (`agy` → `antigravity`, `kimi` → `kimicode`); a binary shared by more than one id (`qwen`, `pi`) is not resolved |
+| `--runtime <id>` | ✓ | Runner id: `claude, codex, kimicode, opencode, antigravity, grok, qwen, qwen-rpc, crush, copilot, pi, pi-rpc, vercel, hermes, cline, aider, dsh, kilo` (the ids `agent scan --json` lists; the set grows with monomind releases). **rev 31**: also accepts the runtime's CLI binary name when it differs from the id and is unambiguous (`agy` → `antigravity`, `kimi` → `kimicode`); a binary shared by more than one id (`qwen`, `pi`) is not resolved |
 | `--prompt <text>` | ✓* | Prompt text (or `--prompt-file`) |
 | `--prompt-file <path>` | ✓* | Prompt from file (large prompts; avoids argv limits) |
 | `--system-file <path>` | | System prompt file (prepended first turn only, runner-dependent — same semantics as orgrt) |
@@ -614,7 +614,7 @@ progress go to stderr. A caller must be able to `JSON.parse` every stdout line.
 | `--startup-timeout <dur>` | | rev 12. Max wait for `phase:"ready"` when `--settings` is non-none (default `30s`); on expiry monomind emits `error {code:"runner-error", message:"claude did not initialize (settings/MCP startup hang?)"}` + `done`, exit 1, instead of hanging until `--timeout`. No effect with `--settings none`. |
 | `--budget-usd <n>` | | rev 3. Optional spend cap for this turn, enforced via the same per-role budget mechanism orgrt already uses internally. On breach: SIGTERM the agent child, emit `error {code:"budget", fatal:true}` + `done`, exit 1. Bare `agent exec` has no default cap — callers driving cost-sensitive flows (e.g. a chat UI, not an org role) should set this explicitly. **rev 4 granularity**: on a single-shot exec the cap is checked when the turn's `result` message arrives (the AgentRunner interface surfaces usage at result granularity) — the overspend is reported as the terminal outcome (`error budget` + exit 1, **no success `result` event`) so callers stop, but a single turn's own spend cannot be interrupted mid-flight. Mid-turn enforcement arrives with M2 (`agent_ask` in orgrt, where the mailbox-close mechanism applies). |
 
-Exactly one of `--prompt` / `--prompt-file`. Unknown flags → exit 2 with JSON error on stderr.
+Exactly one of `--prompt` / `--prompt-file`, else exit 2 with a JSON error on stderr. Unknown flags are ignored, not rejected (`org sign` is the exception, §7.2).
 
 There is no output-mode flag: NDJSON events on stdout are the command's only output mode.
 
@@ -636,7 +636,7 @@ done`. On failure: `start → … → error → done`.
 | `assistant` | `v, text` | Incremental assistant text (may be multi-line; callers append) |
 | `tool_call` | `v, id, name, args` | Only with `--tools stdio` — caller must execute and reply (§4) |
 | `tool_result` | `v, id, ok, result` | Echo of the applied result (post `canUseTool` gating) |
-| `tool_activity` | `v, id, phase ("start"\|"end"), name, kind?, input?, parent_tool_use_id?, ok?, output?, output_truncated?, denied?, cancelled?, duration_ms?, exit_code?` | **rev 12** (#357, capability `agent-exec-tool-activity`). NATIVE tool calls only (Bash, Edit, Write, Read, …) — a bridged `--tools stdio` call keeps its `tool_call`/`tool_result` frames instead. `id` is the SDK's own tool_use id (or a locally-minted one for a start-only runtime, see below), correlating a `"start"` with its `"end"`. `"start"`: `input` is the tool's raw input as the model sent it (`Edit`/`MultiEdit` carry `old_string`/`new_string`, `Write` carries `file_path`/`content`); `parent_tool_use_id` is non-null when the call was made inside a `Task`/`Agent` subagent's own turn, for nesting. `"end"`: `ok` (bool), `output` (the tool_result content flattened to text), `duration_ms`; a call denied under scoped mode's default-deny `canUseTool` ends with `ok:false, denied:true` instead of running; a turn cut short by `--timeout` or a `cancel` frame closes every still-open id with `ok:false, cancelled:true` before `done`. Every `input`/`output` string field is capped at 16 KiB with a sibling `<field>_truncated:true` when cut, and the whole event stays well under 64 KiB regardless of how many fields a call's own input has. **rev 19**: every `"start"` carries `kind` — `shell\|edit\|write\|read\|search\|web\|mcp\|task\|todo\|patch\|other` — from the runner when it knows it, else from the tool name (`orgrt/tool-kind.ts`: Claude's `Bash`→shell, `Edit`/`MultiEdit`/`NotebookEdit`→edit, `Write`→write, `Read`→read, `Glob`/`Grep`→search, `WebFetch`/`WebSearch`→web, `mcp__*`→mcp, `Task`/`Agent`→task, `TodoWrite`→todo, plus vendor names such as `exec_command`/`command_execution`→shell, `apply_patch`/`file_change`→patch, `read_file`→read, `mcp_tool_call`→mcp). `name` stays the runtime's own. Claude keeps its native `input`; other runtimes' runners translate theirs to canonical keys per kind — shell `{command, description?, cwd?}`, edit `{file_path, old_string, new_string}`, write `{file_path, content}`, read `{file_path}`, search `{pattern, path?}`, patch `{files:[{file_path, action:"add"\|"update"\|"delete", diff?}]}`, mcp `{server, tool, arguments}`, web `{url?, query?}`, other: raw. An `"end"` carries `exit_code` when the runtime reported one (shell calls). Fidelity varies by runtime (§9, `agent scan --json`'s `tool_activity_fidelity`): `"full"` (claude, codex, opencode, antigravity, kimicode, grok, qwen, copilot, pi) is a real id with a matched end; a runtime whose runner only yields a lightweight `{type:'tool_use', text: toolName}` liveness signal (no id) maps it to a `"start"`-only event with no matching `"end"` (`input: null`, `parent_tool_use_id: null`); a runtime with no tool signal at all emits none |
+| `tool_activity` | `v, id, phase ("start"\|"end"), name, kind?, input?, parent_tool_use_id?, ok?, output?, output_truncated?, denied?, cancelled?, duration_ms?, exit_code?` | **rev 12** (#357, capability `agent-exec-tool-activity`). NATIVE tool calls only (Bash, Edit, Write, Read, …) — a bridged `--tools stdio` call keeps its `tool_call`/`tool_result` frames instead. `id` is the SDK's own tool_use id (or a locally-minted one for a start-only runtime, see below), correlating a `"start"` with its `"end"`. `"start"`: `input` is the tool's raw input as the model sent it (`Edit`/`MultiEdit` carry `old_string`/`new_string`, `Write` carries `file_path`/`content`); `parent_tool_use_id` is non-null when the call was made inside a `Task`/`Agent` subagent's own turn, for nesting. `"end"`: `ok` (bool), `output` (the tool_result content flattened to text), `duration_ms`; a call denied under scoped mode's default-deny `canUseTool` ends with `ok:false, denied:true` instead of running; a turn cut short by `--timeout` or a `cancel` frame closes every still-open id with `ok:false, cancelled:true` before `done`. Every `input`/`output` string field is capped at 16 KiB with a sibling `<field>_truncated:true` when cut, and the whole event stays well under 64 KiB regardless of how many fields a call's own input has. **rev 19**: every `"start"` carries `kind` — `shell\|edit\|write\|read\|search\|web\|mcp\|task\|todo\|patch\|other` — from the runner when it knows it, else from the tool name (`orgrt/tool-kind.ts`: Claude's `Bash`→shell, `Edit`/`MultiEdit`/`NotebookEdit`→edit, `Write`→write, `Read`→read, `Glob`/`Grep`→search, `WebFetch`/`WebSearch`→web, `mcp__*`→mcp, `Task`/`Agent`→task, `TodoWrite`→todo, plus vendor names such as `exec_command`/`command_execution`→shell, `apply_patch`/`file_change`→patch, `read_file`→read, `mcp_tool_call`→mcp). `name` stays the runtime's own. Claude keeps its native `input`; other runtimes' runners translate theirs to canonical keys per kind — shell `{command, description?, cwd?}`, edit `{file_path, old_string, new_string}`, write `{file_path, content}`, read `{file_path}`, search `{pattern, path?}`, patch `{files:[{file_path, action:"add"\|"update"\|"delete", diff?}]}`, mcp `{server, tool, arguments}`, web `{url?, query?}`, other: raw. An `"end"` carries `exit_code` when the runtime reported one (shell calls). Fidelity varies by runtime (§9, `agent scan --json`'s `tool_activity_fidelity`): `"full"` (claude, codex, opencode, antigravity, kimicode, grok, qwen, copilot, pi, pi-rpc, cline, aider, dsh, kilo) is a real id with a matched end; a runtime whose runner only yields a lightweight `{type:'tool_use', text: toolName}` liveness signal (no id) maps it to a `"start"`-only event with no matching `"end"` (`input: null`, `parent_tool_use_id: null`); a runtime with no tool signal at all emits none |
 | `usage` | `v, input_tokens, output_tokens, cost_usd` | Per-round delta (cumulative→delta conversion handled inside monomind). **rev 28** (capability `agent-exec-cost-null`): `cost_usd` is `null` when the runtime reported no cost for the round — unknown, not `$0` |
 | `result` | `v, subtype ("success"\|"error"), is_error, text, stop_reason, input_tokens, output_tokens, cost_usd` | Aggregate final result; **rev 28**: `cost_usd` is the sum of the rounds' reported costs, or `null` when no round reported one (see `reports_cost`, §6); **rev 7**: `text` is the complete final assistant text — the joined `assistant` texts for a `streams_incrementally` runtime, the last `assistant` message otherwise (omitted only if the turn produced none); `stop_reason`: `end_turn` \| `max_turns` \| `tool_round_cap` \| `cancelled` \| `timeout`. **rev 4**: `tool_round_cap` is detected best-effort — it matches the runner's tool-round-cap assistant note; a fence runner that stops without the note yields `end_turn`. **rev 30**, Claude runtime, optional: `model_usage` (tokens per model actually served, child agents included), `effort` (coder mode), `peak_context_tokens`, `context_warning` (peak above 200K), `unexpected_models` (served models other than `--model`), `agent_launches` (`{total, review}`, coder mode). Coder mode caps delegation: `MONOMIND_CODER_MAX_AGENTS` (default 40) and `MONOMIND_CODER_MAX_REVIEW_AGENTS` (default 12) refuse further `Agent` launches; `0` lifts a cap. |
 | `error` | `v, code, message, fatal (bool)` | Codes in §3.4. `fatal:true` = auth/quota class — callers must not retry |
@@ -967,7 +967,7 @@ HOME usually cannot find its tool and reports `version: null`.
 
 ### 7.2 Commands (Phase 0 set)
 
-Existing commands gaining `--json` output: `org status`, `org logs [--tail N]`, `org report`,
+Existing commands gaining `--json` output: `org status`, `org logs`, `org report`,
 `org costs`, `org inbox`, `org flow`, `org questions`, `org gates`, `org decisions`,
 `org memory`, plus action results for `org answer/approve/deny/gate-approve/gate-reject`
 (return the updated entity as JSON).
@@ -1010,7 +1010,7 @@ and signs nothing. Shapes and exit codes: `doc/commands/org.md` (`sign`).
 
 ### 7.3 `monomind org events --ndjson [--follow] [--since]`
 
-Live tail of `bus.jsonl`: one `BusEvent` JSON object per line (shape per `orgrt/types.ts:340`),
+Live tail of `bus.jsonl`: one `BusEvent` JSON object per line (shape per `BusEvent` in `orgrt/types-events.ts`),
 optionally following (`--follow`) like `tail -f`. `--since <eventId|iso>` replays from a cursor
 (an event id replays everything strictly after it; an ISO-8601 timestamp filters older events).
 This is the UI's live-stream source for org activity. **rev 4**: NDJSON is this command's only
@@ -1092,7 +1092,7 @@ protocol already supported better.
      gates every incremental yield behind it; the reconciliation diff at turn-end needs no separate
      branch — with the flag off, the high-water mark never advances, so it naturally degrades to
      "reveal the whole text," byte-for-byte the pre-streaming behavior.
-   - Set `streamsIncrementally: true` in `runner-registry.ts`'s `RunnerSpec`.
+   - Set `streamsIncrementally: true` in `runner-specs.ts`'s `RunnerSpec`.
 3. **If no — set `streamsIncrementally: false`** and make sure the runner still yields each
    complete message the instant it lands, with zero added buffering — waiting for a step boundary
    or the whole turn to finish when the message was already complete earlier is its own bug,
@@ -1101,7 +1101,7 @@ protocol already supported better.
    (§3.2/§6) rather than a live UI implying a turn is stuck when it was never going to show partial
    output.
 
-**`tool_activity_fidelity`** (rev 12, #357, `runner-registry.ts`'s `RunnerSpec.toolActivityFidelity`,
+**`tool_activity_fidelity`** (rev 12, #357, `runner-specs.ts`'s `RunnerSpec.toolActivityFidelity`,
 mirrored on `agent scan --json` entries — §3.2, §6): a second, independent honesty field, orthogonal
 to `streamsIncrementally` above — a runtime can stream real incremental text and still have no way
 to report tool activity, or vice versa. Set it by checking what the runner's own `AgentMessage`
@@ -1111,7 +1111,7 @@ feature alone:
   `tool_result` for the same id (`claude`, via `ClaudeAgentRunner`'s own
   `'tool_use'`/`'tool_result'` AgentMessages; rev 19: `codex`, `opencode`, `antigravity`,
   `kimicode`, `grok`, `qwen`, `copilot`, `pi` from their CLIs' own tool start/complete events;
-  rev 20: `pi-rpc`, `cline`, `aider` (through its shim), `dsh`). `orgrt/tool-activity.ts`'s `ToolActivityTracker`
+  rev 20: `pi-rpc`, `cline`, `aider` (through its shim), `dsh`; `kilo`). `orgrt/tool-activity.ts`'s `ToolActivityTracker`
   turns this into a matched start/end pair.
 - `"start-only"` — the runner only yields a lightweight `{type:'tool_use', text: toolName}`
   liveness signal, with no id to correlate an end with (no runtime today). `ToolActivityTracker` maps this to a `tool_activity`
@@ -1454,7 +1454,7 @@ KILO_CLI_BIN=/absolute/path/to/kilo monomind agent exec --runtime kilo \
   --access full --cwd /absolute/path/to/workspace \
   --settings user,project,local --tools none \
   --model openrouter/qwen/qwen3.8-27b:free \
-  --prompt-file /absolute/path/to/prompt.txt --timeout 2m --json
+  --prompt-file /absolute/path/to/prompt.txt --timeout 2m
 ```
 
 `--tools none` here disables caller tools; explicitly requested full access still

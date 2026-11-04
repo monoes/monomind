@@ -37,6 +37,9 @@ monomind monograph search -q "authentication flow"
 # Show graph statistics
 monomind monograph stats
 
+# Embed graph nodes for semantic search
+monomind monograph embed
+
 # Watch for changes and rebuild incrementally
 monomind monograph watch
 
@@ -63,15 +66,22 @@ const impact = getMonographImpact(db, { name: 'login', filePath: 'src/auth/login
 
 ## MCP tools
 
-When used via Monomind's MCP server, monograph exposes 19 tools by default (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`):
+When used via Monomind's MCP server, monograph exposes 20 tools by default (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`):
 
 | Tool | Purpose |
 |---|---|
+| `monograph_build` | Build or refresh the graph |
 | `monograph_suggest` | Start every task — ranked relevant files |
 | `monograph_query` | BM25 keyword search with PPR graph reranking |
+| `monograph_brief` | Task text to entry points, covering docs and blast radius |
 | `monograph_impact` | Blast radius analysis (upstream + downstream) |
 | `monograph_god_nodes` | High-centrality internal files |
 | `monograph_context` | 360° view of a file |
+| `monograph_neighbors` | Direct neighbors of a node |
+| `monograph_stats` | Graph size statistics |
+| `monograph_get_node` | Fetch one node by id |
+| `monograph_api_impact` | Impact analysis for API changes |
+| `monograph_doctor` | Index health diagnostics |
 | `monograph_augment` | Graph-RAG context retrieval |
 | `monograph_dead_code` | Dead exports, orphan files, stale dist |
 | `monograph_detect_changes` | Map git diff to affected graph nodes |
@@ -88,38 +98,39 @@ Monograph utilizes a dual-tier parsing strategy for extracting code structure an
 > **This section is the authoritative source for Monograph's language/grammar counts.**
 > Other docs in this repo should link here instead of restating the numbers.
 
-1. **Tree-sitter AST Parsers — 14 grammar modules, 25 supported extensions**:
-   - **Grammar modules** (one `LanguageConfig` + tree-sitter package each, [`src/parsers/`](packages/@monomind/monograph/src/parsers/)): `c`, `cpp`, `csharp`, `dart`, `go`, `java`, `kotlin`, `php`, `python`, `ruby`, `rust`, `swift`, `typescript`, `vue` — 14 total. (`typescript` also covers JavaScript; there is no separate JS grammar.)
+1. **Tree-sitter AST Parsers — 14 grammar modules, 25 supported extensions** (WASM, via `web-tree-sitter`; no native build):
+   - **Grammar modules** (one `LanguageConfig` each, [`src/parsers/`](src/parsers/)): `c`, `cpp`, `csharp`, `dart`, `go`, `java`, `kotlin`, `php`, `python`, `ruby`, `rust`, `swift`, `typescript`, `vue` — 14 total. (`typescript` also covers JavaScript; there is no separate JS grammar.) The compiled grammars ship in [`wasm/`](wasm/) and are copied into `dist/wasm/` at build time; set `MONOMIND_WASM_DIR` to load them from another directory.
    - **Extensions**: `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.py`, `.go`, `.rs`, `.java`, `.c`, `.h`, `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hxx`, `.cs`, `.rb`, `.swift`, `.php`, `.vue`, `.kt`, `.kts`, `.dart` — 25 total, mapped onto the 14 grammar modules above.
-   - **Grammar Loader**: Dynamically loads and caches Tree-sitter grammars per extension via `getParser(ext)` ([`loader.ts:64-83`](packages/@monomind/monograph/src/parsers/loader.ts#L64-L83)). Supports `<script>` block isolation for `.vue` files ([`loader.ts:128-142`](packages/@monomind/monograph/src/parsers/loader.ts#L128-L142)).
-   - **Best-effort grammars**: `getParser()` validates every grammar by binding it to a scratch `Parser` before trusting it — a `require()` that succeeds can still return an ABI-incompatible `Language` object, only caught on use (MEM-2, [`loader.ts:91-108`](packages/@monomind/monograph/src/parsers/loader.ts#L91-L108)). `vue` has an explicit fallback to the TypeScript grammar when its own binding fails this check ([`vue.ts`](packages/@monomind/monograph/src/parsers/vue.ts)). `csharp` (loads a prebuilt native binding directly since `tree-sitter-c-sharp`'s ESM entry can't be `require()`d) and `dart` are currently **failing this validation** in this checkout/environment (`csharp grammar load failed (tree-sitter-c-sharp: Cannot read properties of undefined ...)`; `dart grammar load failed (tree-sitter-dart: Invalid language object)`) and fall through to no symbols (`csharp`, which has no regex fallback) or the regex extractor (`dart`). Whether they work depends on the native binding's ABI compatibility with the installed `tree-sitter` core on a given platform/Node version — treat `csharp` and `dart` as best-effort, not guaranteed-working; the other 12 grammar modules validated successfully as of this writing.
+   - **Grammar Loader**: Loads and caches grammars per extension via `getParser(ext)` ([`loader.ts`](src/parsers/loader.ts)). `.vue` files always take the `<script>`-block path: the block is extracted and parsed with the TypeScript grammar ([`vue.ts`](src/parsers/vue.ts)).
+   - **Validation**: `getParser()` binds each grammar to a fresh `Parser` before trusting it, and records why a grammar failed to load (MEM-2) so `parseFile()` can report a diagnostic instead of silently returning 0 nodes. A failing `dart` grammar falls back to the regex extractor; other languages have no fallback and yield no symbols.
 2. **Regex Fallback Parsers (5 languages, 6 including the `dart` fallback when its tree-sitter grammar fails validation)**:
-   - Lightweight regex-based symbol extractors used when a Tree-sitter grammar is uninstalled, unsupported, or fails MEM-2 validation: **Scala**, **Lua**, **Zig**, **PowerShell**, **Elixir**, and (fallback-only) **Dart** ([`language-parsers.ts:1-122`](packages/@monomind/monograph/src/parsers/language-parsers.ts#L1-L122)).
+   - Lightweight regex-based symbol extractors used when a language has no tree-sitter grammar or its grammar fails validation: **Scala**, **Lua**, **Zig**, **PowerShell**, **Elixir**, and (fallback-only) **Dart** ([`language-parsers.ts`](src/parsers/language-parsers.ts)).
 
 ## SQLite Database Schema
 
-The graph is stored in a WAL-mode SQLite database (`PRAGMA journal_mode = WAL`) managed in [`schema.ts`](packages/@monomind/monograph/src/storage/schema.ts) and [`db.ts`](packages/@monomind/monograph/src/storage/db.ts):
+The graph is stored in a WAL-mode SQLite database (`PRAGMA journal_mode = WAL`) managed in [`schema.ts`](src/storage/schema.ts) and [`db.ts`](src/storage/db.ts):
 
-- **`nodes`**: Code symbols and files (`id`, `label`, `name`, `norm_label`, `file_path`, `start_line`, `end_line`, `community_id`, `is_exported`, `language`, `properties`, `embedding`).
+- **`nodes`**: Code symbols and files (`id`, `label`, `name`, `norm_label`, `file_path`, `start_line`, `end_line`, `community_id`, `is_exported`, `language`, `properties`; embeddings live in the separate `node_embeddings` table).
 - **`edges`**: Directed relationships between nodes (`id`, `source_id`, `target_id`, `relation`, `confidence`, `confidence_score`, `weight`, `reason`, `evidence`).
 - **`communities`**: Hierarchical community clusters (`id`, `label`, `size`, `cohesion_score`).
 - **`file_cache`**: SHA-256 incremental parse cache (`file_path`, `content_hash`, `last_parsed`, `node_count`, `edge_count`).
 - **`nodes_fts`**: Trigram-tokenized FTS5 virtual table (`tokenize='trigram'`) indexing `name`, `norm_label`, and `file_path` with sync triggers for rapid symbol and fuzzy text queries.
 - **`index_meta`**: Key-value system index metadata (including `last_commit_hash`).
+- Further tables (`node_summaries_fts`, `node_embeddings`, `wiki_pages`, `node_properties`, `suppressions`, `agent_interactions`) support summaries, embeddings, wiki pages and agent history.
 
 ## Relationship Types
 
-Monograph defines typed edges ([`types.ts:20-29`](packages/@monomind/monograph/src/types.ts#L20-L29)) categorized into structural, static analysis, and semantic relationships:
+Monograph defines typed edges ([`types.ts`](src/types.ts), `EdgeRelation`) categorized into structural, static analysis, and semantic relationships:
 
 - **`CONTAINS`**: Parent container to child element (e.g. File contains Class/Function, Class contains Method).
 - **`IMPORTS`**: File/Module import dependency (`import { x } from './y'`).
 - **`CALLS`**: Function/Method invocation between symbols.
 - **`ENTRY_POINT_OF`**: Entry point symbol associated with an agent process or application workflow.
-- Additional relations include `RE_EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `HAS_METHOD`, `HAS_PROPERTY`, `ACCESSES`, `HANDLES_ROUTE`, `FETCHES`, `HANDLES_TOOL`, `WRAPS`, `QUERIES`, `REFERENCES`, `CO_OCCURS`, and LLM-inferred semantic relations (`DESCRIBES`, `CAUSES`, `CONTRASTS_WITH`, `PART_OF`, `RELATED_TO`, `USES`, `STRUCTURALLY_SIMILAR`).
+- Additional relations include `DEFINES`, `METHOD_OVERRIDES`, `METHOD_IMPLEMENTS`, `MEMBER_OF`, `STEP_IN_PROCESS`, `PARENT_SECTION`, `TAGGED_AS`, `TESTS`, `HAS_FIELD`, `RE_EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `HAS_METHOD`, `HAS_PROPERTY`, `ACCESSES`, `HANDLES_ROUTE`, `FETCHES`, `HANDLES_TOOL`, `WRAPS`, `QUERIES`, `REFERENCES`, `CO_OCCURS`, and LLM-inferred semantic relations (`DESCRIBES`, `CAUSES`, `CONTRASTS_WITH`, `PART_OF`, `RELATED_TO`, `USES`, `STRUCTURALLY_SIMILAR`).
 
 ## Blast Radius Calculation (`rippleImpact`)
 
-Monograph calculates downstream cascade impact using the multi-hop `rippleImpact` BFS algorithm ([`ripple-impact.ts:51-84`](packages/@monomind/monograph/src/graph/ripple-impact.ts#L51-L84)):
+Monograph calculates downstream cascade impact using the multi-hop `rippleImpact` BFS algorithm ([`ripple-impact.ts`](src/graph/ripple-impact.ts)):
 
 - **Algorithm**: Breadth-First Search propagating through outgoing directed edge adjacency maps.
 - **Scoring Formula**:
@@ -129,7 +140,7 @@ Monograph calculates downstream cascade impact using the multi-hop `rippleImpact
 
 ## Graph Freshness & Git Staleness Tracking
 
-Monograph maintains graph synchronization with git repository state without full re-indexes ([`git-staleness.ts:13-66`](packages/@monomind/monograph/src/staleness/git-staleness.ts#L13-L66)):
+Monograph maintains graph synchronization with git repository state without full re-indexes ([`git-staleness.ts`](src/staleness/git-staleness.ts)):
 
 - **Commit Verification**: Compares stored `last_commit_hash` in `index_meta` against `git rev-parse HEAD`.
 - **Change Diffing**: If hashes diverge, executes `git diff --name-only <indexedCommit>..HEAD` to populate `changedSince` files.
@@ -138,10 +149,11 @@ Monograph maintains graph synchronization with git repository state without full
 
 ### Incremental Watch Mode
 
-`monomind monograph watch` (and the `monograph_watch` MCP tool) debounces file changes by 3s ([`watcher.ts:108-110`](packages/@monomind/monograph/src/watch/watcher.ts#L108-L110)), then updates the graph per changed file — delete existing nodes/edges for that file, re-parse, re-insert ([`orchestrator.ts:312-365`](packages/@monomind/monograph/src/pipeline/orchestrator.ts#L312-L365)):
+`monomind monograph watch` (and the `monograph_watch` MCP tool) debounces file changes by 3s ([`watcher.ts`](src/watch/watcher.ts)), then runs a rebuild for the changed batch via `buildIncrementalAsync` ([`orchestrator.ts`](src/pipeline/orchestrator.ts)):
 
-- **Incremental Threshold**: If a batch exceeds `INCREMENTAL_THRESHOLD` (20 changed files), it falls back to a full rebuild instead of per-file updates ([`orchestrator.ts:269-279`](packages/@monomind/monograph/src/pipeline/orchestrator.ts#L269-L279)).
-- **Deferred Full Rebuild**: After `FULL_REBUILD_IDLE_MS` (60s) with no further incremental activity, watch mode runs one full rebuild to refresh aggregate phases (communities, god-nodes, surprises, churn, report) that incremental updates don't recompute ([`watcher.ts:40-59`](packages/@monomind/monograph/src/watch/watcher.ts#L40-L59)).
+- **Rebuild, not patch**: `buildIncrementalAsync` runs a full `buildAsync` so cross-file relationships and derived analyses (communities, god-nodes) stay correct; the `file_cache` content hashes let unchanged files skip re-parsing.
+- **Deferred Full Rebuild**: After `FULL_REBUILD_IDLE_MS` (60s) with no further activity, watch mode runs one more full rebuild to refresh aggregate phases (communities, god-nodes, surprises, churn, report).
+- **Idle stop**: The watcher stops itself after 30 minutes with no changes (`idleTimeoutMs`).
 
 ## Links
 
@@ -151,5 +163,5 @@ Monograph maintains graph synchronization with git repository state without full
 
 ## License
 
-MIT
+Apache-2.0
 

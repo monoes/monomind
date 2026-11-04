@@ -14,6 +14,7 @@ Run a refresh locally in an isolated Linux x64 checkout:
 node scripts/claude-sdk-maintenance.mjs --update
 pnpm install --lockfile-only --ignore-scripts
 pnpm install --frozen-lockfile --ignore-scripts
+pnpm --filter "@monoes/monomindcli^..." run build
 pnpm exec biome format --write packages/@monomind/cli/src/utils/optional-deps-locks.ts
 pnpm exec vitest run tests/scripts/claude-sdk-maintenance.test.mjs
 pnpm --filter @monoes/monomindcli exec vitest run src/__tests__/optional-deps-pins.test.ts src/__tests__/optional-deps.test.ts
