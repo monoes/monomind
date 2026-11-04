@@ -90,9 +90,7 @@ describe('centroid parity: cli meanCentroid (removed) vs routing computeCentroid
 
 describe('cosine parity: every copy', () => {
   // Every implementation, mapped to a similarity. Distances map back with 1 - d.
-  const monofence = new InMemoryVectorStore() as unknown as {
-    cosineSimilarity(a: number[], b: number[]): number;
-  };
+  // monofence-ai is not here yet: see the pinned test below.
   const copies: Record<string, (a: number[], b: number[]) => number> = {
     'cli cosineSimilarity': (a, b) => cliCosine(a, b),
     'cli batchCosineSim': (a, b) => batchCosineSim(a, [b])[0],
@@ -108,7 +106,6 @@ describe('cosine parity: every copy', () => {
         normalizeVector(Float32Array.from(a)),
         normalizeVector(Float32Array.from(b)),
       ),
-    'monofence InMemoryVectorStore': (a, b) => monofence.cosineSimilarity(a, b),
   };
   const WARNED = Symbol.for('monomind.cosine.lengthMismatchWarned');
   const resetWarned = () => {
@@ -213,6 +210,30 @@ describe('cosine parity: every copy', () => {
     expect(memoryCosine(a, b)).toBeNaN();
     expect(copies['memory cosineDistance'](a, b)).toBeNaN();
     expect(batchCosineSim(a, [b])[0]).toBeNaN();
+  });
+});
+
+describe('cosine: monofence-ai InMemoryVectorStore (pinned, not yet aligned)', () => {
+  // The cli loads monofence-ai only if each dist/*.js file matches the SHA-256
+  // it pins for the published 2.24.0 tarball (OPTIONAL_DEPENDENCY_CODE_PINS in
+  // packages/@monomind/cli/src/utils/optional-deps-locks.ts). Changing this
+  // copy changes a pinned file, and the workspace build is then refused. It is
+  // aligned with the rule above once a monofence-ai release moves the pin.
+  const monofence = new InMemoryVectorStore() as unknown as {
+    cosineSimilarity(a: number[], b: number[]): number;
+  };
+
+  it('agrees with the cli copy on equal-length vectors, empty and zero vectors', () => {
+    expect(monofence.cosineSimilarity([1, 2, 3], [4, 5, 6])).toBeCloseTo(
+      cliCosine([1, 2, 3], [4, 5, 6]),
+      12,
+    );
+    expect(monofence.cosineSimilarity([], [])).toBe(0);
+    expect(monofence.cosineSimilarity([0, 0], [1, 1])).toBe(0);
+  });
+
+  it('DIFFERS on length mismatch: still truncates to the shorter length', () => {
+    expect(monofence.cosineSimilarity([1, 2, 3], [1, 2])).toBeCloseTo(1, 12);
   });
 });
 

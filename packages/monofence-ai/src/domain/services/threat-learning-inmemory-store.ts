@@ -7,19 +7,6 @@
 
 import type { VectorStore } from './threat-learning-service.js';
 
-/** Shared across every monomind cosine copy so the process warns at most once. */
-const LENGTH_MISMATCH_WARNED = Symbol.for('monomind.cosine.lengthMismatchWarned');
-
-function warnVectorLengthMismatch(a: number, b: number): void {
-  const g = globalThis as Record<symbol, unknown>;
-  if (g[LENGTH_MISMATCH_WARNED]) return;
-  g[LENGTH_MISMATCH_WARNED] = true;
-  console.warn(
-    `[monomind] cosine similarity: vector length mismatch (${a} vs ${b}), scored as 0. ` +
-      'The embedding model probably changed under a stored index; rebuild it.',
-  );
-}
-
 interface StoredEntry {
   value: unknown;
   embedding?: number[];
@@ -102,13 +89,8 @@ export class InMemoryVectorStore implements VectorStore {
     return results.sort((a, b) => b.similarity - a.similarity).slice(0, params.k ?? 10);
   }
 
-  /** 0 for empty, zero-norm or mismatched-length vectors (the last warns once per process). */
   private cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) {
-      warnVectorLengthMismatch(a.length, b.length);
-      return 0;
-    }
-    const len = a.length;
+    const len = Math.min(a.length, b.length);
     let dot = 0,
       magA = 0,
       magB = 0;
