@@ -11,6 +11,8 @@ export interface CoreRenderOptions {
   scope: InstallScope;
   enableHooks?: boolean;
   os?: NodeJS.Platform;
+  /** Version the generated command hints pin to (default: the running CLI); `latest` floats. */
+  pin?: string;
 }
 
 export const mcpCommand = renderMcpCommand;
@@ -27,7 +29,7 @@ export function renderCoreArtifacts(
   const intents: ArtifactIntent[] = [];
   const diagnostics: string[] = [];
 
-  const instruction = renderInstruction(adapter, options.scope);
+  const instruction = renderInstruction(adapter, options.scope, options.pin);
   if (instruction) {
     intents.push(instruction);
   } else {

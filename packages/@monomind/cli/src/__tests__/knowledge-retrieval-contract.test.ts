@@ -28,7 +28,10 @@
  * namespace a call reached can be asserted directly.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 interface FakeEntry {
   id: string;
@@ -132,7 +135,8 @@ import {
 } from '../orgrt/org-memory.js';
 import type { OrgDef } from '../orgrt/types.js';
 
-const ROOT = '/tmp/monomind-retrieval-contract-test';
+const ROOT = mkdtempSync(join(tmpdir(), 'monomind-retrieval-contract-'));
+afterAll(() => rmSync(ROOT, { recursive: true, force: true }));
 const DEF = { goal: 'ship it', run_config: {} } as unknown as OrgDef;
 
 function stubDaemon(): OrgDaemon {

@@ -10,7 +10,6 @@ export const EMBEDDING_MODEL = 'Snowflake/snowflake-arctic-embed-xs';
 const DIM = 384;
 const QUERY_PREFIX = 'Represent this sentence for searching relevant passages: ';
 
-// biome-ignore lint/suspicious/noExplicitAny: transformers.js has no stable public pipeline type
 type Pipeline = (input: string | string[], opts: Record<string, unknown>) => Promise<any>;
 
 /** Whether the model's files are already on disk under transformers.js' cache directory. */

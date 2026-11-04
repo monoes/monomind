@@ -2,6 +2,7 @@
   "name": "@monoes/routing",
   "version": "2.24.0",
   "description": "Semantic task-to-agent routing for monomind",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

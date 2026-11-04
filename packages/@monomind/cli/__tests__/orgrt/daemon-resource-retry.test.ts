@@ -19,7 +19,7 @@ import { join } from 'node:path';
 // as permanently gone. The test follows the gate to its new location rather
 // than being deleted, which would have retired the coverage with the boot path.
 let ok = true;
-vi.mock('../../src/utils/resource-governor.js', () => ({
+vi.mock('../../src/shared/resource-governor.js', () => ({
   checkResources: vi.fn(() => ({
     ok, freeMemMB: ok ? 2000 : 100, freeMemPct: ok ? 80 : 5,
     sdkProcesses: 0, maxSdkProcesses: 10,

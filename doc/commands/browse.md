@@ -109,7 +109,7 @@
   several URLs with commas. No `browse` subcommand selects it yet: it is a
   library transport.
 - **Long temp paths.** Chrome keeps a `SingletonSocket` under `$TMPDIR`, and
-  aborts at startup with `SIGABRT` when that path passes the 108-byte socket
+  aborts at startup with `SIGABRT` when that path passes the unix socket path
   limit, which a deep `TMPDIR` in CI or a sandbox can cause. When the path
   would overflow, `browse` points Chrome's `TMPDIR` at `/tmp` for that launch
   and leaves the environment alone otherwise (#663).

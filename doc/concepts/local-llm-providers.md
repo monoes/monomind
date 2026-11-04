@@ -70,9 +70,8 @@ All three use `vendor: "ollama"` or `vendor: "openai-compatible"` in the Vercel 
 
 - Local models may have smaller context windows than Claude/GPT — adjust `max_turns_per_message` in your org config accordingly.
 - Tool calling quality varies by model. Llama 3.1+ and Qwen 2.5+ have the best tool-calling support among open models.
-- No usage API for cost tracking — the `org run` cost estimate will show $0 for local models (which is correct — they're free to run).
+- No USD cost tracking — the Vercel runner reports token usage but no cost, so recorded spend for these roles is unknown rather than $0 (token budgets still apply). The upfront `org run` estimate prices models it does not recognize at a default rate, so it overstates local runs; override with `~/.monomind/rates.json`.
 
 ## See also
 
 - `doc/concepts/org-runtime.md` — org runtime configuration
-- `docs/positioning.md` — why local-first is monomind's core differentiator

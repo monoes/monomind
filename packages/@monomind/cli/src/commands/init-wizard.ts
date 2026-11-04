@@ -20,6 +20,7 @@ import { reportProjectMemory } from '../init/init-memory.js';
 import { OPTIONAL_PACKS } from '../init/packs.js';
 import { ingestDirectory } from '../knowledge/document-pipeline.js';
 import { output } from '../output.js';
+import { monomindNpxArgs } from '../platform-adapters/renderers/mcp.js';
 import { confirm, input, multiSelect, select } from '../prompt.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
@@ -317,7 +318,7 @@ export const wizardCommand: Command = {
           execFileSync(
             process.platform === 'win32' ? 'npx.cmd' : 'npx',
             [
-              'monomind@latest',
+              ...monomindNpxArgs(ctx.flags.pin === 'latest' ? 'latest' : undefined).slice(1),
               'embeddings',
               'init',
               '--model',
@@ -349,7 +350,13 @@ export const wizardCommand: Command = {
           const { execFileSync } = await import('node:child_process');
           execFileSync(
             process.platform === 'win32' ? 'npx.cmd' : 'npx',
-            ['monomind@latest', 'guidance', 'setup', '--project-dir', ctx.cwd],
+            [
+              ...monomindNpxArgs(ctx.flags.pin === 'latest' ? 'latest' : undefined).slice(1),
+              'guidance',
+              'setup',
+              '--project-dir',
+              ctx.cwd,
+            ],
             { stdio: 'pipe', cwd: ctx.cwd, timeout: 10000 },
           );
           gatesEnabled = true;

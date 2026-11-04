@@ -137,7 +137,7 @@ function chunkDocumentInline(docId: string, text: string): TextChunk[] {
 
 export async function chunkDocument(docId: string, text: string): Promise<TextChunk[]> {
   try {
-    const mod = await import('@monoes/memory' as string);
+    const mod = await import('@monoes/memory');
     return mod.chunkDocument(docId, text, DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP);
   } catch {
     return chunkDocumentInline(docId, text);

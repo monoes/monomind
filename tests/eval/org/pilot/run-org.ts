@@ -60,6 +60,7 @@ function readOrgDef(root: string, name: string): { sections?: unknown } | undefi
 export async function runOrg(o: RunOrgOptions): Promise<{ stoppedManually: boolean }> {
   const query = o.queryFn ?? ((await loadClaudeSdk()).query as NonNullable<QueryFn>);
   const daemon = new OrgDaemon(o.root, {
+    allowUnconfined: true, // test harness: no OS sandbox is available or needed
     crossProcess: true,
     queryFn: withoutNativeChildren(query),
   });

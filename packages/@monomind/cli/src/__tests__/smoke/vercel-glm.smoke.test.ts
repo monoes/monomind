@@ -7,13 +7,24 @@
  *   MONOMIND_SMOKE=1 ZHIPU_API_KEY=... npx vitest run --reporter=dot \
  *     src/__tests__/smoke/vercel-glm.smoke.test.ts
  */
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { VercelAgentRunner } from '../../orgrt/vercel-runner.js';
 
 const SMOKE = process.env.MONOMIND_SMOKE === '1';
 const KEY = process.env.ZHIPU_API_KEY;
 
 describe.skipIf(!SMOKE || !KEY)('VercelAgentRunner — GLM smoke (real API)', () => {
+  let cwd: string;
+  beforeAll(() => {
+    cwd = mkdtempSync(join(tmpdir(), 'glm-smoke-'));
+  });
+  afterAll(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
   it('responds non-empty to a simple prompt', async () => {
     const runner = new VercelAgentRunner();
     const messages: any[] = [];
@@ -25,10 +36,10 @@ describe.skipIf(!SMOKE || !KEY)('VercelAgentRunner — GLM smoke (real API)', ()
       })(),
       systemPrompt: 'You are a test echo. Follow instructions exactly.',
       model: 'glm-5.2',
-      cwd: '/tmp',
+      cwd,
       env: {
         ZHIPU_API_KEY: KEY!,
-        MONOMIND_ORG_DIR: '/tmp/monomind-smoke',
+        MONOMIND_ORG_DIR: join(cwd, 'org'),
         MONOMIND_ROLE_ID: 'glm-smoke',
       },
       maxTurns: 3,

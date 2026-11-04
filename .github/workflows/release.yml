@@ -1,0 +1,105 @@
+name: Release
+
+# Publishes the packages whose version changed since the previous release tag.
+#
+#   - Push a `v<umbrella version>` tag (see scripts/tag-release.mjs): a real publish.
+#   - workflow_dispatch: a dry run unless the `publish` input is true.
+#
+# Packages are versioned independently (doc/publishing.md, "Version policy"), so
+# the set to publish comes from scripts/release-packages.mjs, not from the tag.
+# Publishing uses pnpm, never npm: pnpm rewrites `workspace:*` pins to exact
+# versions at pack time and npm would ship the literal string. Provenance is
+# requested through NPM_CONFIG_PROVENANCE, which pnpm hands to npm.
+# Order is siblings, then the CLI, then the umbrella, because each pins the last.
+# A version already on the registry is skipped, so a re-run is safe.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to npm (false = dry run)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: release
+    env:
+      PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history and tags: the bump checks diff against the last tag
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Tag matches umbrella version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match root package.json version ${version}"
+            exit 1
+          fi
+
+      - name: Build
+        run: pnpm run build
+
+      # --no-registry: the CLI is not on npm yet, so its pin cannot resolve.
+      # `pnpm publish` runs the pin check itself (prepublishOnly) once the CLI is up.
+      - name: Check versions
+        run: node scripts/check-versions.mjs --no-registry
+
+      - name: Test (every package, as CI does)
+        run: pnpm run test:all:run
+
+      - name: Select packages to publish
+        run: |
+          node scripts/release-packages.mjs
+          node scripts/release-packages.mjs --json > "$RUNNER_TEMP/packages.json"
+
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+        run: |
+          set -euo pipefail
+          flags="--access public --tag latest --no-git-checks"
+          if [ "$PUBLISH" != "true" ]; then
+            flags="$flags --dry-run"
+            echo "Dry run: nothing will be published."
+          fi
+          node -e '
+            for (const p of JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")))
+              console.log([p.name, p.dir, p.version].join(" "));
+          ' "$RUNNER_TEMP/packages.json" | while read -r name dir version; do
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "skip ${name}@${version}: already on npm"
+              continue
+            fi
+            echo "publish ${name}@${version} from ${dir}"
+            (cd "$dir" && pnpm publish $flags)
+          done

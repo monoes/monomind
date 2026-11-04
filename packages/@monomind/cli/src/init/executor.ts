@@ -366,6 +366,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
         protectedPaths: guard.keptPaths(),
         backupDir: guard.backupDir,
         fileGuard: guard,
+        pin: options.mcp?.pin,
       });
       result.updated.push(...applied.changed.map((file) => `platform ${platform}: ${file}`));
       result.skipped.push(...applied.skipped.map((file) => `platform ${platform}: ${file}`));

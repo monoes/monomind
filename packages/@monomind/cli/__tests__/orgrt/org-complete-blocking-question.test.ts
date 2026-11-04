@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../src/utils/resource-governor.js', () => {
+vi.mock('../../src/shared/resource-governor.js', () => {
   const ok = { ok: true, freeMemMB: 2000, freeMemPct: 80, sdkProcesses: 0, maxSdkProcesses: 10 };
   return {
     checkResources: vi.fn(() => ok),

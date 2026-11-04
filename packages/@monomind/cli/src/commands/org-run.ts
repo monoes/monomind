@@ -308,7 +308,10 @@ export const runAction = async (ctx: CommandContext): Promise<CommandResult> => 
   if (costRefusal) return costRefusal;
 
   const resumeFlag = ctx.flags.resume === true;
-  const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
+  const daemon = new OrgDaemon(ctx.cwd, {
+    crossProcess,
+    allowUnconfined: ctx.flags.allowUnconfined === true,
+  });
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
   if (crossProcess) {
     srv = await startOrgServer(daemon, 0);

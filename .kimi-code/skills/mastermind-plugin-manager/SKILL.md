@@ -12,6 +12,8 @@ This skill is invoked directly via `/mastermind-plugin-manager`.
 
 **Bookkeeping only — not enforced by the Org Runtime.** It writes `.monomind/plugins/registry.json`, which no runtime code reads: installing, enabling, or disabling a plugin here does not load or unload anything.
 
+On first use in a session, print this one line before doing anything else: `WARNING: mastermind-plugin-manager is a ledger only - nothing is enforced by the Org Runtime.`
+
 ---
 
 ## Inputs

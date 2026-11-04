@@ -97,3 +97,13 @@ not just obviously ML-shaped commands. Assume any new exit path is affected.
 - Reported once as contention between the CLI and background `monograph watch`
   processes. It is not: it reproduces with zero watch processes running, and the
   immediately preceding version is clean on the same machine.
+
+## Addendum: loaded from `~/.monomind/deps`
+
+`@huggingface/transformers` is no longer installed with monomind; it is loaded
+through `ensureOptionalDependency()` (`utils/transformers-loader.ts`) from
+`~/.monomind/deps` (or a checkout's devDependency). The loaded code is the same
+bundle and the same onnxruntime-node thread pool, so everything above still
+applies unchanged: a process that touched embeddings must drain its event loop,
+not `process.exit()`. A load from the deps dir followed by a real
+`feature-extraction` pipeline run exited 0 on its own.

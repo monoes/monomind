@@ -30,7 +30,7 @@ export const quickstartCommand: Command = {
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const { execSync } = await import('node:child_process');
+    const { execFileSync, execSync } = await import('node:child_process');
     output.writeln();
     output.writeln(output.bold('Monomind Quickstart'));
     output.writeln(output.dim('  Running init with defaults, registering MCP, and verifying.'));
@@ -42,7 +42,7 @@ export const quickstartCommand: Command = {
       const initArgs = ['init'];
       if (ctx.flags.force) initArgs.push('--force');
       initArgs.push('--yes');
-      execSync(`node "${process.argv[1]}" ${initArgs.join(' ')}`, {
+      execFileSync(process.execPath, [process.argv[1], ...initArgs], {
         cwd: ctx.cwd,
         stdio: 'inherit',
         timeout: 120000,
@@ -70,7 +70,7 @@ export const quickstartCommand: Command = {
     // Step 3: Verify
     output.writeln(output.bold('Step 3/3: Verify install'));
     try {
-      execSync(`node "${process.argv[1]}" mcp verify`, {
+      execFileSync(process.execPath, [process.argv[1], 'mcp', 'verify'], {
         cwd: ctx.cwd,
         stdio: 'inherit',
         timeout: 15000,

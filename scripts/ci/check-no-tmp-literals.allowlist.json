@@ -1,0 +1,314 @@
+{
+  "packages/@monoes/monobrowse/src/__tests__/profile-dir.test.ts": {
+    "count": 3,
+    "reason": "data: paths fed to a resolver, validator or mocked payload; never created"
+  },
+  "packages/@monoes/monobrowse/src/__tests__/ref-cache.test.ts": {
+    "count": 2,
+    "reason": "data: paths fed to a resolver, validator or mocked payload; never created"
+  },
+  "packages/@monoes/monobrowse/src/__tests__/report-output.test.ts": {
+    "count": 6,
+    "reason": "data: paths fed to a resolver, validator or mocked payload; never created"
+  },
+  "packages/@monoes/monobrowse/src/__tests__/session-state.test.ts": {
+    "count": 3,
+    "reason": "data: paths fed to a resolver, validator or mocked payload; never created"
+  },
+  "packages/@monoes/monodesign/tests/design-system.test.mjs": {
+    "count": 6,
+    "reason": "data: paths fed to a resolver, validator or mocked payload; never created"
+  },
+  "packages/@monoes/monodesign/tests/hook.test.mjs": {
+    "count": 13,
+    "reason": "data: paths fed to a resolver, validator or mocked payload; never created"
+  },
+  "packages/@monoes/monodesign/tests/live-insert-ui.test.mjs": {
+    "count": 2,
+    "reason": "data: paths fed to a resolver, validator or mocked payload; never created"
+  },
+  "packages/@monoes/monodesign/tests/live-server.test.mjs": {
+    "count": 2,
+    "reason": "data: paths fed to a resolver, validator or mocked payload; never created"
+  },
+  "packages/@monomind/cli/__tests__/capabilities/cap-code.test.ts": {
+    "count": 2,
+    "reason": "data: DirectoryScan.root / FileEntry paths or a no-op activate() argument; never created"
+  },
+  "packages/@monomind/cli/__tests__/capabilities/cap-graph.test.ts": {
+    "count": 6,
+    "reason": "data: DirectoryScan.root / FileEntry paths or a no-op activate() argument; never created"
+  },
+  "packages/@monomind/cli/__tests__/capabilities/cap-timeline.test.ts": {
+    "count": 5,
+    "reason": "data: DirectoryScan.root / FileEntry paths or a no-op activate() argument; never created"
+  },
+  "packages/@monomind/cli/__tests__/capabilities/manager.test.ts": {
+    "count": 1,
+    "reason": "data: DirectoryScan.root / FileEntry paths or a no-op activate() argument; never created"
+  },
+  "packages/@monomind/cli/__tests__/capabilities/types.test.ts": {
+    "count": 2,
+    "reason": "data: DirectoryScan.root / FileEntry paths or a no-op activate() argument; never created"
+  },
+  "packages/@monomind/cli/__tests__/commands.test.ts": {
+    "count": 1,
+    "reason": "data: path string handed to mocked/stubbed code; never created on disk"
+  },
+  "packages/@monomind/cli/__tests__/init-wizard-skill-sets.test.ts": {
+    "count": 1,
+    "reason": "data: path string handed to mocked/stubbed code; never created on disk"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/authority-mask.test.ts": {
+    "count": 2,
+    "reason": "data: sandbox writable-root / deny-list / scope entries and fake-fs paths asserted on"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/copilot-runner.test.ts": {
+    "count": 2,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/crush-runner.test.ts": {
+    "count": 1,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/deps-protection.test.ts": {
+    "count": 2,
+    "reason": "data: sandbox writable-root / deny-list / scope entries and fake-fs paths asserted on"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/documents/writer-paths.test.ts": {
+    "count": 7,
+    "reason": "data: sandbox writable-root / deny-list / scope entries and fake-fs paths asserted on"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/documents/writer-policy.test.ts": {
+    "count": 5,
+    "reason": "data: sandbox writable-root / deny-list / scope entries and fake-fs paths asserted on"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/documents/writer-property.test.ts": {
+    "count": 3,
+    "reason": "data: sandbox writable-root / deny-list / scope entries and fake-fs paths asserted on"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/grok-runner.test.ts": {
+    "count": 2,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/opencode-runner-coder.test.ts": {
+    "count": 1,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/opencode-runner.test.ts": {
+    "count": 3,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/org-authority-files.test.ts": {
+    "count": 2,
+    "reason": "data: sandbox writable-root / deny-list / scope entries and fake-fs paths asserted on"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/pi-rpc-runner.test.ts": {
+    "count": 1,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/policy-hook.test.ts": {
+    "count": 1,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/qwen-rpc-runner.test.ts": {
+    "count": 1,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/qwen-runner.test.ts": {
+    "count": 1,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/role-deps.test.ts": {
+    "count": 4,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/role-sandbox.test.ts": {
+    "count": 4,
+    "reason": "data: sandbox writable-root / deny-list / scope entries and fake-fs paths asserted on"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/runner-abort.test.ts": {
+    "count": 1,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/sandbox-deny-write.test.ts": {
+    "count": 2,
+    "reason": "data: sandbox writable-root / deny-list / scope entries and fake-fs paths asserted on"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/sandbox-fault.test.ts": {
+    "count": 2,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/session-stop-abort.test.ts": {
+    "count": 2,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/support/writer-defs.ts": {
+    "count": 1,
+    "reason": "data: sandbox writable-root / deny-list / scope entries and fake-fs paths asserted on"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/task-cancel-dispatch.test.ts": {
+    "count": 2,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/task-cancel.test.ts": {
+    "count": 2,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/tool-channel-fault.test.ts": {
+    "count": 2,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/orgrt/tool-round-cap.test.ts": {
+    "count": 1,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/__tests__/security-audit.test.ts": {
+    "count": 5,
+    "reason": "data: paths fed to validatePath (shell metacharacter / null-byte cases); file also touched by refactor/split-mcp-server"
+  },
+  "packages/@monomind/cli/__tests__/ui-server-security.test.ts": {
+    "count": 1,
+    "reason": "fix after PR merges (fix/security-mcp-dashboard touches this file): COST_FIXTURE_DIR is a fake project path used only to derive a ~/.claude/projects slug inside a temp HOME"
+  },
+  "packages/@monomind/cli/src/__tests__/agent-runner-claude-settings-sdk.test.ts": {
+    "count": 1,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/src/__tests__/agent-runner.test.ts": {
+    "count": 1,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/src/__tests__/antigravity-runner.test.ts": {
+    "count": 14,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/src/__tests__/claude-sdk-pin.test.ts": {
+    "count": 1,
+    "reason": "data: sandbox writable-root / deny-list / scope entries and fake-fs paths asserted on"
+  },
+  "packages/@monomind/cli/src/__tests__/claude-sdk.test.ts": {
+    "count": 4,
+    "reason": "data: sandbox writable-root / deny-list / scope entries and fake-fs paths asserted on"
+  },
+  "packages/@monomind/cli/src/__tests__/cleanup-origin.test.ts": {
+    "count": 3,
+    "reason": "data: sandbox writable-root / deny-list / scope entries and fake-fs paths asserted on"
+  },
+  "packages/@monomind/cli/src/__tests__/codex-generator.test.ts": {
+    "count": 1,
+    "reason": "data: path string handed to mocked/stubbed code; never created on disk"
+  },
+  "packages/@monomind/cli/src/__tests__/codex-runner.test.ts": {
+    "count": 19,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/src/__tests__/dashboard-handler-resolution.test.ts": {
+    "count": 1,
+    "reason": "data: path string handed to mocked/stubbed code; never created on disk"
+  },
+  "packages/@monomind/cli/src/__tests__/memory-kg-org-scope.test.ts": {
+    "count": 1,
+    "reason": "data: path string handed to mocked/stubbed code; never created on disk"
+  },
+  "packages/@monomind/cli/src/__tests__/org-cache-token-accounting.test.ts": {
+    "count": 12,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/src/__tests__/org-tool-result-spill.test.ts": {
+    "count": 2,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/src/__tests__/org-usd-budget-enforcement.test.ts": {
+    "count": 2,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/cli/src/__tests__/ui-command.test.ts": {
+    "count": 4,
+    "reason": "data: path string handed to mocked/stubbed code; never created on disk"
+  },
+  "packages/@monomind/cli/src/__tests__/vercel-runner.test.ts": {
+    "count": 1,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/hooks/__tests__/workers.test.ts": {
+    "count": 1,
+    "reason": "data: path string handed to mocked/stubbed code; never created on disk"
+  },
+  "packages/@monomind/monograph/__tests__/parsers/file-identity.test.ts": {
+    "count": 3,
+    "reason": "data: repoPath or file path fed to a parser/phase/registry that never reads it from disk"
+  },
+  "packages/@monomind/monograph/__tests__/parsers/grammar-loader-honesty.test.ts": {
+    "count": 1,
+    "reason": "data: repoPath or file path fed to a parser/phase/registry that never reads it from disk"
+  },
+  "packages/@monomind/monograph/__tests__/parsers/symbol-identity.test.ts": {
+    "count": 1,
+    "reason": "data: repoPath or file path fed to a parser/phase/registry that never reads it from disk"
+  },
+  "packages/@monomind/monograph/__tests__/parsers/typescript.test.ts": {
+    "count": 1,
+    "reason": "data: repoPath or file path fed to a parser/phase/registry that never reads it from disk"
+  },
+  "packages/@monomind/monograph/src/__tests__/pipeline/phases/communities.clustering-input.test.ts": {
+    "count": 1,
+    "reason": "data: repoPath or file path fed to a parser/phase/registry that never reads it from disk"
+  },
+  "packages/@monomind/monograph/src/__tests__/pipeline/phases/parse-arrow.test.ts": {
+    "count": 3,
+    "reason": "data: repoPath or file path fed to a parser/phase/registry that never reads it from disk"
+  },
+  "packages/@monomind/monograph/src/__tests__/pipeline/phases/suggest-questions.test.ts": {
+    "count": 1,
+    "reason": "data: repoPath or file path fed to a parser/phase/registry that never reads it from disk"
+  },
+  "packages/@monomind/monograph/src/__tests__/pipeline/phases/surprises-scoring.test.ts": {
+    "count": 1,
+    "reason": "data: repoPath or file path fed to a parser/phase/registry that never reads it from disk"
+  },
+  "packages/@monomind/monograph/src/__tests__/pipeline/phases/variables-phase.test.ts": {
+    "count": 4,
+    "reason": "data: repoPath or file path fed to a parser/phase/registry that never reads it from disk"
+  },
+  "packages/@monomind/monograph/src/__tests__/pipeline/phases/wildcard-phase.test.ts": {
+    "count": 1,
+    "reason": "data: repoPath or file path fed to a parser/phase/registry that never reads it from disk"
+  },
+  "packages/@monomind/monograph/src/__tests__/pipeline/runner.parallel.test.ts": {
+    "count": 1,
+    "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
+  },
+  "packages/@monomind/monograph/src/__tests__/reporting/graph-report-confidence.test.ts": {
+    "count": 1,
+    "reason": "data: comment explaining the earlier /tmp fix"
+  },
+  "packages/@monomind/monograph/src/__tests__/reporting/graph-report-gaps.test.ts": {
+    "count": 1,
+    "reason": "data: comment explaining the earlier /tmp fix"
+  },
+  "packages/@monomind/monograph/src/__tests__/web/api.jobs.test.ts": {
+    "count": 4,
+    "reason": "data: repoPath or file path fed to a parser/phase/registry that never reads it from disk"
+  },
+  "packages/@monomind/monograph/src/__tests__/wiki/wiki-review-mode.test.ts": {
+    "count": 2,
+    "reason": "data: repoPath or file path fed to a parser/phase/registry that never reads it from disk"
+  },
+  "tests/hooks/security-gates.test.mjs": {
+    "count": 13,
+    "reason": "data: tool_input paths and commands fed to the security hooks"
+  },
+  "tests/security/crash-reporter-redaction.test.ts": {
+    "count": 1,
+    "reason": "data: path string handed to mocked/stubbed code; never created on disk"
+  },
+  "tests/security/input-guards.test.ts": {
+    "count": 1,
+    "reason": "data: path string handed to mocked/stubbed code; never created on disk"
+  },
+  "tests/security/memory-tools-validation.test.ts": {
+    "count": 1,
+    "reason": "data: path string handed to mocked/stubbed code; never created on disk"
+  }
+}

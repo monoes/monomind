@@ -20,11 +20,13 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMapWorker } from '../../packages/@monomind/hooks/src/workers/worker-map.js';
 import { closeDb, openDb } from '../../packages/@monomind/monograph/src/index.js';
 
-const PROBE = `/tmp/mono-sec1-pwned-${process.pid}-${Date.now()}`;
+const PROBE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'mono-sec1-probe-'));
+const PROBE = path.join(PROBE_DIR, 'pwned');
+afterAll(() => fs.rmSync(PROBE_DIR, { recursive: true, force: true }));
 
 describe('SEC-1 — worker-map git-staleness command injection', () => {
   let projectRoot: string;

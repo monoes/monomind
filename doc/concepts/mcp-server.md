@@ -25,9 +25,9 @@ The subsystem exposes three distinct entry points:
 
 | Entry Point | Location | Description & Behavior |
 |---|---|---|
-| **Binary Stdio Server (`monomind-mcp`)** | `bin/mcp-server.js` ([`handleMessage`](packages/@monomind/cli/bin/mcp-server.js#handleMessage)) | Executable entry point for stdio protocol streams (e.g. `claude mcp add monomind -- monomind-mcp`). - **Protocol Version:** Complies with MCP specification release `2024-11-05` ([`packages/@monomind/cli/src/mcp-server.ts → handleMCPMessage`](packages/@monomind/cli/src/mcp-server.ts#handleMCPMessage) & [`packages/@monomind/mcp/src/server.ts → protocolVersion`](packages/@monomind/mcp/src/server.ts#protocolVersion)). - **Server Identity Version:** Hardcodes server identity `version: '3.0.0'` in `bin/mcp-server.js` (`VERSION = '3.0.0'` at [`bin/mcp-server.js → VERSION`](packages/@monomind/cli/bin/mcp-server.js#VERSION)) in its `initialize` handshake (`serverInfo: { name: 'monomind', version: '3.0.0' }`). |
+| **Binary Stdio Server (`monomind-mcp`)** | `bin/mcp-server.js` ([`handleMessage`](packages/@monomind/cli/bin/mcp-server.js#handleMessage)) | Executable entry point for stdio protocol streams (e.g. `claude mcp add monomind -- monomind-mcp`). - **Protocol Version:** Complies with MCP specification release `2024-11-05` ([`packages/@monomind/cli/src/mcp-stdio-handler.ts → handleMCPMessage`](packages/@monomind/cli/src/mcp-stdio-handler.ts#handleMCPMessage) & [`packages/@monomind/mcp/src/server.ts → protocolVersion`](packages/@monomind/mcp/src/server.ts#protocolVersion)). - **Server Identity Version:** Hardcodes server identity `version: '3.0.0'` in `bin/mcp-server.js` (`VERSION = '3.0.0'` at [`bin/mcp-server.js → VERSION`](packages/@monomind/cli/bin/mcp-server.js#VERSION)) in its `initialize` handshake (`serverInfo: { name: 'monomind', version: '3.0.0' }`). |
 | **CLI Command Module (`monomind mcp`)** | `src/commands/mcp.ts` ([`mcpCommand`](packages/@monomind/cli/src/commands/mcp.ts#mcpCommand)) | Provides 10 CLI subcommands: `start`, `stop`, `status`, `health`, `restart`, `tools`, `toggle`, `exec`, `logs`, `verify` (run it after `claude mcp add` to confirm the server answers). A hidden `monoes-proxy` subcommand is an internal stdio-to-HTTP proxy that Claude Code spawns; you do not run it. |
-| **Daemon Process Manager (`MCPServerManager`)** | `src/mcp-server.ts` ([`MCPServerManager`](packages/@monomind/cli/src/mcp-server.ts#MCPServerManager)) | Manages background MCP server processes, PID lifecycle (`~/.monomind/mcp-server.pid`), port binding, and background logging. |
+| **Daemon Process Manager (`MCPServerManager`)** | `src/mcp-server.ts` ([`MCPServerManager`](packages/@monomind/cli/src/mcp-server.ts#MCPServerManager)) | Manages background MCP server processes, PID lifecycle (`~/.monomind/mcp.pid`), port binding, and background logging. |
 
 ---
 
@@ -40,7 +40,7 @@ The CLI registers and exports domain tool modules under `packages/@monomind/cli/
 | Category | Source File | Tools Included |
 |---|---|---|
 | **Guidance** | [`guidance-tools.ts`](packages/@monomind/cli/src/mcp-tools/guidance-tools.ts) | `guidance_capabilities`, `guidance_recommend`, `guidance_discover`, `guidance_workflow`, `guidance_quickref` |
-| **Monograph** | [`mcp-tools/monograph/`](packages/@monomind/cli/src/mcp-tools/monograph/) (`monograph-tools.ts` is now a re-export shim, not the source) | `monograph_build`, `monograph_query`, `monograph_suggest`, `monograph_impact`, `monograph_context`, `monograph_neighbors`, and 40 more — see [Monograph concept doc](../concepts/monograph.md) for the full 19-default/27-advanced-gated breakdown |
+| **Monograph** | [`mcp-tools/monograph/`](packages/@monomind/cli/src/mcp-tools/monograph/) (`monograph-tools.ts` is now a re-export shim, not the source) | `monograph_build`, `monograph_query`, `monograph_suggest`, `monograph_brief`, `monograph_impact`, `monograph_context`, `monograph_neighbors`, and 41 more — see [Monograph concept doc](../concepts/monograph.md) for the full 20-default/27-advanced-gated breakdown |
 | **Memory** | [`memory-tools.ts`](packages/@monomind/cli/src/mcp-tools/memory-tools.ts) | `memory_pattern-search`, `memory_pattern-store`, `memory_feedback`, `memory_kg_ingest`, `memory_kg_search` |
 | **Second Brain** | [`knowledge-tools.ts`](packages/@monomind/cli/src/mcp-tools/knowledge-tools.ts) | `knowledge_ingest`, `knowledge_search`, `knowledge_remove` |
 | **Pick** | [`pick-tools.ts`](packages/@monomind/cli/src/mcp-tools/pick-tools.ts) | `pick` — best agents and skills for a task, the same JSON as `monomind pick --json` plus a one-line `summary`; input `{ task, kind?: agents\|skills\|both, categories?, top?: 1-20 }`. In the core set, so advertised by default. `hooks_route`, `hooks_pre-task`, `hooks_explain` and `guidance_recommend` rank through the same picker; `hooks_route_semantic` asks it before embeddings (see [Routing](./routing.md); what it ranks: [Agents & Skills](./agents-and-skills.md)) |
@@ -53,13 +53,40 @@ The CLI registers and exports domain tool modules under `packages/@monomind/cli/
 
 `tools/list` advertises a lean core of <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> tools by default ([`mcp-client-roster.ts`](packages/@monomind/cli/src/mcp-client-roster.ts), `CORE_ADVERTISED_TOOLS`), about 14.6 KB of schema instead of 34.7 KB:
 
-- **Monograph:** `monograph_build`, `monograph_query`, `monograph_suggest`, `monograph_impact`, `monograph_context`, `monograph_neighbors`
+- **Monograph:** `monograph_build`, `monograph_query`, `monograph_suggest`, `monograph_brief`, `monograph_impact`, `monograph_context`, `monograph_neighbors`
 - **Picking and discovery:** `pick`, `org_skill_show`, `monomind_tool_search`
 - **Second Brain:** `knowledge_search`, `knowledge_ingest`, `knowledge_remove`
 - **Monodesign:** `monodesign_detect`, `monodesign_fix`, `monodesign_palette`
 - **Memory:** `memory_pattern-store`, `memory_feedback`, `memory_kg_ingest`, `memory_kg_search`, `memory_kg_stats`. The generated CLAUDE.md, GEMINI.md and AGENTS.md and the session-end KG nudge name these directly.
 
 Every other tool, including the `agent_*`, `task_*`, `session_*`, `config_*`, `system_*`, `guidance_*` and `hooks_*` state-file tools and `mcp_status`, is still registered and callable by name. `monomind_tool_search` finds it and returns its schema. Set `MONOMIND_MCP_FULL=1` on the server to advertise the whole registry (<!-- doc-count:mcp-tools-full -->204<!-- /doc-count:mcp-tools-full --> tools, about 95 KB). Set `MONOMIND_MCP_PROFILE=lean` to advertise only six (`monograph_query`, `monograph_brief`, `monograph_impact`, `monograph_context`, `pick`, `monomind_tool_search`); the rest of the default roster stays callable and is found through `monomind_tool_search`.
+
+
+### Token cost by profile
+
+Every advertised tool's schema is sent to the model at the start of each session, so the roster size is a fixed token cost.
+
+| Profile | Tools advertised | Approximate cost | How to select |
+|---|---|---|---|
+| Default | <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> | about 4.3k tokens | nothing to set |
+| Full | <!-- doc-count:mcp-tools-full -->204<!-- /doc-count:mcp-tools-full --> | about 26k tokens | `MONOMIND_MCP_FULL=1` |
+| Lean | 6 | smallest; only code-graph navigation, `pick` and `monomind_tool_search` | `MONOMIND_MCP_PROFILE=lean` |
+
+`monomind init` keeps the default profile. To opt in to lean, add the variable to the server entry's `env` in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "monomind": {
+      "command": "npx",
+      "args": ["-y", "monomind@<version>", "mcp", "start"],
+      "env": { "MONOMIND_MCP_PROFILE": "lean" }
+    }
+  }
+}
+```
+
+With the Claude Code CLI, `claude mcp add monomind -e MONOMIND_MCP_PROFILE=lean -- npx -y monomind@<version> mcp start` does the same. Tools outside the roster stay callable by name; `monomind_tool_search` returns their schemas. `monomind init --force` keeps an `env` value you set.
 
 ---
 

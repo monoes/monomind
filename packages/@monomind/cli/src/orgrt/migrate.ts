@@ -4,7 +4,7 @@
  * stay under the 500-line file cap; org.ts's migrateAction is a thin wrapper
  * that only does the name-validation / isOrgRunning guard and delegates here. */
 import { existsSync, readFileSync } from 'node:fs';
-import { writeJsonFileAtomic } from '../utils/json-file.js';
+import { writeJsonFileAtomic } from '../shared/json-file.js';
 import { endpointStructureErrors } from './endpoint-roles.js';
 import { parseSchedule } from './scheduler.js';
 import { getSkill } from './skill-library.js';

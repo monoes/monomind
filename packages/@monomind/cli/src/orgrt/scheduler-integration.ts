@@ -1,7 +1,7 @@
 // packages/@monomind/cli/src/orgrt/scheduler-integration.ts
 // Extracted from daemon.ts — auto-wake, boss restart, deferred role spawns.
 
-import { waitForCapacity } from '../utils/resource-governor.js';
+import { waitForCapacity } from '../shared/resource-governor.js';
 import { holdTasksForBudget, spawnClosedDetail } from './budget-closure.js';
 import { pushMessage } from './cross-org.js';
 import { activeRoleCount, OrgDaemon, type RunningOrg } from './daemon.js';

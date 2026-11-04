@@ -94,6 +94,11 @@ export const OPTIONAL_DEPENDENCIES = {
     size: 'about 2 MB',
     feature: 'The Chrome download for `monomind browse`',
   },
+  '@huggingface/transformers': {
+    version: '4.3.0',
+    size: 'about 500 MB, mostly the onnxruntime native libraries; model weights are fetched separately',
+    feature: 'The local embedding runtime (Second Brain, memory search, semantic routing)',
+  },
   'monofence-ai': {
     version: '2.24.0',
     size: 'under 1 MB',
@@ -295,6 +300,20 @@ export function optionalDependencyPresent(
   }
   const dir = dependencyDir(name, opts.env ?? process.env);
   return isInstalled(name, dir, opts.host ?? thisHost(), !!opts.withoutSdkBinary);
+}
+
+/** The package directory of the pinned copy monomind resolves itself (a
+ *  checkout's devDependency), if any; undefined when only the deps dir could
+ *  supply it. */
+export function optionalDependencyOwnDir(
+  name: OptionalDependencyName,
+  resolveOwn: (n: string) => string = defaultResolveOwn,
+): string | undefined {
+  try {
+    return ownEntry(name, resolveOwn)?.pkgDir;
+  } catch {
+    return undefined;
+  }
 }
 
 /** The errno code when this process cannot write the deps root (an org

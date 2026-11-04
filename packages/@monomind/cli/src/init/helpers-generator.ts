@@ -147,7 +147,7 @@ export function generateHelpers(options: InitOptions): Record<string, string> {
   if (options.components.helpers) {
     // Unix/macOS shell scripts
     helpers['pre-commit'] = generatePreCommitHook();
-    helpers['post-commit'] = generatePostCommitHook();
+    helpers['post-commit'] = generatePostCommitHook(options.mcp?.pin);
 
     // Cross-platform Node.js scripts
     helpers['session.js'] = generateCrossPlatformSessionManager();

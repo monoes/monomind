@@ -10,7 +10,7 @@
  */
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { writeJsonFileAtomic } from '../utils/json-file.js';
+import { writeJsonFileAtomic } from '../shared/json-file.js';
 import { ORG_DIR } from './types.js';
 
 export const IDLE_WATCHDOG_FILE = 'idle-watchdog.json';

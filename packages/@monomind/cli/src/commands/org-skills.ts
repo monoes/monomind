@@ -5,9 +5,10 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { rankOrgSkills } from '../decision/picks.js';
-import { importRepo } from '../orgrt/skill-import.js';
+import { importRepoConfirmed } from '../orgrt/skill-import.js';
 import { getSkill, listSkills, searchSkills } from '../orgrt/skill-library.js';
 import { output } from '../output.js';
+import { confirm } from '../prompt.js';
 import type { CommandContext, CommandResult } from '../types.js';
 
 const log = (text: string): void => {
@@ -85,7 +86,7 @@ export async function orgSkillsAction(ctx: CommandContext): Promise<CommandResul
     const src = rest[0];
     if (!src)
       return fail(
-        'usage: monomind org skills import <owner/repo | git-url | path> [--global] [--only a,b] [--tags x,y]',
+        'usage: monomind org skills import <owner/repo | git-url | path> [--commit <sha>] [--yes] [--trust] [--global] [--only a,b] [--tags x,y]',
       );
     const dest =
       typeof ctx.flags.into === 'string'
@@ -93,11 +94,28 @@ export async function orgSkillsAction(ctx: CommandContext): Promise<CommandResul
         : ctx.flags.global === true
           ? join(process.env.MONOMIND_HOME ?? join(homedir(), '.monomind'), 'org-skills')
           : join(root, '.monomind', 'org-skills');
-    const results = importRepo(src, dest, {
-      only: csv(ctx.flags.only),
-      tags: csv(ctx.flags.tags),
-      overwrite: ctx.flags.overwrite === true,
-    });
+    const yes = ctx.flags.yes === true;
+    let imported: Awaited<ReturnType<typeof importRepoConfirmed>>;
+    try {
+      imported = await importRepoConfirmed(src, dest, {
+        only: csv(ctx.flags.only),
+        tags: csv(ctx.flags.tags),
+        overwrite: ctx.flags.overwrite === true,
+        commit: typeof ctx.flags.commit === 'string' ? ctx.flags.commit : undefined,
+        trusted: ctx.flags.trust === true,
+        confirm: async (summary) => {
+          if (!json) for (const l of summary) log(l);
+          if (yes) return true;
+          if (!process.stdin.isTTY)
+            throw new Error('not interactive: review the summary and re-run with --yes to import');
+          return confirm({ message: 'Import these skills?', default: false });
+        },
+      });
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : String(err));
+    }
+    if (imported.declined) return fail('import declined; nothing was written');
+    const { results } = imported;
     const ok = results.filter((r) => r.ok);
     if (json) return print({ dest, results });
     for (const r of results) {

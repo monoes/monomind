@@ -12,6 +12,8 @@ This skill is invoked directly via `/mastermind-secrets`.
 
 **Bookkeeping only — not enforced by the Org Runtime.** It writes `.monomind/orgs/<org>-secrets.json` and `.monomind/orgs/.secrets/<org>/`, which no runtime code reads: org agents never receive these values.
 
+On first use in a session, print this one line before doing anything else: `WARNING: mastermind-secrets is a ledger only - nothing is enforced by the Org Runtime.`
+
 ---
 
 ## Inputs

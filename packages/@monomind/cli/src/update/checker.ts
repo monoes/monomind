@@ -53,7 +53,7 @@ const DEFAULT_CONFIG: UpdateConfig = {
   enabled: true,
   checkIntervalHours: 24,
   autoUpdate: {
-    patch: true,
+    patch: false,
     minor: false,
     major: false,
   },
@@ -178,15 +178,10 @@ function getUpdateType(current: string, latest: string): 'major' | 'minor' | 'pa
 
 function shouldAutoUpdate(
   updateType: 'major' | 'minor' | 'patch' | 'none',
-  priority: 'critical' | 'high' | 'normal' | 'low',
+  _priority: 'critical' | 'high' | 'normal' | 'low',
   config: UpdateConfig,
 ): boolean {
   if (updateType === 'none') return false;
-
-  // Critical security packages always auto-update patches and minors
-  if (priority === 'critical' && (updateType === 'patch' || updateType === 'minor')) {
-    return true;
-  }
 
   // Check config
   if (updateType === 'major') return config.autoUpdate.major;

@@ -6,7 +6,7 @@
  * the init target flags.
  */
 
-import { mcpCommand } from '../platform-adapters/renderers/mcp.js';
+import { mcpCommand, monomindNpx } from '../platform-adapters/renderers/mcp.js';
 import type { InitOptions } from './types.js';
 
 /**
@@ -208,7 +208,7 @@ export function generateCodexConfig(options: InitOptions): string {
   return lines.join('\n');
 }
 
-export function generateCodexAgentsMd(): string {
+export function generateCodexAgentsMd(pin?: string): string {
   return [
     '# AGENTS.md — Monomind on Codex',
     '',
@@ -242,7 +242,7 @@ export function generateCodexAgentsMd(): string {
     '',
     '- Never hardcode secrets or commit `.env` files.',
     '- Validate input at system boundaries.',
-    '- Run `npx monomind@latest security scan` after security-related changes.',
+    `- Run \`${monomindNpx(pin)} security scan\` after security-related changes.`,
     '',
     '## Autonomous organizations',
     '',
