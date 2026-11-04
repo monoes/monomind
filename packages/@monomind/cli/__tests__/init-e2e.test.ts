@@ -25,6 +25,7 @@ import * as path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { initCommand } from '../src/commands/init.js';
 import type { InitResult } from '../src/init/types.js';
+import { runPlatformsDoctor } from '../src/platform-adapters/platform-doctor.js';
 import { output } from '../src/output.js';
 import type { CommandContext } from '../src/types.js';
 
@@ -378,6 +379,60 @@ describe('Init Command E2E (real fs)', () => {
       'monomind:start instructions:codex',
     );
   }, 30000);
+
+  describe('CLAUDE.md carries exactly one monomind block', () => {
+    const count = (text: string, needle: string) => text.split(needle).length - 1;
+    const FULL = '<!-- monomind-block:claude-md -->';
+    const SHORT = 'monomind:start instructions:claude';
+    const claudeMd = () => fs.readFileSync(path.join(tmpDir, 'CLAUDE.md'), 'utf8');
+
+    it('writes one block, and --force re-runs keep it at one', async () => {
+      ctx.flags = { ...ctx.flags, platform: 'claude' };
+      expect((await initCommand.action!(ctx)).success).toBe(true);
+      const first = claudeMd();
+      expect(count(first, FULL)).toBe(1);
+      expect(count(first, SHORT)).toBe(0);
+
+      // The second run may differ in body (CLAUDE.md now exists and turns on
+      // the documents capability section); the third must not.
+      ctx.flags = { ...ctx.flags, force: true };
+      expect((await initCommand.action!(ctx)).success).toBe(true);
+      const second = claudeMd();
+      expect(count(second, FULL)).toBe(1);
+      expect(count(second, SHORT)).toBe(0);
+      expect((await initCommand.action!(ctx)).success).toBe(true);
+      expect(claudeMd()).toBe(second);
+
+      // `platforms doctor` still counts the file as monomind's.
+      const [report] = await runPlatformsDoctor({ platform: 'claude', path: tmpDir, scope: 'project' });
+      expect(report?.artifacts).toContainEqual({ path: 'CLAUDE.md', state: 'managed' });
+    }, 60000);
+
+    it('drops the adapter block from a file that already has both', async () => {
+      ctx.flags = { ...ctx.flags, platform: 'claude' };
+      await initCommand.action!(ctx);
+      const doubled = `${claudeMd()}\n<!-- ${SHORT} -->\n# Monomind\n\nold\n<!-- monomind:end instructions:claude -->\n`;
+      fs.writeFileSync(path.join(tmpDir, 'CLAUDE.md'), doubled);
+
+      ctx.flags = { ...ctx.flags, force: true };
+      expect((await initCommand.action!(ctx)).success).toBe(true);
+      const healed = claudeMd();
+      expect(count(healed, FULL)).toBe(1);
+      expect(count(healed, SHORT)).toBe(0);
+    }, 60000);
+
+    it("adds only the short block to the user's own CLAUDE.md (no --force)", async () => {
+      fs.writeFileSync(path.join(tmpDir, 'CLAUDE.md'), '# Mine\n\nHouse rules.\n');
+      ctx.flags = { ...ctx.flags, platform: 'claude' };
+      await initCommand.action!(ctx);
+      const first = claudeMd();
+      expect(first.startsWith('# Mine\n\nHouse rules.')).toBe(true);
+      expect(count(first, FULL)).toBe(0);
+      expect(count(first, SHORT)).toBe(1);
+      await initCommand.action!(ctx);
+      expect(claudeMd()).toBe(first);
+    }, 60000);
+  });
 
   it('should initialize with minimal configuration', async () => {
     ctx.flags = { minimal: true, _: [], 'no-watch': true, 'no-start-all': true };

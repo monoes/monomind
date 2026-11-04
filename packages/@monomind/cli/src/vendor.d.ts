@@ -39,3 +39,6 @@ declare module 'monovector' {
  * package that may be absent in production installs.
  */
 declare module '@monoes/mcp';
+
+// Plain-JS dashboard/MCP ESM modules ship without .d.ts files.
+declare module '*.mjs';

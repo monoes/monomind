@@ -49,7 +49,7 @@ export const hooksPreTask: MCPTool = {
     if (!description) {
       return { error: 'description is required (non-empty string, no control chars, max 16KB)' };
     }
-    const _filePath = validateMcpString(params.filePath, 'filePath', 4 * 1024) ?? undefined;
+    validateMcpString(params.filePath, 'filePath', 4 * 1024) ?? undefined;
     const suggestion = await pickAgents(description, 3);
     const complexity = taskComplexity(description);
 

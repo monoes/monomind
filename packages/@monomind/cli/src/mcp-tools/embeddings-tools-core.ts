@@ -352,9 +352,6 @@ export const embeddingsCoreTools: MCPTool[] = [
 
       const startTime = performance.now();
 
-      // Generate real ONNX embedding for query
-      const _queryEmbedding = await generateRealEmbedding(query, config.dimension);
-
       // Try to search using real memory search
       try {
         const { searchEntries } = await import('../memory/memory-initializer.js');

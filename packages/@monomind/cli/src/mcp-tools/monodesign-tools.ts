@@ -140,11 +140,6 @@ function shapeFinding(f: any): Record<string, unknown> {
   };
 }
 
-function _clampOutput(obj: unknown): string {
-  const s = JSON.stringify(obj, null, 2);
-  return s.length <= MAX_OUTPUT_CHARS ? s : `${s.slice(0, MAX_OUTPUT_CHARS)}\n…(output truncated)`;
-}
-
 function validateTarget(raw: unknown): string | null {
   if (typeof raw !== 'string' || raw.length === 0) return null;
   if (raw.includes('\0')) return null;

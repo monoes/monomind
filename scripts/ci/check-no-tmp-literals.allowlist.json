@@ -163,14 +163,6 @@
     "count": 1,
     "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"
   },
-  "packages/@monomind/cli/__tests__/security-audit.test.ts": {
-    "count": 5,
-    "reason": "data: paths fed to validatePath (shell metacharacter / null-byte cases); file also touched by refactor/split-mcp-server"
-  },
-  "packages/@monomind/cli/__tests__/ui-server-security.test.ts": {
-    "count": 1,
-    "reason": "fix after PR merges (fix/security-mcp-dashboard touches this file): COST_FIXTURE_DIR is a fake project path used only to derive a ~/.claude/projects slug inside a temp HOME"
-  },
   "packages/@monomind/cli/src/__tests__/agent-runner-claude-settings-sdk.test.ts": {
     "count": 1,
     "reason": "data: fake cwd / PolicyEngine cwd / spill dir handed to a mocked runner or process; never created"

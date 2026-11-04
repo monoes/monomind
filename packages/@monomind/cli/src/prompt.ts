@@ -89,7 +89,6 @@ export class PromptManager {
   async confirm(options: ConfirmPromptOptions): Promise<boolean> {
     const { message, default: defaultValue = false, active = 'Yes', inactive = 'No' } = options;
 
-    const _defaultText = defaultValue ? `${active}/${inactive}` : `${active}/${inactive}`;
     const hint = defaultValue ? `[${active}]` : `[${inactive}]`;
 
     const prompt = `${this.formatter.bold('?')} ${message} ${this.formatter.dim(hint)} `;
@@ -162,7 +161,7 @@ export class PromptManager {
 
   private async inputMasked(prompt: string): Promise<string> {
     return new Promise((resolve) => {
-      const _rl = this.createInterface();
+      this.createInterface();
       let password = '';
 
       // Don't echo characters

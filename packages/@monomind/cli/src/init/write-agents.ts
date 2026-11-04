@@ -14,7 +14,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { monomindNpx } from '../platform-adapters/renderers/mcp.js';
+import { generateCodexAgentsMd } from './codex-generator.js';
+import { guardFor } from './file-guard.js';
 import { atomicWriteFile } from './fs-helpers.js';
+import { generateKimiAgentsMd } from './kimi-generator-agents-md.js';
+import { dropLegacyUnmarked, readGeneratedBlock } from './managed-block.js';
+import { generateAgentsMd } from './opencode-generator.js';
 import type { InitOptions, InitResult } from './types.js';
 
 export function generateAgentsOnlyMd(pin?: string): string {
@@ -61,5 +66,54 @@ export function writeAgentsOnly(targetDir: string, options: InitOptions, result:
     return;
   }
   atomicWriteFile(file, generateAgentsOnlyMd(options.mcp?.pin));
+  result.created.files.push('AGENTS.md');
+}
+
+/**
+ * The AGENTS.md blocks the codex, opencode and kimi targets own, in the order
+ * they are first written. opencode keeps the bare `agents-md` marker it has
+ * always used, so existing files refresh in place.
+ */
+const AGENTS_MD_BLOCKS = [
+  { component: 'codex', marker: 'agents-md:codex', generate: generateCodexAgentsMd },
+  { component: 'opencode', marker: 'agents-md', generate: generateAgentsMd },
+  { component: 'kimicode', marker: 'agents-md:kimi', generate: generateKimiAgentsMd },
+] as const;
+
+/**
+ * The one writer of AGENTS.md for the codex, opencode and kimi targets. They
+ * used to write it themselves with different policies (two skip-if-exists,
+ * one managed block under --force), so which body won depended on write
+ * order. Each selected target now gets its own managed block, written in a
+ * fixed order: the file comes out the same however the run is ordered, a
+ * re-run is byte-identical, and text outside the blocks is never touched.
+ * Like CLAUDE.md, an existing file is only changed under --force.
+ */
+export function writeAgentsMd(targetDir: string, options: InitOptions, result: InitResult): void {
+  const blocks = AGENTS_MD_BLOCKS.filter(({ component }) => options.components[component]);
+  if (blocks.length === 0) return;
+  const file = path.join(targetDir, 'AGENTS.md');
+  const exists = fs.existsSync(file);
+  if (exists && !options.force) {
+    result.skipped.push('AGENTS.md');
+    return;
+  }
+  const original = exists ? fs.readFileSync(file, 'utf-8') : '';
+  // Drop the unmarked bodies older releases wrote first, so every block is
+  // then placed by the fixed order rather than where an old body sat.
+  let content = blocks.reduce(
+    (text, { marker, generate }) =>
+      readGeneratedBlock(text, marker) === null ? dropLegacyUnmarked(text, generate()) : text,
+    original,
+  );
+  const guard = guardFor(targetDir, options, result);
+  for (const { marker, generate } of blocks) {
+    content = guard.mergeBlock(file, content, marker, generate(options.mcp?.pin)) ?? content;
+  }
+  if (content === original) {
+    result.skipped.push('AGENTS.md');
+    return;
+  }
+  atomicWriteFile(file, content);
   result.created.files.push('AGENTS.md');
 }

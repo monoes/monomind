@@ -48,7 +48,9 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
 
       // Get current columns in memory_entries
       const tableInfo = db.exec('PRAGMA table_info(memory_entries)');
-      const existingColumns = new Set(tableInfo[0]?.values?.map((row) => row[1] as string) || []);
+      const existingColumns = new Set(
+        tableInfo[0]?.values?.map((row: unknown[]) => row[1] as string) || [],
+      );
 
       const requiredColumns: Array<{ name: string; definition: string }> = [
         { name: 'content', definition: "content TEXT DEFAULT ''" },

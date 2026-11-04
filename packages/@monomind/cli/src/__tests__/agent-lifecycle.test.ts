@@ -97,7 +97,7 @@ describe('spawnCommand', () => {
     )) as CommandResult;
     expect(result.success).toBe(true);
     expect((result.data as { note?: string }).note).toMatch(/no process/i);
-    const printed = writeSpy.mock.calls.map((c) => String(c[0])).join('');
+    const printed = writeSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('');
     expect(printed).toMatch(/recorded/i);
     expect(printed).toMatch(/no process/i);
     expect(printed).not.toMatch(/spawned successfully/);

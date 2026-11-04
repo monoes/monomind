@@ -203,16 +203,16 @@ So the text you write *is* the routing: `when_to_use`, `description` and `tags` 
 
 ## 6. Contributing to monomind itself
 
-In this repository the npm-shipped tree `packages/@monomind/cli/.claude/` is the source `monomind init` copies from; the root `.claude/` is the copy the repository itself uses. `node scripts/sync-claude-trees.mjs` (`pnpm run sync:claude-trees`) makes every file present in both trees identical to the root copy; it never deletes a file, and only creates one for `.agents/skills` and `.gemini/skills` (a file missing inside a skill directory the mirror already holds) and `.gemini/helpers` (a full install copy of `.claude/helpers`).
+In this repository the root `.claude/` is the only hand-edited tree. `packages/@monomind/cli/.claude/` (what `monomind init` copies from and npm ships), `.agents/skills`, `.gemini/skills`, `.gemini/helpers` and the `.kimi-code` agents, commands and skills are gitignored and generated from it by `node scripts/generate-claude-trees.mjs` (run by the CLI build, the vitest global setup and `pnpm run sync:claude-trees`). The package tree is the root tree plus the files under `packages/@monomind/cli/claude-overlay/`, minus a few repo-only paths (`PACKAGE_EXCLUDE` in the script).
 
-- **New agent, skill or command:** add it to `packages/@monomind/cli/.claude/…` (and to the root `.claude/…` if the repo should use it too). A new agent category directory, a new skill or a new command group must also be listed in `AGENTS_MAP`, `SKILLS_MAP` or `COMMANDS_MAP` in [`init/asset-maps.ts`](packages/@monomind/cli/src/init/asset-maps.ts#SKILLS_MAP) (skills named `mastermind-*` are matched by a wildcard), or `init` will not copy it.
-- **Editing an existing one:** edit the root `.claude/` copy, then run `pnpm run sync:claude-trees`.
+- **New agent, skill or command:** add it to the root `.claude/…` (or, if it should ship but the repo itself should not use it, to `packages/@monomind/cli/claude-overlay/…`). A new agent category directory, a new skill or a new command group must also be listed in `AGENTS_MAP`, `SKILLS_MAP` or `COMMANDS_MAP` in [`init/asset-maps.ts`](packages/@monomind/cli/src/init/asset-maps.ts#SKILLS_MAP) (skills named `mastermind-*` are matched by a wildcard), or `init` will not copy it.
+- **Editing an existing one:** edit the root `.claude/` copy, then run `pnpm run sync:claude-trees` (or rebuild) to regenerate the derived trees.
 - **Org skills:** add them under `packages/@monomind/cli/org-skills/<name>/` with 3-5 tags from `TAGS.md`. Import third-party ones with `monomind org skills import … --into packages/@monomind/cli/org-skills` and add the repository to `SOURCES.md`.
 - **Checks** (all run in `pnpm run verify` or CI):
 
   ```bash
   pnpm run lint:agent-refs         # every subagent_type, agentSlug and Skill(...) named in shipped files exists
-  pnpm run sync:claude-trees:check # the copies agree
+  pnpm run sync:claude-trees:check # the derived trees regenerate deterministically and match disk
   pnpm run lint:skills             # monomind commands named in skills exist; synced skills are identical
   pnpm run pick:eval               # top-1/top-3 picks on tests/pick-eval (82 tasks)
   pnpm run docs:counts             # refresh the counts on this page and the site

@@ -11,6 +11,7 @@
 
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { validateGitRef as sharedValidateGitRef } from '@monoes/monograph';
 
@@ -48,11 +49,12 @@ describe('Path Traversal Prevention', () => {
       if (/[;&|`$<>]/.test(p)) throw new Error(`${label} contains shell metacharacters`);
     }
 
-    expect(() => validatePath('/tmp/test;rm -rf /', 'test')).toThrow('shell metacharacters');
-    expect(() => validatePath('/tmp/test|cat /etc/passwd', 'test')).toThrow('shell metacharacters');
-    expect(() => validatePath('/tmp/test`whoami`', 'test')).toThrow('shell metacharacters');
-    expect(() => validatePath('/tmp/test$HOME', 'test')).toThrow('shell metacharacters');
-    expect(() => validatePath('/tmp/test\0evil', 'test')).toThrow('null bytes');
+    const base = path.join(os.tmpdir(), 'test');
+    expect(() => validatePath(`${base};rm -rf /`, 'test')).toThrow('shell metacharacters');
+    expect(() => validatePath(`${base}|cat /etc/passwd`, 'test')).toThrow('shell metacharacters');
+    expect(() => validatePath(`${base}\`whoami\``, 'test')).toThrow('shell metacharacters');
+    expect(() => validatePath(`${base}$HOME`, 'test')).toThrow('shell metacharacters');
+    expect(() => validatePath(`${base}\0evil`, 'test')).toThrow('null bytes');
   });
 });
 

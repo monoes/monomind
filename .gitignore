@@ -251,11 +251,9 @@ data/
 .understand/
 graphify-out/
 
-# packages/@monomind/cli/.claude/ itself is TRACKED — it is init's asset source
-# and what npm ships (scripts/sync-claude-trees.mjs keeps it in step with the
-# root .claude/). Only the monodesign skill inside it is generated, by
-# packages/@monoes/monodesign/scripts/sync-skill.mjs, which the CLI's prepack
-# runs so every pack/publish ships a fresh copy.
+# The monodesign skill inside the generated packages/@monomind/cli/.claude/ is
+# compiled by packages/@monoes/monodesign/scripts/sync-skill.mjs (the CLI's
+# prepack runs it).
 packages/@monomind/cli/.claude/skills/monodesign/
 packages/@monomind/cli/bundled-graph/
 # packages/@monomind/cli/.monomind/ — covered by **/.monomind/ patterns above
@@ -313,3 +311,18 @@ test-results/
 
 # monomind runtime state
 .claude/memory.db
+
+# Derived from the root .claude/ by scripts/generate-claude-trees.mjs (run by the
+# CLI build, `pnpm run sync:claude-trees` and the vitest global setup). The
+# files only the package ships live in packages/@monomind/cli/claude-overlay/.
+packages/@monomind/cli/.claude/
+.agents/skills/
+.gemini/skills/*
+!.gemini/skills/monomind/
+.gemini/skills/monomind/*
+!.gemini/skills/monomind/SKILL.md
+.gemini/helpers/*
+!.gemini/helpers/statusline.sh
+.kimi-code/agents/
+.kimi-code/plugin/commands/
+.kimi-code/skills/
