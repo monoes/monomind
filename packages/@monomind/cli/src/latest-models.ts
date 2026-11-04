@@ -73,6 +73,12 @@ export const LATEST_FLOOR: Record<ModelRuntime, Record<string, string>> = {
   antigravity: { 'flash-high': 'gemini-3.8-flash-high' },
 };
 
+/** The newest Sonnet known at this release: the floor under the default
+ *  Claude model, for consumers that need a fixed value (price aliases, tests).
+ *  Never used to route; routing calls defaultClaudeModel()
+ *  (orgrt/vercel-providers.ts, which re-exports this). */
+export const DEFAULT_CLAUDE_MODEL = LATEST_FLOOR.claude.sonnet;
+
 type Catalog = Partial<Record<ModelRuntime, string[]>>;
 const RUNTIMES: ModelRuntime[] = ['claude', 'codex', 'antigravity'];
 
