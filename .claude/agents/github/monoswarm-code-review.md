@@ -525,4 +525,4 @@ gh pr list --search "review:required" --json number,title,author,createdAt \
   --jq '.[] | "- #\(.number) \(.title) (@\(.author.login), opened \(.createdAt[:10]))"'
 ```
 
-See also: [monoswarm-pr.md](./monoswarm-pr.md), [workflow-automation.md](./workflow-automation.md)
+See also: [pr-manager.md](./pr-manager.md), [workflow-automation.md](./workflow-automation.md)

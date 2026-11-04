@@ -17,6 +17,7 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ### Removed
 
+- **The four deprecated agents: `Code Reviewer`, `monoswarm-pr`, `monoswarm-issue` and `mobile-dev`** (surface reduction C4, `docs/mastermind/plans/2026-11-surface-reduction.md`). They were already never picked and never installed by a pack; use `reviewer`, `pr-manager`, `issue-tracker` and `Mobile App Builder`. `init` / `init upgrade` move an unmodified copy from an older install to `.monomind/backups/<run>/retired/` (their shipped hashes are in `retired-files-data.ts`); a copy you edited stays, with a warning.
 - **`.claude/helpers/intelligence.cjs` and `router.cjs`, and the `hook-handler.cjs stats` command.** Nothing used `router.cjs` (the prompt hook's pick ranks the agent and skill catalogs). `intelligence.cjs` fed `auto-memory-store.json`, `ranked-context.json`, `pending-insights.jsonl` and `intelligence-outcomes.jsonl`; the compact, session, edit, task and capture handlers no longer call it. Session-end success is now derived only from a commit in the last 30 minutes. `init` and `init upgrade` retire both files (and the `.gemini/helpers` copies) the way they retire the monoswarm files: moved to `.monomind/backups/<run>/retired/files/` when unmodified, kept with a warning when edited. `/mastermind:specialagents` lists categories and agents from `.claude/agents` and activates an agent by reading its file, since the `router.cjs --load-agent` and `hook-handler.cjs list-extras` calls it relied on did not exist.
 
 ## [2.29.0] — 2026-10-26

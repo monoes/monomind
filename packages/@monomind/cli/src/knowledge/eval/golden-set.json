@@ -452,7 +452,7 @@
   {
     "id": "agent-mobile",
     "query": "building phone applications that run on both apple and android from one codebase",
-    "relevant": [".claude/agents/specialized/mobile/spec-mobile-react-native.md"],
+    "relevant": [".claude/agents/engineering/engineering-mobile-app-builder.md"],
     "tags": ["agents"]
   },
   {
@@ -725,7 +725,7 @@
   {
     "id": "b1-mentor-review",
     "query": "we want feedback on changes that teaches something instead of nitpicking whitespace",
-    "relevant": [".claude/agents/engineering/engineering-code-reviewer.md"],
+    "relevant": [".claude/agents/core/reviewer.md"],
     "tags": ["b1"]
   },
   {
@@ -1502,7 +1502,7 @@
   {
     "id": "b3-ticket-to-workers",
     "query": "turn a filed bug report on the hosting platform into split up assignments for several workers and post progress back as comments",
-    "relevant": [".claude/agents/github/monoswarm-issue.md"],
+    "relevant": [".claude/agents/github/issue-tracker.md"],
     "tags": ["b3"]
   },
   {
@@ -1818,7 +1818,7 @@
   {
     "id": "b4-team-from-pr-body",
     "query": "spin up the worker group directly from what someone wrote in the merge request and drive it further by leaving comments there",
-    "relevant": [".claude/agents/github/monoswarm-pr.md"],
+    "relevant": [".claude/agents/github/pr-manager.md"],
     "tags": ["b4"]
   },
   {
@@ -2724,7 +2724,7 @@
   {
     "id": "b7-pr-quality",
     "query": "which specialist examines pull requests for quality and correctness",
-    "relevant": [".claude/agents/engineering/engineering-code-reviewer.md"],
+    "relevant": [".claude/agents/core/reviewer.md"],
     "tags": ["b7"]
   },
   {
@@ -2862,7 +2862,7 @@
   {
     "id": "b7-ios-android-js",
     "query": "which worker builds ios and android apps using javascript frameworks",
-    "relevant": [".claude/agents/specialized/mobile/spec-mobile-react-native.md"],
+    "relevant": [".claude/agents/engineering/engineering-mobile-app-builder.md"],
     "tags": ["b7"]
   },
   {

@@ -373,4 +373,4 @@ gh issue create --repo org/web-app --title "Rollout: new session API" --body "Tr
 while read -r url; do gh pr edit "$url" --add-reviewer org/backend-team; done < /tmp/created-prs.txt
 ```
 
-See also: [monoswarm-pr.md](./monoswarm-pr.md), [project-board-sync.md](./project-board-sync.md)
+See also: [pr-manager.md](./pr-manager.md), [project-board-sync.md](./project-board-sync.md)
