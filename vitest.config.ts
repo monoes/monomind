@@ -27,7 +27,7 @@ export default defineConfig({
       'tests/memory/cognee-port-eval.test.mjs',
     ],
     // Moves every worker off the developer's real HOME (#347).
-    globalSetup: ['tests/setup/isolated-home.global.ts'],
+    globalSetup: ['tests/setup/claude-trees.global.ts', 'tests/setup/isolated-home.global.ts'],
     // Clears Jev provider env so no test reaches a real decision model.
     setupFiles: [
       'tests/setup/no-jev-env.setup.ts',

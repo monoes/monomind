@@ -241,4 +241,4 @@ If MCP is unavailable, run `npx -y monomind@latest doctor` and use `npx -y monom
 
 ## Asset Trees
 
-- After changing a skill, command or agent, edit the root `.claude/` copy, then run `pnpm run sync:claude-trees` (mirrors it to the package, `.agents`, `.gemini` and `.kimi-code` trees and regenerates the kimi agents/commands); CI fails on `pnpm run sync:claude-trees:check`.
+- After changing a skill, command or agent, edit the root `.claude/` copy, then run `pnpm run sync:claude-trees` (regenerates the gitignored package, `.agents`, `.gemini` and `.kimi-code` trees; the CLI build and the test setup run it too; files that ship but are not in the root tree live in `packages/@monomind/cli/claude-overlay/`); CI fails on `pnpm run sync:claude-trees:check`.
