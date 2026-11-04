@@ -3,7 +3,7 @@
 // (persistState, persistCrashStateAll) and the serve heartbeat.
 import { mkdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { writeJsonFileAtomic } from '../utils/json-file.js';
+import { writeJsonFileAtomic } from '../shared/json-file.js';
 import { captureCheckpoint, generateChecksum, type OrgCheckpoint } from './checkpoint.js';
 import type { OrgDaemon } from './daemon.js';
 import type { RunningOrg } from './daemon-types.js';

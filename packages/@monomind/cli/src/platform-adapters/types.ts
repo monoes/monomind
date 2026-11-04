@@ -108,6 +108,9 @@ export interface InstallRequest {
   /** Writes `owned_file` intents, keeping a file the user edited. init passes
    *  its run's guard; without one an install uses its own (init/file-guard.ts). */
   fileGuard?: OwnedFileWriter;
+  /** Version the MCP entry and command hints pin to (init's `--pin`; default:
+   *  the running CLI); `latest` floats. */
+  pin?: string;
 }
 
 /** How a managed block of one delimiter form is read and merged. */

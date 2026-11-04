@@ -14,9 +14,9 @@ const CONFIG_FILENAMES = ['monomind.config.json', '.monomind/config.json'];
  * Default config values.
  *
  * IMPORTANT: never hand this object (or a shallow `{ ...DEFAULT_CONFIG }`
- * copy) out directly — its nested sections (`agents`, `monoswarm`, `memory`, ...)
+ * copy) out directly — its nested sections (`agents`, `coordination`, `memory`, ...)
  * would be shared-by-reference with every caller, so one caller mutating
- * `config.monoswarm.maxAgents` would silently corrupt this module-level constant
+ * `config.coordination.maxAgents` would silently corrupt this module-level constant
  * for the rest of the process. Always hand out `cloneDefaultConfig()`.
  */
 const DEFAULT_CONFIG: Record<string, unknown> = {
@@ -28,7 +28,7 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
     timeout: 300000,
     providers: [],
   },
-  monoswarm: {
+  coordination: {
     topology: 'hierarchical',
     maxAgents: 8,
     autoScale: false,
@@ -70,9 +70,33 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
 };
 
 /**
+ * Read-time migration: the `monoswarm` section (topology, maxAgents, ...) was
+ * renamed `coordination`. An old file keeps working — its `monoswarm` values
+ * are moved under `coordination` (values already under `coordination` win).
+ */
+function migrateLegacyConfig(config: Record<string, unknown>): Record<string, unknown> {
+  const legacy = config.monoswarm;
+  if (legacy === undefined) return config;
+  delete config.monoswarm;
+  if (typeof legacy === 'object' && legacy !== null && !Array.isArray(legacy)) {
+    const current = config.coordination;
+    config.coordination = {
+      ...(legacy as Record<string, unknown>),
+      ...(typeof current === 'object' && current !== null ? (current as object) : {}),
+    };
+  }
+  return config;
+}
+
+/** `monoswarm.maxAgents` -> `coordination.maxAgents` (old key spellings still work). */
+function normalizeConfigKey(key: string): string {
+  return /^monoswarm(\.|$)/.test(key) ? `coordination${key.slice('monoswarm'.length)}` : key;
+}
+
+/**
  * Deep-clone the default config so every caller gets its own independent
  * object graph. `{ ...DEFAULT_CONFIG }` is only a shallow copy — its nested
- * sub-configs (`agents`, `monoswarm`, `memory`, ...) would remain the SAME
+ * sub-configs (`agents`, `coordination`, `memory`, ...) would remain the SAME
  * object references as the module-level constant, so mutating a nested
  * field on one caller's copy would corrupt the shared default for every
  * subsequent caller in the process.
@@ -149,7 +173,7 @@ export class ConfigFileManager {
       );
     }
     this.configPath = resolved;
-    this.config = sanitizeConfigObject(parsed) as Record<string, unknown>;
+    this.config = migrateLegacyConfig(sanitizeConfigObject(parsed) as Record<string, unknown>);
     return this.config;
   }
 
@@ -163,7 +187,7 @@ export class ConfigFileManager {
     try {
       const content = fs.readFileSync(this.configPath, 'utf-8');
       const parsed = JSON.parse(content);
-      this.config = sanitizeConfigObject(parsed) as Record<string, unknown>;
+      this.config = migrateLegacyConfig(sanitizeConfigObject(parsed) as Record<string, unknown>);
       return this.config;
     } catch {
       this.config = null;
@@ -182,7 +206,7 @@ export class ConfigFileManager {
   /** Get a nested config value by dot-separated key */
   get(cwd: string, key: string): unknown {
     const config = this.getConfig(cwd);
-    return getNestedValue(config, key);
+    return getNestedValue(config, normalizeConfigKey(key));
   }
 
   /** Set a nested config value by dot-separated key.
@@ -199,7 +223,8 @@ export class ConfigFileManager {
     const KNOWN_SET_SECTIONS = new Set([
       'version',
       'agents',
-      'monoswarm',
+      'monoswarm', // legacy spelling of `coordination`, migrated on read
+      'coordination',
       'memory',
       'mcp',
       'cli',
@@ -226,7 +251,7 @@ export class ConfigFileManager {
     if (fs.existsSync(targetPath)) {
       try {
         const parsed = JSON.parse(fs.readFileSync(targetPath, 'utf-8'));
-        onDisk = sanitizeConfigObject(parsed) as Record<string, unknown>;
+        onDisk = migrateLegacyConfig(sanitizeConfigObject(parsed) as Record<string, unknown>);
       } catch (e) {
         // The file exists but failed to parse — do NOT fall through to
         // cloneDefaultConfig() and write that back. This config can hold
@@ -240,7 +265,7 @@ export class ConfigFileManager {
         );
       }
     }
-    setNestedValue(onDisk, key, sanitisedValue);
+    setNestedValue(onDisk, normalizeConfigKey(key), sanitisedValue);
     this.writeAtomic(targetPath, onDisk);
     this.config = onDisk;
     this.configPath = targetPath;
@@ -315,11 +340,14 @@ export class ConfigFileManager {
     // Recursively strip prototype-pollution keys at every nesting level —
     // KNOWN_SECTIONS only validates top-level keys, leaving nested
     // {agents:{providers:[{__proto__:{...}}]}} unsanitized.
-    const imported = sanitizeConfigObject(importedRaw) as Record<string, unknown>;
+    const imported = migrateLegacyConfig(
+      sanitizeConfigObject(importedRaw) as Record<string, unknown>,
+    );
     const KNOWN_SECTIONS = new Set([
       'version',
       'agents',
-      'monoswarm',
+      'monoswarm', // legacy spelling of `coordination`, migrated on read
+      'coordination',
       'memory',
       'mcp',
       'cli',

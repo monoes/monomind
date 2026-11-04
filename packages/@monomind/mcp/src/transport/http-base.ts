@@ -24,6 +24,7 @@ import type {
   TransportHealthStatus,
   TransportType,
 } from '../types.js';
+import { isAllowedHost, isAllowedOrigin } from './origin-guard.js';
 
 export interface HttpTransportConfig {
   host: string;
@@ -34,6 +35,10 @@ export interface HttpTransportConfig {
   corsEnabled?: boolean;
   corsOrigins?: string[];
   auth?: AuthConfig;
+  /** Extra Host header names accepted besides loopback (and the bind host). */
+  allowedHosts?: string[];
+  /** Extra Origins accepted on WebSocket upgrade besides loopback ones. */
+  allowedOrigins?: string[];
   maxRequestSize?: string;
   requestTimeout?: number;
 }
@@ -221,7 +226,41 @@ export abstract class HttpTransportBase extends EventEmitter {
     }
   }
 
+  /**
+   * Single auth predicate shared by the HTTP and WebSocket paths: auth is
+   * enforced whenever a policy exists and `enabled` is not explicitly false.
+   */
+  protected authRequired(): boolean {
+    return !!this.config.auth && this.config.auth.enabled !== false;
+  }
+
+  /** SECURITY: Host allow-list (DNS-rebinding defence). */
+  protected hostAllowed(hostHeader: string | undefined): boolean {
+    return isAllowedHost(hostHeader, [...(this.config.allowedHosts ?? []), this.config.host]);
+  }
+
+  /** SECURITY: Origin allow-list for WebSocket upgrades (cross-site WS hijacking defence). */
+  protected originAllowed(origin: string | undefined): boolean {
+    return isAllowedOrigin(origin, [
+      ...(this.config.allowedOrigins ?? []),
+      ...(this.config.corsOrigins ?? []),
+    ]);
+  }
+
   private setupMiddleware(): void {
+    this.app.use((req, res, next) => {
+      if (!this.hostAllowed(req.headers.host)) {
+        this.logger.warn('Request rejected: Host not allowed', { host: req.headers.host });
+        res.status(403).json({
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32000, message: 'Forbidden: Host not allowed' },
+        });
+        return;
+      }
+      next();
+    });
+
     this.app.use(
       helmet({
         contentSecurityPolicy: false,
@@ -300,7 +339,7 @@ export abstract class HttpTransportBase extends EventEmitter {
 
   protected validateAuth(req: Request): AuthValidationResult {
     return validateCredential(
-      this.config.auth!,
+      { ...this.config.auth!, enabled: true },
       req.headers.authorization,
       req.headers['x-api-key'] as string | undefined,
     );

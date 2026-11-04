@@ -12,6 +12,8 @@ This skill is invoked directly via `/mastermind-access`.
 
 **Bookkeeping only — not enforced by the Org Runtime.** It writes `.monomind/orgs/<org>-members.json`, which no runtime code reads: roles and permission grants recorded here restrict nothing.
 
+On first use in a session, print this one line before doing anything else: `WARNING: mastermind-access is a ledger only - nothing is enforced by the Org Runtime.`
+
 ---
 
 ## Inputs

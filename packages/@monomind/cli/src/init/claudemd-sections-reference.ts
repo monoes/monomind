@@ -243,12 +243,12 @@ export function monographSection(): string {
 - Skip it for single-file edits in a file you already know.`;
 }
 
-export function setupAndBoundary(): string {
+export function setupAndBoundary(options: InitOptions): string {
   return `## Quick Setup
 
 \`\`\`bash
 # Add MCP server — includes monograph, memory, hooks and more
-${mcpAddHint()}
+${mcpAddHint(options.mcp?.pin)}
 
 # Verify everything works
 npx monomind doctor --fix

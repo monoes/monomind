@@ -52,10 +52,9 @@ describe('dashboard login', () => {
     expect(loginNonceUsed(n, h)).toBe(true);
   });
 
-  it('sets a 400-day cookie and no longer says 30 days', () => {
-    expect(SESSION_MAX_AGE_S).toBe(34560000);
-    expect(humanSessionCookie(home())).toContain('Max-Age=34560000');
-    expect(loginRequiredPage()).not.toContain('30 days');
-    expect(loginRequiredPage()).toContain('stays logged in');
+  it('sets a 30-day cookie', () => {
+    expect(SESSION_MAX_AGE_S).toBe(2592000);
+    expect(humanSessionCookie(home())).toContain('Max-Age=2592000');
+    expect(loginRequiredPage()).toContain('stays logged in for 30 days');
   });
 });

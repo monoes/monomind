@@ -172,12 +172,6 @@ export class HNSWIndex extends EventEmitter {
 
     // Start from entry point and search down the layers
     let currentNode = this.entryPoint;
-    let _currentDist = distanceOptimized(
-      this.config.metric,
-      queryVector,
-      normalizedQuery,
-      this.nodes.get(currentNode)!,
-    );
 
     // Search through layers from top to 1
     for (let level = this.maxLevel; level > 0; level--) {
@@ -191,12 +185,6 @@ export class HNSWIndex extends EventEmitter {
         level,
       );
       currentNode = layerResult[0]?.id || currentNode;
-      _currentDist = distanceOptimized(
-        this.config.metric,
-        queryVector,
-        normalizedQuery,
-        this.nodes.get(currentNode)!,
-      );
     }
 
     // Search layer 0 with ef candidates using heap-based search

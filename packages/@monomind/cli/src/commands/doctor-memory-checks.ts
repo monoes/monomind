@@ -5,9 +5,9 @@
  */
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { MEMORY_DB_CANDIDATE_PATHS } from '../utils/paths.js';
+import { transformersCacheDir } from '../utils/transformers-loader.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 
 /** o-16 (AC-6): the marker walk that resolves "this project" for the Memory
@@ -176,39 +176,20 @@ export async function checkSecondBrainModel(): Promise<HealthCheck> {
     .filter(Boolean)
     .join(' · ');
 
-  let entryPath: string | null = null;
-  try {
-    // exports map blocks package.json — resolve the entry file, then walk UP
-    // with path ops (no separator-sensitive regex: '/dist/'.replace broke on
-    // Windows paths, and any install layout without a dist segment).
-    // import.meta.resolve is missing on Node 20.0–20.5; fall back to CJS resolve.
-    const viaEsm = import.meta.resolve?.('@huggingface/transformers');
-    if (viaEsm) entryPath = fileURLToPath(await viaEsm);
-  } catch {
-    /* try CJS below */
+  const cacheRoot = transformersCacheDir();
+  if (!cacheRoot) {
+    return {
+      name,
+      status: 'warn',
+      message:
+        'Embedding runtime not installed — semantic search degraded to keyword matching until first use',
+      fix: 'run `monomind download-embeddings` (installs @huggingface/transformers into ~/.monomind/deps and fetches the model)',
+    };
   }
-  if (!entryPath) {
-    try {
-      const { createRequire } = await import('node:module');
-      entryPath = createRequire(import.meta.url).resolve('@huggingface/transformers');
-    } catch {
-      return {
-        name,
-        status: 'warn',
-        message:
-          '@huggingface/transformers not installed — semantic search degraded to keyword matching',
-        fix: 'reinstall monomind (the model dependency is optional and may have failed to build)',
-      };
-    }
-  }
-  // Walk up from the entry file to the package root (the dir named 'transformers').
-  let pkgDir = dirname(entryPath);
-  while (pkgDir !== dirname(pkgDir) && !pkgDir.endsWith('transformers')) pkgDir = dirname(pkgDir);
   // The cached model is whichever one the bridge actually loads. This used to
   // look for '.cache/Xenova', a model the bridge stopped using — so the check
   // reported "not downloaded" with a fully provisioned cache sitting on disk.
-  const modelCache = join(pkgDir, '.cache', ...BRIDGE_EMBEDDING_MODEL.split('/'));
-  if (pkgDir.endsWith('transformers') && existsSync(modelCache)) {
+  if (existsSync(join(cacheRoot, ...BRIDGE_EMBEDDING_MODEL.split('/')))) {
     return {
       name,
       status: 'pass',

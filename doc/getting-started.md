@@ -104,7 +104,7 @@ monomind mcp verify
 You should see:
 
 ```
-✓ Tool registry: 20 tools registered
+✓ Tool registry: 21 tools registered
 ✓ Sample tool (system_info): resolves
 ✓ claude mcp registration: monomind appears in `claude mcp list`
 ```
@@ -166,7 +166,7 @@ The wizard (`monomind init wizard`) asks which packs to add. A project initialis
 
 | Component | How to check | How to stop |
 |---|---|---|
-| Code graph (Monograph) | `monomind monograph status` | Automatic (background build) |
+| Code graph (Monograph) | `monomind monograph stats` | Automatic (background build) |
 | Memory | `monomind memory list` | Always on (SQLite) |
 | MCP server | `monomind mcp status` | `monomind mcp stop` |
 | Dashboard | `curl -s http://localhost:4242/api/identity` | `node .claude/helpers/control-stop.cjs` |

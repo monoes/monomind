@@ -39,6 +39,24 @@ export const skillsSubcommand: Command = {
       description: 'import: replace skills already in the library',
       type: 'boolean',
     },
+    {
+      name: 'commit',
+      description:
+        'import: commit id to pin a remote repository to (required for owner/repo and git URLs)',
+      type: 'string',
+    },
+    {
+      name: 'yes',
+      short: 'y',
+      description: 'import: confirm the import without prompting (required when not interactive)',
+      type: 'boolean',
+    },
+    {
+      name: 'trust',
+      description:
+        'import: mark the skills trusted and keep the tools they request (default: untrusted, no tools)',
+      type: 'boolean',
+    },
   ],
   examples: [
     {
@@ -75,6 +93,13 @@ export const runSubcommand: Command = {
         'Discover and message orgs hosted by other monomind processes on this machine (default true)',
       type: 'boolean',
       default: true,
+    },
+    {
+      name: 'allow-unconfined',
+      description:
+        'Start roles that run without an OS sandbox (they can read the operator key and sign any org definition). Refused without this flag; or install bubblewrap',
+      type: 'boolean',
+      default: false,
     },
     {
       name: 'dry-run',
@@ -156,6 +181,13 @@ export const serveSubcommand: Command = {
         'Discover and message orgs hosted by other monomind processes on this machine (default true)',
       type: 'boolean',
       default: true,
+    },
+    {
+      name: 'allow-unconfined',
+      description:
+        'Start roles that run without an OS sandbox (they can read the operator key and sign any org definition). Refused without this flag; or install bubblewrap',
+      type: 'boolean',
+      default: false,
     },
   ],
   action: serveAction,

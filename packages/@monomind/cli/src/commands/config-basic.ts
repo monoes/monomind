@@ -31,10 +31,10 @@ export const initCommand: Command = {
       const defaults = configManager.getDefaults();
       output.writeln(output.bold('Key defaults:'));
       output.writeln(
-        `  monoswarm.topology     = ${(defaults.monoswarm as Record<string, unknown>).topology}`,
+        `  coordination.topology  = ${(defaults.coordination as Record<string, unknown>).topology}`,
       );
       output.writeln(
-        `  monoswarm.maxAgents    = ${(defaults.monoswarm as Record<string, unknown>).maxAgents}`,
+        `  coordination.maxAgents = ${(defaults.coordination as Record<string, unknown>).maxAgents}`,
       );
       output.writeln(
         `  memory.backend     = ${(defaults.memory as Record<string, unknown>).backend}`,
@@ -64,7 +64,10 @@ export const getCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind config get monoswarm.topology', description: 'Get monoswarm topology' },
+    {
+      command: 'monomind config get coordination.topology',
+      description: 'Get coordination topology',
+    },
     { command: 'monomind config get -k memory.backend', description: 'Get memory backend' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -164,7 +167,7 @@ export const setCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind config set monoswarm.maxAgents 20', description: 'Set max agents' },
+    { command: 'monomind config set coordination.maxAgents 20', description: 'Set max agents' },
     {
       command: 'monomind config set -k memory.backend -v sqlite',
       description: 'Set memory backend',

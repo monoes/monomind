@@ -195,7 +195,10 @@ export const serveAction = async (ctx: CommandContext): Promise<CommandResult> =
   const { disableLocalModels } = await import('../memory/memory-bridge.js');
   disableLocalModels();
   const crossProcess = ctx.flags.crossProcess !== false;
-  const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
+  const daemon = new OrgDaemon(ctx.cwd, {
+    crossProcess,
+    allowUnconfined: ctx.flags.allowUnconfined === true,
+  });
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
   if (crossProcess) {
     srv = await startOrgServer(daemon, 0);

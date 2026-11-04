@@ -15,7 +15,7 @@ import {
   utimesSync,
   writeFileSync,
 } from 'node:fs';
-import { uptime } from 'node:os';
+import { tmpdir, uptime } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -68,7 +68,7 @@ const exited = (child: ChildProcess): Promise<void> =>
   });
 
 beforeEach(() => {
-  dir = mkdtempSync(join(process.env.TMPDIR ?? '/tmp', 'mg-build-lock-'));
+  dir = mkdtempSync(join(tmpdir(), 'mg-build-lock-'));
   dbPath = join(dir, '.monomind', 'monograph.db');
   lockPath = buildLockPath(dbPath);
   mkdirSync(dirname(dbPath), { recursive: true });

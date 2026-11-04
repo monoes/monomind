@@ -30,7 +30,7 @@ It has two modes you can toggle with `/ts`:
 | `🎯 3t`              | Active microagent trigger rules (Task 32)                        | Key count in `.monomind/trigger-index.json`                                  |
 | `⚡ 14h`             | Hooks active                                                     | Hook entries in `.claude/settings.json`                                       |
 
-Items only appear when they have data — `📚`, `🎯`, `🐝` are hidden when their count is 0.
+Items only appear when they have data — `📚`, `🎯`, `🐝` (active subagents, `🐝 active/max`) are hidden when their count is 0.
 
 **Not shown: the Claude model name** (e.g. "Sonnet 5"). This line never calls `getModelName()`; see the Full Mode header note below for the full lookup chain and where it's actually exposed.
 
@@ -58,7 +58,7 @@ That's what a populated session shows. A fresh one — no git remote, no routed 
 ▊Monomind v2.24.5  ● LIVE  monoes/monomind  │  ◎monomind  │  ⬡nokhodian  │  ⎇main +1 ~12 ?3 ↑5  ⏱42m
 ```
 
-Source: `generateDashboard()`, `.claude/helpers/statusline.cjs:1208-1226`.
+Source: the header block of `generateDashboard()`, `.claude/helpers/statusline.cjs` (starts at line 1279).
 
 | Element              | Meaning                                        | Source                                                                                                                                                                          |
 | --------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -72,7 +72,7 @@ Source: `generateDashboard()`, `.claude/helpers/statusline.cjs:1208-1226`.
 | `↑5` / `↓N`          | Commits ahead / behind upstream                | `git rev-list --left-right --count HEAD...@{upstream}`; each only appears when > 0                                                                                              |
 | `⏱42m`               | Session duration, shown only when available    | `.monomind/session.json` or `.claude/session.json` → `startTime`                                                                                                                |
 
-**Not shown: the Claude model name** (e.g. "Sonnet 5"). `getModelName()` (`.claude/helpers/statusline.cjs:243`) implements a real lookup chain — live session JSONL (`~/.claude/projects/<escaped-cwd>/*.jsonl`) → `~/.claude.json` → `settings.json` → env vars (`ANTHROPIC_MODEL`/`CLAUDE_MODEL`) → `"Sonnet 5"` default — but its only call site anywhere in the file is `generateJSON()`, the `--json` output mode. Neither this header nor Compact Mode ever calls it, so the model name isn't part of either mode's visible output; read it via `node .claude/helpers/statusline.cjs --json` → `user.modelName`.
+**Not shown: the Claude model name** (e.g. "Sonnet 5"). `getModelName()` (`.claude/helpers/statusline.cjs:272`) implements a real lookup chain — live session JSONL (`~/.claude/projects/<escaped-cwd>/*.jsonl`) → `~/.claude.json` → `settings.json` → env vars (`ANTHROPIC_MODEL`/`CLAUDE_MODEL`) → `"Sonnet 5"` default — but its only call site anywhere in the file is `generateJSON()`, the `--json` output mode. Neither this header nor Compact Mode ever calls it, so the model name isn't part of either mode's visible output; read it via `node .claude/helpers/statusline.cjs --json` → `user.modelName`.
 
 ---
 
@@ -82,7 +82,7 @@ Source: `generateDashboard()`, `.claude/helpers/statusline.cjs:1208-1226`.
 🤖 AGENT  👤 Coder  81%  │  🔄 no active loops
 ```
 
-Source: `.claude/helpers/statusline.cjs:1228-1267`.
+Source: the `🤖 AGENT` row of `generateDashboard()` (`.claude/helpers/statusline.cjs:1356`).
 
 | Element                                     | Meaning                                                     | Source                                                                                                                                                                                                  |
 | ---------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -102,7 +102,7 @@ Source: `.claude/helpers/statusline.cjs:1228-1267`.
 🧠 CONTEXT  🔗12kn 34ke ●fresh  │  📊62%·38%grep 💰$4.12  │  ✨2HIL  │  $3.10·$88.40mo
 ```
 
-Source: `.claude/helpers/statusline.cjs:1269-1306`. Everything past the `🔗` graph indicator is independently conditional — each `│`-separated segment only appears when its underlying data exists.
+Source: the `🧠 CONTEXT` row of `generateDashboard()` (`.claude/helpers/statusline.cjs:1378`). Everything past the `🔗` graph indicator is independently conditional — each `│`-separated segment only appears when its underlying data exists.
 
 | Element                           | Meaning                                                                | Source                                                                                                                                                                                     |
 | ------------------------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -119,7 +119,7 @@ Source: `.claude/helpers/statusline.cjs:1269-1306`. Everything past the `🔗` g
 
 Two more pieces of output appear only when there's live state to show — and they attach to the dashboard differently from each other:
 
-**📄 docs — an indented continuation of CONTEXT, not its own row.** Appears directly under the CONTEXT line with no divider before or after it, only when `docStats.exists && parts.length` is true (`getDocStats()`, `.claude/helpers/statusline.cjs:1308-1329`):
+**📄 docs — an indented continuation of CONTEXT, not its own row.** Appears directly under the CONTEXT line with no divider before or after it, only when `docStats.exists && parts.length` is true (`getDocStats()`, `.claude/helpers/statusline.cjs:1087`; rendered at line 1398):
 
 ```
 🧠 CONTEXT  🔗12kn 34ke ●fresh
@@ -128,7 +128,7 @@ Two more pieces of output appear only when there's live state to show — and th
 
 Counts, each only included when > 0: indexed-doc lines in `.monomind/knowledge/doc-metadata.jsonl`, chunk lines in `.monomind/knowledge/chunks.jsonl`, `memory_entries` rows in `.monomind/memory/memory.db`, and exported files in `.monomind/exports/`.
 
-**🏛 ORGS — a real peer row, with its own divider.** Appears only when `orgStatus.count > 0` (`getActiveOrgs()`, `.claude/helpers/statusline.cjs:1331-1343`):
+**🏛 ORGS — a real peer row, with its own divider.** Appears only when `orgStatus.count > 0` (`getActiveOrgs()`, `.claude/helpers/statusline.cjs:967`; rendered at line 1421):
 
 ```
 ──────────────────────────────────────────────────────
@@ -139,7 +139,7 @@ Scans `.monomind/orgs/<name>/runs/*.jsonl` — or the equivalent path under the 
 
 ---
 
-*Unverified aside: the 12 locals `generateDashboard()` computes but never reads (`.claude/helpers/statusline.cjs:1190-1205` — includes ADR, security, DDD-progress, test-count, and knowledge-base data) line up closely with content this section used to document as five additional rows (INTEL/SWARM/ARCH/MEMORY, plus a differently-shaped CONTEXT). That's consistent with a render-side refactor that trimmed the output but left the data-gathering calls in place — not confirmed against git history, and not something this doc can fix; tracked separately for the code owners.*
+*Unverified aside: the 12 locals `generateDashboard()` computes but never reads (`.claude/helpers/statusline.cjs:1280-1294` — includes ADR, security, DDD-progress, test-count, and knowledge-base data) line up closely with content this section used to document as five additional rows (INTEL/SWARM/ARCH/MEMORY, plus a differently-shaped CONTEXT). That's consistent with a render-side refactor that trimmed the output but left the data-gathering calls in place — not confirmed against git history, and not something this doc can fix; tracked separately for the code owners.*
 
 ---
 

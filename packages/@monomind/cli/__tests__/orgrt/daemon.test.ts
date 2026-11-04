@@ -10,7 +10,7 @@ import http from 'node:http';
 let resourcePressure = false;
 let waitForCapacityCallCount = 0;
 
-vi.mock('../../src/utils/resource-governor.js', () => ({
+vi.mock('../../src/shared/resource-governor.js', () => ({
   checkResources: vi.fn(() => {
     const ok = !resourcePressure;
     return {

@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>An open-source MCP server that extends Claude Code with a codebase knowledge graph, persistent memory, and multi-agent coordination.</strong><br/>
-  Apache 2.0 licensed &middot; Monomind keeps its own state on your machine; the AI tools it drives send prompts and code to their model providers — see [Trust & Security](#trust--security)
+  Apache 2.0 licensed &middot; Monomind keeps its own state on your machine; the AI tools it drives send prompts and code to their model providers — see <a href="#trust--security">Trust &amp; Security</a>
 </p>
 
 <p align="center">
@@ -108,7 +108,7 @@ Use `monomind init --target codex` (or `--codex`) to initialize only Codex. See 
 |---|---|
 | **License** | [Apache 2.0](LICENSE) — use it however you want |
 | **Data privacy** | Monomind runs locally and stores its state locally: memory, code graph, document index and org state, embedded by a local model. The AI tools it drives (Claude Code, Codex, OpenCode, Kimi Code, Antigravity, and org roles, whose model calls monomind makes itself when a role uses an AI-SDK provider) send your prompts and code to their model providers, including the memory and Second Brain excerpts injected into those prompts. Monomind itself also makes a few outbound calls: the one-time embedding model download, the first-use installs of the Claude SDK and (without an installed browser) Chrome, the npm update check, the Jev decision model if you configure one, and opt-in features; launching it through `npx monomind@latest` adds an npm registry lookup on every start, and opening the dashboard loads its scripts and fonts from public CDNs. See [doc/privacy.md](doc/privacy.md) for the complete list of what's sent, when, and how to opt out of each. |
-| **Dependencies** | Standard npm packages. A fresh `npm install monomind` (Linux x64) adds 263 packages and 938 MB of `node_modules`, most of it `onnxruntime-node` (548 MB, local embeddings) and `onnxruntime-web` (141 MB). Four packages run install scripts, and two of them download binaries: `onnxruntime-node` (CUDA libraries from NuGet on Linux x64; `ONNXRUNTIME_NODE_INSTALL=skip` skips them) and `better-sqlite3` (a prebuilt addon from GitHub). Two heavy pieces are installed on first use instead, once, into `~/.monomind/deps` and never into your project: the Claude Agent SDK with its Claude binary (about 300 MB, announced by a download notice before it starts, on the first Claude org role or `agent exec --runtime claude`), and Chrome for `monomind browse` (about 400 MB, only when no Chrome, Chromium or Edge is installed). `MONOMIND_NO_AUTO_INSTALL=1` turns that off and prints the install command instead. Native addons: better-sqlite3 and onnxruntime-node; tree-sitter (`web-tree-sitter`) and sql.js are WASM. Full breakdown: [doc/privacy.md](doc/privacy.md#install-time-downloads). |
+| **Dependencies** | Standard npm packages. Installing the published `@monoes/monomindcli` 2.29.0 without the embedding runtime (Linux x64, measured with a fresh `npm install`) adds 226 packages and 244 MB of `node_modules`; with it, as before this change, 267 packages and 987 MB, most of it `onnxruntime-node` (548 MB) and `onnxruntime-web` (141 MB). One package runs an install script that downloads a binary: `better-sqlite3` (a prebuilt addon from GitHub). Three heavy pieces are installed on first use instead, once, into `~/.monomind/deps` and never into your project: the local embedding runtime `@huggingface/transformers` with onnxruntime (about 500 MB, on the first memory, Second Brain or embedding command that needs it), the Claude Agent SDK with its Claude binary (about 300 MB, on the first Claude org role or `agent exec --runtime claude`), and Chrome for `monomind browse` (about 400 MB, only when no Chrome, Chromium or Edge is installed). Each is announced by a download notice before it starts. `MONOMIND_NO_AUTO_INSTALL=1` turns that off and prints the install command instead. Native addons: better-sqlite3, and onnxruntime-node once the embedding runtime is installed; tree-sitter (`web-tree-sitter`) and sql.js are WASM. Full breakdown: [doc/privacy.md](doc/privacy.md#install-time-downloads). |
 | **Permissions** | Registers as an MCP server — Claude Code controls what tools are available and prompts you before executing anything sensitive. |
 | **Source** | Fully open. Read every line at [github.com/monoes/monomind](https://github.com/monoes/monomind). |
 | **Maintenance** | Active development, regular releases on npm. |
@@ -209,7 +209,7 @@ The repo ships one worked example beyond the sample: `config/orgs/release.json`,
 Org roles and `monomind agent exec` run on whichever coding agent you have installed, through the [Agent Exec Protocol](doc/agent-exec-protocol.md): one turn in, NDJSON events out, the same shape for every runtime.
 
 ```bash
-monomind agent scan                              # which runtimes are installed (19 known: claude, codex, opencode, kimicode, kilo, qwen, grok, copilot, hermes, aider, …)
+monomind agent scan                              # which runtimes are installed (18 known: claude, codex, opencode, kimicode, kilo, qwen, grok, copilot, hermes, aider, …)
 monomind agent models --runtime codex --json     # a runtime's own model list
 monomind agent test claude --json                # smoke-test a runtime with one tiny turn
 monomind agent exec --runtime codex --prompt "summarize ./README" --effort high
@@ -314,7 +314,7 @@ Every session, every agent, every org writes to a persistent memory store that s
 ```mermaid
 graph TD
     L0["L0 - In-flight\nCurrent session drawers\nephemeral"]
-    L1["L1 - Working\nCross-session memory\nBM25 K1=1.5, B=0.75"]
+    L1["L1 - Working\nCross-session memory\nBM25 K1=1.2, B=0.75"]
     L2["L2 - Long-term\nEpisodic store\nSemantic recall"]
     L3["L3 - Shared\nCross-agent namespace\nFederated swarm reads"]
 
@@ -347,7 +347,7 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 # → "find all callers of validateToken()"
 ```
 
-<!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
+20 Monograph MCP tools by default (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
 
 The MCP server advertises a lean core of <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> tools by default to keep Claude's context small. Every other tool stays callable by name, and `monomind_tool_search` finds it. `MONOMIND_MCP_FULL=1` advertises all <!-- doc-count:mcp-tools-full -->204<!-- /doc-count:mcp-tools-full --> ([MCP server](doc/concepts/mcp-server.md)).
 
@@ -363,7 +363,6 @@ flowchart LR
     H --> P["pre-edit\npre-task\npre-command"]
     H --> SS["session-start\nsession-end\nnotify"]
     H --> I["route\nlog outcomes"]
-    H --> T["teammate-idle\ntask-completed"]
 
     I --> DB[("patterns.json\nmemory store")]
     DB -->|next session| CE

@@ -246,7 +246,7 @@ export async function computeCommitsBehind(
   if (cached && Date.now() - cached.ts < 30_000) return cached.value;
 
   const { openDb, closeDb } = await import('@monoes/monograph');
-  const { execSync } = await import('node:child_process');
+  const { execFileSync } = await import('node:child_process');
   const dbPath = getDbPath(repoPath);
   if (!_isValidDb(dbPath)) return null;
   // openDb's fileMustExist option isn't in the currently-published
@@ -264,7 +264,7 @@ export async function computeCommitsBehind(
     const lastCommit = meta?.value ?? null;
     if (!lastCommit || !/^[0-9a-f]{7,40}$/i.test(lastCommit)) return null;
     try {
-      const out = execSync(`git rev-list --count ${lastCommit}..HEAD`, {
+      const out = execFileSync('git', ['rev-list', '--count', `${lastCommit}..HEAD`], {
         cwd: repoPath,
         encoding: 'utf-8',
         timeout: 5_000,

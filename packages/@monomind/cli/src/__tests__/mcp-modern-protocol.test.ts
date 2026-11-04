@@ -18,7 +18,7 @@ import {
 import { handleResourceMethod } from '../mcp-tools/resource-router.js';
 
 const PKG = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const ENTRY_POINTS = ['bin/cli.js', 'bin/mcp-server.js', 'src/mcp-server.ts'];
+const ENTRY_POINTS = ['bin/cli.js', 'bin/mcp-server.js', 'src/mcp-stdio-handler.ts'];
 const VERSION_KEY = 'io.modelcontextprotocol/protocolVersion';
 
 describe('mcp-modern helper', () => {
