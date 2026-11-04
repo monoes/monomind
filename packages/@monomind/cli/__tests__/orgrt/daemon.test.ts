@@ -104,6 +104,8 @@ describe('OrgDaemon — per-role max_turns_per_message override', () => {
     // developer so it spawns — the assertion is about which maxTurns its
     // query() receives, which cannot be observed until the session exists.
     await d.deliver('alpha', 'boss', 'developer', 'wake', 'spawn for the assertion below');
+    // both sessions have opened their query (a stop before that would leave nothing to observe)
+    await waitUntil(() => seenMaxTurns.boss !== undefined && seenMaxTurns.developer !== undefined);
     await d.stopAll();
 
     expect(seenMaxTurns.boss).toBe(30); // falls back to run_config default
@@ -1030,7 +1032,12 @@ describe('OrgDaemon — P1 critical paths (Batch 2)', () => {
 
         // Send first message
         await d.deliver('alpha', 'boss', 'coder', 'task', 'first message');
-        await new Promise(resolve => setTimeout(resolve, 300));
+        const answered = (text: string) => () => {
+          const ev = running.busEvents();
+          const msg = ev.find(e => e.type === 'message' && e.msg?.includes(text));
+          return !!msg && ev.some(e => e.type === 'chat' && e.parentId === msg.id);
+        };
+        await waitUntil(answered('first message'));
 
         const events1 = running.busEvents().slice(baseline.length);
         const firstMessage = events1.find(e => e.type === 'message' && e.msg?.includes('first message'));
@@ -1040,7 +1047,7 @@ describe('OrgDaemon — P1 critical paths (Batch 2)', () => {
 
         // Send second message (continuing the conversation)
         await d.deliver('alpha', 'boss', 'coder', 'task', 'second message');
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await waitUntil(answered('second message'));
 
         const events2 = running.busEvents().slice(events1.length + baseline.length);
         const secondMessage = events2.find(e => e.type === 'message' && e.msg?.includes('second message'));
