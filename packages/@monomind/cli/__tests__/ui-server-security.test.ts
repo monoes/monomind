@@ -594,6 +594,13 @@ describe('human session: the page and the decision routes need a logged-in brows
     expect(human.status).not.toBe(403);
   });
 
+  it('sends Referrer-Policy: no-referrer so a ?token= URL never leaks via Referer', async () => {
+    const r = await raw('/api/identity', { headers: { Host: `127.0.0.1:${port}` } });
+    expect(r.headers['referrer-policy']).toBe('no-referrer');
+    const page = await raw('/', { headers: { Host: `127.0.0.1:${port}` } });
+    expect(page.headers['referrer-policy']).toBe('no-referrer');
+  });
+
   it('tells a pairing hook where the token file is, never the token', async () => {
     const r = await raw('/api/identity', { headers: { Host: `127.0.0.1:${port}` } });
     expect(r.status).toBe(200);

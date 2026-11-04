@@ -3,7 +3,7 @@
  * freshness. Extracted from doctor-project-checks.ts.
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -277,8 +277,9 @@ async function monographFreshnessCore(): Promise<HealthCheck> {
     const buildIso = new Date(buildMs).toISOString();
     let commitsBehind = 0;
     try {
-      const out = execSync(`git rev-list --count --since='${buildIso}' HEAD 2>/dev/null`, {
+      const out = execFileSync('git', ['rev-list', '--count', `--since=${buildIso}`, 'HEAD'], {
         encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
         timeout: 2000,
         cwd,
       }).trim();
