@@ -133,10 +133,18 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
   // Load configuration
   const config = loadConfig(cwd);
-  // init writes the section as `swarm:` (#509); `monoswarm:` is still honoured
-  // for configs hand-edited to match the old reader.
-  const swarmConfig =
-    ((config?.swarm ?? config?.monoswarm) as Record<string, unknown> | undefined) || {};
+  // `coordination:` is the current key (#737); init writes `swarm:` (#509) and
+  // `monoswarm:` is a legacy alias. Merged per key, newer sections winning, as
+  // ConfigFileManager's read-time migration does.
+  const section = (key: string): Record<string, unknown> => {
+    const v = config?.[key];
+    return typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
+  };
+  const swarmConfig = {
+    ...section('monoswarm'),
+    ...section('swarm'),
+    ...section('coordination'),
+  };
   const VALID_TOPOLOGIES = new Set(['hierarchical-mesh', 'mesh', 'hierarchical', 'ring', 'star']);
   const rawTopology = (swarmConfig.topology as string) || DEFAULT_TOPOLOGY;
   const finalTopology = VALID_TOPOLOGIES.has(rawTopology) ? rawTopology : DEFAULT_TOPOLOGY;

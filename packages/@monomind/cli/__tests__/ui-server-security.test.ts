@@ -60,6 +60,7 @@ import http from 'node:http';
 // server.mjs is plain ESM shipped as-is; import it directly.
 // @ts-expect-error — .mjs sibling has no type declarations
 import * as uiServer from '../src/ui/server.mjs';
+import { pathToSlug } from '../src/ui/server-slug.mjs';
 import { loggedInPage } from './helpers/dashboard-login.js';
 
 const { startServer, isAllowedHost, parseHostHeader, _sjHasPricing } = uiServer as any;
@@ -78,17 +79,18 @@ const prevHome = process.env.HOME;
 const prevCwd = process.cwd();
 
 /** Fixture project path; the server derives its ~/.claude/projects slug from this. */
-const COST_FIXTURE_DIR = '/tmp/mmcostfixture';
+let COST_FIXTURE_DIR = '';
 
 beforeAll(async () => {
   const root = mkdtempSync(join(tmpdir(), 'mm-ui-server-'));
   projectDir = join(root, 'proj');
   homeDir = join(root, 'home');
+  COST_FIXTURE_DIR = join(root, 'mmcostfixture');
   mkdirSync(join(projectDir, '.monomind'), { recursive: true });
 
   // ── (b) fixture: two sessions with identical usage, one on a model the
   // pricing table knows and one on a model it does not.
-  const claudeProjects = join(homeDir, '.claude', 'projects', COST_FIXTURE_DIR.replace(/\//g, '-'));
+  const claudeProjects = join(homeDir, '.claude', 'projects', pathToSlug(COST_FIXTURE_DIR));
   mkdirSync(claudeProjects, { recursive: true });
   const usage = { input_tokens: 1_000_000, output_tokens: 1_000_000 };
   writeFileSync(
