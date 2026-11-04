@@ -22,15 +22,21 @@
  * legacy column in place rather than rewriting the table.
  */
 
+import { runMigrations, type SchemaMigration } from './schema-migrations.js';
 import type { SqlDriver } from './sql-driver.js';
 
 /**
- * Bumped when the canonical schema changes; stored in PRAGMA user_version.
- * A database below this version gets the one-time repair migrations
- * (namespace+key dedupe, FTS5 row dedupe) on its next open; at or above it
- * they are skipped (issue #426: they full-scanned the table on every open).
- * 4 = the version that started gating those repairs, so every existing store
- * gets them once more under the current code.
+ * The PRAGMA user_version stamp, frozen at 4. Schema changes are now numbered
+ * migrations (memoryMigrations(), recorded in `schema_migrations`); do not bump
+ * this for them.
+ *
+ * It is still written on every open because releases before the migration
+ * runner gate their full-table repairs (namespace+key dedupe, FTS5 row dedupe,
+ * issue #426) on `user_version < 4`, and write their own value back when they
+ * open the file. Here it serves two purposes: a store at 4 with no
+ * `schema_migrations` table was left by that code at the current schema and is
+ * adopted as a baseline; a tracked store found below 4 was opened by an older
+ * release since, so the repairs run again.
  */
 export const SCHEMA_VERSION = 4;
 
@@ -160,35 +166,33 @@ export interface MigrationReport {
  */
 export function migrateLegacyInlineEmbeddings(driver: SqlDriver): MigrationReport {
   const report: MigrationReport = { legacyColumnFound: false, migrated: 0, skipped: 0 };
-
-  if (!hasLegacyInlineEmbedding(driver)) return report;
-  report.legacyColumnFound = true;
-
-  driver.transaction(() => {
-    const rows = driver.all(
-      `SELECT e.id AS id, e.embedding AS embedding
-         FROM memory_entries e
-        WHERE e.embedding IS NOT NULL`,
-    );
-
-    for (const row of rows) {
-      const id = String(row.id);
-      const existing = driver.get('SELECT entry_id FROM memory_embeddings WHERE entry_id = ?', [
-        id,
-      ]);
-      if (existing) {
-        report.skipped++;
-        continue;
-      }
-      driver.run('INSERT OR IGNORE INTO memory_embeddings (entry_id, embedding) VALUES (?, ?)', [
-        id,
-        row.embedding as Uint8Array,
-      ]);
-      report.migrated++;
-    }
-  });
-
+  driver.transaction(() => copyLegacyInlineEmbeddings(driver, report));
   return report;
+}
+
+/** Body of migrateLegacyInlineEmbeddings without its transaction, for use inside a migration. */
+function copyLegacyInlineEmbeddings(driver: SqlDriver, report: MigrationReport): void {
+  if (!hasLegacyInlineEmbedding(driver)) return;
+  report.legacyColumnFound = true;
+  const rows = driver.all(
+    `SELECT e.id AS id, e.embedding AS embedding
+       FROM memory_entries e
+      WHERE e.embedding IS NOT NULL`,
+  );
+
+  for (const row of rows) {
+    const id = String(row.id);
+    const existing = driver.get('SELECT entry_id FROM memory_embeddings WHERE entry_id = ?', [id]);
+    if (existing) {
+      report.skipped++;
+      continue;
+    }
+    driver.run('INSERT OR IGNORE INTO memory_embeddings (entry_id, embedding) VALUES (?, ?)', [
+      id,
+      row.embedding as Uint8Array,
+    ]);
+    report.migrated++;
+  }
 }
 
 // ===== FTS5 Full-Text Search Index (Issue #66) =============================
@@ -362,26 +366,95 @@ function hasNamespaceKeyUniqueIndex(driver: SqlDriver): boolean {
   }
 }
 
+const CANONICAL_TABLES = [
+  'memory_entries',
+  'memory_embeddings',
+  'memory_entry_tags',
+  'agent_reads',
+];
+
 /**
- * Bring a database to the canonical schema: create tables, migrate legacy
- * inline embeddings, enforce uniqueness, build the FTS5 index, and record
- * the version.
+ * The memory schema as numbered migrations. 1-4 are the schema the pre-runner
+ * `initializeSchema()` produced, split into the steps it took; a store it
+ * left at user_version 4 is adopted at version 4 without any of them running.
+ * Each is idempotent, because a store below user_version 4 (or an untracked
+ * one in an unknown state) runs all of them.
  *
- * The dedupe repairs scan every row, so they run only when the stored
- * version is below SCHEMA_VERSION (an older release that opens the file
- * writes its own lower version back, so it gets repaired again next time).
- * The namespace+key repair also re-runs whenever the unique index is missing.
+ * Append new migrations at the end; never edit or renumber a shipped one.
+ */
+function memoryMigrations(report: MigrationReport): SchemaMigration[] {
+  return [
+    {
+      id: 1,
+      description:
+        'canonical tables and indexes (memory_entries, memory_embeddings, memory_entry_tags, agent_reads)',
+      up: createCanonicalSchema,
+    },
+    {
+      id: 2,
+      description:
+        'copy legacy inline memory_entries.embedding into memory_embeddings (column kept)',
+      up: (driver) => copyLegacyInlineEmbeddings(driver, report),
+    },
+    {
+      id: 3,
+      description: 'dedupe namespace+key and add UNIQUE index idx_namespace_key_unique',
+      up: enforceNamespaceKeyUnique,
+    },
+    {
+      id: 4,
+      description: 'FTS5 index memory_entries_fts with sync triggers, deduping stale rows',
+      up: (driver) => void createFTS5Index(driver, true),
+    },
+  ];
+}
+
+/** Version of the newest migration this build knows. */
+export const LATEST_MEMORY_MIGRATION = memoryMigrations({
+  legacyColumnFound: false,
+  migrated: 0,
+  skipped: 0,
+}).length;
+
+/** An untracked store left at user_version 4 by the pre-runner code is already at migration 4. */
+function detectBaseline(driver: SqlDriver): number {
+  const tables = new Set(
+    driver.all("SELECT name FROM sqlite_master WHERE type = 'table'").map((r) => String(r.name)),
+  );
+  return readSchemaVersion(driver) >= SCHEMA_VERSION && CANONICAL_TABLES.every((t) => tables.has(t))
+    ? 4
+    : 0;
+}
+
+/**
+ * Bring a database to the latest schema: refuse one from a newer release,
+ * adopt or migrate it (see memoryMigrations), then re-assert the invariants an
+ * older release that opened the file since may have undone.
+ *
+ * Those invariants are not one-shot migrations on purpose:
+ *   - FTS5 sync triggers are redefined on every open (cheap, no data), since
+ *     an older release reinstalls its own definitions;
+ *   - the FTS5 table is built whenever it is missing, so a store first opened
+ *     where FTS5 was unavailable gains it once a build that has FTS5 opens it;
+ *   - the namespace+key repair re-runs whenever the unique index is missing;
+ *   - both dedupe repairs re-run when user_version has dropped below 4.
+ *
+ * Throws SchemaTooNewError for a store from a newer release.
  */
 export function initializeSchema(driver: SqlDriver): MigrationReport {
-  const needsRepair = readSchemaVersion(driver) < SCHEMA_VERSION;
-  createCanonicalSchema(driver);
-  const report = migrateLegacyInlineEmbeddings(driver);
-  if (needsRepair || !hasNamespaceKeyUniqueIndex(driver)) enforceNamespaceKeyUnique(driver);
-  createFTS5Index(driver, needsRepair);
+  const storedUserVersion = readSchemaVersion(driver);
+  const report: MigrationReport = { legacyColumnFound: false, migrated: 0, skipped: 0 };
+  const run = runMigrations(driver, memoryMigrations(report), { baseline: detectBaseline });
+
+  if (!report.legacyColumnFound) report.legacyColumnFound = hasLegacyInlineEmbedding(driver);
+  // run.from >= 4: the repairs did not just run as migrations 3-4.
+  const regressed = storedUserVersion < SCHEMA_VERSION && run.from >= 4;
+  if (regressed || !hasNamespaceKeyUniqueIndex(driver)) enforceNamespaceKeyUnique(driver);
+  createFTS5Index(driver, regressed);
   try {
     driver.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   } catch {
-    /* pragma unsupported on this driver — version tracking is advisory */
+    /* pragma unsupported on this driver — the stamp is advisory */
   }
   return report;
 }

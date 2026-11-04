@@ -27,6 +27,8 @@ export const OPENCODE_MONOMIND_BASH_RULES: Readonly<Record<string, string>> = {
   'npx -y monomind *': 'allow',
   'npx monomind@*': 'allow',
   'npx @monomind/*': 'allow',
+  // Generated hooks and guidance pin the scoped package (#738, #754).
+  'npx -y --package=@monoes/monomindcli@* monomind *': 'allow',
 };
 
 /**
