@@ -227,7 +227,8 @@ describe('OrgDaemon', () => {
 
     const result = await d.answerQuestion('alpha', 'coder', questionId, 'blue');
     expect(result.ok).toBe(true);
-    await new Promise(r => setTimeout(r, 50)); // let the echo session process the pushed mailbox message
+    // the echo session processes the pushed mailbox message
+    expect(await waitUntil(() => running.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('blue')))).toBe(true);
     await d.stopAll();
 
     expect(running.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('blue'))).toBe(true);
@@ -300,7 +301,8 @@ describe('OrgDaemon', () => {
     await d.startOrg('alpha');
     // first message exhausts coder's 1-token budget, closing its mailbox (session.ts's overBudget check)
     await d.deliver('alpha', 'boss', 'coder', 'first', 'go');
-    await new Promise(r => setTimeout(r, 100)); // let the async session process it and close its mailbox
+    // the async session processes it and closes its mailbox
+    expect(await waitUntil(() => d.getOrg('alpha')?.agents.get('coder')?.mailbox.isClosed === true)).toBe(true);
     const receipt = await d.deliver('alpha', 'boss', 'coder', 'second', 'still there?');
     // The org is alive (only the coder's session ended from budget), so the
     // message must be queued to the inbox for a later drain — not dropped
@@ -612,7 +614,8 @@ describe('OrgDaemon — run history & cross-run memory', () => {
 
     // second run: boss kickoff message must reference the previous outcome
     const run2 = await d.startOrg('alpha');
-    await new Promise(r => setTimeout(r, 50)); // let the echo agent process the kickoff
+    // the echo agent processes the kickoff
+    await waitUntil(() => run2.busEvents().some(e => e.type === 'chat' && e.from === 'boss' && (e.msg ?? '').includes('Previous run')));
     await d.stopOrg('alpha');
     const kickoffEcho = run2.busEvents().find(e => e.type === 'chat' && e.from === 'boss' && (e.msg ?? '').includes('Previous run'));
     expect(kickoffEcho).toBeDefined();
@@ -636,10 +639,11 @@ describe('OrgDaemon — run history & cross-run memory', () => {
     const d = new OrgDaemon(root, { queryFn: flakyQuery as any, forward: false, stopWaitMs: 100 });
     const running = await d.startOrg('alpha');
     await d.deliver('alpha', 'boss', 'coder', 'task', 'first'); // triggers the crash
-    await new Promise(r => setTimeout(r, 1300)); // ride out the 1s backoff → restart
+    // ride out the 1s backoff → restart: the replacement session has been opened
+    expect(await waitUntil(() => coderAttempts >= 2, 8000)).toBe(true);
     const receipt = await d.deliver('alpha', 'boss', 'coder', 'task', 'second');
     expect(receipt).toMatch(/delivered/);
-    await new Promise(r => setTimeout(r, 100));
+    await waitUntil(() => running.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('second')));
     await d.stopOrg('alpha');
 
     const events = running.busEvents();
@@ -1080,15 +1084,15 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     running.bus.subscribe(e => { if (e.type === 'audit') audits.push(e); });
 
     await d.deliver('alpha', 'boss', 'coder', 'task', 'build it');
-    await waitUntil(() => running.agents.get('coder')?.status === 'crashed', 3000);
-    await new Promise(r => setTimeout(r, 80)); // let the alive boss echo the notice
+    await running.agents.get('coder')!.done; // its run loop ends once every retry has crashed
+    await waitUntil(() => bossEcho.some(c => /Worker "coder" crashed/.test(c)), 15_000); // the alive boss echoes the notice
 
     expect(running.agents.get('coder')!.status).toBe('crashed');
     // boss was told the worker is gone (audit) and actually received a system message (echo)
     expect(audits.some(a => a.reason === 'worker-crashed')).toBe(true);
     expect(bossEcho.some(c => /Worker "coder" crashed/.test(c))).toBe(true);
     await d.stopOrg('alpha');
-  }, 10_000);
+  }, 30_000); // a ceiling for a loaded host, not a delay
 
   it('tells the boss to chunk smaller when a worker crashes on a context-window limit (#3)', async () => {
     const root = mkdtempSync(join(tmpdir(), 'daemon-cr3-'));
@@ -1100,15 +1104,15 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     running.bus.subscribe(e => { if (e.type === 'audit') audits.push(e); });
 
     await d.deliver('alpha', 'boss', 'coder', 'task', 'build it');
-    await waitUntil(() => running.agents.get('coder')?.status === 'crashed', 3000);
-    await new Promise(r => setTimeout(r, 80));
+    await running.agents.get('coder')!.done; // its run loop ends once every retry has crashed
+    await waitUntil(() => bossEcho.some(c => /context-window overflow/.test(c)), 15_000);
 
     // distinct audit reason for context-limit vs generic crash
     expect(audits.some(a => a.reason === 'agent-context-limit' && a.from === 'coder')).toBe(true);
     // boss guidance includes the chunking instruction, not just the generic reassign note
     expect(bossEcho.some(c => /context-window overflow/.test(c) && /smaller pieces/.test(c))).toBe(true);
     await d.stopOrg('alpha');
-  }, 10_000);
+  }, 30_000); // a ceiling for a loaded host, not a delay
 
   it('bounded auto-restart: a repeatedly crashing boss restarts at most MAX times then stops (#4)', async () => {
     const root = mkdtempSync(join(tmpdir(), 'daemon-cr4-'));
