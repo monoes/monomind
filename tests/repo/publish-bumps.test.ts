@@ -196,13 +196,17 @@ describe('a sub-package does not jump a major version without a breaking change 
     expect(majorBumpsSinceLastRelease(root)).toEqual({ baseTag: null, problems: [] });
   });
 
-  it('the script on this repository still exits 0 (the sub-packages are on their 2.24.0 baseline now)', () => {
-    expect(() =>
-      execFileSync('node', [join(REPO_ROOT, 'scripts', 'check-package-bumps.mjs')], {
-        cwd: REPO_ROOT,
-        stdio: 'pipe',
-        env: { ...process.env, MONOMIND_ALLOW_STALE_PACKAGES: '', MONOMIND_ALLOW_MAJOR_BUMP: '' },
-      }),
-    ).not.toThrow();
-  });
+  // reason: same PR-only skip as the repo-state test above; pushes to main and release.yml still enforce the bump guard.
+  it.skipIf(process.env.MONOMIND_ALLOW_STALE_PACKAGES === '1')(
+    'the script on this repository still exits 0 (the sub-packages are on their 2.24.0 baseline now)',
+    () => {
+      expect(() =>
+        execFileSync('node', [join(REPO_ROOT, 'scripts', 'check-package-bumps.mjs')], {
+          cwd: REPO_ROOT,
+          stdio: 'pipe',
+          env: { ...process.env, MONOMIND_ALLOW_STALE_PACKAGES: '', MONOMIND_ALLOW_MAJOR_BUMP: '' },
+        }),
+      ).not.toThrow();
+    },
+  );
 });
