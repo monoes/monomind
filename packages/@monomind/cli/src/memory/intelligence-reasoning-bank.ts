@@ -8,6 +8,7 @@
 import type { PatternStore } from '@monoes/memory';
 import { cosineSimilarity as sharedCosineSimilarity } from '../utils/cosine-similarity.js';
 import { readJsonFileSync, writeJsonFileAtomic } from '../utils/json-file.js';
+import { sanitizePatternRecord } from './intelligence-pattern-record.js';
 import {
   claimPatternsLock,
   ensureDataDir,
@@ -46,63 +47,12 @@ export class LocalReasoningBank implements PatternStore {
     try {
       const data = readJsonFileSync<unknown[]>(getPatternsPath(), []);
       if (Array.isArray(data)) {
-        // Validate each persisted pattern. patterns.json can be replaced or
-        // hand-edited outside the process (a transferred/imported file, or
-        // direct tampering) — without bounds checks, a malicious file can
-        // inject `confidence: 1e9` (deterministically wins every routing
-        // decision) or `keywords: [10000 strings]` (DoS on every
-        // findBestPatternMatch call).
+        // Validate each persisted pattern (bounds checks shared with the
+        // SQLite store — see sanitizePatternRecord).
         for (const pattern of data) {
-          if (!pattern || typeof pattern !== 'object') continue;
-          const rec = pattern as Record<string, unknown>;
-          const id = rec.id;
-          if (typeof id !== 'string' || id.length === 0 || id.length > 256) continue;
-          const conf = rec.confidence;
-          if (
-            conf !== undefined &&
-            (typeof conf !== 'number' || !Number.isFinite(conf) || conf < 0 || conf > 1)
-          ) {
-            continue;
-          }
-          const keywords = rec.keywords;
-          if (keywords !== undefined && (!Array.isArray(keywords) || keywords.length > 64)) {
-            continue;
-          }
-          // Build a well-typed StoredPattern instead of trusting the raw JSON
-          // shape — this both satisfies the compiler (the previous code cast
-          // `unknown` straight into the Map/array, which TS correctly rejected)
-          // and hardens against malformed/malicious persisted entries (e.g. a
-          // missing embedding array previously reached cosineSim() as `undefined`).
-          const rawEmbedding = rec.embedding;
-          const embedding =
-            Array.isArray(rawEmbedding) &&
-            rawEmbedding.every((v) => typeof v === 'number' && Number.isFinite(v))
-              ? (rawEmbedding as number[])
-              : [];
-          const rawUsage = rec.usageCount;
-          const rawCreated = rec.createdAt;
-          const rawLastUsed = rec.lastUsedAt;
-          const stored: StoredPattern = {
-            id,
-            type: typeof rec.type === 'string' ? rec.type : 'general',
-            embedding,
-            content: typeof rec.content === 'string' ? rec.content : '',
-            confidence: typeof conf === 'number' ? conf : 0.5,
-            usageCount: typeof rawUsage === 'number' && Number.isFinite(rawUsage) ? rawUsage : 0,
-            createdAt:
-              typeof rawCreated === 'number' && Number.isFinite(rawCreated)
-                ? rawCreated
-                : Date.now(),
-            lastUsedAt:
-              typeof rawLastUsed === 'number' && Number.isFinite(rawLastUsed)
-                ? rawLastUsed
-                : Date.now(),
-            metadata:
-              rec.metadata && typeof rec.metadata === 'object'
-                ? (rec.metadata as Record<string, unknown>)
-                : undefined,
-          };
-          this.patterns.set(id, stored);
+          const stored = sanitizePatternRecord(pattern);
+          if (!stored) continue;
+          this.patterns.set(stored.id, stored);
           this.patternList.push(stored);
         }
       }

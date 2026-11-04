@@ -132,7 +132,7 @@ pnpm run lint
 | `hooks` | 28 | Edit/outcome logging, agent routing + 9 background workers |
 
 > Note: there is no `neural` CLI command. Its pattern commands live under
-> `hooks intelligence` — a local JSON pattern store; no model is trained.
+> `hooks intelligence` — a local pattern store (SQLite `patterns.db`, JSON fallback); no model is trained.
 
 ### Quick CLI Examples
 
