@@ -6,6 +6,7 @@
  * and the copy is what gets inspected, hashed and stored — so a source edited
  * mid-stage cannot reach the store. A refused stage leaves no store debris.
  */
+import { execFileSync } from 'node:child_process';
 import {
   closeSync,
   constants,
@@ -23,6 +24,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative } from 'node:path';
 import { checkout, findSkillDirs, skillLicense, toSkillName } from '../orgrt/skill-import.js';
 import { parseFrontmatter } from '../orgrt/skill-library.js';
@@ -38,6 +40,9 @@ export type { FenceLoader } from './scan.js';
 export interface StageOptions {
   /** Self-asserted provenance, recorded in history. */
   actor: string;
+  /** Full 40-hex commit to fetch; required for a remote source. For a local
+   *  Git work tree it must equal HEAD when given. */
+  commit?: string;
   /** Candidate name when the source holds more than one. */
   only?: string;
   /** Default: `skill` when the source has a SKILL.md, else `blueprint`. */
@@ -196,6 +201,61 @@ function sourceOf(
   };
 }
 
+const FULL_SHA_RE = /^[0-9a-f]{40}$/;
+
+interface Checkout {
+  root: string;
+  source: string;
+  commit?: string;
+  cleanup: () => void;
+}
+
+/** A local path as-is (HEAD checked against `commit` when given); a remote
+ *  source fetched at exactly `commit`, refused without one or when the
+ *  fetched HEAD is not that commit — so what is staged cannot move under you. */
+function pinnedCheckout(src: string, commit: string | undefined): Checkout {
+  if (commit !== undefined && !FULL_SHA_RE.test(commit))
+    throw new CatalogStateError(`--commit must be a full 40-character hex commit id`);
+  if (existsSync(src)) {
+    const co = checkout(src);
+    if (commit && co.commit !== commit)
+      throw new CatalogStateError(
+        `${src} is at ${co.commit ?? 'no Git commit'}, not the pinned ${commit}`,
+      );
+    return co;
+  }
+  const url = /^[\w.-]+\/[\w.-]+$/.test(src) ? `https://github.com/${src}` : src;
+  if (!/^(https:\/\/|git@|file:\/\/\/)/.test(url))
+    throw new CatalogStateError(`not a path, owner/repo or git URL: ${src}`);
+  if (!commit)
+    throw new CatalogStateError(
+      'staging from a remote repository requires a pinned commit: pass --commit <full sha> (git rev-parse HEAD in the source)',
+    );
+  const tmp = mkdtempSync(join(tmpdir(), 'catalog-stage-'));
+  const cleanup = () => rmSync(tmp, { recursive: true, force: true });
+  const git = (...args: string[]) =>
+    execFileSync('git', ['-C', tmp, ...args], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  try {
+    git('init', '--quiet');
+    git('remote', 'add', 'origin', url);
+    try {
+      git('fetch', '--quiet', '--depth', '1', 'origin', commit);
+    } catch {
+      throw new CatalogStateError(`could not fetch the pinned commit ${commit}`);
+    }
+    git('checkout', '--quiet', '--detach', 'FETCH_HEAD');
+    const head = git('rev-parse', 'HEAD').trim();
+    if (head !== commit) throw new CatalogStateError(`fetched ${head}, not the pinned ${commit}`);
+    return { root: tmp, source: url.replace(/\.git$/, ''), commit: head, cleanup };
+  } catch (err) {
+    cleanup();
+    throw err;
+  }
+}
+
 /** Every SKILL.md below `dir` (root and nested), relative; the copy holds no links. */
 function skillMdFiles(dir: string, prefix = ''): string[] {
   const out: string[] = [];
@@ -222,7 +282,7 @@ function sanitizeSkillMd(dir: string): { path: string; reason: string }[] {
   });
 }
 
-/** Stage one candidate from `src` (owner/repo, git URL or local path). */
+/** Stage one candidate from `src` (owner/repo, git URL at `opts.commit`, or local path). */
 export async function stage(root: string, src: string, opts: StageOptions): Promise<StageResult> {
   const now = opts.now ?? new Date().toISOString();
   // Never echo the URL: it would print the credential it carries.
@@ -230,7 +290,7 @@ export async function stage(root: string, src: string, opts: StageOptions): Prom
     throw new CatalogStateError(
       'refusing a source URL with embedded credentials (user[:token]@); use a git credential helper',
     );
-  const co = checkout(src);
+  const co = pinnedCheckout(src, opts.commit);
   const store = packagesDir(root);
   const storeExisted = existsSync(store);
   // #576: an org start creates `.monomind/catalog/` empty so a role can't
