@@ -43,7 +43,6 @@ export const performanceReportTools: MCPTool[] = [
 
       // Get REAL system metrics via Node.js APIs
       const memUsage = process.memoryUsage();
-      const _cpuUsage = process.cpuUsage();
       const loadAvg = os.loadavg();
       const cpus = os.cpus();
       const totalMem = os.totalmem();

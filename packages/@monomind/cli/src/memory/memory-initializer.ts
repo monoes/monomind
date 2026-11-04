@@ -18,20 +18,6 @@ import { BRIDGE_EMBEDDING_DIMS } from './memory-bridge.js';
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
 
-// Lazy import of SQLite-backed memory bridge
-let _bridge: typeof import('./memory-bridge.js') | null | undefined;
-async function _getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
-  if (_bridge === null) return null;
-  if (_bridge) return _bridge;
-  try {
-    _bridge = await import('./memory-bridge.js');
-    return _bridge;
-  } catch {
-    _bridge = null;
-    return null;
-  }
-}
-
 // ============================================================================
 // Re-exports from extracted modules (ARCH-4)
 // ============================================================================
@@ -354,7 +340,7 @@ export async function checkMemoryInitialization(dbPath?: string): Promise<{
 
     // Check for metadata table
     const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table'");
-    const tableNames = tables[0]?.values?.map((v) => v[0] as string) || [];
+    const tableNames = tables[0]?.values?.map((v: unknown[]) => v[0] as string) || [];
 
     // Get version
     let version = 'unknown';

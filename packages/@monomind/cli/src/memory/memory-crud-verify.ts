@@ -65,7 +65,7 @@ export async function verifyMemoryInit(
       // Test 1: Schema verification
       const schemaStart = Date.now();
       const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table'");
-      const tableNames = tables[0]?.values?.map((v) => v[0] as string) || [];
+      const tableNames = tables[0]?.values?.map((v: unknown[]) => v[0] as string) || [];
       const expectedTables = ['memory_entries', 'patterns', 'metadata', 'vector_indexes'];
       const missingTables = expectedTables.filter((t) => !tableNames.includes(t));
 

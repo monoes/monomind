@@ -152,7 +152,7 @@ async function runFixture(stream = SDK_STREAM): Promise<Record<string, unknown>[
     maxTurns: 5,
     toolTimeoutMs: 60_000,
     runnerOverride: runner,
-    emit: (ev) => events.push(ev),
+    emit: (ev: Record<string, any>) => events.push(ev),
     stdin: new PassThrough(),
   } as any);
   return events;

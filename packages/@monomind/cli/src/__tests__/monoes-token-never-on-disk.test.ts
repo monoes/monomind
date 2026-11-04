@@ -588,7 +588,7 @@ describe('detectMonoesTokenLeak / formatMonoesLeakWarning (§3.5 remediation war
     execFileSync('git', ['add', '.monomind/monoes-connection.json'], { cwd: dir });
 
     const reasons = await detectMonoesTokenLeak(dir);
-    expect(reasons.some((r) => r.includes('monoes-connection.json'))).toBe(true);
+    expect(reasons.some((r: string) => r.includes('monoes-connection.json'))).toBe(true);
 
     const warning = formatMonoesLeakWarning(reasons);
     expect(warning).toBeTruthy();
@@ -613,7 +613,7 @@ describe('detectMonoesTokenLeak / formatMonoesLeakWarning (§3.5 remediation war
       }),
     );
     const reasons = await detectMonoesTokenLeak(dir);
-    expect(reasons.some((r) => r.includes('.mcp.json'))).toBe(true);
+    expect(reasons.some((r: string) => r.includes('.mcp.json'))).toBe(true);
     const warning = formatMonoesLeakWarning(reasons);
     expect(warning!.toLowerCase()).toContain('compromised');
     expect(warning).not.toContain(secret);
@@ -645,6 +645,6 @@ describe('detectMonoesTokenLeak / formatMonoesLeakWarning (§3.5 remediation war
       `{ this is not valid JSON but still contains "Authorization": "Bearer ${secret}" somewhere`,
     );
     const reasons = await detectMonoesTokenLeak(dir);
-    expect(reasons.some((r) => r.includes('.mcp.json'))).toBe(true);
+    expect(reasons.some((r: string) => r.includes('.mcp.json'))).toBe(true);
   });
 });

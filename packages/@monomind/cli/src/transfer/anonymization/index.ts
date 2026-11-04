@@ -7,8 +7,6 @@
  * remains — it backs the `transfer_detect-pii` MCP tool.
  */
 
-import * as crypto from 'node:crypto';
-
 /** Result shape returned by detectPII. */
 export interface PIIDetectionResult {
   found: boolean;
@@ -35,13 +33,6 @@ const PII_PATTERNS = {
   homePath: /\/(Users|home|Documents)\/[a-zA-Z0-9_.-]+/g,
   windowsPath: /[A-Z]:\\Users\\[a-zA-Z0-9_.-]+/g,
 };
-
-/**
- * Hash a string for consistent pseudonymization
- */
-function _hash(input: string): string {
-  return crypto.createHash('sha256').update(input).digest('hex');
-}
 
 /** Maximum content size for PII scanning/redaction (4 MB). */
 const MAX_SCAN_SIZE = 4 * 1024 * 1024;

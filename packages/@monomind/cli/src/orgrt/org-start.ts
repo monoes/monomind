@@ -242,22 +242,6 @@ async function startOrgInner(
   const roleFences = await startSteps.createRoleFences(daemon, def);
   if (roleFences.size > 0) running.fences = roleFences;
 
-  // Even-split budget; a role's own budget_tokens overrides it (roleTokenBudget).
-  // Bug 1: roles WITH an explicit override spend on top of the even split
-  // rather than out of it, so the roster's ceilings could sum to well over
-  // the declared org-wide budget (e.g. 4 roles @ 250k + one role overridden
-  // to 2M = 2.75M achievable against a declared 1M cap). Subtract the sum of
-  // every role's explicit override from the org-wide budget first, then
-  // split only the remainder among the roles WITHOUT an override, so the
-  // static split is honest about what's left. (Live usage is still tracked
-  // and enforced as a real ceiling above, independent of this static split.)
-  const orgBudgetTokens = def.run_config.budget_tokens ?? 1_000_000;
-  const overriddenTokenSum = def.roles.reduce((sum, r) => sum + (r.budget_tokens ?? 0), 0);
-  const unoverriddenRoleCount = agentRoles(def.roles).filter((r) => r.budget_tokens == null).length;
-  const _perRoleBudget =
-    unoverriddenRoleCount > 0
-      ? Math.max(0, Math.floor((orgBudgetTokens - overriddenTokenSum) / unoverriddenRoleCount))
-      : 0;
   // Single boss-selection rule for kickoff AND org_complete gating — the
   // session layer previously keyed the tool on reports_to===null while the
   // kickoff went to (type==='boss' || reports_to===null || roles[0]), so a
