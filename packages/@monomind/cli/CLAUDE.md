@@ -131,7 +131,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 - **Max Agents**: 8 (smaller = less drift)
 - **Strategy**: specialized (clear roles)
 - **Consensus**: majority
-- **Memory**: hybrid (JSON patterns + SQLite; optional vector search)
+- **Memory**: hybrid (SQLite pattern store with JSON fallback + SQLite memory; optional vector search)
 - **Routing**: keyword + route-outcomes
 
 ## CLI Commands
@@ -297,7 +297,7 @@ The lean build records what happens and measures whether routing helped — no n
 - **Agent and skill picking**: one index of registry agents and skills, ranked by a Jev decision model when configured and by a BM25-style keyword ranker otherwise; the prompt hook delivers it as a `[PICK]` line, `monomind pick` and the `pick` MCP tool on request (`doc/concepts/routing.md`)
 - **Route-outcome measurement**: correlates each pick with the subagent actually spawned and its success; adherence surfaced by `doctor -c pick` and `route stats`, and near-tied keyword picks re-ranked within ±15 %
 - **Trajectory + outcome logging**: `intelligence.ts` records steps/trajectories; `command-outcomes.ts` tracks command results
-- **Pattern persistence**: plain `patterns.json` read by `intelligence.ts`
+- **Pattern persistence**: `.monomind/neural/patterns.db` (SQLite, WAL) via `intelligence-sqlite-store.ts`; falls back to `patterns.json` when better-sqlite3 is unavailable, and imports an existing `patterns.json` once (renamed to `patterns.json.imported`)
 - **HNSW**: real, size-gated ANN fast path inside `@monoes/memory`'s `SqlBackend.search()` (`packages/@monomind/memory/src/sql-backend.ts`) — used automatically once active embedded entries cross `MONOMIND_HNSW_THRESHOLD` (default 100000; below it, brute-force cosine is cheaper and stays the path, per the second-brain-scale note on `search()`). The built graph is persisted to disk next to the SQLite file (`HNSWIndex.serialize()`/`.deserialize()` in `hnsw-index.ts`) and validated by entry count, so a fresh CLI invocation loads it instead of paying a full rebuild when the corpus hasn't changed. `memory search --build-hnsw` force-builds and caches it ahead of time (`bridgeForceBuildHNSW()` in `memory-bridge-entries.ts`); `bridgeGetHNSWStatus()` reports real status.
 
 **SONA and EWC++ ship in main** (`src/memory/sona-optimizer.ts`, `src/memory/ewc-consolidation.ts`) — see the file headers for their actual scope.

@@ -7,6 +7,7 @@
 
 import { readFileSync, statSync } from 'node:fs';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import { PATTERNS_DB_FILE, patternDbStats } from '../memory/intelligence-pattern-db.js';
 import { output } from '../output.js';
 import { confirm } from '../prompt.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -145,7 +146,13 @@ export const intelligenceCommand: Command = {
       // Read patterns.json file size and entry count
       let patternsFileSize = 0;
       let patternsFileEntries = 0;
-      if (persistence.patternsExist) {
+      const dbStats = persistence.patternsFile.endsWith(PATTERNS_DB_FILE)
+        ? patternDbStats(persistence.dataDir)
+        : null;
+      if (dbStats) {
+        patternsFileSize = dbStats.size;
+        patternsFileEntries = dbStats.entries;
+      } else if (persistence.patternsExist) {
         try {
           const pStat = statSync(persistence.patternsFile);
           patternsFileSize = pStat.size;

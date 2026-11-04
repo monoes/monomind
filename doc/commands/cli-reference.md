@@ -24,7 +24,7 @@
 | `performance` | Profiling, benchmarking, real metrics | 4 — benchmark, profile, metrics, bottleneck |
 | `guidance` | Wire enforcement gates into Claude Code hooks | 1 — setup |
 | `config` | Configuration management | 7 — init, get, set, providers, reset, export, import |
-| `doctor` | System diagnostics — flat command, no subcommands | 0 — flags only: `--fix`, `--install`, `--verbose`, `--json`, `--read-only`, `--offline`, `--component` (`--component` accepts one of 50 named categories — see below) |
+| `doctor` | System diagnostics — flat command, no subcommands | 0 — flags only: `--fix`, `--install`, `--verbose`, `--json`, `--read-only`, `--offline`, `--component` (`--component` accepts one of 52 named categories — see below) |
 | `completions` | Shell completion scripts | 4 — bash, zsh, fish, powershell |
 | `analyze` | Codebase analysis — diff classification, change risk | 7 — diff, code, deps, ast, complexity, symbols, imports |
 | `route` | Task-to-agent routing (`route task` through the central picker; `route semantic` picker first, then the embedding cascade). See [Route Command Reference](./route.md) & [Routing Concept](../concepts/routing.md). | 9 — task (default), semantic, list-agents, stats, feedback, reset, export, import, coverage (alias: cov) |
@@ -61,13 +61,13 @@
 - **MCP mode gate**: MCP server mode requires piped stdin AND either `mcp`/`mcp start` as argv, or the env var `MONOMIND_MCP_AUTODETECT=1` with zero args. Older versions treated any non-TTY invocation as an MCP server; that was removed as a privilege-escalation fix — plain non-interactive shell usage no longer risks silently starting an MCP server.
 - `bin/cli.js` always reads its version from `package.json` at runtime — never hardcoded, so it can't drift from what's installed (confirmed live: `node bin/cli.js --help` reports the installed version). **Exception:** the separate `monomind-mcp` binary (`bin/mcp-server.js`) hardcodes `const VERSION = '3.0.0'` (`bin/mcp-server.js:13`) and reports it in its MCP `initialize` response (`:124`) regardless of the real installed version — a real version-drift bug specific to that one entry point.
 
-## `doctor --component` categories (51)
+## `doctor --component` categories (52)
 
-`monomind doctor` (flags: `--fix`, `--install`, `--verbose`, `--json`, `--read-only`, `--offline`, `--component`) — `--component` accepts one of **51** named values, dispatched via the `componentMap` lookup table in `doctor.ts`. `monomind doctor --component bogus` prints the live list, which is the authority if this page drifts.
+`monomind doctor` (flags: `--fix`, `--install`, `--verbose`, `--json`, `--read-only`, `--offline`, `--component`) — `--component` accepts one of **52** named values, dispatched via the `componentMap` lookup table in `doctor.ts`. `monomind doctor --component bogus` prints the live list, which is the authority if this page drifts.
 
-Full 51, alphabetical: agent-runtimes, api, appledouble, catalog, claude, claude-runtime, config, cost-settings, crash-reporting, dashboard-token, decision, deprecated, disk, doc-extractors, documents, freshness, gates, git, gitignore, graph-freshness, graph-semantic, helpers, hook-monograph, hook-settings, jev, kg, mcp, mcp-running, memory, memory-pkg, memory-proficiency, metrics-freshness, monoes, monoes-token, monoes-tools, monograph, native, native-modules, node, npm, org-skills, pick, platforms, project-root, registry, second-brain, security-audit, sidecars, supply-chain, typescript, version.
+Full 52, alphabetical: agent-runtimes, api, appledouble, catalog, claude, claude-runtime, config, cost-settings, crash-reporting, dashboard-token, decision, deprecated, disk, doc-extractors, documents, freshness, gates, git, gitignore, graph-freshness, graph-semantic, helpers, hook-monograph, hook-settings, jev, kg, mcp, mcp-running, memory, memory-pkg, memory-proficiency, metrics-freshness, monoes, monoes-token, monoes-tools, monograph, native, native-modules, node, npm, org-skills, pick, platforms, project-root, registry, second-brain, security-audit, sidecars, supply-chain, typescript, usage-counters, version.
 
-Several are aliases: `freshness` is `version`; `sidecars` is `appledouble`; `native-modules` is `native`; `doc-extractors` is `documents`; `decision` is `jev`; `dashboard-token` is `monoes-token`. The `-c` help string names only 38 of the 51 and has drifted from the table; trust the table.
+Several are aliases: `freshness` is `version`; `sidecars` is `appledouble`; `native-modules` is `native`; `doc-extractors` is `documents`; `decision` is `jev`; `dashboard-token` is `monoes-token`. The `-c` help string names only 39 of the 52 and has drifted from the table; trust the table.
 
 **What the newer checks report**
 
@@ -84,9 +84,9 @@ Several are aliases: `freshness` is `version`; `sidecars` is `appledouble`; `nat
 
 **`--json`, `--read-only`, `--offline`.** `--json` puts one JSON document on stdout (human text goes to stderr) with every check's result, the `component` id that re-runs it, and how its fix is applied. `--json` implies `--read-only` unless you add `--fix` or `--install`: a read-only run changes no file in the project or `$HOME` (no fixes, no registry refresh, no update check). `--offline` skips the checks that use the network and reports them as skipped. The "update available" notice goes to stderr, so it never lands ahead of the JSON.
 
-**Default sweep versus `-c`.** A plain `monomind doctor` runs its own `alwaysOnChecks` and `codeOnlyChecks` arrays in `doctor.ts`, not the 51-value list.
+**Default sweep versus `-c`.** A plain `monomind doctor` runs its own `alwaysOnChecks` and `codeOnlyChecks` arrays in `doctor.ts`, not the 52-value list.
 
-- Always on: version, node, npm, claude, claude-runtime, agent-runtimes, config, project-root, memory, disk, monograph, memory-pkg, helpers, monoes, gates, hook-settings, registry, git, api, memory-proficiency, metrics-freshness, security-audit, second-brain, kg, appledouble, documents, jev, crash-reporting, cost-settings, org-skills, supply-chain, deprecated.
+- Always on: version, node, npm, claude, claude-runtime, agent-runtimes, config, project-root, memory, disk, monograph, memory-pkg, helpers, monoes, gates, hook-settings, registry, git, api, memory-proficiency, metrics-freshness, security-audit, second-brain, kg, appledouble, documents, jev, crash-reporting, usage-counters, cost-settings, org-skills, supply-chain, deprecated.
 - Added for code projects only (the capability fingerprint puts code confidence at 0.1 or more): git-repo, native, mcp, mcp-running, typescript, graph-freshness, graph-semantic, hook-monograph, gitignore, monoes-token, platforms.
 - Never in the default sweep, only with `-c`: `monoes-tools`, `catalog` and `pick`. `git-repo` is a sweep id only and is not a valid `-c` value.
 
@@ -95,6 +95,16 @@ Several are aliases: `freshness` is `version`; `sidecars` is `appledouble`; `nat
 ## Crash reporting
 
 `packages/@monomind/cli/src/services/crash-reporter.ts` is shared across the monoes tool family — `monotask` and `mono-clip` shell out to `monomind report-crash`. You're asked **once**, the first time an interactive crash happens — the local report path is shown before asking, and the default answer is No. Until you've answered, a non-interactive crash (CI, agents — most real runs) never asks and only saves locally. Once you've explicitly chosen — via the prompt or `monomind crash-reporting enable`/`disable` — that answer is used every time, interactive or not; `monomind doctor` shows the current state (on/off/unanswered). Reports are secret/PII-scrubbed before filing, deduplicated by a sha1 signature of repo+normalized title within a dedup window, and rate-limited per repo (statuses: `created`, `duplicate`, `saved-locally`, `disabled`, `rate-limited`, `error`).
+
+## Usage counters (opt-in, local only)
+
+Off by default. When you opt in, monomind counts which CLI commands and MCP tools you use, so unused ones can be retired based on data (see `docs/mastermind/plans/2026-11-surface-reduction.md`, stage 0). Nothing is ever sent anywhere: there is no upload code.
+
+- **Opt in:** set `MONOMIND_USAGE_COUNTERS=1` in the environment, or run `monomind config set cli.usageCounters true` in a project. `MONOMIND_USAGE_COUNTERS=0` turns counting off even when the config key is set. A running MCP server reads the setting once at startup.
+- **What is stored:** the command path (`cli:memory store`) or MCP tool name (`mcp:memory_store`), a count, and the first and last day it was seen. Arguments, flags, file paths, prompts and output are never stored. MCP tools are counted when an MCP client calls them over stdio (or through `monomind mcp exec`); tools a CLI command calls internally are not, since the command itself is counted. Tool calls over the HTTP/WebSocket transport are not counted.
+- **Where:** `~/.monomind/usage-counters.json` (`$MONOMIND_HOME/usage-counters.json` when `MONOMIND_HOME` is set), capped at 1,000 names. It is plain JSON you can read. `doctor --read-only` and `agent scan` do not write it.
+- **Check:** `monomind doctor -c usage-counters` prints `on, N entries in <file>` or `off`.
+- **Delete:** remove the file (`rm ~/.monomind/usage-counters.json`) and turn counting off.
 
 ## Input validation
 

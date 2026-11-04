@@ -38,7 +38,7 @@ export function cliCommandsTable(): string {
 | \`hooks\` | ${subcommandCount(hooksCommand)} | Edit/outcome logging, agent routing + ${workerCountLabel(avail.hooks)}background workers${unavailNote(avail.hooks)} |
 
 > Note: there is no \`neural\` CLI command. Its pattern commands live under
-> \`hooks intelligence\` — a local JSON pattern store; no model is trained.
+> \`hooks intelligence\` — a local pattern store (SQLite \`patterns.db\`, JSON fallback); no model is trained.
 
 ### Quick CLI Examples
 
@@ -217,7 +217,7 @@ export function intelligenceSystem(): string {
 
 - **Keyword routing**: The picker routes prompts to agents and skills by keyword match
 - **Pick stats**: Pick adherence and subagent outcomes (\`.monomind/pick-stats.json\`) act as a bounded ranking prior on later picks
-- **Outcome logging**: Hooks log edits, outcomes and trajectories to local JSON pattern files; route outcomes are scored to measure routing accuracy
+- **Outcome logging**: Hooks log edits, outcomes and trajectories to a local pattern store (SQLite, JSON fallback); route outcomes are scored to measure routing accuracy
 - **Pattern search**: SQLite-backed ANN vector search for finding similar past patterns
 
 No model is trained — everything runs in JS on local files.`;

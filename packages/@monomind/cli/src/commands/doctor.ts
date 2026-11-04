@@ -23,6 +23,7 @@ import {
   checkGitRepo,
   checkNodeVersion,
   checkNpmVersion,
+  checkUsageCounters,
   checkVersionFreshness,
   installClaudeCode,
 } from './doctor-env-checks.js';
@@ -111,7 +112,7 @@ export const doctorCommand: Command = {
       name: 'component',
       short: 'c',
       description:
-        'Check specific component (version, node, npm, config, project-root, memory, api, git, mcp, claude, agent-runtimes, disk, native, typescript, monograph, graph-freshness, hook-monograph, graph-semantic, memory-pkg, helpers, monoes, gates, hook-settings, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, dashboard-token, metrics-freshness, security-audit, documents, platforms, crash-reporting, jev, catalog, org-skills, pick)',
+        'Check specific component (version, node, npm, config, project-root, memory, api, git, mcp, claude, agent-runtimes, disk, native, typescript, monograph, graph-freshness, hook-monograph, graph-semantic, memory-pkg, helpers, monoes, gates, hook-settings, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, dashboard-token, metrics-freshness, security-audit, documents, platforms, crash-reporting, usage-counters, jev, catalog, org-skills, pick)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -251,6 +252,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     // and needs to know its crash-reporting state) — alwaysOnChecks, not
     // codeOnlyChecks.
     ['crash-reporting', checkCrashReporting],
+    ['usage-counters', () => checkUsageCounters({ cwd: ctx.cwd || process.cwd() })],
     ['cost-settings', () => checkTokenCostSettings(ctx.cwd || process.cwd())],
     ['org-skills', () => checkOrgSkills(ctx.cwd || process.cwd(), mode.readOnly)],
     ['supply-chain', () => checkSupplyChain(ctx.cwd || process.cwd())],
@@ -332,6 +334,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     decision: () => checkDecisionModel({ probe: true }),
     platforms: checkPlatforms,
     'crash-reporting': checkCrashReporting,
+    'usage-counters': () => checkUsageCounters({ cwd: ctx.cwd || process.cwd() }),
     catalog: () => checkCatalog(ctx.cwd || process.cwd()),
     'org-skills': () => checkOrgSkills(ctx.cwd || process.cwd(), mode.readOnly),
     'supply-chain': () => checkSupplyChain(ctx.cwd || process.cwd()),

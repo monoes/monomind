@@ -24,6 +24,7 @@ import {
 import { ensureCoreLoaded, FULL_ROSTER, isCoreAdvertised } from './mcp-client-roster.js';
 import { MCPClientError, warnOnTypeMismatch } from './mcp-client-validation.js';
 import type { MCPTool } from './mcp-tools/types.js';
+import { recordUsage } from './services/usage-counters.js';
 
 export { isToolDisabled } from './mcp-client-registry.js';
 export { MCPClientError } from './mcp-client-validation.js';
@@ -52,6 +53,11 @@ export async function callMCPTool<T = unknown>(
       toolName,
     );
   }
+
+  // Opt-in, local-only usage counter (off by default). Only calls that came
+  // through an MCP server (or `mcp exec`) carry a sessionId; in-process calls
+  // a CLI command makes are already counted as that command. Fire-and-forget.
+  if (typeof context?.sessionId === 'string') void recordUsage('mcp', toolName);
 
   // Enforce the `required` contract each tool advertises in its inputSchema.
   // 120 of the ~254 tools declare required params, but nothing used to check
