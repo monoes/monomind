@@ -20,6 +20,7 @@ import { generateStatuslineScript } from './statusline-generator.js';
 import type { InitOptions, InitResult } from './types.js';
 import { DEFAULT_INIT_OPTIONS, detectPlatform } from './types.js';
 import {
+  addAllowRulesToSettings,
   indexProject,
   mergeSettingsForUpgrade,
   syncHelperTree,
@@ -320,6 +321,10 @@ export async function executeUpgrade(
         result.settingsUpdated = ['Created new settings.json'];
       }
     }
+
+    // 4. Add monomind's allow rules an existing settings.json lacks (every
+    // upgrade, not only --settings), so new generated commands stop prompting.
+    addAllowRulesToSettings(targetDir, result, guard);
 
     // Both routing indexes are generated, never copied: rebuild them now so
     // the project's own and the user's (~/.claude) agents and skills replace
