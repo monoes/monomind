@@ -14,9 +14,11 @@ name: Publish Smoke Test
 #     itself, so it verifies what real `npm install monomind` users get.
 #     Triggers: a pushed `v*` tag, manual dispatch, or a daily schedule.
 #
-#     The daily schedule is not redundant. Tagging is a manual step that is not
-#     part of the publish flow, so releases regularly reach npm untagged and
-#     the tag trigger never fires for them: as of 2026-07-26 the remote's
+#     The daily schedule is not redundant. Releases made by hand reach npm
+#     untagged and the tag trigger never fires for them. The release workflow
+#     (release.yml, triggered by a `v*` tag from scripts/tag-release.mjs) is
+#     meant to end that, but until every release goes through it the schedule
+#     stays. The history that motivated it: as of 2026-07-26 the remote's
 #     newest tag was v2.7.3 while npm was serving 2.7.7, leaving 2.5.7, 2.5.8,
 #     2.7.4, 2.7.5, 2.7.6 and 2.7.7 — six published versions — never smoke
 #     tested. Since this job installs `@latest` rather than a specific ref, a
