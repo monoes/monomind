@@ -7,25 +7,32 @@
  *   routing's `computeCentroid` on every input below, so the cli copy was
  *   removed. `referenceMeanCentroid` is a verbatim copy of the removed code,
  *   kept here so the parity claim stays checked.
- * - Cosine: the four implementations agree on equal-length input but differ on
- *   length mismatch, so all of them stay. These tests pin the differences.
+ * - Cosine: every copy agrees on equal-length input and returns 0 (no
+ *   similarity) for mismatched lengths, empty vectors and zero vectors, with
+ *   at most one warning per process naming the two lengths.
  * - Quantization: cli `quantizeInt8` and memory `Quantizer` are different
  *   algorithms; these tests pin how they differ. No merge.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 import {
   batchCosineSim,
   dequantizeInt8,
+  quantizedCosineSim,
   quantizeInt8,
 } from '../../packages/@monomind/cli/src/memory/hnsw-operations.js';
 import { cosineSimilarity as cliCosine } from '../../packages/@monomind/cli/src/utils/cosine-similarity.js';
-import { cosineDistance } from '../../packages/@monomind/memory/src/hnsw-distance.js';
+import {
+  cosineDistance,
+  cosineDistanceNormalized,
+  normalizeVector,
+} from '../../packages/@monomind/memory/src/hnsw-distance.js';
 import { Quantizer } from '../../packages/@monomind/memory/src/hnsw-quantizer.js';
 import { cosineSimilarity as memoryCosine } from '../../packages/@monomind/memory/src/math-utils.js';
 import {
   computeCentroid,
   cosineSimilarity as routingCosine,
 } from '../../packages/@monomind/routing/src/cosine.js';
+import { InMemoryVectorStore } from '../../packages/monofence-ai/src/domain/services/threat-learning-inmemory-store.js';
 
 /** Verbatim copy of the cli `meanCentroid` removed from routing/embedder.ts. */
 function referenceMeanCentroid(vectors: number[][]): number[] {
@@ -81,76 +88,131 @@ describe('centroid parity: cli meanCentroid (removed) vs routing computeCentroid
   });
 });
 
-describe('cosine parity: cli vs routing vs memory math-utils vs memory cosineDistance', () => {
-  const simFromDistance = (a: number[], b: number[]) =>
-    1 - cosineDistance(Float32Array.from(a), Float32Array.from(b));
-  const batch = (a: number[], b: number[]) => batchCosineSim(a, [b])[0];
+describe('cosine parity: every copy', () => {
+  // Every implementation, mapped to a similarity. Distances map back with 1 - d.
+  const monofence = new InMemoryVectorStore() as unknown as {
+    cosineSimilarity(a: number[], b: number[]): number;
+  };
+  const copies: Record<string, (a: number[], b: number[]) => number> = {
+    'cli cosineSimilarity': (a, b) => cliCosine(a, b),
+    'cli batchCosineSim': (a, b) => batchCosineSim(a, [b])[0],
+    'cli quantizedCosineSim': (a, b) =>
+      quantizedCosineSim(Int8Array.from(a), 1, Int8Array.from(b), 1),
+    'routing cosineSimilarity': (a, b) => routingCosine(a, b),
+    'memory cosineSimilarity': (a, b) => memoryCosine(a, b),
+    'memory cosineDistance': (a, b) =>
+      1 - cosineDistance(Float32Array.from(a), Float32Array.from(b)),
+    'memory cosineDistanceNormalized': (a, b) =>
+      1 -
+      cosineDistanceNormalized(
+        normalizeVector(Float32Array.from(a)),
+        normalizeVector(Float32Array.from(b)),
+      ),
+    'monofence InMemoryVectorStore': (a, b) => monofence.cosineSimilarity(a, b),
+  };
+  const WARNED = Symbol.for('monomind.cosine.lengthMismatchWarned');
+  const resetWarned = () => {
+    delete (globalThis as Record<symbol, unknown>)[WARNED];
+  };
+  let warn: MockInstance<typeof console.warn>;
 
-  it('agree on equal-length vectors', () => {
-    const pairs: Array<[number[], number[]]> = [
-      [
-        [1, 2, 3],
-        [4, 5, 6],
-      ],
+  beforeEach(() => {
+    resetWarned();
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warn.mockRestore();
+    resetWarned();
+  });
+
+  for (const [name, sim] of Object.entries(copies)) {
+    describe(name, () => {
+      it('agrees with the cli copy on equal-length vectors', () => {
+        const pairs: Array<[number[], number[]]> = [
+          [
+            [1, 2, 3],
+            [4, 5, 6],
+          ],
+          [
+            [1, 0],
+            [0, 1],
+          ],
+          [
+            [1, 2],
+            [-1, -2],
+          ],
+          [
+            [3, -7, 25, 1],
+            [3, -7, 25, 1],
+          ],
+        ];
+        for (const [a, b] of pairs) expect(sim(a, b)).toBeCloseTo(cliCosine(a, b), 6);
+      });
+
+      it('returns 0 for mismatched lengths, either way round, and never throws', () => {
+        expect(sim([1, 2, 3], [1, 2])).toBe(0);
+        expect(sim([1, 2], [1, 2, 3])).toBe(0);
+        expect(sim([], [1, 2])).toBe(0);
+        expect(sim([1, 2], [])).toBe(0);
+      });
+
+      it('returns 0 for empty vectors', () => {
+        expect(sim([], [])).toBe(0);
+      });
+
+      it('returns 0 (not NaN) for zero vectors', () => {
+        expect(sim([0, 0, 0], [1, 2, 3])).toBe(0);
+        expect(sim([1, 2, 3], [0, 0, 0])).toBe(0);
+        expect(sim([0, 0], [0, 0])).toBe(0);
+      });
+    });
+  }
+
+  it('all copies together warn once per process, naming the two lengths', () => {
+    for (const sim of Object.values(copies)) {
+      sim([1, 2, 3], [1, 2]);
+      sim([1], [1, 2, 3, 4]);
+    }
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toMatch(/length mismatch \(3 vs 2\)/);
+  });
+
+  it('does not warn for equal lengths, empty or zero vectors', () => {
+    for (const sim of Object.values(copies)) {
+      sim([1, 2], [3, 4]);
+      sim([], []);
+      sim([0, 0], [1, 1]);
+    }
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('memory cosineDistance and cosineDistanceNormalized give distance 1 on mismatch', () => {
+    expect(cosineDistance(Float32Array.from([1, 2, 3]), Float32Array.from([1, 2]))).toBe(1);
+    expect(cosineDistanceNormalized(Float32Array.from([1, 0, 0]), Float32Array.from([1, 0]))).toBe(
+      1,
+    );
+  });
+
+  it('cli batchCosineSim scores only the mismatched vectors 0', () => {
+    const scores = batchCosineSim(
+      [1, 0],
       [
         [1, 0],
+        [1, 0, 0],
         [0, 1],
       ],
-      [
-        [1, 2],
-        [-1, -2],
-      ],
-      [
-        [0.3, -0.7, 2.5, 1e-6],
-        [0.3, -0.7, 2.5, 1e-6],
-      ],
-    ];
-    for (const [a, b] of pairs) {
-      const expected = cliCosine(a, b);
-      expect(routingCosine(a, b)).toBe(expected);
-      expect(memoryCosine(a, b)).toBe(expected);
-      expect(simFromDistance(a, b)).toBeCloseTo(expected, 6);
-      expect(batch(a, b)).toBeCloseTo(expected, 6);
-    }
+    );
+    expect(Array.from(scores)).toEqual([1, 0, 0]);
   });
 
-  it('agree on zero vectors (similarity 0, distance 1)', () => {
-    const a = [0, 0, 0];
-    const b = [1, 2, 3];
-    expect(cliCosine(a, b)).toBe(0);
-    expect(routingCosine(a, b)).toBe(0);
-    expect(memoryCosine(a, b)).toBe(0);
-    expect(cosineDistance(Float32Array.from(a), Float32Array.from(b))).toBe(1);
-    expect(batch(a, b)).toBe(0);
-  });
-
-  it('agree on empty vectors (similarity 0)', () => {
-    expect(cliCosine([], [])).toBe(0);
-    expect(routingCosine([], [])).toBe(0);
-    expect(memoryCosine([], [])).toBe(0);
-    expect(simFromDistance([], [])).toBe(0);
-    expect(batch([], [])).toBe(0);
-  });
-
-  it('agree on NaN input (NaN out)', () => {
+  it('NaN input still gives NaN where the copy computes it (unchanged)', () => {
     const a = [Number.NaN, 1];
     const b = [1, 1];
     expect(cliCosine(a, b)).toBeNaN();
     expect(routingCosine(a, b)).toBeNaN();
     expect(memoryCosine(a, b)).toBeNaN();
-    expect(simFromDistance(a, b)).toBeNaN();
-    expect(batch(a, b)).toBeNaN();
-  });
-
-  it('DIFFER on length mismatch', () => {
-    const a = [1, 2, 3];
-    const b = [1, 2];
-    expect(cliCosine(a, b)).toBeCloseTo(1, 12); // truncates to the shorter length
-    expect(() => routingCosine(a, b)).toThrow(/length mismatch/);
-    expect(memoryCosine(a, b)).toBe(0);
-    expect(simFromDistance(a, b)).toBeNaN(); // reads b[2] === undefined
-    // query norm over the full query, vector norm over the overlap
-    expect(batch(a, b)).toBeCloseTo(5 / (Math.sqrt(14) * Math.sqrt(5)), 6);
+    expect(copies['memory cosineDistance'](a, b)).toBeNaN();
+    expect(batchCosineSim(a, [b])[0]).toBeNaN();
   });
 });
 

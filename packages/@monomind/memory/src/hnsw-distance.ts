@@ -9,6 +9,7 @@
  */
 
 import type { HNSWNode } from './hnsw-index.js';
+import { cosineSimilarity, warnVectorLengthMismatch } from './math-utils.js';
 import type { DistanceMetric } from './types.js';
 
 export function distance(metric: DistanceMetric, a: Float32Array, b: Float32Array): number {
@@ -26,21 +27,9 @@ export function distance(metric: DistanceMetric, a: Float32Array, b: Float32Arra
   }
 }
 
+/** 1 - cosine similarity; 1 (no similarity) for empty, zero-norm or mismatched-length vectors. */
 export function cosineDistance(a: Float32Array, b: Float32Array): number {
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-
-  const denom = Math.sqrt(normA) * Math.sqrt(normB);
-  if (denom === 0) return 1; // zero vector has maximum distance
-  const similarity = dotProduct / denom;
-  return 1 - similarity; // Convert to distance
+  return 1 - cosineSimilarity(a, b);
 }
 
 /**
@@ -49,6 +38,10 @@ export function cosineDistance(a: Float32Array, b: Float32Array): number {
  * Performance: O(n) with ~2x speedup over standard cosine
  */
 export function cosineDistanceNormalized(a: Float32Array, b: Float32Array): number {
+  if (a.length !== b.length) {
+    warnVectorLengthMismatch(a.length, b.length);
+    return 1;
+  }
   let dotProduct = 0;
   for (let i = 0; i < a.length; i++) {
     dotProduct += a[i] * b[i];

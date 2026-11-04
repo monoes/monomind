@@ -128,7 +128,13 @@ export async function createSemanticRouting(routes: RouteLike[]): Promise<Semant
     if (size > 10 * 1024 * 1024) throw new Error('cache file too large');
     const raw = await fs.readFile(cacheFile, 'utf-8');
     const centroids = JSON.parse(raw) as unknown;
-    if (isValidCentroids(centroids, routes.length)) {
+    // Cosine scores a length mismatch as 0, so a cache whose dimension no
+    // longer matches the model's output (weights changed under the same id)
+    // would score every route 0. Check explicitly and rebuild instead.
+    if (
+      isValidCentroids(centroids, routes.length) &&
+      centroids[0].length === (await embeddingGenerator('dimension check')).length
+    ) {
       return { embeddingGenerator, centroids, globalThreshold: SEMANTIC_EMBEDDING_THRESHOLD };
     }
   } catch {

@@ -8,21 +8,42 @@
  *   - mcp-tools/coherence/types.ts + coherence-check.ts (both since deleted
  *     along with the rest of the uncalled coherence_* family)
  *
- * This is the single canonical implementation. Accepts number[] or
- * Float32Array. Handles dimension mismatches gracefully (uses the shorter
- * length) and returns 0 for zero-magnitude vectors.
+ * This is the single canonical implementation. Accepts number[] or typed
+ * arrays. Returns 0 for empty, zero-magnitude and mismatched-length vectors.
  */
+
+/** Shared across every monomind cosine copy so the process warns at most once. */
+const LENGTH_MISMATCH_WARNED = Symbol.for('monomind.cosine.lengthMismatchWarned');
+
+/**
+ * Warn, at most once per process, that two vectors of different lengths were
+ * compared. That usually means the embedding model changed under a stored index.
+ */
+export function warnVectorLengthMismatch(a: number, b: number): void {
+  const g = globalThis as Record<symbol, unknown>;
+  if (g[LENGTH_MISMATCH_WARNED]) return;
+  g[LENGTH_MISMATCH_WARNED] = true;
+  console.warn(
+    `[monomind] cosine similarity: vector length mismatch (${a} vs ${b}), scored as 0. ` +
+      'The embedding model probably changed under a stored index; rebuild it.',
+  );
+}
 
 /**
  * Compute cosine similarity between two vectors.
  *
  * Returns a value in [-1, 1]. Returns 0 when either vector is empty or
- * has zero magnitude.
+ * has zero magnitude, and when the lengths differ (with a one-time warning).
  */
-export function cosineSimilarity(a: number[] | Float32Array, b: number[] | Float32Array): number {
-  if (!a || !b || a.length === 0 || b.length === 0) return 0;
+export function cosineSimilarity(a: ArrayLike<number>, b: ArrayLike<number>): number {
+  if (!a || !b) return 0;
+  if (a.length !== b.length) {
+    warnVectorLengthMismatch(a.length, b.length);
+    return 0;
+  }
+  if (a.length === 0) return 0;
 
-  const len = Math.min(a.length, b.length);
+  const len = a.length;
   let dot = 0;
   let normA = 0;
   let normB = 0;
