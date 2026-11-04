@@ -1,6 +1,6 @@
 ---
 name: mastermind-environments
-description: "Mastermind environments — bookkeeping only — not enforced by the Org Runtime. Records execution environments (local, SSH, sandbox) in a side file; agents run where the runtime runs them."
+description: "Deprecated: bookkeeping only — not enforced by the Org Runtime. Mastermind environments: Records execution environments (local, SSH, sandbox) in a side file; agents run where the runtime runs them."
 type: domain-skill
 default_mode: confirm
 pick: low

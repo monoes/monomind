@@ -49,6 +49,7 @@ import {
   checkApiKeys,
   checkAppleDoubleSidecars,
   checkConfigFile,
+  checkDeprecatedSkills,
   checkDocumentExtractors,
   checkGitignoreCoverage,
   checkGuidanceGates,
@@ -253,6 +254,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     ['cost-settings', () => checkTokenCostSettings(ctx.cwd || process.cwd())],
     ['org-skills', () => checkOrgSkills(ctx.cwd || process.cwd(), mode.readOnly)],
     ['supply-chain', () => checkSupplyChain(ctx.cwd || process.cwd())],
+    ['deprecated', () => checkDeprecatedSkills(ctx.cwd || process.cwd())],
   ];
   const codeOnlyChecks: [string, CheckFn][] = [
     ['git-repo', checkGitRepo],
@@ -333,6 +335,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     catalog: () => checkCatalog(ctx.cwd || process.cwd()),
     'org-skills': () => checkOrgSkills(ctx.cwd || process.cwd(), mode.readOnly),
     'supply-chain': () => checkSupplyChain(ctx.cwd || process.cwd()),
+    deprecated: () => checkDeprecatedSkills(ctx.cwd || process.cwd()),
     // Opt-in: rebuilds stale indexes and scores the eval set, so it stays out
     // of the default run.
     pick: () => checkPick(ctx.cwd || process.cwd()),

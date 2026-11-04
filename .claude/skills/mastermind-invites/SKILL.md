@@ -1,6 +1,6 @@
 ---
 name: mastermind-invites
-description: "Mastermind invites — bookkeeping only — not enforced by the Org Runtime. Creates, revokes and lists invites and join requests in side files; accepting grants no access."
+description: "Deprecated: bookkeeping only — not enforced by the Org Runtime. Mastermind invites: Creates, revokes and lists invites and join requests in side files; accepting grants no access."
 type: domain-skill
 default_mode: confirm
 pick: low
