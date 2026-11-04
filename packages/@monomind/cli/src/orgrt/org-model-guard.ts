@@ -6,7 +6,7 @@
  * its own resolves to. Errors, not warnings: a blocked model is never routed.
  */
 import { outdatedModelHint } from '../latest-models.js';
-import { isBlockedModel } from '../model-guard.js';
+import { isBlockedModel } from '../shared/model-guard.js';
 import { resolveModel } from './session-prompt.js';
 import type { OrgDef } from './types.js';
 

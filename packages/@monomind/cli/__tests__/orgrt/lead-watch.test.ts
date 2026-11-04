@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 let resourcesOk = true;
-vi.mock('../../src/utils/resource-governor.js', () => ({
+vi.mock('../../src/shared/resource-governor.js', () => ({
   checkResources: vi.fn(() => ({
     ok: resourcesOk,
     freeMemMB: 2000,
