@@ -73,8 +73,8 @@ describe('C4 — atomic state writes in orgrt/daemon.ts', () => {
     expect(branchWriteMatches.length).toBe(0);
   });
 
-  it('imports writeJsonFileAtomic from utils/json-file', () => {
-    expect(DAEMON_SRC).toMatch(/from '\.\.\/utils\/json-file\.js'/);
+  it('imports writeJsonFileAtomic from shared/json-file', () => {
+    expect(DAEMON_SRC).toMatch(/from '\.\.\/shared\/json-file\.js'/);
     expect(DAEMON_SRC).toMatch(/writeJsonFileAtomic/);
   });
 });

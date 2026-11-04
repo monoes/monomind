@@ -25,7 +25,7 @@
  * the runner's own 2h/45s ladders remain the backstop for orphaned children.
  */
 
-import { isBlockedModel } from '../model-guard.js';
+import { isBlockedModel } from '../shared/model-guard.js';
 import { fullAccessCanUseTool, resolveAccess, resolveExecSandbox } from './agent-exec-access.js';
 import { execPrompt } from './agent-exec-attach.js';
 import { StdioToolBridge, UsageTracker } from './agent-exec-bridge.js';
