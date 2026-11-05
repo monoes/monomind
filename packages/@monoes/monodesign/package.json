@@ -48,7 +48,7 @@
     "domutils": "^4.0.2",
     "fflate": "^0.8.3",
     "htmlparser2": "^12.0.0",
-    "marked": "^18.0.0"
+    "marked": "^18.1.2"
   },
   "optionalDependencies": {
     "@monoes/monobrowse": "workspace:*"
