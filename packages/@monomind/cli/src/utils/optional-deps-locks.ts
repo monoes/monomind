@@ -21,28 +21,28 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
       '': {
         name: 'monomind-optional-dependency',
         dependencies: {
-          '@anthropic-ai/claude-agent-sdk': '0.3.303',
+          '@anthropic-ai/claude-agent-sdk': '0.3.319',
         },
       },
       'node_modules/@anthropic-ai/claude-agent-sdk': {
-        version: '0.3.303',
+        version: '0.3.319',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.303.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.319.tgz',
         integrity:
-          'sha512-XBql04V40xr+fmGJh8AmIpqRZKFNrs99BzXzzSVlx+uE5NjFCzKmkNKTdMD0DQtDvFJlijOLoh1siaH+au9Psw==',
+          'sha512-7X+sh4uZv/u4OL4I4cQvMr9N3NM6FDiuyk829hFylgbrnNwVyiGElWEDWGuO26zwMIxmgpKdPoDILoFIHh1uwA==',
         license: 'SEE LICENSE IN README.md',
         engines: {
-          node: '>=18.0.0',
+          node: '>=18.14.0',
         },
         optionalDependencies: {
-          '@anthropic-ai/claude-agent-sdk-darwin-arm64': '0.3.303',
-          '@anthropic-ai/claude-agent-sdk-darwin-x64': '0.3.303',
-          '@anthropic-ai/claude-agent-sdk-linux-arm64': '0.3.303',
-          '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': '0.3.303',
-          '@anthropic-ai/claude-agent-sdk-linux-x64': '0.3.303',
-          '@anthropic-ai/claude-agent-sdk-linux-x64-musl': '0.3.303',
-          '@anthropic-ai/claude-agent-sdk-win32-arm64': '0.3.303',
-          '@anthropic-ai/claude-agent-sdk-win32-x64': '0.3.303',
+          '@anthropic-ai/claude-agent-sdk-darwin-arm64': '0.3.319',
+          '@anthropic-ai/claude-agent-sdk-darwin-x64': '0.3.319',
+          '@anthropic-ai/claude-agent-sdk-linux-arm64': '0.3.319',
+          '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': '0.3.319',
+          '@anthropic-ai/claude-agent-sdk-linux-x64': '0.3.319',
+          '@anthropic-ai/claude-agent-sdk-linux-x64-musl': '0.3.319',
+          '@anthropic-ai/claude-agent-sdk-win32-arm64': '0.3.319',
+          '@anthropic-ai/claude-agent-sdk-win32-x64': '0.3.319',
         },
         peerDependencies: {
           '@anthropic-ai/sdk': '>=0.93.0',
@@ -51,92 +51,88 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         },
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64': {
-        version: '0.3.303',
+        version: '0.3.319',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-darwin-arm64/-/claude-agent-sdk-darwin-arm64-0.3.303.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-darwin-arm64/-/claude-agent-sdk-darwin-arm64-0.3.319.tgz',
         integrity:
-          'sha512-QAWV9Zd7i7FQDaUSwZNVXJirqCS9CSF4aPwbkGwLvLH83qcfFOmnyxWUg1H7dU6tJFLOCyDLQzc3xzUA4dakoA==',
+          'sha512-rNiAbMbRhgOM2CELsDTIq7q++sFVIZukTkgeswcncGbcX8STIgtf0XaZzKdRXtKK+v9ez+mQn8P4pb2Ka17wGA==',
         cpu: ['arm64'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['darwin'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-darwin-x64': {
-        version: '0.3.303',
+        version: '0.3.319',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-darwin-x64/-/claude-agent-sdk-darwin-x64-0.3.303.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-darwin-x64/-/claude-agent-sdk-darwin-x64-0.3.319.tgz',
         integrity:
-          'sha512-o931musaryuq04fMaEjceCEmgsBrLh39WvwsQWmv070h9jXS8EmWRFpdSILv1xrUFXiukRSq8yUDRVzg+FvTug==',
+          'sha512-jM730Fl+cFotDnjF9cStIf+Xe57YdfDB3TXaSVVv8uVAXW4xoWFwIj2eDvmsciEEe5UMkKzjVqXu9kR21OrXng==',
         cpu: ['x64'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['darwin'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-linux-arm64': {
-        version: '0.3.303',
+        version: '0.3.319',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-arm64/-/claude-agent-sdk-linux-arm64-0.3.303.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-arm64/-/claude-agent-sdk-linux-arm64-0.3.319.tgz',
         integrity:
-          'sha512-c04i9i1BU3j9G3D7XdVzXTdM3/sDpQH+1o8jNcMPnztOTYbNFmH/cacgeX9x3N112r+5VhCEHXGILoe5GxVxeg==',
+          'sha512-g2tpMsHLMQahI4bk5CIcMHAB/RwzxoPGmL5Q5G5MDir5WTrl71vulWbtLQISUPm/yFPRG97tdzZnCa5Uq1v/dw==',
         cpu: ['arm64'],
-        libc: ['glibc'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['linux'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-linux-arm64-musl': {
-        version: '0.3.303',
+        version: '0.3.319',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-arm64-musl/-/claude-agent-sdk-linux-arm64-musl-0.3.303.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-arm64-musl/-/claude-agent-sdk-linux-arm64-musl-0.3.319.tgz',
         integrity:
-          'sha512-a/OsLTEx9ly9hC26cXidg9mtTMA00SQnEiTN9P4IPNj64uSp/7uBnlWl0VeUoVFbgKYYq6XrGRcD6F1ilQsYxg==',
+          'sha512-8KDZQJAS2CEb5aGAvuXkpyHMc9TOM/zYTw2iKmbbVi4im0atw93EtJPapYyp0g/lQI/Xk8jMYdWU6Zlv9EWjLw==',
         cpu: ['arm64'],
-        libc: ['musl'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['linux'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-linux-x64': {
-        version: '0.3.303',
+        version: '0.3.319',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-x64/-/claude-agent-sdk-linux-x64-0.3.303.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-x64/-/claude-agent-sdk-linux-x64-0.3.319.tgz',
         integrity:
-          'sha512-lsm1sX2+9Wos8glBbn86M8leFuK60LKB1cJdS0b2HiTSwiDCqpUKYRGJNUlW1JdUTwJB5nDv6S8/FOJExm1/tw==',
+          'sha512-uBAZA8x0hd5gVifyL5Lo73dVmi9xZeJ6jro2NO0al6yyWaw/6UL9xbsVh9lOhLFOmYIdSbQ2j4zAfnvG/t5F3Q==',
         cpu: ['x64'],
-        libc: ['glibc'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['linux'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-linux-x64-musl': {
-        version: '0.3.303',
+        version: '0.3.319',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-x64-musl/-/claude-agent-sdk-linux-x64-musl-0.3.303.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-x64-musl/-/claude-agent-sdk-linux-x64-musl-0.3.319.tgz',
         integrity:
-          'sha512-yixAa3ZOZd1hiI4mpoukzT9TnuDCzSEHyh7pHcbYTRmdRE2y8bAOmI0eiMFJPivnG4iyGhS2C4XNAe6hAjl30w==',
+          'sha512-XkKYj3c1jVFjLATrZr4YTsmS5AIb5s2iphF9X670EcVQqDCCGIKKTVNLLg9mg1e7D+2xX8FU0XNlOJatWfpBeA==',
         cpu: ['x64'],
-        libc: ['musl'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['linux'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-win32-arm64': {
-        version: '0.3.303',
+        version: '0.3.319',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-win32-arm64/-/claude-agent-sdk-win32-arm64-0.3.303.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-win32-arm64/-/claude-agent-sdk-win32-arm64-0.3.319.tgz',
         integrity:
-          'sha512-AnEseiw5E1JF3XRaGIZN880V/i2OxCaTOQJF9F1+oELleSdvLnCUxCE6/baGvaZjrgvffO9YbYChBpgUKj9j7A==',
+          'sha512-YoP0lYHJCziENFCotHQq9qd/gaJrwUNkAcnZyVjXxg1OPmtKuyw31aG60s4cWXRDXXGm/m1siNSQaGGfAYBvrw==',
         cpu: ['arm64'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['win32'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-win32-x64': {
-        version: '0.3.303',
+        version: '0.3.319',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-win32-x64/-/claude-agent-sdk-win32-x64-0.3.303.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-win32-x64/-/claude-agent-sdk-win32-x64-0.3.319.tgz',
         integrity:
-          'sha512-j5kABFEQ6x6T5AB/glmn0r9VwZRbzcH+nSEOWglB69ODNfkZA2btjcz9r794+2BLqJ9QAyswiYWcOX4sDz/RmQ==',
+          'sha512-UC27x+8gfCS2OjNGJWrueP0gLOOKsLEsJ/kg0p6aa8GToZcJYjJ8KeAapHHRYMUAIB6Sarqe49Itm5P1wswCcQ==',
         cpu: ['x64'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
@@ -1327,43 +1323,43 @@ export interface CodePins {
  */
 export const OPTIONAL_DEPENDENCY_CODE_PINS: Partial<Record<string, CodePins>> = {
   '@anthropic-ai/claude-agent-sdk': {
-    version: '0.3.303',
+    version: '0.3.319',
     entry: {
       file: 'sdk.mjs',
-      sha256: '1193c5f6168af04e8880f5d52b8b1a3d1e7c6ee7d798dcf176698fae1907adf5',
+      sha256: '71460e29f72859dbc65a613e3737c834b4afa4b6411716fd7b596f9c5e129b76',
     },
     binaries: {
       '@anthropic-ai/claude-agent-sdk-darwin-arm64': {
         file: 'claude',
-        sha256: 'd2da3b003dc08b88b7230469014fe3e1dc6fe94bc8f648e89b34175d30269370',
+        sha256: '1f53587e92dee8e089fa349188a4cda64fa34ace6e7b0ca2ee278ddaa3cc2ebd',
       },
       '@anthropic-ai/claude-agent-sdk-darwin-x64': {
         file: 'claude',
-        sha256: '6c5d63b43568c5d60963d40f05b0087cb03ba44a90740d27adc505f4157806db',
+        sha256: 'af6f1f5510ae98d56a155bf8f007aa9d5b44efccc9c10c8e10ef35039e95a940',
       },
       '@anthropic-ai/claude-agent-sdk-linux-arm64': {
         file: 'claude',
-        sha256: 'f384f49826336d4ac0484ac6ac9d8d16f64d244d186ce227cbd7cc088c03315d',
+        sha256: 'a7e687fd1cb054d651c7588223de3786c99d4c682365e3c3ae1e59ce7f3a591f',
       },
       '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': {
         file: 'claude',
-        sha256: 'a0d9d4dcb99a1782cdfc332fed8510467e99efc7ff2f3d7443fea27d9af55e7e',
+        sha256: '244e1aaedb73cb73571c2d5f2380f7ad251ba7e010d2747a203d631a1e7bd2e8',
       },
       '@anthropic-ai/claude-agent-sdk-linux-x64': {
         file: 'claude',
-        sha256: '375988f457756524234695cf2d8f64ace99c5f68682e47ea24862a843c191450',
+        sha256: 'dabafec82ca1319fa43d8be36a10fc61b1d11821cb98ad5df04ad95e199b8eed',
       },
       '@anthropic-ai/claude-agent-sdk-linux-x64-musl': {
         file: 'claude',
-        sha256: '8dfd02ad4590c6f4c419ec73af4f5462223a07f64495e2c2fce45990faf1ede6',
+        sha256: 'b0f74e3c97fc4df46101bc7bcd0054d0f63733261cd63e5a0413cd50d66197f2',
       },
       '@anthropic-ai/claude-agent-sdk-win32-arm64': {
         file: 'claude.exe',
-        sha256: 'a5d5b594a639dab03da1ea0e1a1aedc1885284cc42e14cb65b7527250bc7ea90',
+        sha256: '59b1ace11fad7f95c17a4ba01cf50eb48af20cd133df93129b34aa8e633bd6b1',
       },
       '@anthropic-ai/claude-agent-sdk-win32-x64': {
         file: 'claude.exe',
-        sha256: '1787c60619bad78543c67e4d9d8a868869c35a904f2a85eb9ea46c4808af196b',
+        sha256: '2e055732c9d03d22700d9046251a8370b673607bfcc9e4d16a1b0e8fb1345cbd',
       },
     },
   },
