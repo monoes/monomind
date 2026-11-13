@@ -115,6 +115,8 @@ export function assertSupportedFilesystem(root: string, opts?: { mountinfo?: str
     );
 }
 
+const MAX_SOCKET_PATH = 100;
+
 function endpointFor(root: string, org: string): { path: string; file: boolean } {
   const key = createHash('sha256')
     .update(`${realOrSelf(root)}\0${org}`)
@@ -123,7 +125,11 @@ function endpointFor(root: string, org: string): { path: string; file: boolean }
   if (process.platform === 'linux') return { path: `\0monomind-org-lock-${key}`, file: false };
   if (process.platform === 'win32')
     return { path: `\\\\.\\pipe\\monomind-org-lock-${key}`, file: false };
-  const dir = join(tmpdir(), `monomind-org-locks-${process.getuid?.() ?? 0}`);
+  const name = `monomind-org-locks-${process.getuid?.() ?? 0}`;
+  let dir = join(tmpdir(), name);
+  // A unix socket path must fit sun_path (104 bytes on macOS). Node cuts a longer one without
+  // an error, so the file it makes could never be found again to unlink once its holder died.
+  if (join(dir, `${key}.sock`).length > MAX_SOCKET_PATH) dir = join('/tmp', name);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   return { path: join(dir, `${key}.sock`), file: true };
 }

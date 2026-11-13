@@ -142,7 +142,8 @@ describe.skipIf(!HAVE_SANDBOX)('one writing section in a live org', () => {
     expect(readFileSync(join(root, 'src', 'redirect.txt'), 'utf8')).toBe('hi\n');
   }, 30_000);
 
-  it('a read-only role whose boundary falls back to an expansion is held at start with writer-boundary-unqualified, a fatal crash, never widened', async () => {
+  // reason: the expansion fallback is the bubblewrap (Linux) layout; seatbelt keeps one plain deny, so no daemon here can reach it (the builder is covered with platform 'linux' in writer-boundary.test.ts)
+  it.skipIf(process.platform === 'darwin')('a read-only role whose boundary falls back to an expansion is held at start with writer-boundary-unqualified, a fatal crash, never widened', async () => {
     vi.spyOn(sandboxStubs, 'missing').mockReturnValue([join(root, '.mcp.json')]);
     const { running, d } = await start(sectionsRaw(oneWriter));
     const events: any[] = [];

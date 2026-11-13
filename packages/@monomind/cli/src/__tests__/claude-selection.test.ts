@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
@@ -7,7 +7,7 @@ import { selectClaudePath, setOperatorClaudePath } from '../orgrt/claude-selecti
 const homes: string[] = [];
 afterEach(() => homes.splice(0).forEach((p) => rmSync(p, { recursive: true, force: true })));
 function home() {
-  const p = mkdtempSync(join(tmpdir(), 'claude-selection-'));
+  const p = realpathSync(mkdtempSync(join(tmpdir(), 'claude-selection-')));
   homes.push(p);
   return p;
 }

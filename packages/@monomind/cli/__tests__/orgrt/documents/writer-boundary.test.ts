@@ -51,6 +51,8 @@ function start(d: OrgDef, id: string, root: string, missingStubs: string[], clau
     claudeRuntime,
     availability: { available: true },
     holdStubs: () => missingStubs,
+    // the expansion fallback is the Linux (bubblewrap) layout; seatbelt keeps one plain deny
+    platform: 'linux',
   });
   const run = () =>
     assertWriterBoundary({ def: d, role, cwd: root, orgRoot: root, bus, restrictions: claudeRestrictions, claudeRuntime });

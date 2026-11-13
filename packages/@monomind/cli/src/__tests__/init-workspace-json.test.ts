@@ -15,6 +15,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -72,8 +73,8 @@ let cwd: string;
 
 describe('monomind init --json (workspace init, #358)', () => {
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'init-json-home-'));
-    cwd = mkdtempSync(join(tmpdir(), 'init-json-project-'));
+    home = realpathSync(mkdtempSync(join(tmpdir(), 'init-json-home-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'init-json-project-')));
   });
 
   afterEach(() => {
