@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { extname, relative } from 'node:path';
-import chokidar from 'chokidar';
+import chokidar, { type FSWatcher } from 'chokidar';
 import { isSupportedExtension } from '../parsers/loader.js';
 import type { PipelineProgress } from '../types.js';
 import { createRebuildQueue, describeRebuildEvent } from './rebuild-queue.js';
@@ -117,7 +117,7 @@ export async function watchAsync(
 }
 
 export class MonographWatcher extends EventEmitter {
-  private watcher: chokidar.FSWatcher | null = null;
+  private watcher: FSWatcher | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingChanges = new Set<string>();
   private readonly debounceMs: number;

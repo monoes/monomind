@@ -100,7 +100,7 @@
     "@anthropic-ai/claude-agent-sdk": "0.3.319",
     "@huggingface/transformers": "4.3.0",
     "@types/ws": "8.18.1",
-    "chokidar": "^3.6.0",
+    "chokidar": "^6.0.0",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.4"
@@ -133,7 +133,7 @@
     "@ai-sdk/groq": "^4.0.26",
     "@ai-sdk/mistral": "^4.0.27",
     "@ai-sdk/openai": "^4.0.36",
-    "@ai-sdk/perplexity": "^4.0.0",
+    "@ai-sdk/perplexity": "^5.0.24",
     "@ai-sdk/togetherai": "^3.0.29",
     "@ai-sdk/xai": "^4.0.0",
     "@openrouter/ai-sdk-provider": "^3.0.0",

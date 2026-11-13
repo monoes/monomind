@@ -60,7 +60,7 @@ jobs:
             bin: node_modules/@monoes/monomindcli/bin/cli.js
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Fixed at a version that satisfies the WORKSPACE's dev-tooling
       # engines requirement (nanoid@6, pulled in via vite/vitest and hoisted
@@ -72,7 +72,7 @@ jobs:
       # `pnpm install` before any real Node-20-compatibility signal was
       # produced, same as tests.yml did before it got the same fix.
       - name: Set up Node.js (build toolchain)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           # No `cache: npm` — it requires a package-lock.json this pnpm
@@ -80,7 +80,7 @@ jobs:
           # step runs.
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
@@ -145,7 +145,7 @@ jobs:
       # which touch the workspace's own devDependencies (nanoid@6 et al.),
       # so it isn't affected by the build-toolchain constraint above.
       - name: Set up Node.js (runtime under test)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
 
@@ -238,7 +238,7 @@ jobs:
 
     steps:
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -318,7 +318,7 @@ jobs:
 
     steps:
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 

@@ -50,9 +50,9 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           # Everything except docs and markdown counts as code. push events
           # (main) compare against the previous commit and are treated alike.
@@ -77,19 +77,19 @@ jobs:
       # Read by `check:versions` and by tests/repo/publish-bumps.test.ts.
       MONOMIND_ALLOW_STALE_PACKAGES: ${{ github.event_name == 'pull_request' && '1' || '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Full history is kept for the version checks; the package-bump guard
           # that compares against the last release tag is skipped on PRs below.
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
@@ -109,7 +109,7 @@ jobs:
         run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
           key: pnpm-${{ runner.os }}-22-${{ hashFiles('pnpm-lock.yaml') }}
@@ -248,7 +248,7 @@ jobs:
       - name: Restore embedding model cache
         if: needs.changes.outputs.code == 'true'
         id: model-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ${{ steps.model-cache-path.outputs.dir }}
@@ -282,7 +282,7 @@ jobs:
       # whole job succeeds, so one failing test would discard a good download.
       - name: Save embedding model cache
         if: needs.changes.outputs.code == 'true' && (steps.model-cache.outputs.cache-hit != 'true')
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ${{ steps.model-cache-path.outputs.dir }}
@@ -414,17 +414,17 @@ jobs:
       - name: Disable git autocrlf
         run: git config --global core.autocrlf false
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node.js
         if: needs.changes.outputs.code == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node || '22' }}
 
       - name: Set up pnpm
         if: needs.changes.outputs.code == 'true'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
@@ -545,18 +545,18 @@ jobs:
           # already pass --no-sandbox when CI is set, which the env below does.
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node.js
         if: needs.changes.outputs.code == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           # Packages that need a newer runtime set `node` in the matrix.
           node-version: ${{ matrix.node || '22' }}
 
       - name: Set up pnpm
         if: needs.changes.outputs.code == 'true'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
@@ -578,7 +578,7 @@ jobs:
 
       - name: Cache pnpm store
         if: needs.changes.outputs.code == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
           key: pnpm-${{ runner.os }}-${{ matrix.node || '20' }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -651,7 +651,7 @@ jobs:
 
       - name: Upload ${{ matrix.name }} coverage report
         if: needs.changes.outputs.code == 'true' && matrix.coverage == true && always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ matrix.name }}
           path: ${{ matrix.dir }}/coverage
@@ -672,17 +672,17 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node.js
         if: needs.changes.outputs.code == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
       - name: Set up pnpm
         if: needs.changes.outputs.code == 'true'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
@@ -694,7 +694,7 @@ jobs:
       # Same key as the `packages` legs that set no `node`, so the store is shared.
       - name: Cache pnpm store
         if: needs.changes.outputs.code == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
           key: pnpm-${{ runner.os }}-20-${{ hashFiles('pnpm-lock.yaml') }}
@@ -733,7 +733,7 @@ jobs:
       - name: Restore embedding model cache
         if: needs.changes.outputs.code == 'true'
         id: model-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ${{ steps.model-cache-path.outputs.dir }}
@@ -762,7 +762,7 @@ jobs:
 
       - name: Save embedding model cache
         if: needs.changes.outputs.code == 'true' && (steps.model-cache.outputs.cache-hit != 'true')
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ${{ steps.model-cache-path.outputs.dir }}
