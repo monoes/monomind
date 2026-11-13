@@ -4,7 +4,15 @@
 // them so no role reads another's. A runner without an inventory entry is
 // refused for sections orgs outside the eval harness.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -29,7 +37,7 @@ const busDir = (): string => {
   return d;
 };
 beforeEach(() => {
-  base = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'inv-'));
+  base = realpathSync(mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'inv-')));
 });
 afterEach(() => {
   rmSync(base, { recursive: true, force: true });

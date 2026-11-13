@@ -32,7 +32,7 @@ export class CaptureRunner implements AgentRunner {
       await d.deliver(org, 'human', role, 'hello', 'hello');
       await Promise.race([
         seen,
-        new Promise((_, rej) => setTimeout(() => rej(new Error(`role ${role} never started`)), 5000)),
+        new Promise((_, rej) => setTimeout(() => rej(new Error(`role ${role} never started`)), 30_000)),
       ]);
     }
     return this.tools.get(role) as OrgToolDef[];

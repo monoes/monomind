@@ -90,7 +90,15 @@ describe('init initializes memory by default', () => {
     memState.throwOnInit = false;
     ctx = {
       args: [],
-      flags: { _: [], yes: true, 'no-watch': true, 'no-start-all': true, 'no-install': true },
+      // Pinned: with no platform flag, init writes whichever CLIs are on this machine's PATH.
+      flags: {
+        _: [],
+        yes: true,
+        platforms: 'claude',
+        'no-watch': true,
+        'no-start-all': true,
+        'no-install': true,
+      },
       cwd: tmpDir,
       interactive: false,
     };

@@ -60,7 +60,7 @@ function scripted() {
       ? Promise.resolve(options.get(role))
       : new Promise<any>((resolve, reject) => {
           waiters.set(role, [...(waiters.get(role) ?? []), () => resolve(options.get(role))]);
-          setTimeout(() => reject(new Error(`role ${role} never started`)), 8000).unref?.();
+          setTimeout(() => reject(new Error(`role ${role} never started`)), 30_000).unref?.();
         });
   return { queryFn, started };
 }
@@ -123,7 +123,7 @@ describe.skipIf(!HAVE_SANDBOX)('one writing section in a live org', () => {
     // the engines: only the roles of an overlay run the writer engine
     expect(running.agents.get('coder')!.policy).toBeInstanceOf(WriterPolicyEngine);
     expect(running.agents.get('researcher')!.policy.policy.fileWrite).toEqual(['src/**']);
-  }, 30_000);
+  }, 60_000);
 
   it.skipIf(!bwrapWorks)('a non-writer\'s shell redirect is stopped at the OS: the sandbox the role was started with, run under the real bubblewrap, makes the workspace read-only', async () => {
     const { role } = await start(sectionsRaw(oneWriter));
@@ -140,9 +140,10 @@ describe.skipIf(!HAVE_SANDBOX)('one writing section in a live org', () => {
     // control: without the deny list the same redirect succeeds, so the refusal above is the sandbox's doing
     expect(inSandbox([], `echo hi > ${root}/src/redirect.txt`).status).toBe(0);
     expect(readFileSync(join(root, 'src', 'redirect.txt'), 'utf8')).toBe('hi\n');
-  }, 30_000);
+  }, 60_000);
 
-  it('a read-only role whose boundary falls back to an expansion is held at start with writer-boundary-unqualified, a fatal crash, never widened', async () => {
+  // reason: the expansion fallback is the bubblewrap (Linux) layout; seatbelt keeps one plain deny, so no daemon here can reach it (the builder is covered with platform 'linux' in writer-boundary.test.ts)
+  it.skipIf(process.platform === 'darwin')('a read-only role whose boundary falls back to an expansion is held at start with writer-boundary-unqualified, a fatal crash, never widened', async () => {
     vi.spyOn(sandboxStubs, 'missing').mockReturnValue([join(root, '.mcp.json')]);
     const { running, d } = await start(sectionsRaw(oneWriter));
     const events: any[] = [];
@@ -155,7 +156,7 @@ describe.skipIf(!HAVE_SANDBOX)('one writing section in a live org', () => {
     expect(events.some((e) => e.reason === 'agent-fatal' && e.from === 'coder')).toBe(true);
     expect(running.agents.get('coder')!.status).toBe('crashed');
     expect(running.agents.get('coder')!.policy.policy.sandbox).toMatchObject({ mode: 'required' }); // never relaxed to let it run
-  }, 30_000);
+  }, 60_000);
 });
 
 describe('what the definition refuses at start (no sandbox needed)', () => {

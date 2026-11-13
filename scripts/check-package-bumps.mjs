@@ -20,8 +20,9 @@
  *
  * ## What counts as "shipped source"
  *
- * Anything under the package that is not a test, a vitest config or a markdown
- * file. Tests and their config do not reach a consumer (no package lists
+ * Anything under the package that is not a test, a vitest config, a markdown
+ * file or the LICENSE file (adding or editing it changes no behaviour a consumer
+ * can observe, and it must not force a version nobody can publish). Tests and their config do not reach a consumer (no package lists
  * `vitest.config.*` in `files`), and a doc-only change does not need a
  * release. The exclusions are deliberately narrow: if a change touches
  * shipped code at all, it needs a version.
@@ -146,6 +147,7 @@ function shippedChangesSince(dir, since) {
     `:(exclude)${dir}/**/*.test.mjs`,
     `:(exclude)${dir}/**/*.md`,
     `:(exclude)${dir}/*.md`,
+    `:(exclude)${dir}/LICENSE`,
     `:(exclude)${dir}/__tests__/**`,
     `:(exclude)${dir}/vitest.config.*`,
   ).trim();

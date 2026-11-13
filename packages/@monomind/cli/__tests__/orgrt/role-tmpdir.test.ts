@@ -46,8 +46,11 @@ afterEach(() => {
 });
 
 const mode = (p: string) => statSync(p).mode & 0o777;
+// macOS's `mktemp -d` ignores TMPDIR (it asks confstr for the per-user temp dir), so there the
+// same template is spelled out under $TMPDIR; Linux keeps the bare `mktemp -d`.
+const mktempCmd = process.platform === 'darwin' ? 'mktemp -d "$TMPDIR/tmp.XXXXXXXXXX"' : 'mktemp -d';
 const mktempIn = (env: Record<string, string>): string =>
-  execFileSync('sh', ['-c', 'mktemp -d'], { env: { ...process.env, ...env }, encoding: 'utf8' }).trim();
+  execFileSync('sh', ['-c', mktempCmd], { env: { ...process.env, ...env }, encoding: 'utf8' }).trim();
 
 describe('createRoleTmpdir', () => {
   it('gives two roles distinct TMPDIRs directly under the base, both mode 0700', () => {

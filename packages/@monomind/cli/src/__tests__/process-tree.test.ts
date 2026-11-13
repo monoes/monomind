@@ -13,6 +13,10 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
 import { listGroupMembers, signalGroup } from '../orgrt/process-tree.js';
 
+/** macOS ships no `setsid` binary; perl's POSIX::setsid is the equivalent. */
+const SETSID =
+  process.platform === 'darwin' ? "perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV'" : 'setsid';
+
 function isAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -120,7 +124,7 @@ describe('process-tree: listGroupMembers / signalGroup (real processes, Linux/PO
     // (promptly, while the CLI's own per-call shell is still running),
     // not the harder "already exited" case documented as a known gap in
     // process-tree.ts's module doc.
-    const pid = spawnGroupLeader("setsid sh -c 'sleep 1000 & sleep 1000 & sleep 2' & sleep 2");
+    const pid = spawnGroupLeader(`${SETSID} sh -c 'sleep 1000 & sleep 1000 & sleep 2' & sleep 2`);
 
     // outer leader (foreground sleep 2) + inner setsid shell (foreground
     // sleep 2) + two backgrounded sleep 1000s = at least 3 group members.

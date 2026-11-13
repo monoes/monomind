@@ -26,7 +26,9 @@ const IDENT = {
  *  the fixture from pushing to its local bare remote. Keeps the suite runnable
  *  inside a sandboxed role. */
 function cleanEnv(): NodeJS.ProcessEnv {
-  const env = { ...process.env, ...IDENT };
+  // A machine's system gitconfig (macOS git ships `credential.helper=osxkeychain`) must not
+  // leak into the assertions about which helpers the fixture repo configures.
+  const env = { ...process.env, ...IDENT, GIT_CONFIG_NOSYSTEM: '1' };
   for (const k of Object.keys(env))
     if (/^(GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS)|GIT_ASKPASS|SSH_ASKPASS|GIT_SSH_COMMAND|GIT_TERMINAL_PROMPT|MONOMIND_GIT_LEVEL)$/.test(k))
       delete env[k];

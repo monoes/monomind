@@ -42,6 +42,14 @@ const readRt = () => JSON.parse(readFileSync(rtPath(), 'utf8'));
 const writeRt = (rt: Record<string, unknown>) =>
   writeFileSync(rtPath(), JSON.stringify({ status: 'running', run: RUN, ...rt }));
 
+/** A start identity of the same kind this platform reads (procfs on Linux,
+ *  `ps` elsewhere) that no live process has — identities of different kinds
+ *  are deliberately incomparable (see sameStartId). */
+const staleStartId = (): string =>
+  processStartId(process.pid)?.startsWith('linux:')
+    ? 'linux:not-this-boot:1'
+    : 'ps:Thu Jan  1 00:00:00 1970';
+
 /** The pid of a process that has already exited. */
 const deadPid = (): number => {
   const r = spawnSync(process.execPath, ['-e', '']);
@@ -99,7 +107,7 @@ describe('recordedPidLiveness (#573)', () => {
   });
 
   it('calls a live pid with a different start identity reused', () => {
-    expect(recordedPidLiveness(process.pid, 'linux:not-this-boot:1')).toBe('reused');
+    expect(recordedPidLiveness(process.pid, staleStartId())).toBe('reused');
   });
 
   it('trusts a live pid on a record written before start identities existed', () => {
@@ -163,7 +171,7 @@ describe('org status on a dead run (#573)', () => {
     // Not process.pid: reconcile skips the caller's own pid, so a live child
     // carries the stale identity instead.
     child = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' });
-    writeRt({ pid: child.pid, pidStart: 'linux:not-this-boot:1' });
+    writeRt({ pid: child.pid, pidStart: staleStartId() });
     const out = await capture(() => statusAction(ctx([ORG])));
     expect(out).toContain(`pid ${child.pid} now belongs to another process`);
     expect(readRt()).toMatchObject({ status: 'crashed', closedBy: 'liveness-check' });
@@ -187,7 +195,7 @@ describe('org status on a dead run (#573)', () => {
 describe('other runtime.json readers (#573)', () => {
   it('org list reports a reused pid as crashed', async () => {
     child = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' });
-    writeRt({ pid: child.pid, pidStart: 'linux:not-this-boot:1' });
+    writeRt({ pid: child.pid, pidStart: staleStartId() });
     const list = JSON.parse(await capture(() => listAction(ctx([], { format: 'json' }))));
     expect(list.items[0]).toMatchObject({ name: ORG, status: 'crashed' });
   });
@@ -210,7 +218,7 @@ describe('other runtime.json readers (#573)', () => {
 
   it('org stop does not signal a run whose pid was reused', async () => {
     child = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' });
-    writeRt({ pid: child.pid, pidStart: 'linux:not-this-boot:1' });
+    writeRt({ pid: child.pid, pidStart: staleStartId() });
     const res = await capture(() => stopAction(ctx([ORG])));
     expect(res).toContain('is not running');
     expect(existsSync(join(orgDir(), 'stop'))).toBe(false);
