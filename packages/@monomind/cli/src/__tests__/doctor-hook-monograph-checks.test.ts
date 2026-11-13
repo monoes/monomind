@@ -11,6 +11,15 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { checkHookMonograph } from '../commands/doctor-hook-monograph-checks.js';
 
+const HAS_NODE_SQLITE = (() => {
+  try {
+    createRequire(import.meta.url)('node:sqlite');
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
 const NOWHERE = { globalRoot: null, npxCacheDir: '/nonexistent-npx-cache', pathEnv: '' };
 
 let dir: string;
@@ -56,7 +65,8 @@ function globalWithoutNativeAddon(): string {
   return root;
 }
 
-describe('checkHookMonograph', () => {
+// reason: node:sqlite needs Node >= 22.13; the check reads the graph with it and reports 'could not check' without
+describe.skipIf(!HAS_NODE_SQLITE)('checkHookMonograph', () => {
   it('fails when the graph is past 50 commits and the hooks cannot find the package', async () => {
     graphBehind(51);
     const check = await checkHookMonograph(dir, NOWHERE);
