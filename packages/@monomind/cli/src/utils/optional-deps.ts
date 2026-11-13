@@ -687,7 +687,11 @@ export function lockIsStale(lockDir: string, id: LockIdentity = defaultIdentity)
   }
   const boot = id.bootId();
   if (owner.boot && boot && owner.boot !== boot) return true;
-  if (!owner.ns || owner.ns !== id.pidNamespace()) return false;
+  // macOS has no pid namespaces (no /proc/self/ns/pid): every pid is visible, so an
+  // owner recorded without a namespace is judged against the one namespace there is.
+  const ns = id.pidNamespace();
+  const sameNs = !owner.ns && !ns ? process.platform === 'darwin' : !!owner.ns && owner.ns === ns;
+  if (!sameNs) return false;
   try {
     process.kill(owner.pid, 0);
     return false;
