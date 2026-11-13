@@ -154,18 +154,17 @@ describe('roleExecMask', () => {
   const base = { roleId: 'w', home: scratch('xd-h-'), env: { PATH: '' } as NodeJS.ProcessEnv };
   it('is a no-op without denyExec: the existing mask comes back untouched', () => {
     const m = ['--dev-bind', '/', '/'];
-    expect(roleExecMask({ platform: 'linux', platform: 'linux', ...base, bus: bus(), authorityMask: m })).toBe(m);
+    expect(roleExecMask({ platform: 'linux', ...base, bus: bus(), authorityMask: m })).toBe(m);
     expect(
-      roleExecMask({ platform: 'linux', platform: 'linux', ...base, bus: bus(), authorityMask: undefined }),
+      roleExecMask({ platform: 'linux', ...base, bus: bus(), authorityMask: undefined }),
     ).toBeUndefined();
     expect(
-      roleExecMask({ platform: 'linux', platform: 'linux', ...base, bus: bus(), authorityMask: m, denyExec: [] }),
+      roleExecMask({ platform: 'linux', ...base, bus: bus(), authorityMask: m, denyExec: [] }),
     ).toBe(m);
   });
   it('extends the authority mask, keeping it first, or builds one', () => {
     const m = ['--dev-bind', '/', '/', '--tmpfs', '/x'];
     const out = roleExecMask({ platform: 'linux',
-      platform: 'linux',
       ...base,
       bus: bus(),
       authorityMask: m,
@@ -175,7 +174,6 @@ describe('roleExecMask', () => {
     expect(out.slice(0, m.length)).toEqual(m);
     expect(out).toContain('--unshare-pid');
     const alone = roleExecMask({ platform: 'linux',
-      platform: 'linux',
       ...base,
       bus: bus(),
       authorityMask: undefined,
@@ -187,7 +185,6 @@ describe('roleExecMask', () => {
   it('fails closed when bubblewrap cannot run: the role does not start', () => {
     expect(() =>
       roleExecMask({ platform: 'linux',
-        platform: 'linux',
         ...base,
         bus: bus(),
         authorityMask: undefined,
@@ -348,7 +345,6 @@ describe('denyRead (files and directories the role cannot read)', () => {
     const d = scratch('xd-dr-');
     writeFileSync(join(d, 'truth.json'), 'SECRET');
     const out = roleExecMask({ platform: 'linux',
-      platform: 'linux',
       bus: bus(),
       roleId: 'w',
       authorityMask: undefined,
@@ -361,7 +357,6 @@ describe('denyRead (files and directories the role cannot read)', () => {
     expect(out.join(' ')).not.toContain('missing');
     expect(() =>
       roleExecMask({ platform: 'linux',
-        platform: 'linux',
         bus: bus(),
         roleId: 'w',
         authorityMask: undefined,
@@ -381,7 +376,6 @@ describe('denyRead (files and directories the role cannot read)', () => {
       writeFileSync(join(d, 'truth.json'), 'SECRET-FILE');
       writeFileSync(join(d, 'open.txt'), 'VISIBLE');
       const mask = roleExecMask({ platform: 'linux',
-        platform: 'linux',
         bus: bus(),
         roleId: 'w',
         authorityMask: undefined,
