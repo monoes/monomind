@@ -148,8 +148,8 @@ importers:
         version: 4.6.7
     devDependencies:
       '@anthropic-ai/claude-agent-sdk':
-        specifier: 0.3.322
-        version: 0.3.322(@anthropic-ai/sdk@0.111.0(zod@4.6.7))(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7))(zod@4.6.7)
+        specifier: 0.3.319
+        version: 0.3.319(@anthropic-ai/sdk@0.111.0(zod@4.6.7))(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7))(zod@4.6.7)
       '@huggingface/transformers':
         specifier: 4.3.2
         version: 4.3.2(@types/node@26.6.6)
@@ -349,50 +349,50 @@ importers:
         specifier: ^26.6.6
         version: 26.6.6
       tree-sitter:
-        specifier: ^0.25.1
-        version: 0.25.1
+        specifier: ^0.22.0
+        version: 0.22.4
       tree-sitter-c:
-        specifier: ~0.24.1
-        version: 0.24.1(tree-sitter@0.25.1)
+        specifier: ~0.23.6
+        version: 0.23.6(tree-sitter@0.22.4)
       tree-sitter-c-sharp:
-        specifier: 0.23.5
-        version: 0.23.5(tree-sitter@0.25.1)
+        specifier: 0.23.1
+        version: 0.23.1(tree-sitter@0.22.4)
       tree-sitter-cli:
         specifier: 0.27.2
         version: 0.27.2
       tree-sitter-cpp:
         specifier: ^0.23.4
-        version: 0.23.4(tree-sitter@0.25.1)
+        version: 0.23.4(tree-sitter@0.22.4)
       tree-sitter-dart:
         specifier: ^1.0.0
         version: 1.0.0
       tree-sitter-go:
-        specifier: ^0.25.0
-        version: 0.25.0(tree-sitter@0.25.1)
+        specifier: ^0.23.0
+        version: 0.23.4(tree-sitter@0.22.4)
       tree-sitter-java:
         specifier: ^0.23.0
-        version: 0.23.5(tree-sitter@0.25.1)
+        version: 0.23.5(tree-sitter@0.22.4)
       tree-sitter-kotlin:
         specifier: ^0.3.8
-        version: 0.3.8(tree-sitter@0.25.1)
+        version: 0.3.8(tree-sitter@0.22.4)
       tree-sitter-php:
-        specifier: ~0.24.2
-        version: 0.24.2(tree-sitter@0.25.1)
+        specifier: ~0.23.11
+        version: 0.23.12(tree-sitter@0.22.4)
       tree-sitter-python:
-        specifier: ^0.25.0
-        version: 0.25.0(tree-sitter@0.25.1)
+        specifier: ^0.23.0
+        version: 0.23.6(tree-sitter@0.22.4)
       tree-sitter-ruby:
         specifier: ^0.23.1
-        version: 0.23.1(tree-sitter@0.25.1)
+        version: 0.23.1(tree-sitter@0.22.4)
       tree-sitter-rust:
-        specifier: ^0.24.0
-        version: 0.24.0(tree-sitter@0.25.1)
+        specifier: ^0.23.0
+        version: 0.23.3(tree-sitter@0.22.4)
       tree-sitter-swift:
         specifier: ^0.7.1
-        version: 0.7.1(tree-sitter@0.25.1)
+        version: 0.7.1(tree-sitter@0.22.4)
       tree-sitter-typescript:
         specifier: ^0.23.0
-        version: 0.23.2(tree-sitter@0.25.1)
+        version: 0.23.2(tree-sitter@0.22.4)
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -534,52 +534,48 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.322':
-    resolution: {integrity: sha512-LoKkldW2zkLfaOLQD44mL1Ot4Aup8dBIo356LEeO3v2vF7JVNhMllQIXhhGpbYRz57QaYsGvOe0Kb4SbssHwcg==}
+  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.319':
+    resolution: {integrity: sha512-rNiAbMbRhgOM2CELsDTIq7q++sFVIZukTkgeswcncGbcX8STIgtf0XaZzKdRXtKK+v9ez+mQn8P4pb2Ka17wGA==}
     cpu: [arm64]
     os: [darwin]
 
-  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.322':
-    resolution: {integrity: sha512-rTvLS9G1OzjMIaSXrJglQtmRtVcaRmMbJQC+ND02+atCA463ac7Ty/Wc6tyzBGk8zFFGKWnfAhKtLZTNg91eMg==}
+  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.319':
+    resolution: {integrity: sha512-jM730Fl+cFotDnjF9cStIf+Xe57YdfDB3TXaSVVv8uVAXW4xoWFwIj2eDvmsciEEe5UMkKzjVqXu9kR21OrXng==}
     cpu: [x64]
     os: [darwin]
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.322':
-    resolution: {integrity: sha512-zvgvVA/Mxpu1QttICZ1DGDlmgGo62HdVgKg6WbDGDQ3dgxtRC/kpCIepjtGEL8O1iO5NRxQ4mv8okLwCFcyrLQ==}
+  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.319':
+    resolution: {integrity: sha512-8KDZQJAS2CEb5aGAvuXkpyHMc9TOM/zYTw2iKmbbVi4im0atw93EtJPapYyp0g/lQI/Xk8jMYdWU6Zlv9EWjLw==}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.322':
-    resolution: {integrity: sha512-H1v33+MxB5JMPlnJLZffiOQ+6muxyA7tgHPyYQ+So4TH7uRhaPcjv2X03CUo5U9gXleO6u+X8ngNNDRFtfUaSg==}
+  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.319':
+    resolution: {integrity: sha512-g2tpMsHLMQahI4bk5CIcMHAB/RwzxoPGmL5Q5G5MDir5WTrl71vulWbtLQISUPm/yFPRG97tdzZnCa5Uq1v/dw==}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.322':
-    resolution: {integrity: sha512-jprUZMcQ3XcpoxwKRQ0fi3qAM1zYcytmNGhlD0gWDknbbSu8di5jLU7231ihJrCr4gbbtDu3FiFUd6w9EBEjfw==}
+  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.319':
+    resolution: {integrity: sha512-XkKYj3c1jVFjLATrZr4YTsmS5AIb5s2iphF9X670EcVQqDCCGIKKTVNLLg9mg1e7D+2xX8FU0XNlOJatWfpBeA==}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.322':
-    resolution: {integrity: sha512-M/i7uV5wQf1kvjiPJr2KF5PeA9BpftUpMTtwE+DpQ0Tj+scthQXSMsEhDvau/Rh/MfFOc+UHED4tltignmA5+Q==}
+  '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.319':
+    resolution: {integrity: sha512-uBAZA8x0hd5gVifyL5Lo73dVmi9xZeJ6jro2NO0al6yyWaw/6UL9xbsVh9lOhLFOmYIdSbQ2j4zAfnvG/t5F3Q==}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
-  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.322':
-    resolution: {integrity: sha512-o5sPmBKT4NOglODC45wSTFmjD1AQIboC9NdGFQFOTa8kMF3bok+YqpB0DF81RmMDf3iR5tieonZvOXdYm1TDjQ==}
+  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.319':
+    resolution: {integrity: sha512-YoP0lYHJCziENFCotHQq9qd/gaJrwUNkAcnZyVjXxg1OPmtKuyw31aG60s4cWXRDXXGm/m1siNSQaGGfAYBvrw==}
     cpu: [arm64]
     os: [win32]
 
-  '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.322':
-    resolution: {integrity: sha512-gONOkYx76of3p73opgWAT9gqpV7PRL8+az3vKoWXLc4xaDW6vhZF7fixpCnLDeUmPWxjXhnQxf30WGpKneTzNw==}
+  '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.319':
+    resolution: {integrity: sha512-UC27x+8gfCS2OjNGJWrueP0gLOOKsLEsJ/kg0p6aa8GToZcJYjJ8KeAapHHRYMUAIB6Sarqe49Itm5P1wswCcQ==}
     cpu: [x64]
     os: [win32]
 
-  '@anthropic-ai/claude-agent-sdk@0.3.322':
-    resolution: {integrity: sha512-r88ij7R3SPV2j3BtFuavgrbWZNE8SVVS42AOQ1KxlS+QnSwNNnUhmVXV3Es2dniZySBYX8ENebL43ffhiB0azw==}
+  '@anthropic-ai/claude-agent-sdk@0.3.319':
+    resolution: {integrity: sha512-7X+sh4uZv/u4OL4I4cQvMr9N3NM6FDiuyk829hFylgbrnNwVyiGElWEDWGuO26zwMIxmgpKdPoDILoFIHh1uwA==}
     engines: {node: '>=18.14.0'}
     peerDependencies:
       '@anthropic-ai/sdk': '>=0.93.0'
@@ -633,28 +629,24 @@ packages:
     engines: {node: '>=14.21.3'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@biomejs/cli-linux-arm64@2.6.6':
     resolution: {integrity: sha512-UzJdUCg9dbEGpZOuZRyehEPrnwKjx9z4Um7sWLG5x6txu7UjeWdJZuBXVGlyAdD39w2Hx0nZeK1jKC4NFUTCNQ==}
     engines: {node: '>=14.21.3'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@biomejs/cli-linux-x64-musl@2.6.6':
     resolution: {integrity: sha512-DiKejs+GnFbOVQsBnukUpiB+T13tqUDFGwwjsTq51vatAsaflzFzVD0BOgjVUGRrqKgE0K0Xf+wNtkcmdN2chw==}
     engines: {node: '>=14.21.3'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@biomejs/cli-linux-x64@2.6.6':
     resolution: {integrity: sha512-l8/aPXc1cz8VpUyd4hb5Pm5zx+X3voQBks4aLYbp5pC8KSchuHyvqDfY5xax39qCHomI/2xn6NKEot+zebG38g==}
     engines: {node: '>=14.21.3'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@biomejs/cli-win32-arm64@2.6.6':
     resolution: {integrity: sha512-DjVXwQAQeHrO1JEZAEus54k40Tnh4glyU3VFLcDBKwoz0xnxCEnqw6TCMXoujcQMQynWd3AY8bLrbR1o0XNqow==}
@@ -838,28 +830,24 @@ packages:
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@firecrawl/pdf-inspector-linux-arm64-musl@1.25.2':
     resolution: {integrity: sha512-mdBDi1938AHp97c0oArmoOnGWijT5K/RXBa5Pyq0yJdzqx/Jd/P5bAS4O2srm8cspkkV9VhNwRjMrP9527O0/Q==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@firecrawl/pdf-inspector-linux-x64-gnu@1.25.2':
     resolution: {integrity: sha512-5+RA17b9h4EtdKXEqztorwjskXTIEw8DB1Q37Awuri3YoB+MquHjA348DGwf6YcyIKE1oldAHd3K63Z79qATmg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@firecrawl/pdf-inspector-linux-x64-musl@1.25.2':
     resolution: {integrity: sha512-md5da0ZDhFhqZY/Zt+dlJS8CxEGNpKRiIeWSvSqzJFzNYV2EkPs+vpAlH0O0bPfN48+RQEESJ4SglfZrUcXVuA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@firecrawl/pdf-inspector-win32-x64-msvc@1.25.2':
     resolution: {integrity: sha512-stmH0YjPwWNjlFVLoVc1foZLE9mZAn+By+/EqyZzmpiFBIfY4WP/L02lPF70giboknko75IR2vDjbIeZPb4knw==}
@@ -922,105 +910,89 @@ packages:
     resolution: {integrity: sha512-Y3dgX/6lE2QhQb+Gxy0WZxfg9MEm/JBjamZpS2IklP7xIQoKN4hzAm7KcMVGtaVDt3neE9OKBC7vAfonA/Lr1A==}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-arm@1.3.4':
     resolution: {integrity: sha512-LmRtTsOHuvM2+wlO2Db37dx5MiZhB0FvSunciw48YjdOkZz9KAiRbm8ujeMOA1INqmei5NapFxYEK1D1ZSidmw==}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-ppc64@1.3.4':
     resolution: {integrity: sha512-Le6boB8Tai0Nis+gIxIpKx68UDVVIqdR8Tin5Yf1z2LJJQLDJvCDRqRu+jC2qCoD+eIomonmOwB4smBRxfVpYQ==}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-riscv64@1.3.4':
     resolution: {integrity: sha512-aHkkIEHPRdQEegJN20MLmGtxYD9R2wQr3Cwpddnu5+YKMt6Uzax7S9h5gpZTo8wyrGuZSlfQ63OevL5mTyOC7Q==}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-s390x@1.3.4':
     resolution: {integrity: sha512-ra/mB6MikESDUO7Yg+Mi95bFBb9GsObURuhnOv3OqknjGe9sZrG8tCe9q0xSIGrtLgvgw0gKnFWcK4blSgQOuQ==}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-x64@1.3.4':
     resolution: {integrity: sha512-GJ//SSXbnwSDes02umB3nDJLFcQzw8a18V8fyhqr6tV515tOEMdImjjxj1AoafMRz56F3PHgftnj1QEKSU1zkw==}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linuxmusl-arm64@1.3.4':
     resolution: {integrity: sha512-hvulFwtjUcagsis6BBxHwGFwWoNZjgYmULGVrZcyfNbjA8hKILbRxGg15/7w5HDyXHXUos/j6baAWqnCyQ2DWA==}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-libvips-linuxmusl-x64@1.3.4':
     resolution: {integrity: sha512-6zXKeE/p39I1AmA3cJG35eyBGNqNddLnUXjhwBnsGjFPWqf5VKkDBEqaEkPDoTEtkxwi2vv8Tcr2mDyP4So7Fg==}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-linux-arm64@0.35.5':
     resolution: {integrity: sha512-LYVx5JTsOM2CBzmxreh+nl64/3H6Xb09iSLknqH47z2T2DFFxDeFLP5y4dJwe6H7uGQlHPyEEtIqyo3DYsRwdQ==}
     engines: {node: '>=20.9.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-arm@0.35.5':
     resolution: {integrity: sha512-LEaXK2WdXVK5ykcw0buWyPMsmLLL2vpHLD6yrNSW+JGEL3BZPA4tpKN6iaMc4AxTTAoaX/sU1rOL51lcIz48ZQ==}
     engines: {node: '>=20.9.0'}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-ppc64@0.35.5':
     resolution: {integrity: sha512-QVxAAq8evVRI9ia2vqgwrmWucn5Dfv+JdWzj75pD8omHLPSP7f8p20O8jxzjCcuCEQEOtYOZUmX1hkiZ0kdevA==}
     engines: {node: '>=20.9.0'}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-riscv64@0.35.5':
     resolution: {integrity: sha512-LtdreXguaavKODPIfzJ4kffx7UNt1omwtK0rch4EBbbSTXPnxWmYSayXdLJw0fJzQ97kHt1gL/yh4tvU+nCyRQ==}
     engines: {node: '>=20.9.0'}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-s390x@0.35.5':
     resolution: {integrity: sha512-UZasTOFiYzotTsGOCu42BfUzP6Tu6Do/947iRm1RsLKvlllxwGcn4RN27LibGWceix4Y+Pmw3jsnTcCQIgWjqA==}
     engines: {node: '>=20.9.0'}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-x64@0.35.5':
     resolution: {integrity: sha512-SxFtLTeJInhAA9Q836kux2vZNeOBQEx658qvbboZScr0wIARym3IcGmW7KpVD5sbVg0Ojy+udFQdayYIZyoNog==}
     engines: {node: '>=20.9.0'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linuxmusl-arm64@0.35.5':
     resolution: {integrity: sha512-9HbMclmI1zlNkFRs3z9/eBtDjfD0sGlrX1z6b1qwmiFY5ElDLh4BC0LPBdVp7z1DXFiKlIcznf+ZlsuZzLxQqg==}
     engines: {node: '>=20.9.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-linuxmusl-x64@0.35.5':
     resolution: {integrity: sha512-4KOphqB035HrVdqLZfCgMzzERrQkkzOwRhl4OAkRO1YCldbaFjySXMaK534Mo0V+LndnlJk+sbUyLeU0ULyD1A==}
     engines: {node: '>=20.9.0'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-wasm32@0.35.5':
     resolution: {integrity: sha512-Ptsga1su4tQx+LLF1ECS9U6nz5kmrXKo6XVbtR48Ke3ZRxxgaWBu7IDtEe1quo8hiupwm6WFqxVlXaSf7IINGQ==}
@@ -1133,42 +1105,36 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@rolldown/binding-linux-arm64-musl@1.2.18':
     resolution: {integrity: sha512-4oqWItLLYt7IceOnElCct8T2ek5p7PmD7LN04TRJRXGo5f3HtKTgGH6PhYRFK4C2ICkq/LMUU0BVPvvlAKhm8g==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@rolldown/binding-linux-ppc64-gnu@1.2.18':
     resolution: {integrity: sha512-+AkRly5SrCEgnPhGRfub7pucASYEC2fTsxZg7VCcnozpA2+Wn/gCYy1t7LuJS67/xyJu/7noYBJncDUkbwgw2A==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@rolldown/binding-linux-s390x-gnu@1.2.18':
     resolution: {integrity: sha512-Ttg1r9vVykMnQrE/GwYO9icKtXiuiMfRe/w74xJkeoVuvhRG+WtT6LEMOf58Yl63yd77lhHzO8Y55R8CC3XALA==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@rolldown/binding-linux-x64-gnu@1.2.18':
     resolution: {integrity: sha512-xX1Tt4o5jUMma0vJsXp5eRZA9nOuyigb2dKJMMzZRmzMxLYGE9PaKKSqHPzPvSQgM8ZOEacSTQwDQcwWfh0xmQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@rolldown/binding-linux-x64-musl@1.2.18':
     resolution: {integrity: sha512-4VVlGI5K2kociZlW3lSN8VjG3TW5yQIlAcfCdBXMgGjJxZll15Fa4ocRHXHvIVVnwlibCw/NQajJrNDiqqpiiw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@rolldown/binding-openharmony-arm64@1.2.18':
     resolution: {integrity: sha512-PApTsgH1jLYuyy3tSCz9De82Gq5qXwi7vImVZhEzTgX1C4150Cp5M2ZfL3pLvbCvbEHL0oJeC6pd6podtv8Y5w==}
@@ -1461,6 +1427,11 @@ packages:
 
   ajv-formats@3.0.1:
     resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
+    peerDependencies:
+      ajv: ^8.0.0
+    peerDependenciesMeta:
+      ajv:
+        optional: true
 
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
@@ -2033,28 +2004,24 @@ packages:
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   lightningcss-linux-arm64-musl@1.33.0:
     resolution: {integrity: sha512-yiO5ROMuYQgXbC60yjZU5CYSFZGKXL0HFATXt9mHJn1+zW55oCtMI9NfcVhYLMFDL7gV7oBPon/EmMMGg2OvtQ==}
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   lightningcss-linux-x64-gnu@1.33.0:
     resolution: {integrity: sha512-ar+Ju7LmcN0Jo4FpL4hpFybwNG9/3A/Br5KW2n2jyODg3MEZXaDYADdemoNS+BDNfMgKvylJLj4S5tyRActuAg==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   lightningcss-linux-x64-musl@1.33.0:
     resolution: {integrity: sha512-RYiYbkokw0trfKqqzfF55lginwEPrD3OJDfTuJzFs1MK6iFnDenaz1fqLLtX4ITG3OktJQXOeTaw1awrBAlZPw==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   lightningcss-win32-arm64-msvc@1.33.0:
     resolution: {integrity: sha512-1K+MPfLSFVpphzpdbfkhlWk6wBrTObBzS2T6db10PNOZgR9GoVsAWzwNyuhUYYbTp23j+4RrncfujZ4uAzXvwA==}
@@ -2541,10 +2508,10 @@ packages:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
     engines: {node: '>=0.6'}
 
-  tree-sitter-c-sharp@0.23.5:
-    resolution: {integrity: sha512-xJGOeXPMmld0nES5+080N/06yY6LQi+KWGWV4LfZaZe6srJPtUtfhIbRSN7EZN6IaauzW28v6W4QHFwmeUW6HQ==}
+  tree-sitter-c-sharp@0.23.1:
+    resolution: {integrity: sha512-9zZ4FlcTRWWfRf6f4PgGhG8saPls6qOOt75tDfX7un9vQZJmARjPrAC6yBNCX2T/VKcCjIDbgq0evFaB3iGhQw==}
     peerDependencies:
-      tree-sitter: ^0.25.0
+      tree-sitter: ^0.21.1
     peerDependenciesMeta:
       tree-sitter:
         optional: true
@@ -2553,14 +2520,6 @@ packages:
     resolution: {integrity: sha512-0dxXKznVyUA0s6PjNolJNs2yF87O5aL538A/eR6njA5oqX3C3vH4vnx3QdOKwuUdpKEcFdHuiDpRKLLCA/tjvQ==}
     peerDependencies:
       tree-sitter: ^0.22.1
-    peerDependenciesMeta:
-      tree-sitter:
-        optional: true
-
-  tree-sitter-c@0.24.1:
-    resolution: {integrity: sha512-lkYwWN3SRecpvaeqmFKkuPNR3ZbtnvHU+4XAEEkJdrp3JfSp2pBrhXOtvfsENUneye76g889Y0ddF2DM0gEDpA==}
-    peerDependencies:
-      tree-sitter: ^0.22.4
     peerDependenciesMeta:
       tree-sitter:
         optional: true
@@ -2586,10 +2545,10 @@ packages:
   tree-sitter-dart@1.0.0:
     resolution: {integrity: sha512-Ve5YMPJjjGW9LEsO+MngAOibQsw5obFp+bUT41pvwdcXWRwJImOWs3eaPi6AubEiBmc09qvhdvxeIXvxlhMnug==}
 
-  tree-sitter-go@0.25.0:
-    resolution: {integrity: sha512-APBc/Dq3xz/e35Xpkhb1blu5UgW+2E3RyGWawZSCNcbGwa7jhSQPS8KsUupuzBla8PCo8+lz9W/JDJjmfRa2tw==}
+  tree-sitter-go@0.23.4:
+    resolution: {integrity: sha512-iQaHEs4yMa/hMo/ZCGqLfG61F0miinULU1fFh+GZreCRtKylFLtvn798ocCZjO2r/ungNZgAY1s1hPFyAwkc7w==}
     peerDependencies:
-      tree-sitter: ^0.25.0
+      tree-sitter: ^0.21.1
     peerDependenciesMeta:
       tree-sitter:
         optional: true
@@ -2619,18 +2578,18 @@ packages:
       tree_sitter:
         optional: true
 
-  tree-sitter-php@0.24.2:
-    resolution: {integrity: sha512-zwgAePc/HozNaWOOfwRAA+3p8yhuehRw8Fb7vn5qd2XjiIc93uJPryDTMYTSjBRjVIUg/KY6pM3rRzs8dSwKfw==}
+  tree-sitter-php@0.23.12:
+    resolution: {integrity: sha512-VwkBVOahhC2NYXK/Fuqq30NxuL/6c2hmbxEF4jrB7AyR5rLc7nT27mzF3qoi+pqx9Gy2AbXnGezF7h4MeM6YRA==}
     peerDependencies:
-      tree-sitter: ^0.22.4
+      tree-sitter: ^0.21.1
     peerDependenciesMeta:
       tree-sitter:
         optional: true
 
-  tree-sitter-python@0.25.0:
-    resolution: {integrity: sha512-eCmJx6zQa35GxaCtQD+wXHOhYqBxEL+bp71W/s3fcDMu06MrtzkVXR437dRrCrbrDbyLuUDJpAgycs7ncngLXw==}
+  tree-sitter-python@0.23.6:
+    resolution: {integrity: sha512-yIM9z0oxKIxT7bAtPOhgoVl6gTXlmlIhue7liFT4oBPF/lha7Ha4dQBS82Av6hMMRZoVnFJI8M6mL+SwWoLD3A==}
     peerDependencies:
-      tree-sitter: ^0.25.0
+      tree-sitter: ^0.22.1
     peerDependenciesMeta:
       tree-sitter:
         optional: true
@@ -2643,8 +2602,8 @@ packages:
       tree-sitter:
         optional: true
 
-  tree-sitter-rust@0.24.0:
-    resolution: {integrity: sha512-NWemUDf629Tfc90Y0Z55zuwPCAHkLxWnMf2RznYu4iBkkrQl2o/CHGB7Cr52TyN5F1DAx8FmUnDtCy9iUkXZEQ==}
+  tree-sitter-rust@0.23.3:
+    resolution: {integrity: sha512-uLdZJ1K26EuJTBMJlz1ltTlg7nJyAYThfouXgigf5ixKOasOL5wNrRCpuWTsl6rDcKlZK9UX+annFLqP/kchwQ==}
     peerDependencies:
       tree-sitter: ^0.22.1
     peerDependenciesMeta:
@@ -2668,8 +2627,8 @@ packages:
       tree-sitter:
         optional: true
 
-  tree-sitter@0.25.1:
-    resolution: {integrity: sha512-mrcEdkYtHfrK1A6fs3O6FxkBo0Qig5XUXqHhxUOQu0bmPo00QF4XaSx4edpazdHwxnSCjlGKGgIqWdaN4dvTLA==}
+  tree-sitter@0.22.4:
+    resolution: {integrity: sha512-usbHZP9/oxNsUY65MQUsduGRqDHQOou1cagUSwjhoSYAmSahjQDAVsh9s+SlZkn8X8+O1FULRGwHu7AFP3kjzg==}
 
   ts-algebra@2.0.0:
     resolution: {integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==}
@@ -3017,44 +2976,44 @@ snapshots:
       zod: 4.6.7
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.319':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.319':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.319':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.319':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.319':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.319':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.319':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.319':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk@0.3.322(@anthropic-ai/sdk@0.111.0(zod@4.6.7))(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7))(zod@4.6.7)':
+  '@anthropic-ai/claude-agent-sdk@0.3.319(@anthropic-ai/sdk@0.111.0(zod@4.6.7))(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7))(zod@4.6.7)':
     dependencies:
       '@anthropic-ai/sdk': 0.111.0(zod@4.6.7)
       '@modelcontextprotocol/sdk': 1.32.1(zod@4.6.7)
       zod: 4.6.7
     optionalDependencies:
-      '@anthropic-ai/claude-agent-sdk-darwin-arm64': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-darwin-x64': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-linux-arm64': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-linux-x64': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-linux-x64-musl': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-win32-arm64': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-win32-x64': 0.3.322
+      '@anthropic-ai/claude-agent-sdk-darwin-arm64': 0.3.319
+      '@anthropic-ai/claude-agent-sdk-darwin-x64': 0.3.319
+      '@anthropic-ai/claude-agent-sdk-linux-arm64': 0.3.319
+      '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': 0.3.319
+      '@anthropic-ai/claude-agent-sdk-linux-x64': 0.3.319
+      '@anthropic-ai/claude-agent-sdk-linux-x64-musl': 0.3.319
+      '@anthropic-ai/claude-agent-sdk-win32-arm64': 0.3.319
+      '@anthropic-ai/claude-agent-sdk-win32-x64': 0.3.319
 
   '@anthropic-ai/sdk@0.111.0(zod@4.6.7)':
     dependencies:
@@ -3348,7 +3307,7 @@ snapshots:
     dependencies:
       '@hono/node-server': 2.1.3(hono@4.13.17)
       ajv: 8.20.0
-      ajv-formats: 3.0.1
+      ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
@@ -3679,8 +3638,8 @@ snapshots:
       zod: 4.6.7
     optional: true
 
-  ajv-formats@3.0.1:
-    dependencies:
+  ajv-formats@3.0.1(ajv@8.20.0):
+    optionalDependencies:
       ajv: 8.20.0
 
   ajv@8.20.0:
@@ -4864,115 +4823,108 @@ snapshots:
 
   toidentifier@1.0.1: {}
 
-  tree-sitter-c-sharp@0.23.5(tree-sitter@0.25.1):
+  tree-sitter-c-sharp@0.23.1(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
     optionalDependencies:
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
 
-  tree-sitter-c@0.23.6(tree-sitter@0.25.1):
+  tree-sitter-c@0.23.6(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
     optionalDependencies:
-      tree-sitter: 0.25.1
-
-  tree-sitter-c@0.24.1(tree-sitter@0.25.1):
-    dependencies:
-      node-addon-api: 8.7.0
-      node-gyp-build: 4.8.4
-    optionalDependencies:
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
 
   tree-sitter-cli@0.23.2: {}
 
   tree-sitter-cli@0.27.2: {}
 
-  tree-sitter-cpp@0.23.4(tree-sitter@0.25.1):
+  tree-sitter-cpp@0.23.4(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
-      tree-sitter-c: 0.23.6(tree-sitter@0.25.1)
+      tree-sitter-c: 0.23.6(tree-sitter@0.22.4)
     optionalDependencies:
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
 
   tree-sitter-dart@1.0.0:
     dependencies:
       nan: 2.27.0
 
-  tree-sitter-go@0.25.0(tree-sitter@0.25.1):
+  tree-sitter-go@0.23.4(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
     optionalDependencies:
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
 
-  tree-sitter-java@0.23.5(tree-sitter@0.25.1):
+  tree-sitter-java@0.23.5(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
     optionalDependencies:
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
 
-  tree-sitter-javascript@0.23.1(tree-sitter@0.25.1):
+  tree-sitter-javascript@0.23.1(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
     optionalDependencies:
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
 
-  tree-sitter-kotlin@0.3.8(tree-sitter@0.25.1):
+  tree-sitter-kotlin@0.3.8(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 7.1.1
       node-gyp-build: 4.8.4
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
 
-  tree-sitter-php@0.24.2(tree-sitter@0.25.1):
+  tree-sitter-php@0.23.12(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
     optionalDependencies:
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
 
-  tree-sitter-python@0.25.0(tree-sitter@0.25.1):
+  tree-sitter-python@0.23.6(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
     optionalDependencies:
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
 
-  tree-sitter-ruby@0.23.1(tree-sitter@0.25.1):
+  tree-sitter-ruby@0.23.1(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
     optionalDependencies:
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
 
-  tree-sitter-rust@0.24.0(tree-sitter@0.25.1):
+  tree-sitter-rust@0.23.3(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
     optionalDependencies:
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
 
-  tree-sitter-swift@0.7.1(tree-sitter@0.25.1):
+  tree-sitter-swift@0.7.1(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
       tree-sitter-cli: 0.23.2
       which: 2.0.2
 
-  tree-sitter-typescript@0.23.2(tree-sitter@0.25.1):
+  tree-sitter-typescript@0.23.2(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
-      tree-sitter-javascript: 0.23.1(tree-sitter@0.25.1)
+      tree-sitter-javascript: 0.23.1(tree-sitter@0.22.4)
     optionalDependencies:
-      tree-sitter: 0.25.1
+      tree-sitter: 0.22.4
 
-  tree-sitter@0.25.1:
+  tree-sitter@0.22.4:
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
