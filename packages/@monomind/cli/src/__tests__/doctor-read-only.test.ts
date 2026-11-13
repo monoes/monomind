@@ -15,6 +15,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { openDb } from '@monoes/monograph';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { resolveDoctorMode } from '../commands/doctor-mode.js';
 
@@ -99,12 +100,27 @@ describe.skipIf(process.platform === 'win32')('doctor --read-only / --offline (b
     // A WAL-mode graph db closed cleanly (no -wal/-shm left): a plain
     // read-only open would create them again.
     mkdirSync(join(proj, '.monomind'));
-    const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite');
-    const db = new DatabaseSync(join(proj, '.monomind', 'monograph.db'));
-    db.exec(
-      "PRAGMA journal_mode=WAL; CREATE TABLE index_meta(key TEXT PRIMARY KEY, value TEXT); INSERT INTO index_meta VALUES('last_commit_hash','0000000')",
-    );
-    db.close();
+    const graphPath = join(proj, '.monomind', 'monograph.db');
+    let DatabaseSync: typeof import('node:sqlite')['DatabaseSync'] | undefined;
+    try {
+      ({ DatabaseSync } = createRequire(import.meta.url)('node:sqlite'));
+    } catch {
+      // Node < 22.13 has no node:sqlite: doctor cannot read the graph with it either, but
+      // every no-write assertion below still holds for a graph db built with better-sqlite3.
+    }
+    if (DatabaseSync) {
+      const db = new DatabaseSync(graphPath);
+      db.exec(
+        "PRAGMA journal_mode=WAL; CREATE TABLE index_meta(key TEXT PRIMARY KEY, value TEXT); INSERT INTO index_meta VALUES('last_commit_hash','0000000')",
+      );
+      db.close();
+    } else {
+      const db = openDb(graphPath);
+      db.exec(
+        "PRAGMA journal_mode=WAL; INSERT OR REPLACE INTO index_meta VALUES('last_commit_hash','0000000')",
+      );
+      db.close();
+    }
     // An older project copy of the hooks' resolver, which opens the graph db
     // without `immutable`.
     const resolver = join('.claude', 'helpers', 'utils', 'monograph-resolve.cjs');

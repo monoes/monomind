@@ -73,7 +73,7 @@ describe('init preserves user-authored .claude content', () => {
       // assertions below cover it, and it is the dominant source of
       // full-suite parallel-load timeouts. Watch behavior is gated by
       // --watch, not startAll, so the pid-file tests are unaffected.
-      flags: { _: [], 'no-watch': true, 'no-start-all': true },
+      flags: { _: [], platforms: 'claude', 'no-watch': true, 'no-start-all': true },
       cwd: tmpDir,
       interactive: false,
     };
@@ -136,7 +136,14 @@ describe('init preserves user-authored .claude content', () => {
     manifest.commands.push(staleName);
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
-    ctx.flags = { force: true, yes: true, _: [], 'no-watch': true, 'no-start-all': true };
+    ctx.flags = {
+      force: true,
+      yes: true,
+      _: [],
+      platforms: 'claude',
+      'no-watch': true,
+      'no-start-all': true,
+    };
     const second = await initCommand.action!(ctx);
     expect(second.success).toBe(true);
 
