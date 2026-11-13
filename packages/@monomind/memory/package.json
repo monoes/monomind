@@ -1,6 +1,6 @@
 {
   "name": "@monoes/memory",
-  "version": "2.24.1",
+  "version": "2.24.2",
   "type": "module",
   "description": "Memory module - JSON pattern store and a SQLite + embeddings backend with a size-gated HNSW ANN fast path built in",
   "license": "Apache-2.0",
@@ -28,7 +28,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",
     "@types/sql.js": "^1.4.9",
-    "vitest": "^4.1.4"
+    "vitest": "^5.1.0"
   },
   "files": [
     "dist",
