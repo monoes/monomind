@@ -97,11 +97,11 @@
     "publish:all": "./scripts/publish.sh"
   },
   "devDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.303",
-    "@huggingface/transformers": "4.3.0",
-    "@types/ws": "8.18.1",
+    "@anthropic-ai/claude-agent-sdk": "0.3.322",
+    "@huggingface/transformers": "4.3.2",
+    "@types/ws": "8.18.2",
     "chokidar": "^6.0.0",
-    "tsx": "^4.21.0",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^4.1.4"
   },
@@ -110,13 +110,13 @@
     "@monoes/monodesign": "workspace:*",
     "@monoes/monograph": "workspace:*",
     "fflate": "^0.8.3",
-    "mammoth": "^1.12.0",
-    "@firecrawl/pdf-inspector": "^1.12.0",
-    "ws": "^8.21.0",
-    "zod": "^4.6.6"
+    "mammoth": "^1.13.0",
+    "@firecrawl/pdf-inspector": "^1.25.2",
+    "ws": "^8.22.2",
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.303"
+    "@anthropic-ai/claude-agent-sdk": "0.3.322"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/claude-agent-sdk": {
@@ -124,28 +124,28 @@
     }
   },
   "optionalDependencies": {
-    "@ai-sdk/alibaba": "^2.0.34",
-    "@ai-sdk/anthropic": "^4.0.36",
-    "@ai-sdk/cohere": "^4.0.25",
-    "@ai-sdk/deepseek": "^3.0.31",
-    "@ai-sdk/fireworks": "^3.0.30",
-    "@ai-sdk/google": "^4.0.39",
-    "@ai-sdk/groq": "^4.0.26",
-    "@ai-sdk/mistral": "^4.0.27",
-    "@ai-sdk/openai": "^4.0.36",
-    "@ai-sdk/perplexity": "^5.0.24",
-    "@ai-sdk/togetherai": "^3.0.29",
+    "@ai-sdk/alibaba": "^2.0.85",
+    "@ai-sdk/anthropic": "^4.0.99",
+    "@ai-sdk/cohere": "^4.0.78",
+    "@ai-sdk/deepseek": "^3.0.81",
+    "@ai-sdk/fireworks": "^3.0.90",
+    "@ai-sdk/google": "^4.0.114",
+    "@ai-sdk/groq": "^4.0.78",
+    "@ai-sdk/mistral": "^4.0.81",
+    "@ai-sdk/openai": "^4.0.111",
+    "@ai-sdk/perplexity": "^5.0.28",
+    "@ai-sdk/togetherai": "^3.0.88",
     "@ai-sdk/xai": "^4.0.0",
-    "@openrouter/ai-sdk-provider": "^3.0.0",
-    "ai": "^7.0.58",
-    "ollama-ai-provider-v2": "^4.0.0",
+    "@openrouter/ai-sdk-provider": "^3.1.0",
+    "ai": "^7.0.166",
+    "ollama-ai-provider-v2": "^4.1.0",
     "@monoes/hooks": "workspace:*",
     "@monoes/mcp": "workspace:*",
     "@monoes/memory": "workspace:*",
     "@monoes/routing": "workspace:*",
-    "@opencode-ai/sdk": "^1.18.15",
+    "@opencode-ai/sdk": "^1.19.5",
     "monofence-ai": "workspace:*",
-    "sql.js": "^1.14.1"
+    "sql.js": "^1.15.2"
   },
   "publishConfig": {
     "access": "public",
