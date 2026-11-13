@@ -19,7 +19,7 @@
  * hub, so neither side imports the other for it.
  */
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, realpathSync, unlinkSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync, realpathSync, unlinkSync } from 'node:fs';
 import { connect, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -131,6 +131,12 @@ function endpointFor(root: string, org: string): { path: string; file: boolean }
   // an error, so the file it makes could never be found again to unlink once its holder died.
   if (join(dir, `${key}.sock`).length > MAX_SOCKET_PATH) dir = join('/tmp', name);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
+  // /tmp is shared: the directory must be ours, private and not a symlink, or another user
+  // could have planted it to hold or hijack the lock socket.
+  const st = lstatSync(dir);
+  const uid = process.getuid?.();
+  if (!st.isDirectory() || (uid !== undefined && st.uid !== uid) || (st.mode & 0o077) !== 0)
+    throw new Error(`lock directory ${dir} is not a private directory owned by this user`);
   return { path: join(dir, `${key}.sock`), file: true };
 }
 
