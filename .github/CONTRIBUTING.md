@@ -10,7 +10,7 @@ Thanks for helping. This guide covers how to set up the repo, make a change, and
 
 ## Setup
 
-You need **Node.js 22.12 or newer** (some dependencies require it, and `.npmrc` sets `engine-strict=true`), **pnpm 10**, and git.
+You need **Node.js 22.22 or newer** (some dependencies require it, and `.npmrc` sets `engine-strict=true`), **pnpm 10**, and git.
 
 ```bash
 git clone https://github.com/monoes/monomind.git

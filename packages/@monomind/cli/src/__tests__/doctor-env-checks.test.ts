@@ -55,11 +55,11 @@ describe('runCommand', () => {
 });
 
 describe('checkNodeVersion', () => {
-  it('reflects the real running Node version against the >=22.12.0 floor', async () => {
+  it('reflects the real running Node version against the >=22.22.0 floor', async () => {
     const check = await checkNodeVersion();
     expect(check.name).toBe('Node.js Version');
     const [major, minor] = process.version.slice(1).split('.').map(Number);
-    const meetsFloor = major > 22 || (major === 22 && minor >= 12);
+    const meetsFloor = major > 22 || (major === 22 && minor >= 22);
     if (meetsFloor) {
       expect(check.status).toBe('pass');
     } else if (major >= 18) {
@@ -72,14 +72,14 @@ describe('checkNodeVersion', () => {
     expect(check.message).toContain(process.version);
   });
 
-  // i-090: the floor is 22.12.0, not just major 22 — a `major >= 22` compare
-  // wrongly passes 22.0.0–22.11.x. checkNodeVersion takes an optional version
+  // i-090: the floor is 22.22.0, not just major 22 — a `major >= 22` compare
+  // wrongly passes 22.0.0–22.21.x. checkNodeVersion takes an optional version
   // string (defaulting to process.version) so these can be asserted without
   // running the suite under each real runtime.
-  it('passes on v22.12.0, the exact floor', async () => {
-    const check = await checkNodeVersion('v22.12.0');
+  it('passes on v22.22.0, the exact floor', async () => {
+    const check = await checkNodeVersion('v22.22.0');
     expect(check.status).toBe('pass');
-    expect(check.message).toContain('22.12');
+    expect(check.message).toContain('22.22');
   });
 
   it('passes on v26.0.0', async () => {
@@ -87,8 +87,8 @@ describe('checkNodeVersion', () => {
     expect(check.status).toBe('pass');
   });
 
-  it('does not pass on v22.11.0 — a major-only compare would wrongly pass this', async () => {
-    const check = await checkNodeVersion('v22.11.0');
+  it('does not pass on v22.21.0 — a major-only compare would wrongly pass this', async () => {
+    const check = await checkNodeVersion('v22.21.0');
     expect(check.status).not.toBe('pass');
     expect(check.fix).toContain('22');
     expect(check.fix).not.toContain('20');
@@ -100,10 +100,10 @@ describe('checkNodeVersion', () => {
     expect(check.fix).toContain('nvm install 22');
   });
 
-  // i-090 revision: doctor.ts:64 said "(>= 22.12.0 recommended)" on the warn
+  // i-090 revision: doctor.ts:64 said "(>= 22.22.0 recommended)" on the warn
   // path while every manifest says "required" — same word must be used
   // regardless of status. And "nvm install 22" can land on 22.11.x, which
-  // still warns — the fix string must name 22.12 exactly.
+  // still warns — the fix string must name 22.22 exactly.
   it('says "required", not "recommended", on the warn path — every manifest requires it', async () => {
     const check = await checkNodeVersion('v20.19.0');
     expect(check.status).toBe('warn');
@@ -111,17 +111,17 @@ describe('checkNodeVersion', () => {
     expect(check.message).not.toContain('recommended');
   });
 
-  it('names 22.12 exactly in the fix string — "nvm install 22" alone can land on 22.11.x, which still warns', async () => {
+  it('names 22.22 exactly in the fix string — "nvm install 22" alone can land on 22.21.x, which still warns', async () => {
     const check = await checkNodeVersion('v20.19.0');
-    expect(check.fix).toContain('22.12');
+    expect(check.fix).toContain('22.22');
   });
 
   // i-090 revision: the parameter is part of an exported signature now, not
-  // just an internal default — a caller passing a bare "22.12.0" (no leading
+  // just an internal default — a caller passing a bare "22.22.0" (no leading
   // "v", the shape Node's own semver range strings use) must not be
   // mis-parsed as major=2.
-  it('does not assume a leading "v" — a bare "22.12.0" still evaluates as the real 22.12.0', async () => {
-    const check = await checkNodeVersion('22.12.0');
+  it('does not assume a leading "v" — a bare "22.22.0" still evaluates as the real 22.22.0', async () => {
+    const check = await checkNodeVersion('22.22.0');
     expect(check.status).toBe('pass');
   });
 });

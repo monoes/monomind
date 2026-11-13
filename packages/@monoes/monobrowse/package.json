@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monobrowse",
-  "version": "2.24.4",
+  "version": "2.24.5",
   "description": "Native browser automation via Chrome DevTools Protocol — the engine powering monomind browse",
   "type": "module",
   "bin": {
@@ -35,7 +35,7 @@
     "src"
   ],
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.22.0"
   },
   "scripts": {
     "build": "tsc && node ../../../scripts/build-fs.mjs copy-into dist/src/browser/dashboard src/browser/dashboard/ui.html",

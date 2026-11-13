@@ -1,6 +1,6 @@
 {
   "name": "@monoes/hooks",
-  "version": "2.24.1",
+  "version": "2.24.2",
   "description": "Hook type definitions, an in-memory HookRegistry/HookExecutor, and a WorkerManager with 9 on-demand background workers (health/ddd/security/cache/map/audit/consolidate/progress/reflexion). Not the runtime hook dispatcher — the live path is .claude/helpers/ (CJS handlers driven by settings.json), which bridges into this package's workers.",
   "type": "module",
   "main": "./dist/index.js",
@@ -43,7 +43,7 @@
   },
   "peerDependencies": {},
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.22.0"
   },
   "keywords": [
     "monomind",
