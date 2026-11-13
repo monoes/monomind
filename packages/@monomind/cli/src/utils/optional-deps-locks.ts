@@ -79,6 +79,7 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         integrity:
           'sha512-g2tpMsHLMQahI4bk5CIcMHAB/RwzxoPGmL5Q5G5MDir5WTrl71vulWbtLQISUPm/yFPRG97tdzZnCa5Uq1v/dw==',
         cpu: ['arm64'],
+        libc: ['glibc'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['linux'],
@@ -90,6 +91,7 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         integrity:
           'sha512-8KDZQJAS2CEb5aGAvuXkpyHMc9TOM/zYTw2iKmbbVi4im0atw93EtJPapYyp0g/lQI/Xk8jMYdWU6Zlv9EWjLw==',
         cpu: ['arm64'],
+        libc: ['musl'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['linux'],
@@ -101,6 +103,7 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         integrity:
           'sha512-uBAZA8x0hd5gVifyL5Lo73dVmi9xZeJ6jro2NO0al6yyWaw/6UL9xbsVh9lOhLFOmYIdSbQ2j4zAfnvG/t5F3Q==',
         cpu: ['x64'],
+        libc: ['glibc'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['linux'],
@@ -112,6 +115,7 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         integrity:
           'sha512-XkKYj3c1jVFjLATrZr4YTsmS5AIb5s2iphF9X670EcVQqDCCGIKKTVNLLg9mg1e7D+2xX8FU0XNlOJatWfpBeA==',
         cpu: ['x64'],
+        libc: ['musl'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['linux'],
