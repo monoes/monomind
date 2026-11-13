@@ -9,7 +9,7 @@
  * ClaudeAgentRunner (mock queryFn — no real SDK).
  */
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -29,7 +29,7 @@ import {
 import { runAgentSession } from '../../src/orgrt/session.js';
 import type { BusEvent } from '../../src/orgrt/types.js';
 
-const tmp = (p: string) => mkdtempSync(join(tmpdir(), p));
+const tmp = (p: string) => realpathSync(mkdtempSync(join(tmpdir(), p)));
 
 function git(cwd: string, ...args: string[]) {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
@@ -148,7 +148,9 @@ describe('buildClaudeRestrictions', () => {
   it('never denies a path that does not exist (the sandbox would make a missing ~/.gitconfig fatal to git)', () => {
     const { base, repo, gitDir } = scratchRepo();
     const guard = prepareGitGuard({ level: 'read', stateDir: join(base, 'guard'), protectedGitDirs: [gitDir] })!;
-    const sb = buildClaudeRestrictions(guard, undefined, ctx(repo, base), true).sandbox as any;
+    // bubblewrap layout: seatbelt (macOS) denies missing paths on purpose, by path rule
+    const linux = { ...ctx(repo, base), platform: 'linux' as const };
+    const sb = buildClaudeRestrictions(guard, undefined, linux, true).sandbox as any;
     const denied = [...sb.filesystem.denyWrite, ...sb.credentials.files.map((f: any) => f.path)];
     expect(denied).not.toContain(join(home, '.gitconfig'));
     expect(denied).not.toContain(join(home, '.netrc'));
@@ -259,7 +261,9 @@ describe('buildClaudeRestrictions', () => {
   it('denyWrite makes the listed paths (relative to the org root) read-only for Bash and the file tools', () => {
     const { base, repo, gitDir } = scratchRepo();
     const guard = prepareGitGuard({ level: 'commit', stateDir: join(base, 'guard'), protectedGitDirs: [gitDir] })!;
-    const r = buildClaudeRestrictions(guard, { denyWrite: ['.', '/definitely/not/there'] }, ctx(repo, base), true);
+    // bubblewrap layout: seatbelt (macOS) keeps the whole directory as one deny
+    const linux = { ...ctx(repo, base), platform: 'linux' as const };
+    const r = buildClaudeRestrictions(guard, { denyWrite: ['.', '/definitely/not/there'] }, linux, true);
     const fs = (r.sandbox as any).filesystem;
     // #323: the org root holds the cwd, so it goes in as its existing entries
     expect(fs.denyWrite).not.toContain(base);
@@ -365,7 +369,7 @@ describe('resolveRoleGitEnforcement', () => {
   let hermeticHome: string;
   beforeEach(() => {
     originalEnv = { ...process.env };
-    hermeticHome = mkdtempSync(join(tmpdir(), 'git-hermetic-home-'));
+    hermeticHome = realpathSync(mkdtempSync(join(tmpdir(), 'git-hermetic-home-')));
     for (const k of Object.keys(process.env)) delete process.env[k];
     Object.assign(process.env, {
       PATH: originalEnv.PATH,

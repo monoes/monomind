@@ -14,6 +14,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -121,7 +122,7 @@ describe('agent scan is side-effect free (#337)', () => {
       const [runHome, runCwd] = run.split('|');
       expect(runHome.startsWith(tmpdir()), runHome).toBe(true);
       expect(runHome).not.toBe(home);
-      expect(runCwd.startsWith(tmpdir()), runCwd).toBe(true);
+      expect(runCwd.startsWith(realpathSync(tmpdir())), runCwd).toBe(true);
       expect(runCwd).not.toBe(process.cwd());
       expect(existsSync(runHome), `scratch HOME ${runHome} left behind`).toBe(false);
       expect(existsSync(runCwd), `scratch cwd ${runCwd} left behind`).toBe(false);

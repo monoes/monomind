@@ -6,7 +6,7 @@
  * while a sibling and the home stay read-only, and `.git` inside a root stays
  * read-only. These tests cover the filtering and the argv.
  */
-import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
@@ -15,7 +15,7 @@ import { codexExecArgs } from '../../src/orgrt/codex-runner-stream.js';
 import { codexWriteRoots } from '../../src/orgrt/codex-write-roots.js';
 
 function fixture() {
-  const base = mkdtempSync(join(process.env.TMPDIR ?? '/var/tmp', 'cwr-'));
+  const base = realpathSync(mkdtempSync(join(process.env.TMPDIR ?? '/var/tmp', 'cwr-')));
   const home = join(base, 'home');
   const cwd = join(home, 'work', 'cwd');
   const orgRoot = join(home, 'work');

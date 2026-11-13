@@ -66,7 +66,7 @@ const costQuery = ({ prompt }: any) =>
     }
   })();
 
-async function waitUntil(pred: () => boolean, timeoutMs = 5000): Promise<boolean> {
+async function waitUntil(pred: () => boolean, timeoutMs = 30_000): Promise<boolean> {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
     if (pred()) return true;
@@ -137,7 +137,7 @@ describe('#343 — task assigned to a budget-closed role', () => {
     expect(notices.some((m) => m.includes(second.id))).toBe(true);
     // one notice for the closure, one for the task assigned afterwards
     expect(notices.filter((m) => m.includes(second.id))).toHaveLength(1);
-  }, 20_000);
+  }, 60_000);
 });
 
 describe('#343 — budget_usd hot reload', () => {

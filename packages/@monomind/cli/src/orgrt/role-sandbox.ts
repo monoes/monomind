@@ -151,6 +151,8 @@ export function resolveRoleGitEnforcement(args: {
   denyWriteDirs?: string[];
   /** See buildClaudeRestrictions: called only when the sandbox is built. */
   holdStubs?: (writableRoots: string[]) => string[];
+  /** Test seam: the platform to build the restrictions for. */
+  platform?: NodeJS.Platform;
 }): { env: Record<string, string>; claudeRestrictions?: ClaudeRestrictions } {
   const { role, bus } = args;
   const level = (role.policy?.git ?? 'read') as GitLevel;
@@ -269,6 +271,7 @@ export function resolveRoleGitEnforcement(args: {
         holdStubs: args.holdStubs,
         denyReadDirs: args.denyReadDirs,
         denyWriteDirs: args.denyWriteDirs,
+        platform: args.platform,
       },
       sandboxEnabled,
     ),

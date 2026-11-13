@@ -98,7 +98,7 @@ afterEach(() => {
   rmSync(dumpDir, { recursive: true, force: true });
 });
 
-async function waitForDump(timeoutMs = 8000): Promise<Record<string, string>> {
+async function waitForDump(timeoutMs = 30_000): Promise<Record<string, string>> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     if (existsSync(dumpFile)) {

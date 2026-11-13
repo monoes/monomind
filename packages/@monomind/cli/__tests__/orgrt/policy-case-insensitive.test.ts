@@ -10,7 +10,7 @@
  * the not-yet-existing tail of a path. The probe is mocked for the engine
  * tests; its own tests below run it for real.
  */
-import { linkSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, linkSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -33,6 +33,13 @@ const { isDashboardCredential } = await import('../../src/orgrt/file-roots.js');
 
 const REAL_TMPDIR = realpathSync(tmpdir());
 const scratch = (prefix: string) => realpathSync(mkdtempSync(join(REAL_TMPDIR, prefix)));
+/** Whether the temp dir's filesystem really folds case (macOS APFS and Windows NTFS by
+ *  default). Checked with plain fs calls, never with the product's probe. */
+const FS_FOLDS_CASE = (() => {
+  const dir = scratch('pci-fs-');
+  mkdirSync(join(dir, 'abc'));
+  return existsSync(join(dir, 'ABC'));
+})();
 const mkBus = () => new OrgBus('o', 'r', scratch('pci-bus-'));
 
 const savedHome = process.env.HOME;
@@ -162,6 +169,12 @@ describe('#496 — grants fold only the not-yet-existing tail, only on darwin/wi
     mkdirSync(join(cwd, 'site'), { recursive: true });
     return cwd;
   }
+  // On a filesystem that folds case, `Site` IS the existing `site`: the engine resolves it to
+  // the on-disk spelling and the grant matches by design. What "does not fold" can still
+  // assert there is the not-yet-existing tail, so the granted directory is left uncreated.
+  function siteForNoFold() {
+    return FS_FOLDS_CASE ? scratch('pci-cwd-') : site();
+  }
   const cases = [
     ['an absolute directory entry', (cwd: string) => [join(cwd, 'site')]],
     ['a relative directory entry', () => ['site']],
@@ -185,7 +198,7 @@ describe('#496 — grants fold only the not-yet-existing tail, only on darwin/wi
     ] as const) {
       setPlatform(platform);
       probed = mode;
-      const cwd = site();
+      const cwd = siteForNoFold();
       const p = new PolicyEngine('w', { fileWrite: scope(cwd) }, mkBus(), cwd);
       expect((await p.decide('Write', { file_path: join(cwd, 'Site/index.html'), content: 'x' })).behavior).toBe(
         'deny',
@@ -193,7 +206,8 @@ describe('#496 — grants fold only the not-yet-existing tail, only on darwin/wi
     }
   });
 
-  it('never folds into an EXISTING differently-cased directory (grant /x/app, write /x/APP/cf2/sub/x)', async () => {
+  // reason: `app` and `APP` cannot both exist on a case-folding filesystem
+  it.skipIf(FS_FOLDS_CASE)('never folds into an EXISTING differently-cased directory (grant /x/app, write /x/APP/cf2/sub/x)', async () => {
     setPlatform('darwin');
     probed = 'insensitive';
     const cwd = scratch('pci-cwd-');
@@ -209,7 +223,7 @@ describe('#496 — grants fold only the not-yet-existing tail, only on darwin/wi
   it('globs never fold', async () => {
     setPlatform('darwin');
     probed = 'insensitive';
-    const cwd = site();
+    const cwd = siteForNoFold();
     const p = new PolicyEngine('w', { fileWrite: ['site/**'] }, mkBus(), cwd);
     expect((await p.decide('Write', { file_path: join(cwd, 'SITE/new/a.md'), content: 'x' })).behavior).toBe(
       'deny',
@@ -281,22 +295,26 @@ describe('#496 — the filesystem probe (real, unmocked)', async () => {
     '../../src/orgrt/fs-case.js',
   );
 
-  it('sees this Linux temp dir as case-sensitive and `/`-only paths as unknown', () => {
+  it('sees this temp dir as the filesystem it is, and `/`-only paths as unknown', () => {
     const dir = scratch('pci-probe-');
     mkdirSync(join(dir, 'abc'));
     writeFileSync(join(dir, 'abc', 'f'), '');
-    expect(probeCase(join(dir, 'abc', 'missing', 'file'))).toBe('sensitive');
+    expect(probeCase(join(dir, 'abc', 'missing', 'file'))).toBe(
+      FS_FOLDS_CASE ? 'insensitive' : 'sensitive',
+    );
     expect(probeCase('/')).toBe('unknown');
   });
 
-  it('ignores a look-alike symlink', () => {
+  // reason: `abc` and `ABC` cannot both exist on a case-folding filesystem
+  it.skipIf(FS_FOLDS_CASE)('ignores a look-alike symlink', () => {
     const other = scratch('pci-probe-');
     mkdirSync(join(other, 'abc'));
     symlinkSync(join(other, 'abc'), join(other, 'ABC'));
     expect(probeCase(join(other, 'abc', 'x'))).not.toBe('insensitive');
   });
 
-  it('an inner probe faked with a case-variant hard link disagrees with the outer probe → unknown', () => {
+  // reason: `x` and `X` cannot both exist on a case-folding filesystem
+  it.skipIf(FS_FOLDS_CASE)('an inner probe faked with a case-variant hard link disagrees with the outer probe → unknown', () => {
     const dir = scratch('pci-probe-');
     mkdirSync(join(dir, 'abc'));
     writeFileSync(join(dir, 'abc', 'x'), '');

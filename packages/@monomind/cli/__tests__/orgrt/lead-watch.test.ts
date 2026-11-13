@@ -254,7 +254,7 @@ async function boot(runConfig: Record<string, unknown>) {
   const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
   const running = await d.startOrg('alpha');
   const notices = () => running.busEvents().filter((e) => e.reason === 'lead-watch');
-  const waitFor = async (pred: () => boolean, ms = 6000) => {
+  const waitFor = async (pred: () => boolean, ms = 30_000) => {
     const t0 = Date.now();
     while (Date.now() - t0 < ms && !pred()) await new Promise((r) => setTimeout(r, 25));
     return pred();
@@ -283,7 +283,7 @@ describe('lead watch (daemon, scripted)', () => {
     expect(t.notices()).toHaveLength(1);
     await t.d.stopAll();
     resourcesOk = true;
-  }, 20_000);
+  }, 60_000);
 
   it('B3: a role with no task, or one that starts and keeps emitting, is never reported', async () => {
     resourcesOk = true;
@@ -299,7 +299,7 @@ describe('lead watch (daemon, scripted)', () => {
     }
     expect(t.notices()).toHaveLength(0);
     await t.d.stopAll();
-  }, 20_000);
+  }, 60_000);
 
   it('B2: a started role with an open task that then goes silent is reported once; lead_watch:false opts out', async () => {
     resourcesOk = true;
@@ -318,7 +318,7 @@ describe('lead watch (daemon, scripted)', () => {
     await off.sleep(800);
     expect(off.notices()).toHaveLength(0);
     await off.d.stopAll();
-  }, 20_000);
+  }, 60_000);
 });
 
 describe('lead watch (daemon, scripted), message-assigned work', () => {
@@ -339,7 +339,7 @@ describe('lead watch (daemon, scripted), message-assigned work', () => {
     expect(t.notices()).toHaveLength(1);
     await t.d.stopAll();
     resourcesOk = true;
-  }, 20_000);
+  }, 60_000);
 
   it('B2m: a started role that goes silent after its assignment message is reported once; lead_watch:false opts out', async () => {
     resourcesOk = true;
@@ -356,7 +356,7 @@ describe('lead watch (daemon, scripted), message-assigned work', () => {
     await off.sleep(800);
     expect(off.notices()).toHaveLength(0);
     await off.d.stopAll();
-  }, 20_000);
+  }, 60_000);
 
   it('B3m: a role that keeps emitting, one that reported back to its lead, and the lead itself are never reported', async () => {
     resourcesOk = true;

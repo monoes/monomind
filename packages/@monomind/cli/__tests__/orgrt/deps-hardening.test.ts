@@ -163,7 +163,7 @@ describe('(2) missing HOME_DENY_WRITE entries are stubbed before a role starts',
   it('the SDK sandbox denies the stubs, and the mask binds them read-only', () => {
     const home = scratch('dh-home-');
     const base = scratch('dh-base-');
-    ensureOperatorProtectedPaths({ home, env: {}, orgRoot: base });
+    ensureOperatorProtectedPaths({ home, env: {}, orgRoot: base, platform: 'linux' });
     const fs = restrictions({ home, base, platform: 'linux' }).filesystem;
     const args = authorityMaskArgs({ platform: 'linux', home, env: {}, roots: [base], orgRoot: base });
     for (const p of ['.npmrc', '.config/npm', '.config/git', '.bashrc', '.profile', '.ssh']) {

@@ -15,13 +15,27 @@ import { symlinkSync } from 'node:fs';
 import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { OrgBus } from '../../src/orgrt/bus.js';
 import { Mailbox } from '../../src/orgrt/mailbox.js';
 import { PolicyEngine } from '../../src/orgrt/policy.js';
 import { checkGitPolicy } from '../../src/orgrt/policy-git.js';
 import { sandboxAvailability } from '../../src/orgrt/role-sandbox.js';
 import { runAgentSession } from '../../src/orgrt/session.js';
+
+// macOS decides availability from the absolute /usr/bin/sandbox-exec, so no PATH can make it
+// unavailable there; the test forces the runtime decision instead.
+const fake = vi.hoisted(() => ({ unavailable: false }));
+vi.mock('../../src/orgrt/role-sandbox-restrictions.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../../src/orgrt/role-sandbox-restrictions.js')>();
+  return {
+    ...real,
+    sandboxAvailability: (...args: Parameters<typeof real.sandboxAvailability>) =>
+      fake.unavailable
+        ? { available: false, reason: 'unavailable (test)' }
+        : real.sandboxAvailability(...args),
+  };
+});
 
 const tmp = (p: string) => mkdtempSync(join(tmpdir(), p));
 const sandboxed = { osSandboxed: true };
@@ -154,11 +168,13 @@ describe('session wiring: the flag follows the runtime sandbox decision', () => 
     symlinkSync(git, join(bin, 'git'));
     const PATH = process.env.PATH;
     process.env.PATH = bin;
+    fake.unavailable = process.platform === 'darwin';
     try {
       const r = await run({ git: 'read' }, true, true);
       expect(r.sdkSandbox).toBeUndefined();
       expect(r.opaqueDecision).toBe('deny');
     } finally {
+      fake.unavailable = false;
       process.env.PATH = PATH;
     }
   });
