@@ -1,6 +1,6 @@
 {
   "name": "@monoes/routing",
-  "version": "2.24.1",
+  "version": "2.24.2",
   "description": "Semantic task-to-agent routing for monomind",
   "license": "Apache-2.0",
   "type": "module",
@@ -17,7 +17,7 @@
     "dist"
   ],
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.22.0"
   },
   "scripts": {
     "prebuild": "node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo",

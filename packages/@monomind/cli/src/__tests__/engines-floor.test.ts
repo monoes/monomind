@@ -45,7 +45,11 @@ function publishedWorkspacePackages(): Array<{ dir: string; pkg: any }> {
   return out.sort((a, b) => a.dir.localeCompare(b.dir));
 }
 
-describe('every published package declares the Node >=22.12.0 floor', () => {
+// monofence-ai is pinned to its published npm release (2.24.0, >=22.12.0) by the CLI, so it
+// keeps the older floor until a new version is published.
+const PINNED_OLD_FLOOR = new Set(['monofence-ai']);
+
+describe('every published package declares the Node >=22.22.0 floor', () => {
   const root = JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'));
   const packages = publishedWorkspacePackages();
 
@@ -56,14 +60,14 @@ describe('every published package declares the Node >=22.12.0 floor', () => {
     expect(packages.length).toBe(9);
   });
 
-  it('declares engines.node ">=22.12.0" on the root umbrella', () => {
-    expect(root.engines?.node).toBe('>=22.12.0');
+  it('declares engines.node ">=22.22.0" on the root umbrella', () => {
+    expect(root.engines?.node).toBe('>=22.22.0');
   });
 
   it.each(publishedWorkspacePackages().map(({ dir, pkg }) => [pkg.name, dir, pkg]))(
-    'declares engines.node ">=22.12.0" on %s',
+    'declares engines.node ">=22.22.0" on %s',
     (_name, _dir, pkg: any) => {
-      expect(pkg.engines?.node).toBe('>=22.12.0');
+      expect(pkg.engines?.node).toBe(PINNED_OLD_FLOOR.has(pkg.name) ? '>=22.12.0' : '>=22.22.0');
     },
   );
 });

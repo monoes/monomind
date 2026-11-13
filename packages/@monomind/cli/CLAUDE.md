@@ -361,7 +361,7 @@ Bash("npx monomind@latest hooks intelligence patterns --action list")
 MONOMIND_CONFIG=./monomind.config.json
 
 # Provider API Keys
-ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_API_KEY=<your-anthropic-key>
 OPENAI_API_KEY=sk-...
 GOOGLE_API_KEY=...
 GOOGLE_GENERATIVE_AI_API_KEY=...    # @ai-sdk/google (Gemini API)
@@ -388,7 +388,7 @@ MONOMIND_MEMORY_PATH=./data/memory
 
 Run `npx monomind@latest doctor` to check:
 
-- Node.js version (22.12+)
+- Node.js version (22.22+)
 - npm version (9+)
 - Git installation
 - Config file validity

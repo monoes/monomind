@@ -1,6 +1,6 @@
 {
   "name": "monomind",
-  "version": "2.29.1",
+  "version": "2.29.2",
   "description": "Open-source CLI extension for Claude Code, OpenCode, Antigravity, Kimi Code, and Codex. Adds an MCP server with a codebase knowledge graph, persistent memory, multi-agent coordination, and reusable slash commands. Apache 2.0 licensed. See https://github.com/monoes/monomind/blob/main/doc/privacy.md for what leaves your machine and when.",
   "type": "module",
   "bin": {
@@ -65,19 +65,19 @@
     "@monoes/monomindcli": "workspace:*"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.8",
+    "@biomejs/biome": "^2.6.6",
     "@monoes/monograph": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^26.6.6",
     "better-sqlite3": "^12.0.0",
-    "tsx": "^4.21.0",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vite": "^8.1.6",
+    "vite": "^8.3.7",
     "vitest": "^5.1.0",
-    "yaml": "2.8.3"
+    "yaml": "2.9.1"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.22.0"
   },
   "repository": {
     "type": "git",

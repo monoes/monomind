@@ -15,7 +15,7 @@
   <a href="https://www.npmjs.com/package/monomind"><img src="https://img.shields.io/npm/dm/monomind?color=%2310B981&style=flat-square" alt="downloads" /></a>
   <a href="https://github.com/monoes/monomind/stargazers"><img src="https://img.shields.io/github/stars/monoes/monomind?color=%23F59E0B&style=flat-square" alt="stars" /></a>
   <a href="https://github.com/monoes/monomind/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-%238B5CF6?style=flat-square" alt="license" /></a>
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D22.12-339933?style=flat-square&logo=node.js&logoColor=white" alt="node >=22.12" /></a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D22.22-339933?style=flat-square&logo=node.js&logoColor=white" alt="node >=22.22" /></a>
 </p>
 
 <p align="center">
@@ -43,7 +43,7 @@ Monomind is an **open-source CLI and MCP server** that plugs into Claude Code, [
 
 ## Quickstart
 
-1. **Install:** `npm install -g monomind` (Node 22.12 or newer)
+1. **Install:** `npm install -g monomind` (Node 22.22 or newer)
 2. **Initialize your project:** `cd your-project && monomind init` — sets up the coding systems it finds on your machine and writes `.mcp.json`, pinned to the installed version, so there is no separate `claude mcp add` step.
 3. **Check health:** `monomind doctor --fix`
 4. **Try one demo:** open Claude Code and run `/mastermind:review --tillend`, or run your first AI org with `monomind org run sample-team` (init writes `sample-team.json`; the first run offers to review and sign it).

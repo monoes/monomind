@@ -76,12 +76,12 @@ export async function withThrowawayNpmCache<T>(
 }
 
 export async function checkNodeVersion(version: string = process.version): Promise<HealthCheck> {
-  // i-090: the floor is 22.12.0, not just major 22 — a `major >= requiredMajor`
-  // compare would wrongly pass 22.0.0–22.11.x, which is the exact defect this
+  // i-090: the floor is 22.22.0, not just major 22 — a `major >= requiredMajor`
+  // compare would wrongly pass 22.0.0–22.21.x, which is the exact defect this
   // check existed to report elsewhere in the fleet (P0-class: doctor said
   // "pass" while `npm install` under engine-strict=true refused the package).
   const requiredMajor = 22;
-  const requiredMinor = 12;
+  const requiredMinor = 22;
   const requiredMajorMinor = `${requiredMajor}.${requiredMinor}`;
   const requiredLabel = `${requiredMajorMinor}.0`;
   const [major, minor] = version

@@ -11,14 +11,14 @@ modules that route tasks deterministically and measure whether the routing helpe
 
 ## Modules
 
-| File | Purpose |
-|---|---|
-| `index.ts` | Public surface: `createKeywordRouter`, capability/availability probes, re-exports |
-| `capabilities.ts` | Reports lean capabilities (no native engine); `getCapabilities()` is a JS stub |
-| `route-outcomes.ts` | Records recommended routes and correlates them with actual outcomes |
-| `command-outcomes.ts` | Records command exit codes; derives recent success/failure signal |
-| `diff-classifier.ts` | Pure-JS git-diff classification + risk scoring (feature/bugfix/refactor/…) |
-| `init-state.ts` | Tracks initialization status |
+| File                  | Purpose                                                                           |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `index.ts`            | Public surface: `createKeywordRouter`, capability/availability probes, re-exports |
+| `capabilities.ts`     | Reports lean capabilities (no native engine); `getCapabilities()` is a JS stub    |
+| `route-outcomes.ts`   | Records recommended routes and correlates them with actual outcomes               |
+| `command-outcomes.ts` | Records command exit codes; derives recent success/failure signal                 |
+| `diff-classifier.ts`  | Pure-JS git-diff classification + risk scoring (feature/bugfix/refactor/…)        |
+| `init-state.ts`       | Tracks initialization status                                                      |
 
 ## Keyword Router
 
@@ -50,8 +50,10 @@ import {
   computeAdherence,
 } from './route-outcomes.js';
 
-await recordRoute(baseDir, { /* RouteOutcomeRecord */ });
-await joinLatestUnresolved(baseDir, /* outcome */);
+await recordRoute(baseDir, {
+  /* RouteOutcomeRecord */
+});
+await joinLatestUnresolved(baseDir /* outcome */);
 
 const { accuracy, sample } = await computeRoutingAccuracy(baseDir);
 const { adherence } = await computeAdherence(baseDir);
