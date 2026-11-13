@@ -48,7 +48,7 @@ describe('hostPreflight', () => {
   it('on macOS a working mask starts the org, with a warning about shared native copies', () => {
     const r = hostPreflight(prodDef(), { mask: OK, sandbox: OK }, 'darwin');
     expect(r.ok).toBe(true);
-    expect(r.warnings.join('\n')).toMatch(/Seatbelt mask .* private native runner copy/);
+    expect(r.warnings.join('\n')).toMatch(/Seatbelt mask .* private native runner copy .* claude runtime/);
   });
 
   it('passes a host that has both', () => {

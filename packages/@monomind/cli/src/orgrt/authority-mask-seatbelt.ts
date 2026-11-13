@@ -12,9 +12,12 @@
  *   - the org root, `.monomind` and the directories above what the operator
  *     runs cannot be renamed or removed.
  *
- * What it cannot do: bind a private directory over another one, so the
- * per-role native runner copies (GA row R5) are not isolated on macOS; the
- * session audits `native-copies-unprotected` and preflight warns.
+ * What it cannot do: bind a private directory over another one. A runtime that
+ * names its own directory through an environment variable or HOME (every
+ * runtime but Claude, runtime-isolation.ts) needs no bind: the other roles'
+ * directories are unreadable here (GA row R5). Claude's native copies are
+ * shared on macOS; the session audits `native-copies-unprotected` and
+ * preflight warns.
  * The mask is a `['-p', profile]` argument list, run by `maskedCommand`.
  */
 import { spawnSync } from 'node:child_process';
@@ -54,6 +57,9 @@ export const denyReadRules = (paths: string[]): string[] =>
   paths.map(realPath).map((p) => `(deny file-read* ${sub(p)})`);
 export const denyWriteRules = (paths: string[]): string[] =>
   paths.map(realPath).map((p) => `(deny file-write* ${sub(p)})`);
+/** Add after a deny that covers `paths`: the role's own directory inside it stays writable. */
+export const allowWriteRules = (paths: string[]): string[] =>
+  paths.map(realPath).map((p) => `(allow file-write* ${sub(p)})`);
 
 /** The Seatbelt counterpart of `authorityMaskArgs`; same context. */
 export function seatbeltMaskArgs(ctx: {
