@@ -27,7 +27,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   ensureAuthorityDirs,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
@@ -193,7 +193,7 @@ describe.skipIf(
 describe.skipIf(
   process.env.MONOMIND_SANDBOX_E2E !== '1' ||
     !!process.env.MONOMIND_ORG_ROLE ||
-    !authorityMaskAvailability().available,
+    !bubblewrapAvailability().available,
 )('masked Claude role vs ~/.claude.json and the project .mcp.json (#502 review round 2)', () => {
   it('Claude Code runs with ~/.claude.json read-only, and the role cannot add mcpServers to it or to .mcp.json', async () => {
     const base = mkdtempSync(join(tmpdir(), 'op6-'));

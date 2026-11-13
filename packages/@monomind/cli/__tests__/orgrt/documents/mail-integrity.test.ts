@@ -159,7 +159,7 @@ describe('write denial', () => {
     const bus = new OrgBus('o', 'r', busDir());
     bus.subscribe((e) => events.push(e));
     const mk = (available: boolean) =>
-      roleExecMask({
+      roleExecMask({ platform: 'linux',
         bus,
         roleId: 'coder',
         authorityMask: ['--dev-bind', '/', '/'],

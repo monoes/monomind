@@ -26,7 +26,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
 import { HOME_DENY_WRITE } from '../../src/orgrt/file-roots.js';
@@ -217,7 +217,7 @@ describe('(3) a custom MONOMIND_HOME cannot be renamed aside through an ancestor
   });
 });
 
-describe.runIf(authorityMaskAvailability().available)('inside the real mask', () => {
+describe.runIf(bubblewrapAvailability().available)('inside the real mask', () => {
   it('(3) a role can neither rename an ancestor of MONOMIND_HOME aside nor plant a deps dir', () => {
     const home = scratch('dh-home-');
     const base = scratch('dh-base-');

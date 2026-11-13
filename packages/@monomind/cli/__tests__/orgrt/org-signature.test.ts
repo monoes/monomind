@@ -15,7 +15,7 @@ import { fullAccessGrantKeyPath } from '../../src/orgrt/access-grant-key.js';
 import {
   authorityDirs,
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   ensureAuthorityDirs,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
@@ -211,7 +211,7 @@ describe('the key and signatures are out of a role process’s reach', () => {
     expect(orgSignaturePath(root, 'o').startsWith(`${operatorDir}/`)).toBe(true);
   });
 
-  it.runIf(authorityMaskAvailability().available)(
+  it.runIf(bubblewrapAvailability().available)(
     'inside the real bubblewrap mask a role reads no key and cannot plant a signature',
     () => {
       const home = scratch('osig-home-');

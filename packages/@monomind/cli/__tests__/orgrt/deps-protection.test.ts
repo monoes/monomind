@@ -14,7 +14,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
 import { fileToolDenied, HOME_DENY_WRITE } from '../../src/orgrt/file-roots.js';
@@ -68,7 +68,7 @@ describe('deps dir and npm config are write-denied to roles', () => {
   });
 });
 
-describe.runIf(authorityMaskAvailability().available)('inside the real mask', () => {
+describe.runIf(bubblewrapAvailability().available)('inside the real mask', () => {
   it('a role can neither plant into the deps dir nor rename ~/.monomind aside', () => {
     const home = scratch('dp-home-');
     const root = scratch('dp-root-');
@@ -165,7 +165,7 @@ describe('the MONOMIND_CLAUDE_PATH binary is write-denied to roles', () => {
       if (args[i] === '--bind') expect(args[i + 2]).not.toBe(mm);
   });
 
-  it.runIf(authorityMaskAvailability().available)(
+  it.runIf(bubblewrapAvailability().available)(
     'inside the real mask a role can neither overwrite it nor move a directory above it aside',
     () => {
       const { home, file, env } = claudeHome();

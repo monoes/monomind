@@ -26,7 +26,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   ensureAuthorityDirs,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
@@ -261,7 +261,7 @@ describe('one list, every layer', () => {
   });
 });
 
-describe.runIf(authorityMaskAvailability().available)('inside the real bubblewrap mask (#527)', () => {
+describe.runIf(bubblewrapAvailability().available)('inside the real bubblewrap mask (#527)', () => {
   it('a role runs the toolchain but cannot overwrite it, plant beside it, or rename its parents aside', () => {
     const home = scratch('tc-bw-');
     const root = scratch('tc-bwr-');

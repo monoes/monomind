@@ -39,6 +39,12 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { protectableDepsRoot } from '../utils/optional-deps.js';
+import {
+  isSeatbeltMask,
+  SANDBOX_EXEC,
+  seatbeltAvailability,
+  seatbeltMaskArgs,
+} from './authority-mask-seatbelt.js';
 import { protectedClaudeBinary } from './claude-sdk.js';
 import { dashboardCredentialPaths, HOME_DENY_WRITE, operatorDirOverride } from './file-roots.js';
 import {
@@ -99,7 +105,15 @@ export function authorityMaskArgs(ctx: {
   fileWrite?: string[];
   /** The role's signed `policy.sandbox.allowWrite` (operator-protected-paths.ts). */
   allowWrite?: string[];
+  /** Test seam: the platform to build the mask for. */
+  platform?: NodeJS.Platform;
 }): string[] {
+  // macOS has no bubblewrap: the same layout as a Seatbelt profile (#768).
+  if ((ctx.platform ?? process.platform) === 'darwin')
+    return seatbeltMaskArgs({
+      ...ctx,
+      hidden: authorityDirs(ctx.home, ctx.env),
+    });
   const args = ['--dev-bind', '/', '/'];
   // #527: the directories on the way to what the operator's processes run
   // (`~/.local`, `~/.local/share`, …) bound onto themselves, so none can be
@@ -198,10 +212,24 @@ function reanchor(args: string[], anchors: string[], from: number): void {
 
 let probed: { available: boolean; reason?: string } | undefined;
 
-/** Whether the mask can run here: Linux with a bwrap that actually starts
- *  (user namespaces can be disabled even when the binary is installed).
- *  Probed once per process. */
+/** Whether the mask can run here: bubblewrap on Linux (user namespaces can be
+ *  disabled even when the binary is installed), Seatbelt on macOS, nothing on
+ *  Windows. Probed once per process. */
 export function authorityMaskAvailability(platform: NodeJS.Platform = process.platform): {
+  available: boolean;
+  reason?: string;
+} {
+  if (platform === 'darwin') return seatbeltAvailability();
+  if (platform === 'win32')
+    return {
+      available: false,
+      reason: 'no mask for native Windows: run the org under WSL2 (Linux) instead',
+    };
+  return bubblewrapAvailability(platform);
+}
+
+/** Whether a bwrap that actually starts is here (Linux only). */
+export function bubblewrapAvailability(platform: NodeJS.Platform = process.platform): {
   available: boolean;
   reason?: string;
 } {
@@ -214,7 +242,10 @@ export function authorityMaskAvailability(platform: NodeJS.Platform = process.pl
       timeout: 5000,
     });
   } catch (err) {
-    probed = { available: false, reason: `bwrap probe failed (${(err as Error).message})` };
+    probed = {
+      available: false,
+      reason: `bwrap probe failed (${(err as Error).message})`,
+    };
     return probed;
   }
   probed =
@@ -235,5 +266,8 @@ export function maskedCommand(
   bin: string,
   args: string[],
 ): [string, string[]] {
-  return mask?.length ? ['bwrap', [...mask, '--', bin, ...args]] : [bin, args];
+  if (!mask?.length) return [bin, args];
+  return isSeatbeltMask(mask)
+    ? [SANDBOX_EXEC, [...mask, bin, ...args]]
+    : ['bwrap', [...mask, '--', bin, ...args]];
 }

@@ -36,8 +36,23 @@ describe('hostPreflight', () => {
     expect(r.refusals.join('\n')).toMatch(/sandbox.*socat missing/);
   });
 
+  it('names the step each platform can take when the mask is missing', () => {
+    const msg = (platform: NodeJS.Platform) =>
+      hostPreflight(prodDef(), { mask: NO('x'), sandbox: OK }, platform).refusals.join('\n');
+    expect(msg('linux')).toMatch(/\(bubblewrap\).*Install bubblewrap/);
+    expect(msg('darwin')).toMatch(/\(Seatbelt\).*not itself inside a sandbox/);
+    expect(msg('win32')).toMatch(/WSL2/);
+    expect(msg('win32')).not.toMatch(/\(bubblewrap\)/);
+  });
+
+  it('on macOS a working mask starts the org, with a warning about shared native copies', () => {
+    const r = hostPreflight(prodDef(), { mask: OK, sandbox: OK }, 'darwin');
+    expect(r.ok).toBe(true);
+    expect(r.warnings.join('\n')).toMatch(/Seatbelt mask .* private native runner copy/);
+  });
+
   it('passes a host that has both', () => {
-    expect(hostPreflight(prodDef(), { mask: OK, sandbox: OK })).toEqual({ ok: true, refusals: [], warnings: [] });
+    expect(hostPreflight(prodDef(), { mask: OK, sandbox: OK }, 'linux')).toEqual({ ok: true, refusals: [], warnings: [] });
   });
 
   it('in an eval org the same gaps are warnings, not refusals', () => {
@@ -49,7 +64,7 @@ describe('hostPreflight', () => {
   it('refuses a runtime without a copy-inventory entry outside the eval harness', () => {
     const d = prodDef();
     d.roles.find((r: any) => r.id === 'coder').runtime = 'no-such-runtime';
-    const r = hostPreflight(d, { mask: OK, sandbox: OK });
+    const r = hostPreflight(d, { mask: OK, sandbox: OK }, 'linux');
     expect(r.ok).toBe(false);
     expect(r.refusals.join('\n')).toMatch(/coder.*no-such-runtime/);
   });
@@ -57,7 +72,7 @@ describe('hostPreflight', () => {
   it('lets an unverified runtime start, with a warning that names it', () => {
     const d = prodDef();
     d.roles.find((r: any) => r.id === 'coder').runtime = 'qwen';
-    const r = hostPreflight(d, { mask: OK, sandbox: OK });
+    const r = hostPreflight(d, { mask: OK, sandbox: OK }, 'linux');
     expect(r.ok).toBe(true);
     expect(r.warnings.join('\n')).toMatch(/coder.*qwen.*not probed/);
   });
@@ -66,7 +81,7 @@ describe('hostPreflight', () => {
     for (const rt of ['codex', 'pi', 'pi-rpc', 'opencode', 'crush', 'antigravity']) {
       const d = prodDef();
       d.roles.find((r: any) => r.id === 'coder').runtime = rt;
-      expect(hostPreflight(d, { mask: OK, sandbox: OK }), rt).toEqual({ ok: true, refusals: [], warnings: [] });
+      expect(hostPreflight(d, { mask: OK, sandbox: OK }, 'linux'), rt).toEqual({ ok: true, refusals: [], warnings: [] });
     }
   });
 });

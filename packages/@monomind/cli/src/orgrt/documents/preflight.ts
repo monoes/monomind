@@ -52,7 +52,22 @@ function probes(given?: HostProbes): { mask: Availability; sandbox: Availability
   };
 }
 
-export function hostPreflight(def: OrgDef, given?: HostProbes): PreflightResult {
+const maskName = (platform: NodeJS.Platform): string =>
+  platform === 'darwin' ? 'Seatbelt' : platform === 'win32' ? 'none on Windows' : 'bubblewrap';
+
+/** What to do on this platform when the mask cannot run. */
+const maskFix = (platform: NodeJS.Platform): string =>
+  platform === 'darwin'
+    ? 'Start the org from a terminal that is not itself inside a sandbox (Seatbelt does not nest) and check that /usr/bin/sandbox-exec exists.'
+    : platform === 'win32'
+      ? 'Run the org under WSL2 (Linux), where bubblewrap can be installed.'
+      : 'Install bubblewrap (bwrap) and allow unprivileged user namespaces.';
+
+export function hostPreflight(
+  def: OrgDef,
+  given?: HostProbes,
+  platform: NodeJS.Platform = process.platform,
+): PreflightResult {
   if (!sectionsSurface(def).enabled) return { ok: true, refusals: [], warnings: [] };
   const evalMode =
     (def.run_config as { experimental?: string } | undefined)?.experimental === 'eval';
@@ -60,18 +75,24 @@ export function hostPreflight(def: OrgDef, given?: HostProbes): PreflightResult 
   const p = probes(given);
   if (!p.mask.available)
     gaps.push(
-      `the authority mask (bubblewrap) is unavailable on this host (${p.mask.reason ?? 'unknown'}), so mail digests, the envelope key and native runner copies are protected by file-tool rules alone`,
+      `the authority mask (${maskName(platform)}) is unavailable on this host (${p.mask.reason ?? 'unknown'}), so mail digests, the envelope key and native runner copies are protected by file-tool rules alone. ${maskFix(platform)}`,
     );
   if (!p.sandbox.available)
     gaps.push(
       `the SDK sandbox is unavailable on this host (${p.sandbox.reason ?? 'unknown'}), so shell commands run without the read and write denials`,
     );
+  const macNote =
+    platform === 'darwin' && p.mask.available
+      ? [
+          'on macOS the Seatbelt mask hides mail digests and the envelope key but cannot give each role a private native runner copy directory, so those transcripts are shared between roles',
+        ]
+      : [];
   const inventory = copyInventoryFindings(def);
   const refusals = evalMode ? [] : [...gaps, ...inventory.errors];
   return {
     ok: refusals.length === 0,
     refusals,
-    warnings: [...(evalMode ? gaps : []), ...inventory.warnings],
+    warnings: [...(evalMode ? gaps : []), ...macNote, ...inventory.warnings],
   };
 }
 
