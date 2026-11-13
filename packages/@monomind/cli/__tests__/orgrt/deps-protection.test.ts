@@ -56,7 +56,7 @@ describe('deps dir and npm config are write-denied to roles', () => {
   it('the mask binds the deps dir and its parent read-only', () => {
     const home = scratch('dp-home-');
     const root = scratch('dp-root-');
-    const args = authorityMaskArgs({ home, env: {}, roots: [root], orgRoot: root });
+    const args = authorityMaskArgs({ platform: 'linux', home, env: {}, roots: [root], orgRoot: root });
     const bound = (flag: string, p: string) =>
       args.some((a, i) => a === flag && args[i + 1] === p && args[i + 2] === p);
     const mm = join(home, '.monomind');
@@ -74,7 +74,7 @@ describe.runIf(bubblewrapAvailability().available)('inside the real mask', () =>
     const root = scratch('dp-root-');
     const mm = join(home, '.monomind');
     const [cmd, argv] = maskedCommand(
-      authorityMaskArgs({ home, env: {}, roots: [root], orgRoot: root }),
+      authorityMaskArgs({ platform: 'linux', home, env: {}, roots: [root], orgRoot: root }),
       'bash',
       [
         '-c',
@@ -94,7 +94,7 @@ describe.runIf(bubblewrapAvailability().available)('inside the real mask', () =>
     const root = scratch('dp-root-');
     mkdirSync(join(home, '.monomind', 'deps'), { recursive: true, mode: 0o700 });
     const [cmd, argv] = maskedCommand(
-      authorityMaskArgs({ home, env: {}, roots: [root], orgRoot: root }),
+      authorityMaskArgs({ platform: 'linux', home, env: {}, roots: [root], orgRoot: root }),
       'bash',
       ['-c', `touch ${home}/.monomind/deps/x`],
     );
@@ -145,7 +145,7 @@ describe('the MONOMIND_CLAUDE_PATH binary is write-denied to roles', () => {
   it('the mask pins those directories first, binds the file read-only, and never ~/.monomind read-write', () => {
     const { home, file, env, dirs } = claudeHome();
     const root = scratch('dp-root-');
-    const args = authorityMaskArgs({ home, env, roots: [root], orgRoot: root });
+    const args = authorityMaskArgs({ platform: 'linux', home, env, roots: [root], orgRoot: root });
     // Among the mount-point anchors (#527), which all come before any
     // read-only bind.
     const firstRo = args.indexOf('--ro-bind');
@@ -172,7 +172,7 @@ describe('the MONOMIND_CLAUDE_PATH binary is write-denied to roles', () => {
       const root = scratch('dp-root-');
       const v = dirname(file);
       const [cmd, argv] = maskedCommand(
-        authorityMaskArgs({ home, env, roots: [root], orgRoot: root }),
+        authorityMaskArgs({ platform: 'linux', home, env, roots: [root], orgRoot: root }),
         'bash',
         [
           '-c',
