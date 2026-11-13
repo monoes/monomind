@@ -23,6 +23,7 @@
       "!packages/@monoes/monodesign/skill/scripts/modern-screenshot.umd.js",
       "!packages/@monoes/monodesign/cli/engine/detect-antipatterns-browser.js",
       "tests/**",
+      "!tests/fixtures/merge-changelog",
       "scripts/**",
       "!**/dist",
       "!**/node_modules",
@@ -107,7 +108,8 @@
       "preset": "recommended",
       "style": {
         "noNonNullAssertion": "off",
-        "noDescendingSpecificity": "off"
+        "noDescendingSpecificity": "off",
+        "useTemplate": "off"
       },
       "suspicious": {
         "noExplicitAny": "off",
@@ -121,11 +123,13 @@
         "noNonNullAssertedOptionalChain": "off",
         "noEmptyBlock": "off",
         "noTsIgnore": "off",
-        "noDuplicateElseIf": "off"
+        "noDuplicateElseIf": "off",
+        "noIdenticalTestTitle": "off"
       },
       "complexity": {
         "noBannedTypes": "off",
-        "noCommaOperator": "off"
+        "noCommaOperator": "off",
+        "useMathMinMax": "off"
       },
       "correctness": {
         "noInnerDeclarations": "off",
