@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monograph",
-  "version": "2.25.3",
+  "version": "2.25.4",
   "type": "module",
   "description": "Code intelligence engine for monomind — tree-sitter WASM grammars + SQLite knowledge graph, no native builds",
   "license": "Apache-2.0",
