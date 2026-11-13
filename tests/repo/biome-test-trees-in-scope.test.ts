@@ -14,7 +14,7 @@
  * `biome check` from the repo root on one test file per tree, asserting biome
  * actually processed it.
  */
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
@@ -78,16 +78,13 @@ function testTreeProbes(): string[] {
 }
 
 function biomeCheck(file: string): string {
-  try {
-    return execFileSync(process.execPath, [biomeBin(), 'check', file], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-  } catch (err) {
-    const e = err as { stdout?: string; stderr?: string };
-    return `${e.stdout ?? ''}${e.stderr ?? ''}`;
-  }
+  // Biome >= 2.6 writes the "Checked N file(s)" summary to stderr even on success.
+  const r = spawnSync(process.execPath, [biomeBin(), 'check', file], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  return `${r.stdout ?? ''}${r.stderr ?? ''}`;
 }
 
 describe('biome.json covers package test trees (lint gap S2)', () => {

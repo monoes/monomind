@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.8/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.6/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -23,6 +23,7 @@
       "!packages/@monoes/monodesign/skill/scripts/modern-screenshot.umd.js",
       "!packages/@monoes/monodesign/cli/engine/detect-antipatterns-browser.js",
       "tests/**",
+      "!tests/fixtures/merge-changelog",
       "scripts/**",
       "!**/dist",
       "!**/node_modules",
