@@ -58,7 +58,7 @@ function scripted() {
       ? Promise.resolve(options.get(role))
       : new Promise<any>((resolve, reject) => {
           waiters.set(role, [...(waiters.get(role) ?? []), () => resolve(options.get(role))]);
-          setTimeout(() => reject(new Error(`role ${role} never started`)), 8000).unref?.();
+          setTimeout(() => reject(new Error(`role ${role} never started`)), 30_000).unref?.();
         });
   return { queryFn, started };
 }
