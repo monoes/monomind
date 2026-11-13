@@ -123,10 +123,15 @@ export function seatbeltAvailability(): {
   if (probed) return probed;
   if (!existsSync(SANDBOX_EXEC))
     return (probed = { available: false, reason: `${SANDBOX_EXEC} not found` });
-  const r = spawnSync(SANDBOX_EXEC, ['-p', '(version 1)(allow default)', '/usr/bin/true'], {
-    stdio: 'ignore',
-    timeout: 5000,
-  });
+  let r: ReturnType<typeof spawnSync>;
+  try {
+    r = spawnSync(SANDBOX_EXEC, ['-p', '(version 1)(allow default)', '/usr/bin/true'], {
+      stdio: 'ignore',
+      timeout: 5000,
+    });
+  } catch (err) {
+    return { available: false, reason: `sandbox-exec probe failed (${(err as Error).message})` };
+  }
   return (probed =
     r.status === 0
       ? { available: true }
