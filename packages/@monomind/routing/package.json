@@ -1,6 +1,6 @@
 {
   "name": "@monoes/routing",
-  "version": "2.24.0",
+  "version": "2.24.1",
   "description": "Semantic task-to-agent routing for monomind",
   "license": "Apache-2.0",
   "type": "module",
@@ -30,7 +30,7 @@
   "devDependencies": {
     "typescript": "^7.0.2",
     "@types/node": "^26.6.6",
-    "vitest": "^4.1.4"
+    "vitest": "^5.1.0"
   },
   "publishConfig": {
     "access": "public"

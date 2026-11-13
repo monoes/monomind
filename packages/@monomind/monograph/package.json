@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monograph",
-  "version": "2.25.3",
+  "version": "2.25.4",
   "type": "module",
   "description": "Code intelligence engine for monomind — tree-sitter WASM grammars + SQLite knowledge graph, no native builds",
   "license": "Apache-2.0",
@@ -76,6 +76,6 @@
     "tree-sitter-typescript": "^0.23.0",
     "tree-sitter-cli": "0.27.0",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.4"
+    "vitest": "^5.1.0"
   }
 }
