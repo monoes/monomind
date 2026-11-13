@@ -12,21 +12,18 @@
  * nothing. `org sign` asks this guard first and refuses before writing; `org
  * run` uses the same message to explain a missing signature.
  */
-import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
+import { realOrResolved } from '../utils/input-guards.js';
 import { allowDrillSigning } from './operator-settings.js';
 
 const unescapeMount = (s: string): string =>
   s.replace(/\\([0-7]{3})/g, (_m, o: string) => String.fromCharCode(Number.parseInt(o, 8)));
 
-const realOrSelf = (p: string): string => {
-  try {
-    return realpathSync(p);
-  } catch {
-    return p;
-  }
-};
+// A path not created yet (the drill's operator dir) still gets its existing ancestors resolved,
+// so it compares equal to a real project path where the temp dir is a symlink (macOS /var).
+const realOrSelf = realOrResolved;
 
 /** Is `dir` itself the mount point of a tmpfs, per /proc/self/mountinfo text? */
 function isTmpfsMountPoint(mountinfo: string, dirs: string[]): boolean {

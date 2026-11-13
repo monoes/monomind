@@ -13,6 +13,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -38,7 +39,7 @@ describe('getProjectRoot', () => {
   let savedMonomindProjectRoot: string | undefined;
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'project-root-'));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'project-root-')));
     // Everything below `root` is walkable; the walk stops when it reaches the
     // parent of `root`, which we declare to be home.
     homeState.dir = dirname(root);

@@ -159,7 +159,8 @@ describe.skipIf(!HAVE_SANDBOX)('a single-writer org through a real daemon (P4.4)
     expect((await gate(coder, 'Write', { file_path: join(root, 'src', 'a.ts'), content: 'x' })).behavior).toBe('deny');
   }, 120_000);
 
-  it('holds every read-only role whose boundary falls back to an expansion: audit event, a fatal crash, never widened', async () => {
+  // reason: the expansion fallback is the bubblewrap (Linux) layout; seatbelt keeps one plain deny, so no daemon here can reach it (the builder is covered with platform 'linux' in writer-boundary.test.ts)
+  it.skipIf(process.platform === 'darwin')('holds every read-only role whose boundary falls back to an expansion: audit event, a fatal crash, never widened', async () => {
     vi.spyOn(sandboxStubs, 'missing').mockReturnValue([join(root, '.mcp.json')]);
     const { running, d } = await start(sectionsRaw(oneWriter));
     const events: any[] = [];
