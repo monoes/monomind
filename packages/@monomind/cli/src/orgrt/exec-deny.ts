@@ -31,6 +31,7 @@ import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from 'node
 import { basename, delimiter, join } from 'node:path';
 import { authorityMaskAvailability } from './authority-mask.js';
 import {
+  allowWriteRules,
   denyReadRules,
   denyWriteRules,
   isSeatbeltMask,
@@ -185,8 +186,11 @@ export function denyExecMask(patterns: string[], ctx: DenyExecCtx): string[] {
 }
 
 /** roleExecMask for a Seatbelt mask (macOS, #768): mail digests become unreadable and the mail
- *  root read-only; native copy directories cannot be bound over, so those are audited; denyExec,
- *  denyRead and homeWriteAllow need bind mounts, so a role asking for them is refused. */
+ *  root read-only. A runtime with a private directory of its own (a bind of the directory over
+ *  itself) is pointed at it by its environment; the role keeps that directory writable inside the
+ *  read-only runner root and the other roles' directories are unreadable (GA row R5). Claude's
+ *  native directories cannot be bound over, so those are audited; denyExec, denyRead and
+ *  homeWriteAllow need bind mounts, so a role asking for them is refused. */
 function seatbeltExecMask(
   args: Parameters<typeof roleExecMask>[0],
   bestEffort: string[],
@@ -210,7 +214,8 @@ function seatbeltExecMask(
     });
     throw new Error(msg);
   }
-  if ((args.bestEffortBinds ?? []).length > 0)
+  const binds = args.bestEffortBinds ?? [];
+  if (binds.some((b) => b.src !== b.dest))
     args.bus.emit({
       type: 'audit',
       from: args.roleId,
@@ -221,6 +226,7 @@ function seatbeltExecMask(
   const rules = [
     ...denyWriteRules((args.bestEffortReadOnly ?? []).filter((d) => real(d))),
     ...denyReadRules(bestEffort.filter((d) => real(d))),
+    ...allowWriteRules(binds.filter((b) => b.src === b.dest && real(b.dest)).map((b) => b.dest)),
   ];
   if (!mask) {
     // inside the SDK sandbox (which does not nest) or no mask here: the file-tool and SDK denials apply

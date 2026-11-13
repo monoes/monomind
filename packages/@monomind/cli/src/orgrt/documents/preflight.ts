@@ -16,8 +16,10 @@
  */
 import { authorityMaskAvailability } from '../authority-mask.js';
 import { sandboxAvailability } from '../role-sandbox-restrictions.js';
+import { effectiveRoleRuntime } from '../runner-specs.js';
 import type { OrgDef } from '../types.js';
 import { copyInventoryFindings } from './copy-inventory.js';
+import { runtimeIsolation } from './runtime-isolation.js';
 import { sectionsSurface } from './surface.js';
 
 interface Availability {
@@ -63,6 +65,17 @@ const maskFix = (platform: NodeJS.Platform): string =>
       ? 'Run the org under WSL2 (Linux), where bubblewrap can be installed.'
       : 'Install bubblewrap (bwrap) and allow unprivileged user namespaces.';
 
+/** The runtimes of `def` whose native copies only a bind mount can separate (`mask-bind`). */
+function bindOnlyRuntimes(def: OrgDef): string[] {
+  const out = new Set<string>();
+  for (const role of def.roles) {
+    if ((role as { kind?: string }).kind === 'endpoint') continue;
+    const runtime = effectiveRoleRuntime(role.runtime, def.runtime, role.provider?.kind);
+    if (runtimeIsolation(runtime)?.strategy === 'mask-bind') out.add(runtime);
+  }
+  return [...out];
+}
+
 export function hostPreflight(
   def: OrgDef,
   given?: HostProbes,
@@ -81,12 +94,12 @@ export function hostPreflight(
     gaps.push(
       `the SDK sandbox is unavailable on this host (${p.sandbox.reason ?? 'unknown'}), so shell commands run without the read and write denials`,
     );
-  const macNote =
-    platform === 'darwin' && p.mask.available
-      ? [
-          'on macOS the Seatbelt mask hides mail digests and the envelope key but cannot give each role a private native runner copy directory, so those transcripts are shared between roles',
-        ]
-      : [];
+  const unbound = platform === 'darwin' && p.mask.available ? bindOnlyRuntimes(def) : [];
+  const macNote = unbound.length
+    ? [
+        `on macOS the Seatbelt mask cannot give each role a private native runner copy directory for the ${unbound.join(', ')} runtime (it has no bind mounts and the CLI cannot be pointed at another directory), so those transcripts are shared between its roles`,
+      ]
+    : [];
   const inventory = copyInventoryFindings(def);
   const refusals = evalMode ? [] : [...gaps, ...inventory.errors];
   return {
