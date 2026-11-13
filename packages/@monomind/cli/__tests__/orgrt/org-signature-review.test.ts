@@ -25,7 +25,7 @@ import {
 } from '../../src/orgrt/access-grant-key.js';
 import {
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   ensureAuthorityDirs,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
@@ -239,7 +239,7 @@ describe('4. what the operator’s own sessions run or trust', () => {
     for (const p of ['.npmrc', '.config/npm', '.monomind/deps']) expect(HOME_DENY_WRITE).toContain(p);
   });
 
-  it.runIf(authorityMaskAvailability().available)(
+  it.runIf(bubblewrapAvailability().available)(
     'inside the real bubblewrap mask: .claude/, the skill libraries and ~/.monomind are read-only, the work tree is not',
     () => {
       const home = scratch('osr-mhome-');

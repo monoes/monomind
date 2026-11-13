@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   ensureAuthorityDirs,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
@@ -204,7 +204,7 @@ describe('#580 review: other runtimes’ project config is operator-protected', 
     expect(operatorProtectedPaths({ home, env: { HOME: home }, orgRoot: root })).toContain(join(root, '.codex'));
   });
 
-  it.runIf(authorityMaskAvailability().available)(
+  it.runIf(bubblewrapAvailability().available)(
     'inside the real mask OpenCode and pi can still write what they write at start',
     () => {
       const root = scratch('rcp-mrt-');
@@ -233,7 +233,7 @@ describe('#580 review: other runtimes’ project config is operator-protected', 
     },
   );
 
-  it.runIf(authorityMaskAvailability().available)('inside the real bubblewrap mask the existing ones are read-only', () => {
+  it.runIf(bubblewrapAvailability().available)('inside the real bubblewrap mask the existing ones are read-only', () => {
     const root = scratch('rcp-mroot-');
     const env = {} as NodeJS.ProcessEnv;
     ensureAuthorityDirs(home, env);

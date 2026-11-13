@@ -26,7 +26,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
 import { HOME_DENY_WRITE } from '../../src/orgrt/file-roots.js';
@@ -165,7 +165,7 @@ describe('(2) missing HOME_DENY_WRITE entries are stubbed before a role starts',
     const base = scratch('dh-base-');
     ensureOperatorProtectedPaths({ home, env: {}, orgRoot: base });
     const fs = restrictions({ home, base, platform: 'linux' }).filesystem;
-    const args = authorityMaskArgs({ home, env: {}, roots: [base], orgRoot: base });
+    const args = authorityMaskArgs({ platform: 'linux', home, env: {}, roots: [base], orgRoot: base });
     for (const p of ['.npmrc', '.config/npm', '.config/git', '.bashrc', '.profile', '.ssh']) {
       expect(fs.denyWrite, p).toContain(join(home, p));
       expect(bound(args, '--ro-bind', join(home, p)), p).toBeGreaterThan(-1);
@@ -205,7 +205,7 @@ describe('(3) a custom MONOMIND_HOME cannot be renamed aside through an ancestor
     const base = scratch('dh-base-');
     const mm = join(base, 'a', 'b', 'mm');
     mkdirSync(mm, { recursive: true });
-    const args = authorityMaskArgs({ home, env: { MONOMIND_HOME: mm }, roots: [base], orgRoot: base });
+    const args = authorityMaskArgs({ platform: 'linux', home, env: { MONOMIND_HOME: mm }, roots: [base], orgRoot: base });
     const ro = bound(args, '--ro-bind', mm);
     expect(ro).toBeGreaterThan(-1);
     for (const d of [join(base, 'a'), join(base, 'a', 'b')]) {
@@ -217,7 +217,7 @@ describe('(3) a custom MONOMIND_HOME cannot be renamed aside through an ancestor
   });
 });
 
-describe.runIf(authorityMaskAvailability().available)('inside the real mask', () => {
+describe.runIf(bubblewrapAvailability().available)('inside the real mask', () => {
   it('(3) a role can neither rename an ancestor of MONOMIND_HOME aside nor plant a deps dir', () => {
     const home = scratch('dh-home-');
     const base = scratch('dh-base-');
@@ -225,7 +225,7 @@ describe.runIf(authorityMaskAvailability().available)('inside the real mask', ()
     mkdirSync(mm, { recursive: true });
     const env = { MONOMIND_HOME: mm };
     const [cmd, argv] = maskedCommand(
-      authorityMaskArgs({ home, env, roots: [base], orgRoot: base }),
+      authorityMaskArgs({ platform: 'linux', home, env, roots: [base], orgRoot: base }),
       'bash',
       [
         '-c',
@@ -250,7 +250,7 @@ describe.runIf(authorityMaskAvailability().available)('inside the real mask', ()
     mkdirSync(mm, { recursive: true });
     const env = { MONOMIND_HOME: mm };
     const [cmd, argv] = maskedCommand(
-      authorityMaskArgs({ home, env, roots: [root], orgRoot: root, cwd: root }),
+      authorityMaskArgs({ platform: 'linux', home, env, roots: [root], orgRoot: root, cwd: root }),
       'bash',
       [
         '-c',
@@ -271,7 +271,7 @@ describe.runIf(authorityMaskAvailability().available)('inside the real mask', ()
     const base = scratch('dh-base-');
     ensureOperatorProtectedPaths({ home, env: {}, orgRoot: base });
     const [cmd, argv] = maskedCommand(
-      authorityMaskArgs({ home, env: {}, roots: [base], orgRoot: base }),
+      authorityMaskArgs({ platform: 'linux', home, env: {}, roots: [base], orgRoot: base }),
       'bash',
       [
         '-c',

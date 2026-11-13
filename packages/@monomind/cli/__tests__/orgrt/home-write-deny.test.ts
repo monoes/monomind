@@ -13,7 +13,7 @@ import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { authorityMaskAvailability, maskedCommand } from '../../src/orgrt/authority-mask.js';
+import { bubblewrapAvailability, maskedCommand } from '../../src/orgrt/authority-mask.js';
 import { OrgBus } from '../../src/orgrt/bus.js';
 import { roleExecMask } from '../../src/orgrt/exec-deny.js';
 import { homeLayerAvailability, homeWriteLayer } from '../../src/orgrt/home-write-deny.js';
@@ -113,13 +113,13 @@ describe('roleExecMask with homeWriteAllow', () => {
   const base = { roleId: 'w', home: scratch('hw-h-'), env: { PATH: '' } as NodeJS.ProcessEnv };
   it('is unchanged without it (the existing mask comes back untouched)', () => {
     const m = ['--dev-bind', '/', '/'];
-    expect(roleExecMask({ ...base, bus: bus(), authorityMask: m, denyExec: [] })).toBe(m);
-    expect(roleExecMask({ ...base, bus: bus(), authorityMask: m })).toBe(m);
+    expect(roleExecMask({ platform: 'linux', ...base, bus: bus(), authorityMask: m, denyExec: [] })).toBe(m);
+    expect(roleExecMask({ platform: 'linux', ...base, bus: bus(), authorityMask: m })).toBe(m);
   });
 
   it('puts the overlay right after the root bind, before every later bind, and keeps the rest', () => {
     const m = ['--dev-bind', '/', '/', '--ro-bind', '/a', '/a', '--tmpfs', '/x'];
-    const out = roleExecMask({
+    const out = roleExecMask({ platform: 'linux',
       ...base,
       bus: bus(),
       authorityMask: m,
@@ -133,7 +133,7 @@ describe('roleExecMask with homeWriteAllow', () => {
   });
 
   it('builds a mask of its own when the role has none', () => {
-    const out = roleExecMask({
+    const out = roleExecMask({ platform: 'linux',
       ...base,
       bus: bus(),
       authorityMask: undefined,
@@ -155,7 +155,7 @@ describe('roleExecMask with homeWriteAllow', () => {
   it('fails closed when the overlay cannot be made: the role does not start', () => {
     const b = bus();
     expect(() =>
-      roleExecMask({
+      roleExecMask({ platform: 'linux',
         ...base,
         bus: b,
         authorityMask: undefined,
@@ -174,7 +174,7 @@ describe('roleExecMask with homeWriteAllow', () => {
   });
 });
 
-describe.runIf(authorityMaskAvailability().available && homeLayerAvailability().available)(
+describe.runIf(bubblewrapAvailability().available && homeLayerAvailability().available)(
   'a role in the layer cannot change the home (real bwrap, temp home)',
   () => {
     const h = fakeHome();
@@ -182,8 +182,8 @@ describe.runIf(authorityMaskAvailability().available && homeLayerAvailability().
     mkdirSync(work, { recursive: true });
     // describe bodies run even when runIf is false, and roleExecMask refuses without bubblewrap
     const mask = (
-      authorityMaskAvailability().available && homeLayerAvailability().available
-        ? roleExecMask({
+      bubblewrapAvailability().available && homeLayerAvailability().available
+        ? roleExecMask({ platform: 'linux',
             bus: bus(),
             roleId: 'w',
             authorityMask: undefined,
@@ -257,7 +257,7 @@ describe.runIf(authorityMaskAvailability().available && homeLayerAvailability().
     });
 
     it('control: without homeWriteAllow the same command does create the file in the home', () => {
-      const open = roleExecMask({
+      const open = roleExecMask({ platform: 'linux',
         bus: bus(),
         roleId: 'w',
         authorityMask: undefined,
@@ -329,13 +329,13 @@ describe.runIf(authorityMaskAvailability().available && homeLayerAvailability().
 
 const claudeBin = spawnSync('sh', ['-c', 'command -v claude'], { encoding: 'utf8' }).stdout.trim();
 describe.runIf(
-  claudeBin && authorityMaskAvailability().available && homeLayerAvailability().available,
+  claudeBin && bubblewrapAvailability().available && homeLayerAvailability().available,
 )('the real claude CLI in the layer (no model call)', () => {
   const h = fakeHome();
   // describe bodies run even when runIf is false, and roleExecMask refuses without bubblewrap
   const mask = (
-    authorityMaskAvailability().available && homeLayerAvailability().available
-      ? roleExecMask({
+    bubblewrapAvailability().available && homeLayerAvailability().available
+      ? roleExecMask({ platform: 'linux',
           bus: bus(),
           roleId: 'w',
           authorityMask: undefined,

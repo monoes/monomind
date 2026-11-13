@@ -99,6 +99,8 @@ export function roleAuthorityMask(args: {
   home?: string;
   env?: NodeJS.ProcessEnv;
   availability?: { available: boolean; reason?: string };
+  /** Test seam: the platform to build the mask for. */
+  platform?: NodeJS.Platform;
 }): string[] | undefined {
   if (args.inSdkSandbox || args.inProcess) return undefined;
   const availability = args.availability ?? authorityMaskAvailability();
@@ -120,6 +122,7 @@ export function roleAuthorityMask(args: {
     cwd: args.cwd,
     fileWrite: args.fileWrite,
     allowWrite: args.allowWrite,
+    platform: args.platform,
   });
 }
 

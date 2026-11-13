@@ -30,6 +30,13 @@
 import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, delimiter, join } from 'node:path';
 import { authorityMaskAvailability } from './authority-mask.js';
+import {
+  allowWriteRules,
+  denyReadRules,
+  denyWriteRules,
+  isSeatbeltMask,
+  seatbeltWith,
+} from './authority-mask-seatbelt.js';
 import type { OrgBus } from './bus.js';
 import { homeLayerAvailability, homeWriteLayer } from './home-write-deny.js';
 import { shellSegments } from './shell-scan.js';
@@ -178,6 +185,64 @@ export function denyExecMask(patterns: string[], ctx: DenyExecCtx): string[] {
   return ['--dev-bind', '/', '/', ...maskTail(resolveDenyExec(patterns, ctx))];
 }
 
+/** roleExecMask for a Seatbelt mask (macOS, #768): mail digests become unreadable and the mail
+ *  root read-only. A runtime with a private directory of its own (a bind of the directory over
+ *  itself) is pointed at it by its environment; the role keeps that directory writable inside the
+ *  read-only runner root and the other roles' directories are unreadable (GA row R5). Claude's
+ *  native directories cannot be bound over, so those are audited; denyExec, denyRead and
+ *  homeWriteAllow need bind mounts, so a role asking for them is refused. */
+function seatbeltExecMask(
+  args: Parameters<typeof roleExecMask>[0],
+  bestEffort: string[],
+): string[] | undefined {
+  const mask = args.authorityMask;
+  const asked = args.denyExec?.length
+    ? 'denyExec'
+    : args.denyRead?.length
+      ? 'denyRead'
+      : args.homeWriteAllow !== undefined
+        ? 'homeWriteAllow'
+        : undefined;
+  if (asked) {
+    const msg = `policy.sandbox.${asked} is set for role ${args.roleId} but the macOS Seatbelt mask cannot do it (it has no bind mounts): refusing to start it with the program or home reachable; run the org on Linux`;
+    args.bus.emit({
+      type: 'audit',
+      from: args.roleId,
+      reason: 'deny-exec-unavailable',
+      msg,
+      data: {},
+    });
+    throw new Error(msg);
+  }
+  const binds = args.bestEffortBinds ?? [];
+  if (binds.some((b) => b.src !== b.dest))
+    args.bus.emit({
+      type: 'audit',
+      from: args.roleId,
+      reason: 'native-copies-unprotected',
+      msg: `the macOS Seatbelt mask cannot give ${args.roleId} private runner copy directories; its native transcripts are shared with the other roles`,
+      data: {},
+    });
+  const rules = [
+    ...denyWriteRules((args.bestEffortReadOnly ?? []).filter((d) => real(d))),
+    ...denyReadRules(bestEffort.filter((d) => real(d))),
+    ...allowWriteRules(binds.filter((b) => b.src === b.dest && real(b.dest)).map((b) => b.dest)),
+  ];
+  if (!mask) {
+    // inside the SDK sandbox (which does not nest) or no mask here: the file-tool and SDK denials apply
+    if (rules.length)
+      args.bus.emit({
+        type: 'audit',
+        from: args.roleId,
+        reason: 'mail-mask-unavailable',
+        msg: `no Seatbelt layer can mask other roles' mail digests for ${args.roleId}; the file-tool and SDK-sandbox denials still apply`,
+        data: {},
+      });
+    return undefined;
+  }
+  return rules.length ? seatbeltWith(mask, rules) : mask;
+}
+
 /** The mask a session launches its runner in: `authorityMask` (undefined when the role has none)
  *  plus the denyExec layer and the home write-deny layer (home-write-deny.ts). Unchanged without
  *  `denyExec`, `denyRead` or `homeWriteAllow`. Throws when the role asks for one of them and
@@ -203,10 +268,17 @@ export function roleExecMask(args: {
   home: string;
   env: NodeJS.ProcessEnv;
   availability?: { available: boolean; reason?: string };
+  /** Test seam: the platform the mask was built for. */
+  platform?: NodeJS.Platform;
   homeAvailability?: { available: boolean; reason?: string };
 }): string[] | undefined {
   const homeWrite = args.homeWriteAllow !== undefined;
   const bestEffort = args.bestEffortDenyRead ?? [];
+  if (
+    isSeatbeltMask(args.authorityMask) ||
+    (!args.authorityMask && (args.platform ?? process.platform) === 'darwin')
+  )
+    return seatbeltExecMask(args, bestEffort);
   const roBinds = (args.bestEffortReadOnly ?? []).flatMap((d) => {
     const r = real(d);
     return r ? ['--ro-bind', r, r] : [];
@@ -285,7 +357,10 @@ export function roleExecMask(args: {
     // first, right after the root bind: every bind of the mask below goes on top of the overlay
     head = [...head.slice(0, 3), ...layer, ...head.slice(3)];
   }
-  const paths = resolveDenyExec(args.denyExec ?? [], { home: args.home, env: args.env });
+  const paths = resolveDenyExec(args.denyExec ?? [], {
+    home: args.home,
+    env: args.env,
+  });
   return [
     ...head,
     ...roBinds,

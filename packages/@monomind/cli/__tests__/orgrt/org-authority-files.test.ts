@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
 import { OrgBus } from '../../src/orgrt/bus.js';
@@ -368,7 +368,7 @@ describe('Bash-side lists', () => {
   });
 });
 
-describe.runIf(authorityMaskAvailability().available)('the mask keeps Bash out of the orgs tree (real bwrap)', () => {
+describe.runIf(bubblewrapAvailability().available)('the mask keeps Bash out of the orgs tree (real bwrap)', () => {
   const inMask = (root: string, script: string) => {
     const home = scratch('oa-mhome-');
     const [cmd, argv] = maskedCommand(

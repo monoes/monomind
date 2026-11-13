@@ -13,7 +13,7 @@ import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { authorityMaskAvailability, maskedCommand } from '../../src/orgrt/authority-mask.js';
+import { bubblewrapAvailability, maskedCommand } from '../../src/orgrt/authority-mask.js';
 import { OrgBus } from '../../src/orgrt/bus.js';
 import {
   denyExecMask,
@@ -154,13 +154,17 @@ describe('roleExecMask', () => {
   const base = { roleId: 'w', home: scratch('xd-h-'), env: { PATH: '' } as NodeJS.ProcessEnv };
   it('is a no-op without denyExec: the existing mask comes back untouched', () => {
     const m = ['--dev-bind', '/', '/'];
-    expect(roleExecMask({ ...base, bus: bus(), authorityMask: m })).toBe(m);
-    expect(roleExecMask({ ...base, bus: bus(), authorityMask: undefined })).toBeUndefined();
-    expect(roleExecMask({ ...base, bus: bus(), authorityMask: m, denyExec: [] })).toBe(m);
+    expect(roleExecMask({ platform: 'linux', ...base, bus: bus(), authorityMask: m })).toBe(m);
+    expect(
+      roleExecMask({ platform: 'linux', ...base, bus: bus(), authorityMask: undefined }),
+    ).toBeUndefined();
+    expect(
+      roleExecMask({ platform: 'linux', ...base, bus: bus(), authorityMask: m, denyExec: [] }),
+    ).toBe(m);
   });
   it('extends the authority mask, keeping it first, or builds one', () => {
     const m = ['--dev-bind', '/', '/', '--tmpfs', '/x'];
-    const out = roleExecMask({
+    const out = roleExecMask({ platform: 'linux',
       ...base,
       bus: bus(),
       authorityMask: m,
@@ -169,7 +173,7 @@ describe('roleExecMask', () => {
     }) as string[];
     expect(out.slice(0, m.length)).toEqual(m);
     expect(out).toContain('--unshare-pid');
-    const alone = roleExecMask({
+    const alone = roleExecMask({ platform: 'linux',
       ...base,
       bus: bus(),
       authorityMask: undefined,
@@ -180,7 +184,7 @@ describe('roleExecMask', () => {
   });
   it('fails closed when bubblewrap cannot run: the role does not start', () => {
     expect(() =>
-      roleExecMask({
+      roleExecMask({ platform: 'linux',
         ...base,
         bus: bus(),
         authorityMask: undefined,
@@ -196,7 +200,7 @@ const which = (b: string) => {
   return r.status === 0 ? r.stdout.trim() : undefined;
 };
 
-describe.runIf(authorityMaskAvailability().available)(
+describe.runIf(bubblewrapAvailability().available)(
   'a masked role cannot run the code (real bwrap)',
   () => {
     const DENY = [
@@ -340,7 +344,7 @@ describe('denyRead (files and directories the role cannot read)', () => {
   it('is part of the same layer, applies alone, and fails closed likewise', () => {
     const d = scratch('xd-dr-');
     writeFileSync(join(d, 'truth.json'), 'SECRET');
-    const out = roleExecMask({
+    const out = roleExecMask({ platform: 'linux',
       bus: bus(),
       roleId: 'w',
       authorityMask: undefined,
@@ -352,7 +356,7 @@ describe('denyRead (files and directories the role cannot read)', () => {
     expect(out).toEqual(expect.arrayContaining(['--ro-bind', '/dev/null', join(d, 'truth.json')]));
     expect(out.join(' ')).not.toContain('missing');
     expect(() =>
-      roleExecMask({
+      roleExecMask({ platform: 'linux',
         bus: bus(),
         roleId: 'w',
         authorityMask: undefined,
@@ -363,7 +367,7 @@ describe('denyRead (files and directories the role cannot read)', () => {
       }),
     ).toThrow(/denyRead.*no bwrap/);
   });
-  it.runIf(authorityMaskAvailability().available)(
+  it.runIf(bubblewrapAvailability().available)(
     'a masked role reads an empty file and an empty directory (real bwrap)',
     () => {
       const d = scratch('xd-dr2-');
@@ -371,7 +375,7 @@ describe('denyRead (files and directories the role cannot read)', () => {
       writeFileSync(join(d, 'hidden/a.json'), 'SECRET-DIR');
       writeFileSync(join(d, 'truth.json'), 'SECRET-FILE');
       writeFileSync(join(d, 'open.txt'), 'VISIBLE');
-      const mask = roleExecMask({
+      const mask = roleExecMask({ platform: 'linux',
         bus: bus(),
         roleId: 'w',
         authorityMask: undefined,
