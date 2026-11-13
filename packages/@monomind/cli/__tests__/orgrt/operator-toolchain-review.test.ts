@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   ensureAuthorityDirs,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
@@ -205,7 +205,7 @@ describe('M1–M3', () => {
   });
 });
 
-describe.runIf(authorityMaskAvailability().available)('inside the real bubblewrap mask (#527 review)', () => {
+describe.runIf(bubblewrapAvailability().available)('inside the real bubblewrap mask (#527 review)', () => {
   it('no plant on PATH, in pnpm’s home, in fnm’s multishells, mise’s trust store or direnv’s allow list; no rename inside the org root', () => {
     const home = scratch('tr-bw-');
     const root = scratch('tr-bwr-');
@@ -256,7 +256,7 @@ describe.runIf(authorityMaskAvailability().available)('inside the real bubblewra
   });
 });
 
-describe.runIf(authorityMaskAvailability().available)('with #530: MONOMIND_CLAUDE_PATH in the combined mask', () => {
+describe.runIf(bubblewrapAvailability().available)('with #530: MONOMIND_CLAUDE_PATH in the combined mask', () => {
   it('a role cannot overwrite the chosen Claude Code, rename the dirs above it, or add to ~/.monomind', () => {
     const home = scratch('tr3-cl-');
     const root = scratch('tr3-clr-');
@@ -321,7 +321,7 @@ describe('round 2', () => {
     expect(warn.mock.calls.flat().join('\n')).toMatch(/holds \$HOME/);
   });
 
-  it.runIf(authorityMaskAvailability().available)(
+  it.runIf(bubblewrapAvailability().available)(
     'real mask with the org root at $HOME: ~/.monomind, deps, PATH dirs and mise’s config stay read-only',
     () => {
       const home = scratch('tr2-bwh-');
@@ -365,7 +365,7 @@ describe('round 2', () => {
     },
   );
 
-  it.runIf(authorityMaskAvailability().available)(
+  it.runIf(bubblewrapAvailability().available)(
     'real mask: a mount point inside an org work dir is bound again after the orgs layout',
     () => {
       const home = scratch('tr2-wh-');

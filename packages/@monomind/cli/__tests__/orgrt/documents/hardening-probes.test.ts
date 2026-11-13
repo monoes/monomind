@@ -21,7 +21,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { authorityMaskAvailability } from '../../../src/orgrt/authority-mask.js';
+import { bubblewrapAvailability } from '../../../src/orgrt/authority-mask.js';
 import { OrgBus } from '../../../src/orgrt/bus.js';
 import { acquireDaemonLock, DaemonLockError } from '../../../src/orgrt/daemon-lock.js';
 import { OrgDaemon } from '../../../src/orgrt/daemon.js';
@@ -195,7 +195,7 @@ describe('R6 host preflight', () => {
   });
 });
 
-const realMask = authorityMaskAvailability();
+const realMask = bubblewrapAvailability();
 describe.skipIf(!realMask.available)('with a real bubblewrap (what a role can actually do)', () => {
   const run = (mask: string[], script: string) =>
     spawnSync('bwrap', [...mask, '--', 'sh', '-c', script], { encoding: 'utf8' });
@@ -205,7 +205,7 @@ describe.skipIf(!realMask.available)('with a real bubblewrap (what a role can ac
     const env = { CLAUDE_CONFIG_DIR: cfg } as NodeJS.ProcessEnv;
     const p = sectionsRoleProtection({ def, orgDir, roleId: role, runtime: 'claude', home: join(root, 'home'), env });
     const bus = new OrgBus('sec-org', 'r', side());
-    return roleExecMask({
+    return roleExecMask({ platform: 'linux',
       bus,
       roleId: role,
       authorityMask: ['--dev-bind', '/', '/'],
@@ -293,7 +293,7 @@ describe.skipIf(!realMask.available)('with a real bubblewrap (what a role can ac
     loadEnvelopeKey(orgDir);
     const p = sectionsRoleProtection({ def, orgDir, roleId: role, runtime, home, env: {} });
     const bus = new OrgBus('sec-org', 'r', side());
-    const mask = roleExecMask({
+    const mask = roleExecMask({ platform: 'linux',
       bus,
       roleId: role,
       authorityMask: ['--dev-bind', '/', '/'],
@@ -340,7 +340,7 @@ describe.skipIf(!realMask.available)('with a real bubblewrap (what a role can ac
       const protect = (role: string) => {
         const p = sectionsRoleProtection({ def, orgDir, roleId: role, runtime: 'hermes', home, env: { MONOMIND_HOME: mmHome } });
         const bus = new OrgBus('sec-org', 'r', side());
-        return roleExecMask({
+        return roleExecMask({ platform: 'linux',
           bus,
           roleId: role,
           authorityMask: ['--dev-bind', '/', '/'],

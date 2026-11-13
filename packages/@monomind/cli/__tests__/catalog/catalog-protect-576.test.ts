@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { statePath } from '../../src/catalog/state.js';
 import { catalogAction } from '../../src/commands/catalog.js';
-import { authorityMaskArgs, authorityMaskAvailability, ensureAuthorityDirs, maskedCommand } from '../../src/orgrt/authority-mask.js';
+import { authorityMaskArgs, bubblewrapAvailability, ensureAuthorityDirs, maskedCommand } from '../../src/orgrt/authority-mask.js';
 import { OrgBus } from '../../src/orgrt/bus.js';
 import { gitCommonDir, prepareGitGuard } from '../../src/orgrt/git-guard.js';
 import {
@@ -134,7 +134,7 @@ describe('a role cannot write .monomind/catalog/', () => {
     expect(existsSync(join(plain, '.monomind', 'catalog'))).toBe(false);
   });
 
-  it.runIf(authorityMaskAvailability().available)('inside the real bubblewrap mask the catalog is read-only', () => {
+  it.runIf(bubblewrapAvailability().available)('inside the real bubblewrap mask the catalog is read-only', () => {
     const home = scratch('cp576-mhome-');
     const root = scratch('cp576-mroot-');
     const env = {} as NodeJS.ProcessEnv;

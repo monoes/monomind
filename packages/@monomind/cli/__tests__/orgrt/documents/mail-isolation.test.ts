@@ -160,7 +160,7 @@ describe('the authority-mask layer of the denial', () => {
     const bus = new OrgBus('o', 'r', busDir());
     const events: any[] = [];
     bus.subscribe((e) => events.push(e));
-    const mask = roleExecMask({
+    const mask = roleExecMask({ platform: 'linux',
       bus,
       roleId: 'coder',
       authorityMask: ['--dev-bind', '/', '/'],

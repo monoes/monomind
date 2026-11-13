@@ -26,7 +26,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   ensureAuthorityDirs,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
@@ -247,7 +247,7 @@ describe('one list, every layer', () => {
     expect(r.disallowedTools).toContain(`Edit(/${nvm}/**)`);
 
     // The mask: ancestors bound onto themselves before the read-only binds.
-    const args = authorityMaskArgs({ home, env, roots: [root], orgRoot: root, cwd: root });
+    const args = authorityMaskArgs({ platform: 'linux', home, env, roots: [root], orgRoot: root, cwd: root });
     const ro = args.findIndex((a, i) => a === '--ro-bind' && args[i + 1] === nvm);
     const anchor = args.findIndex((a, i) => a === '--bind' && args[i + 1] === join(home, '.local/share'));
     expect(ro).toBeGreaterThan(0);
@@ -261,7 +261,7 @@ describe('one list, every layer', () => {
   });
 });
 
-describe.runIf(authorityMaskAvailability().available)('inside the real bubblewrap mask (#527)', () => {
+describe.runIf(bubblewrapAvailability().available)('inside the real bubblewrap mask (#527)', () => {
   it('a role runs the toolchain but cannot overwrite it, plant beside it, or rename its parents aside', () => {
     const home = scratch('tc-bw-');
     const root = scratch('tc-bwr-');
@@ -272,7 +272,7 @@ describe.runIf(authorityMaskAvailability().available)('inside the real bubblewra
     const nvm = join(home, '.nvm');
     exe(join(nvm, 'versions/node/v22/bin/npm'));
     ensureAuthorityDirs(home, env);
-    const [cmd, argv] = maskedCommand(authorityMaskArgs({ home, env, roots: [root], orgRoot: root, cwd: root }), 'bash', [
+    const [cmd, argv] = maskedCommand(authorityMaskArgs({ platform: 'linux', home, env, roots: [root], orgRoot: root, cwd: root }), 'bash', [
       '-c',
       [
         `echo "RUN=$(${node})"`,

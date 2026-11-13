@@ -485,6 +485,45 @@ jobs:
         env:
           CI: true
 
+  # #768: the authority mask on macOS is a Seatbelt profile; run it for real
+  # on a macOS runner (sandbox-exec does not nest, so it cannot be exercised
+  # inside another sandbox).
+  macos-mask:
+    needs: changes
+    name: authority mask (macos)
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        if: needs.changes.outputs.code == 'true'
+
+      - name: Set up Node.js
+        if: needs.changes.outputs.code == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Set up pnpm
+        if: needs.changes.outputs.code == 'true'
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Install dependencies
+        if: needs.changes.outputs.code == 'true'
+        run: pnpm install --frozen-lockfile --ignore-scripts --filter "@monoes/monomindcli..."
+
+      - name: Build workspace dependencies
+        if: needs.changes.outputs.code == 'true'
+        run: pnpm --filter "@monoes/monomindcli^..." run build
+
+      - name: Run the Seatbelt mask tests
+        if: needs.changes.outputs.code == 'true'
+        working-directory: packages/@monomind/cli
+        run: npx vitest run __tests__/orgrt/authority-mask-seatbelt.test.ts
+        env:
+          CI: true
+
   packages:
     needs: changes
     name: ${{ matrix.name }}

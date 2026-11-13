@@ -17,7 +17,7 @@ import {
   privateRunnerRoot,
   runtimeDirFor,
 } from '../../../src/orgrt/documents/copy-inventory.js';
-import { authorityMaskAvailability } from '../../../src/orgrt/authority-mask.js';
+import { bubblewrapAvailability } from '../../../src/orgrt/authority-mask.js';
 import { roleExecMask } from '../../../src/orgrt/exec-deny.js';
 import { sectionsRaw } from '../support/sections-defs.js';
 
@@ -137,7 +137,7 @@ describe('the authority mask layer', () => {
     const bus = new OrgBus('o', 'r', busDir());
     const events: any[] = [];
     bus.subscribe((e) => events.push(e));
-    const mask = roleExecMask({
+    const mask = roleExecMask({ platform: 'linux',
       bus,
       roleId: 'coder',
       authorityMask: ['--dev-bind', '/', '/'],
@@ -171,11 +171,11 @@ describe('the authority mask layer', () => {
     expect(mk(true, [{ src, dest: join(base, 'nope') }]).mask).not.toContain('--bind');
   });
 
-  const real = authorityMaskAvailability();
+  const real = bubblewrapAvailability();
   it.skipIf(!real.available)('with a real bubblewrap: a role writes into its private source and the real directory stays empty', () => {
     const b = dirs();
     const bus = new OrgBus('o', 'r', busDir());
-    const mask = roleExecMask({
+    const mask = roleExecMask({ platform: 'linux',
       bus,
       roleId: 'coder',
       authorityMask: ['--dev-bind', '/', '/'],

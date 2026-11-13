@@ -22,7 +22,7 @@ import { isMonomindMcpServer, isMonomindMcpServerArgv } from '../../src/mcp-pid-
 import { isExecuteEnabled } from '../../src/mcp-tools/terminal-tools-core.js';
 import {
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   ensureAuthorityDirs,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
@@ -140,7 +140,7 @@ describe('4. ~/.monomind in the mask', () => {
     expect(layout.writable).not.toContain(join(home, '.monomind', 'orgs'));
   });
 
-  it.runIf(authorityMaskAvailability().available)('inside the real mask: no new top-level entry, allowlisted dirs still writable', () => {
+  it.runIf(bubblewrapAvailability().available)('inside the real mask: no new top-level entry, allowlisted dirs still writable', () => {
     const home = scratch('osr2-mmh-');
     const root = scratch('osr2-mmr-');
     const env = {} as NodeJS.ProcessEnv;
@@ -154,7 +154,7 @@ describe('4. ~/.monomind in the mask', () => {
     expect(readFileSync(join(home, '.monomind', 'projects', 'p.txt'), 'utf8')).toBe('ok\n');
   });
 
-  it.runIf(authorityMaskAvailability().available)(
+  it.runIf(bubblewrapAvailability().available)(
     'with #518 merged: no read-write bind of ~/.monomind; no new entry, no deps write, allowlisted entries still writable',
     () => {
       const home = scratch('osr2-518h-');

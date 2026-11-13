@@ -17,7 +17,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { catalogDir } from '../../src/catalog/digest.js';
 import { loadCatalogState, lockPath, mutateCatalogState } from '../../src/catalog/state.js';
 import { cleanupCommand } from '../../src/commands/cleanup.js';
-import { authorityMaskArgs, authorityMaskAvailability, ensureAuthorityDirs, maskedCommand } from '../../src/orgrt/authority-mask.js';
+import { authorityMaskArgs, bubblewrapAvailability, ensureAuthorityDirs, maskedCommand } from '../../src/orgrt/authority-mask.js';
 import { OrgBus } from '../../src/orgrt/bus.js';
 import { gitCommonDir, prepareGitGuard } from '../../src/orgrt/git-guard.js';
 import {
@@ -141,7 +141,7 @@ describe('#580: .agents/skills is operator-protected', () => {
     expect(d.behavior).toBe('allow');
   });
 
-  it.runIf(authorityMaskAvailability().available)('inside the real bubblewrap mask .agents/skills is read-only', () => {
+  it.runIf(bubblewrapAvailability().available)('inside the real bubblewrap mask .agents/skills is read-only', () => {
     const home = scratch('cf580-mhome-');
     const root = scratch('cf580-mroot-');
     const env = {} as NodeJS.ProcessEnv;

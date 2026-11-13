@@ -1,13 +1,13 @@
 {
   "name": "@monoes/monomindcli",
-  "version": "2.29.1",
+  "version": "2.29.2",
   "type": "module",
   "description": "CLI engine for Monomind — an open-source MCP server for Claude Code, OpenCode, Antigravity, Kimi Code, and Codex, with a codebase knowledge graph (tree-sitter + SQLite), persistent memory, multi-agent task coordination, and session hooks. Apache 2.0 licensed. See https://github.com/monoes/monomind/blob/main/doc/privacy.md for what leaves your machine and when.",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "sideEffects": false,
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.22.0"
   },
   "bin": {
     "monomindcli": "./bin/cli.js",

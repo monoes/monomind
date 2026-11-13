@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { ClaudeAgentRunner } from '../../src/orgrt/agent-runner.js';
 import {
   authorityMaskArgs,
-  authorityMaskAvailability,
+  bubblewrapAvailability,
   ensureAuthorityDirs,
   maskedCommand,
 } from '../../src/orgrt/authority-mask.js';
@@ -43,7 +43,7 @@ function world() {
   return { home, root, env };
 }
 
-describe.runIf(authorityMaskAvailability().available)('the bubblewrap mask (real bwrap)', () => {
+describe.runIf(bubblewrapAvailability().available)('the bubblewrap mask (real bwrap)', () => {
   const inMask = (w: ReturnType<typeof world>, script: string) => {
     const [cmd, argv] = maskedCommand(
       authorityMaskArgs({ home: w.home, env: w.env, roots: [w.root], orgRoot: w.root }),
@@ -109,19 +109,19 @@ describe('roleAuthorityMask', () => {
 
   it('is not applied on top of the SDK sandbox, nor to an in-process runtime', () => {
     const available = { available: true };
-    expect(roleAuthorityMask({ ...base, bus: bus(), inSdkSandbox: true, inProcess: false, availability: available })).toBeUndefined();
-    expect(roleAuthorityMask({ ...base, bus: bus(), inSdkSandbox: false, inProcess: true, availability: available })).toBeUndefined();
+    expect(roleAuthorityMask({ platform: 'linux', ...base, bus: bus(), inSdkSandbox: true, inProcess: false, availability: available })).toBeUndefined();
+    expect(roleAuthorityMask({ platform: 'linux', ...base, bus: bus(), inSdkSandbox: false, inProcess: true, availability: available })).toBeUndefined();
   });
 
   it('wraps a role outside the SDK sandbox', () => {
-    const mask = roleAuthorityMask({ ...base, bus: bus(), inSdkSandbox: false, inProcess: false, availability: { available: true } });
+    const mask = roleAuthorityMask({ platform: 'linux', ...base, bus: bus(), inSdkSandbox: false, inProcess: false, availability: { available: true } });
     expect(mask?.slice(0, 3)).toEqual(['--dev-bind', '/', '/']);
   });
 
   it('fails open with a loud audit when bubblewrap cannot run', () => {
     const b = bus();
     const seen = audits(b);
-    const mask = roleAuthorityMask({ ...base, bus: b, inSdkSandbox: false, inProcess: false, availability: { available: false, reason: 'bwrap not found' } });
+    const mask = roleAuthorityMask({ platform: 'linux', ...base, bus: b, inSdkSandbox: false, inProcess: false, availability: { available: false, reason: 'bwrap not found' } });
     expect(mask).toBeUndefined();
     expect(seen).toContainEqual(expect.objectContaining({ type: 'audit', reason: 'authority-mask-unavailable' }));
   });
