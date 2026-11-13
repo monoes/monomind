@@ -42,6 +42,24 @@ async function waitFor(fn: () => boolean, timeoutMs: number): Promise<void> {
   }
 }
 
+/** macOS ships no `setsid` binary; perl's POSIX::setsid is the equivalent. */
+const SETSID =
+  process.platform === 'darwin' ? "perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV'" : 'setsid';
+
+/** A long-running job whose environment the marker scan can read. macOS hides
+ *  the environment of SIP-protected platform binaries (`ps -E` shows nothing
+ *  for /bin/sleep), so there the job is a node process — the marker logic
+ *  under test is identical, only the executable differs. `tag` is a unique
+ *  number that `pgrep` can anchor on. */
+const jobCmd = (tag: number): string =>
+  process.platform === 'darwin'
+    ? `${process.execPath} -e "setInterval(Object,${tag}e6)"`
+    : `sleep ${tag}`;
+const jobPattern = (tag: number): string =>
+  process.platform === 'darwin'
+    ? `^${process.execPath} -e setInterval\\(Object,${tag}e6\\)$`
+    : `^sleep ${tag}$`;
+
 /** Spawns a leader that runs a NESTED shell in its own session/process
  *  group (`setsid`) — exactly like the real Claude Code CLI's Bash tool
  *  per shell call — which backgrounds `sleep 1000`, lingers briefly on its
@@ -52,7 +70,7 @@ async function waitFor(fn: () => boolean, timeoutMs: number): Promise<void> {
  *  orphaned `sleep 1000` — reparented, carrying the now-dead nested
  *  shell's pgid — is left running. */
 function spawnLeaderWithFleetingNestedJob(): number {
-  const leader = spawn('sh', ['-c', "setsid sh -c 'sleep 1000 & sleep 0.2' & sleep 0.2"], {
+  const leader = spawn('sh', ['-c', `${SETSID} sh -c 'sleep 1000 & sleep 0.2' & sleep 0.2`], {
     detached: true,
     stdio: 'ignore',
   });
@@ -171,7 +189,7 @@ describe('trackDescendants: continuous sampling reaches a job whose launching sh
       // The nested shell backgrounds the job and exits at once; the tracker
       // is only created after the whole chain is gone, with no timer tick,
       // so the sampled closure can never have seen it — only the marker can.
-      const leader = spawn('sh', ['-c', "setsid sh -c 'sleep 1000 & exit' & exit"], {
+      const leader = spawn('sh', ['-c', `${SETSID} sh -c '${jobCmd(1000)} & exit' & exit`], {
         detached: true,
         stdio: 'ignore',
         env: { ...process.env, [EXEC_TREE_ENV]: token },
@@ -201,7 +219,7 @@ describe('trackDescendants: continuous sampling reaches a job whose launching sh
     async () => {
       const token = randomUUID();
       const findByArg = (arg: string): number[] =>
-        spawnSync('pgrep', ['-f', `^sleep ${arg}$`], { encoding: 'utf8' })
+        spawnSync('pgrep', ['-f', jobPattern(Number(arg))], { encoding: 'utf8' })
           .stdout.split('\n')
           .filter(Boolean)
           .map(Number);
@@ -212,7 +230,7 @@ describe('trackDescendants: continuous sampling reaches a job whose launching sh
         'sh',
         [
           '-c',
-          "MONOMIND_EXEC_TREE= setsid sh -c 'sleep 1366 & sleep 0.3' & setsid sh -c 'sleep 1367 & sleep 0.3' & sleep 0.4",
+          `MONOMIND_EXEC_TREE= ${SETSID} sh -c '${jobCmd(1366)} & sleep 0.3' & ${SETSID} sh -c '${jobCmd(1367)} & sleep 0.3' & sleep 0.4`,
         ],
         { detached: true, stdio: 'ignore', env: { ...process.env, [EXEC_TREE_ENV]: token } },
       );
