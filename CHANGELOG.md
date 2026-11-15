@@ -4,6 +4,17 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.29.3] — 2026-11-15
+
+Covers v2.29.0..e698998be (143 commits; 2.29.1 and 2.29.2 were never published).
+
+### Upgrade notes
+
+- **Node 22.22.0 or newer is now required (#775, `8338f05a5`).** chokidar 6 (#744, `015012a2e`) needs it; the CLI docs say so (#777, `009657ebe`).
+- **`monomind deps install` is needed on first agent exec.** The pinned `@anthropic-ai/claude-agent-sdk` moved 0.3.303 -> 0.3.319 (#721, `bd78a1999`), so existing installs fetch the new first-use pin once.
+- **Org roles without OS confinement now fail closed unless `--allow-unconfined` is given (`0b0b73d46`)**, and org skill import requires a pinned commit and confirmation and marks imports untrusted (`c76ce0f7d`). macOS gets a Seatbelt authority mask and per-platform preflight (#771, `3aa1bc935`).
+- **The bare `cli` bin is gone (`bf81c4ff4`)** because it collided on global installs; use `monomind`. `monoswarm.*` config keys are now `coordination.*`, read with a compatibility shim (`45beac1ea`).
+
 ### Added
 
 - **`monomind org drill-grant`: a scoped, time-limited drill-signing path for release QA (#720).** `org.allowDrillSigning` stays off by default, so release QA could not run live org drills and 2.29.0's `org_compact_role`/`org_clear_role`, codex `allowWrite` roots and mesh roster revert were verified by unit tests only. The operator can now run `monomind org drill-grant --org release --role runtime-qa --ttl 120` in a terminal: it writes a grant (named orgs and roles, no `*`, at most 24 hours) to `~/.monomind/operator-settings.json`, and `org sign` from a role accepts it only while `MONOMIND_ORG_NAME` and `MONOMIND_ORG_ROLE` are both named in it and before it expires. The drill limits are unchanged (scratch project outside a git work tree, `MONOMIND_ORGRT_OPERATOR_DIR` inside it). The command refuses inside an org role or agent process, and roles cannot write the settings file, so no role can grant itself signing; `--revoke` turns it off.
@@ -23,6 +34,32 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 - **The four deprecated agents: `Code Reviewer`, `monoswarm-pr`, `monoswarm-issue` and `mobile-dev`** (surface reduction C4, `docs/mastermind/plans/2026-11-surface-reduction.md`). They were already never picked and never installed by a pack; use `reviewer`, `pr-manager`, `issue-tracker` and `Mobile App Builder`. `init` / `init upgrade` move an unmodified copy from an older install to `.monomind/backups/<run>/retired/` (their shipped hashes are in `retired-files-data.ts`); a copy you edited stays, with a warning.
 - **`.claude/helpers/intelligence.cjs` and `router.cjs`, and the `hook-handler.cjs stats` command.** Nothing used `router.cjs` (the prompt hook's pick ranks the agent and skill catalogs). `intelligence.cjs` fed `auto-memory-store.json`, `ranked-context.json`, `pending-insights.jsonl` and `intelligence-outcomes.jsonl`; the compact, session, edit, task and capture handlers no longer call it. Session-end success is now derived only from a commit in the last 30 minutes. `init` and `init upgrade` retire both files (and the `.gemini/helpers` copies) the way they retire the monoswarm files: moved to `.monomind/backups/<run>/retired/files/` when unmodified, kept with a warning when edited. `/mastermind:specialagents` lists categories and agents from `.claude/agents` and activates an agent by reading its file, since the `router.cjs --load-agent` and `hook-handler.cjs list-extras` calls it relied on did not exist.
+
+### Fixed
+
+- **Source checkouts reject stale builds (#779, `e698998be`)**; the CLI test suite passes on macOS, with lock and pid bugs found on the way fixed (#778, `267aa3c43`).
+- **The umbrella package now ships its postinstall script (`087b78ef6`)**; pinned generated post-commit hook, cline command and wizard `npx` calls to the installed version (`9bab7a75a`, `c52ca7d0d`); `init` allows the pinned monomind command in opencode and on upgrade (`64dd2f847`); `cleanup` removes everything init wrote, `--minimal` is Claude plus core (`3fa3bc691`).
+- **Hooks:** route-outcomes lock waits up to 5s (#719, `3a3b67e35`); Second Brain injection outcome is visible to the agent (#722, `7e9b40961`) and runs under `MONOMIND_HOOK_QUIET` (`9987940f9`); bare acknowledgements skip the pick round trip (`9250adacf`); once-per-session skip notices and a relevance floor for graph file hints (`d5d859105`).
+- **Similarity:** mismatched-length vectors score 0 in every cosine copy (`9d818226f`); `doctor` keeps the compile cache off so read-only mode writes nothing (`83e8488c2`); catalog remote sources are pinned to a full commit when staged (`7d2fd5294`).
+
+### Added (since 2.29.0, other)
+
+- Opt-in local usage counters for CLI commands and MCP tools (`81f1646b2`); versioned schema migrations for the memory SQLite store (`98b83267c`); SQLite-backed PatternStore with JSON fallback (`d16f4dae1`); monograph drops anonymous-closure nodes, demotes tests and says "no relevant match" (`f0b1692d8`).
+- Embeddings load through the first-use installer (`37fa878d2`, `8ddc7a9ae`) so the base install is smaller.
+
+### Dependencies
+
+- Dependabot group of 40 minor/patch updates (#774, `995af0c22`) touching mcp, memory, monobrowse, monodesign and monograph; hono 4.13.18 (#770); vitest 5.1.0 (#742); chokidar 6.0.0 (#744); @ai-sdk/perplexity 5 (#741); @types/node 26 (#743); GitHub Actions bumps.
+- Package bumps: @monoes/mcp 2.24.4, @monoes/memory 2.24.4, @monoes/monobrowse 2.24.6, @monoes/monodesign 2.24.2, @monoes/monograph 2.25.6, monofence-ai 2.24.1 (LICENSE, README and dependency changes only; the first-use pin stays at the published 2.24.0).
+
+### Internal
+
+- cli `mcp-server.ts` split into modules, `noImplicitAny` enabled, many test-stability fixes, CI sharding and a coverage ratchet; README slimmed to a landing page; surface-reduction plan and decisions recorded.
+
+### Known issues
+
+- `monograph build` on a fresh install with npm 12 blocked install scripts leaves the `better-sqlite3` binary missing.
+- `monograph search -q` misses text in document bodies.
 
 ## [2.29.0] — 2026-10-26
 
