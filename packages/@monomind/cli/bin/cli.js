@@ -10,6 +10,8 @@
 
 import { randomUUID } from 'crypto';
 import { enableCompileCache } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { assertSourceBuildFresh } from './source-build.js';
 
 // Cache compiled module code on disk (Node 22.1+) so repeat invocations skip
 // most of the V8 parse/compile cost. Best-effort: an unsupported Node or an
@@ -54,6 +56,10 @@ const isMCPMode = !process.stdin.isTTY && (isBareMCPInvocation || (allowAutoDete
 // --no-update, ...) takes the full path below.
 const isPlainVersionInvocation =
   cliArgs.length === 1 && (cliArgs[0] === '--version' || cliArgs[0] === '-V');
+
+if (!isPlainVersionInvocation) {
+  assertSourceBuildFresh(fileURLToPath(new URL('..', import.meta.url)));
+}
 
 if (isPlainVersionInvocation) {
   const { readFileSync } = await import('node:fs');
