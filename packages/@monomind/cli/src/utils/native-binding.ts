@@ -193,6 +193,13 @@ export function formatNativeDiagnosis(diag: NativeBindingDiagnosis): string {
   if (diag.binaryPath) lines.push(`  binary  : ${diag.binaryPath}`);
   if (diag.target) lines.push(`  owned by: ${diag.target.rebuildCwd}`);
   if (diag.fix) lines.push(`  fix     : ${diag.fix}`);
+  if (diag.status === 'missing-binary') {
+    lines.push(
+      '  note    : npm 12 and newer skip install scripts unless allow-listed, so no binary is ever ' +
+        `built. Approve it, then rebuild: \`npm install-scripts approve ${diag.module}\` ` +
+        `(or pass \`--allow-scripts=${diag.module}\`), then run the fix above.`,
+    );
+  }
   if (diag.status === 'abi-mismatch') {
     lines.push(
       '  note    : rebuilding from your project directory, or reinstalling a different copy ' +
@@ -333,14 +340,32 @@ export interface RebuildResult {
   output: string;
 }
 
-/** Runs the single rebuild `planAutoRebuild` approved. */
-export function runNativeRebuild(diag: NativeBindingDiagnosis): RebuildResult {
+export interface RebuildDeps {
+  run?: (
+    bin: string,
+    args: string[],
+    opts: Parameters<typeof spawnSync>[2],
+  ) => { status: number | null; stdout?: unknown; stderr?: unknown };
+  /** Re-checks the binding in a fresh process after the rebuild. */
+  verify?: () => NativeBindingDiagnosis;
+}
+
+/**
+ * Runs the single rebuild `planAutoRebuild` approved. `npm rebuild` exits 0 even
+ * when it skipped the install script (npm 12 blocks scripts that are not
+ * allow-listed), so a clean exit proves nothing: the binding is probed again in a
+ * fresh process and `ok` only holds if it now actually loads (issue #782).
+ */
+export function runNativeRebuild(
+  diag: NativeBindingDiagnosis,
+  deps: RebuildDeps = {},
+): RebuildResult {
   const target = diag.target;
   if (!target) return { ok: false, command: '', output: 'no rebuild target' };
   const bin = target.packageManager === 'pnpm' ? 'pnpm' : 'npm';
   const args = ['rebuild', diag.module];
   if (bin === 'npm' && diag.status === 'abi-mismatch') args.push('--build-from-source');
-  const res = spawnSync(bin, args, {
+  const res = (deps.run ?? spawnSync)(bin, args, {
     cwd: target.rebuildCwd,
     encoding: 'utf8',
     timeout: 15 * 60_000,
@@ -353,9 +378,37 @@ export function runNativeRebuild(diag: NativeBindingDiagnosis): RebuildResult {
       PATH: `${dirname(process.execPath)}${delimiter}${process.env.PATH ?? ''}`,
     },
   });
+  const command = `cd ${target.rebuildCwd} && ${bin} ${args.join(' ')}`;
+  const output = `${res.stdout ?? ''}${res.stderr ?? ''}`.trim();
+  if (res.status !== 0) return { ok: false, command, output };
+
+  const after = (deps.verify ?? probeMonographSqliteBinding)();
+  if (after.status === 'ok') return { ok: true, command, output };
   return {
-    ok: res.status === 0,
-    command: `cd ${target.rebuildCwd} && ${bin} ${args.join(' ')}`,
-    output: `${res.stdout ?? ''}${res.stderr ?? ''}`.trim(),
+    ok: false,
+    command,
+    output:
+      `${output}\nThe rebuild command exited 0 but the binding still does not load ` +
+      `(install scripts were probably skipped):\n${formatNativeDiagnosis(after)}`.trim(),
   };
+}
+
+/**
+ * Turns whatever a monograph call threw into an actionable message: for a native
+ * load failure the real cause plus the exact fix, for anything else the error
+ * with its full `.cause` chain, never just the wrapper's "Failed to open
+ * database at ..." (issue #782).
+ */
+export function explainMonographError(err: unknown): string {
+  const diag = diagnoseMonographNativeError(err);
+  if (diag.status === 'abi-mismatch' || diag.status === 'missing-binary') {
+    return formatNativeDiagnosis(diag);
+  }
+  const parts: string[] = [];
+  let e: unknown = err;
+  for (let i = 0; e !== undefined && i < 6; i++) {
+    parts.push(e instanceof Error ? e.message : String(e));
+    e = e instanceof Error ? (e as { cause?: unknown }).cause : undefined;
+  }
+  return parts.join(': ');
 }

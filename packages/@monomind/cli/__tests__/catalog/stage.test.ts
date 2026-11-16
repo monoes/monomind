@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFil
 import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { packagesDir, verifyEntry } from '../../src/catalog/digest.js';
 import { activate, approve, disable, release } from '../../src/catalog/lifecycle.js';
 import { type FenceLoader, stage } from '../../src/catalog/stage.js';
@@ -254,6 +254,20 @@ describe('credentials in source URLs', () => {
 });
 
 describe('pinned remote sources', () => {
+  // These stage from a local file:// remote; an environment that injects
+  // protocol.file.allow=never through the GIT_CONFIG_* variables (#783) would
+  // refuse it, so those are dropped for this block.
+  const saved: Record<string, string | undefined> = {};
+  beforeAll(() => {
+    for (const k of Object.keys(process.env))
+      if (k.startsWith('GIT_CONFIG_')) {
+        saved[k] = process.env[k];
+        delete process.env[k];
+      }
+  });
+  afterAll(() => {
+    for (const [k, v] of Object.entries(saved)) process.env[k] = v;
+  });
   const gitOut = (cwd: string, ...args: string[]) =>
     execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], {
       cwd,

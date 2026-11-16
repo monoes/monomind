@@ -360,7 +360,9 @@ describe('ensureOptionalDependency', () => {
       },
     }).catch((e: unknown) => e)) as Error;
     expect(err).toBeInstanceOf(OptionalDependencyError);
-    expect(err.message).toMatch(/Org roles cannot install into it; ask the operator/);
+    expect(err.message).toMatch(
+      /Org roles cannot install into it \(MONOMIND_ORG_ROLE guard\); ask the operator/,
+    );
     expect(err.message).toContain(manualInstallCommand(SDK, env));
   });
 

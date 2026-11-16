@@ -73,6 +73,11 @@ jobs:
       - name: Check versions
         run: node scripts/check-versions.mjs --no-registry
 
+      # Registry-backed, so it is not part of the --no-registry run above: every
+      # workspace dep of a released package must be on npm or in this release (#780).
+      - name: Check release deps are published or in the release
+        run: node scripts/check-release-deps.mjs
+
       - name: Test (every package, as CI does)
         run: pnpm run test:all:run
 

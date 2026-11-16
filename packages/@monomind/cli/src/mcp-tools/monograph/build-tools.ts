@@ -1,4 +1,5 @@
 import { join, resolve, sep } from 'node:path';
+import { explainMonographError } from '../../utils/native-binding.js';
 import type { MCPTool } from '../types.js';
 import { getProjectCwd } from '../types.js';
 import { triggerBackgroundEmbed } from './semantic.js';
@@ -34,15 +35,19 @@ export const monographBuildTool: MCPTool = {
     const { buildAsync } = await import('@monoes/monograph');
     const repoPath = (input.path as string | undefined) ?? getProjectCwd();
     let progressLog = '';
-    await buildAsync(repoPath, {
-      codeOnly: (input.codeOnly as boolean | undefined) ?? false,
-      force: (input.force as boolean | undefined) ?? false,
-      includeToolAssets: input.toolAssets as boolean | undefined,
-      incremental: (input.incremental as boolean | undefined) ?? false,
-      onProgress: (p) => {
-        progressLog += `[${p.phase}] ${p.message ?? ''}\n`;
-      },
-    });
+    try {
+      await buildAsync(repoPath, {
+        codeOnly: (input.codeOnly as boolean | undefined) ?? false,
+        force: (input.force as boolean | undefined) ?? false,
+        includeToolAssets: input.toolAssets as boolean | undefined,
+        incremental: (input.incremental as boolean | undefined) ?? false,
+        onProgress: (p) => {
+          progressLog += `[${p.phase}] ${p.message ?? ''}\n`;
+        },
+      });
+    } catch (err) {
+      return text(`Monograph build failed for ${repoPath}:\n${explainMonographError(err)}`);
+    }
     const skipped = progressLog.includes('skipping rebuild');
     if (!skipped) triggerBackgroundEmbed(join(resolve(repoPath), '.monomind', 'monograph.db'));
     const summary = skipped

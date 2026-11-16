@@ -173,7 +173,19 @@ async function writeIntoSiblingAfterCd(pinShell: boolean): Promise<string> {
   return outputs.join('\n');
 }
 
-describe.skipIf(process.platform !== 'linux' || !sandboxAvailability().available)(
+/** bwrap on PATH is not bwrap that works: inside another bwrap/container, user
+ *  namespaces can be exhausted (ENOSPC, #783). Probe a real namespace instead. */
+function bwrapRuns(): boolean {
+  if (process.platform !== 'linux') return true;
+  const r = spawnSync('bwrap', ['--unshare-user', '--ro-bind', '/', '/', 'true'], {
+    stdio: 'ignore',
+  });
+  return r.status === 0;
+}
+
+describe.skipIf(
+  process.platform !== 'linux' || !sandboxAvailability().available || !bwrapRuns(),
+)(
   '#339: the sandbox after a `cd` in a sandboxed Claude role',
   () => {
     it('keeps a sibling hooks directory writable after settings reload with the current SDK', async () => {
