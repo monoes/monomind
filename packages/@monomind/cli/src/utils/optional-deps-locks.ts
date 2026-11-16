@@ -411,14 +411,14 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
       '': {
         name: 'monomind-optional-dependency',
         dependencies: {
-          'monofence-ai': '2.24.0',
+          'monofence-ai': '2.24.1',
         },
       },
       'node_modules/monofence-ai': {
-        version: '2.24.0',
-        resolved: 'https://registry.npmjs.org/monofence-ai/-/monofence-ai-2.24.0.tgz',
+        version: '2.24.1',
+        resolved: 'https://registry.npmjs.org/monofence-ai/-/monofence-ai-2.24.1.tgz',
         integrity:
-          'sha512-e3zpL/g+pNyFLx7mAVUz/rqkZDv5KDhp/0pl7Ry0QmLR0TEHkgn6Czd7ITOcZ16NWGOa4Vq6oX+Qs3YwfGAneA==',
+          'sha512-or21x7qqShH+giXfRGYnxXXEYHT1BhIgsUT6H3iGxzT2fyM8thqGWHcUahm2r1eOo1FeeRGJdzohJE802G06BQ==',
         license: 'Apache-2.0',
         engines: {
           node: '>=22.12.0',
@@ -1375,7 +1375,7 @@ export const OPTIONAL_DEPENDENCY_CODE_PINS: Partial<Record<string, CodePins>> = 
     },
   },
   'monofence-ai': {
-    version: '2.24.0',
+    version: '2.24.1',
     entry: {
       file: 'dist/index.js',
       sha256: '9d70a9308b912e568f3de2114c5842f734d7bc7cff3b1fec12471b80ddf51a3b',
