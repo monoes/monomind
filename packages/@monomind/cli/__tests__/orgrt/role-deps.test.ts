@@ -264,6 +264,7 @@ describe('in a role, a missing SDK fails fast (#559)', () => {
     rmSync(home, { recursive: true, force: true });
   });
 
+  // reason: root and Windows can write to a read-only dir, so the EROFS path cannot be provoked (#781)
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
     'names the operator command and never runs npm when the deps dir is read-only',
     async () => {
@@ -291,6 +292,7 @@ describe('in a role, a missing SDK fails fast (#559)', () => {
 });
 
 describe('stale pin in the deps dir (#781)', () => {
+  // reason: root and Windows can write to a read-only dir, so the EROFS path cannot be provoked (#781)
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
     'names the older versions held and the exact remedy',
     async () => {
