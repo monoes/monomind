@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Single entry point for the five version-policy checks, with one summary.
+ * Single entry point for the six version-policy checks, with one summary.
  *
  *   node scripts/check-versions.mjs [--no-registry]
  *
  * Runs, in order: check-publish-versions, check-package-bumps,
- * check-workspace-protocol, check-overrides-source, check-published-pins.
+ * check-workspace-protocol, check-overrides-source, check-published-pins,
+ * check-release-deps.
  * Every check runs even if an earlier one fails, so one pass reports all the
  * problems. Each script still works alone (and `prepublishOnly` still calls
  * them directly). Exits 1 if any check failed.
@@ -34,6 +35,11 @@ export const CHECKS = [
     script: 'check-published-pins.mjs',
     args: ['.'],
     what: 'pinned siblings exist on npm',
+    registry: true,
+  },
+  {
+    script: 'check-release-deps.mjs',
+    what: 'workspace deps of released packages are on npm or in the release',
     registry: true,
   },
 ];
