@@ -227,7 +227,9 @@ describe('runNativeRebuild verifies the binding (issue #782)', () => {
 
 describe('explainMonographError (issue #782)', () => {
   it('surfaces the missing-binary cause behind the opaque wrapper, with the allow-scripts hint', () => {
-    const cause = new Error('Could not locate the bindings file. Tried:\n → /x/better_sqlite3.node');
+    const cause = new Error(
+      'Could not locate the bindings file. Tried:\n → /x/better_sqlite3.node',
+    );
     const wrapped = new Error('Failed to open database at /p/.monomind/monograph.db', { cause });
     const msg = explainMonographError(wrapped);
     expect(msg).toContain('never built');
