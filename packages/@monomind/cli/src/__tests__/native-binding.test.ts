@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   deriveRebuildTarget,
   diagnoseNativeLoadError,
+  explainMonographError,
   formatNativeDiagnosis,
   planAutoRebuild,
+  runNativeRebuild,
 } from '../utils/native-binding.js';
 
 const RUNTIME = { nodeVersion: 'v26.5.0', runtimeAbi: '147' };
@@ -183,5 +185,62 @@ describe('planAutoRebuild', () => {
       RUNTIME,
     );
     expect(planAutoRebuild(noTarget, { isWritable: () => true }).attempt).toBe(false);
+  });
+});
+
+describe('runNativeRebuild verifies the binding (issue #782)', () => {
+  const missing = () =>
+    diagnoseNativeLoadError(
+      new Error(
+        'Could not locate the bindings file. Tried:\n → /p/node_modules/better-sqlite3/build/Release/better_sqlite3.node',
+      ),
+      'better-sqlite3',
+      RUNTIME,
+      '/p/node_modules/better-sqlite3/lib/index.js',
+    );
+  const exit0 = () => ({ status: 0, stdout: 'rebuilt 0 packages', stderr: '' });
+  const okProbe = () => ({ ...missing(), status: 'ok' as const });
+
+  it('reports failure when the rebuild exits 0 but the binding still does not load (npm 12 skipped the script)', () => {
+    const res = runNativeRebuild(missing(), { run: exit0, verify: missing });
+    expect(res.ok).toBe(false);
+    expect(res.output).toContain('exited 0 but the binding still does not load');
+    expect(res.output).toContain('npm install-scripts approve better-sqlite3');
+  });
+
+  it('reports success only when the verification probe loads the binding', () => {
+    expect(runNativeRebuild(missing(), { run: exit0, verify: okProbe }).ok).toBe(true);
+  });
+
+  it('does not probe when the rebuild command itself failed', () => {
+    const verify = () => {
+      throw new Error('should not be called');
+    };
+    const res = runNativeRebuild(missing(), {
+      run: () => ({ status: 1, stdout: '', stderr: 'gyp ERR' }),
+      verify,
+    });
+    expect(res.ok).toBe(false);
+    expect(res.output).toContain('gyp ERR');
+  });
+});
+
+describe('explainMonographError (issue #782)', () => {
+  it('surfaces the missing-binary cause behind the opaque wrapper, with the allow-scripts hint', () => {
+    const cause = new Error('Could not locate the bindings file. Tried:\n → /x/better_sqlite3.node');
+    const wrapped = new Error('Failed to open database at /p/.monomind/monograph.db', { cause });
+    const msg = explainMonographError(wrapped);
+    expect(msg).toContain('never built');
+    expect(msg).toContain('npm rebuild better-sqlite3');
+    expect(msg).toContain('install-scripts approve');
+  });
+
+  it('keeps the whole cause chain for unrelated errors', () => {
+    const wrapped = new Error('Failed to open database at /p/db', {
+      cause: new Error('unable to open database file'),
+    });
+    expect(explainMonographError(wrapped)).toBe(
+      'Failed to open database at /p/db: unable to open database file',
+    );
   });
 });
