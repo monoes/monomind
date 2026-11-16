@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The CLI pinned `monofence-ai` at 2.24.0 after the 2.29.3 release bumped the package to 2.24.1.** The release left `OPTIONAL_DEPENDENCIES`, the lock entry and its URL/integrity at 2.24.0, so main's Tests run failed on `auto-install.test` ("pins monofence-ai to the workspace package version") and the default-loader scanner test, and a first-use install fetched the older 2.24.0. The pin, lock URL and integrity now point at `monofence-ai-2.24.1.tgz` (sha512 matches the registry's `dist.integrity`; the 16 `dist/*.js` sha256 pins are unchanged because the files are byte-identical).
+
 ## [2.29.3] — 2026-11-15
 
 Covers v2.29.0..e698998be (143 commits; 2.29.1 and 2.29.2 were never published).

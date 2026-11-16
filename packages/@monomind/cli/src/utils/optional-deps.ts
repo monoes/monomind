@@ -100,7 +100,7 @@ export const OPTIONAL_DEPENDENCIES = {
     feature: 'The local embedding runtime (Second Brain, memory search, semantic routing)',
   },
   'monofence-ai': {
-    version: '2.24.0',
+    version: '2.24.1',
     size: 'under 1 MB',
     feature: 'MonoFence (the monofence_* MCP tools, `security defend`, org role fences)',
   },
