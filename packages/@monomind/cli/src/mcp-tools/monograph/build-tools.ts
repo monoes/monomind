@@ -1,7 +1,7 @@
 import { join, resolve, sep } from 'node:path';
+import { explainMonographError } from '../../utils/native-binding.js';
 import type { MCPTool } from '../types.js';
 import { getProjectCwd } from '../types.js';
-import { explainMonographError } from '../../utils/native-binding.js';
 import { triggerBackgroundEmbed } from './semantic.js';
 import { _isValidDb, getDbPath, text } from './shared.js';
 
