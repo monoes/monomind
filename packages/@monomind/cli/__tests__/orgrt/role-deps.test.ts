@@ -28,6 +28,7 @@ import {
   dependencyDir,
   depsRoot,
   ensureOptionalDependency,
+  installedVersions,
   manualInstallCommand,
   OptionalDependencyError,
   optionalDependencyPresent,
@@ -285,6 +286,30 @@ describe('in a role, a missing SDK fails fast (#559)', () => {
       expect(err.message).not.toMatch(/^EROFS|^EACCES/);
       expect(npm.calls).toHaveLength(0);
       expect(log.mock.calls.flat().join('\n')).not.toMatch(/Installing it once/);
+    },
+  );
+});
+
+describe('stale pin in the deps dir (#781)', () => {
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'names the older versions held and the exact remedy',
+    async () => {
+      const home = mkdtempSync(join(tmpdir(), 'mm-stale-pin-'));
+      const env = { MONOMIND_HOME: home, MONOMIND_ORG_ROLE: 'builder' };
+      mkdirSync(join(depsRoot(env), '@anthropic-ai+claude-agent-sdk@0.0.1'), { recursive: true });
+      expect(installedVersions(SDK, env)).toEqual(['0.0.1']);
+      chmodSync(depsRoot(env), 0o555);
+      try {
+        const err = (await ensureOptionalDependency(SDK, {
+          env, resolveOwn: notFound, log: vi.fn(), host: HOST, pins: FAKE_PINS, runNpm: fakeNpm('x').run,
+        }).catch((e: unknown) => e)) as Error;
+        expect(err.message).toMatch(/pin moved to .* only holds 0\.0\.1/);
+        expect(err.message).toContain('monomind deps install');
+        expect(err.message).toContain('MONOMIND_ORG_ROLE');
+      } finally {
+        chmodSync(depsRoot(env), 0o700);
+        rmSync(home, { recursive: true, force: true });
+      }
     },
   );
 });

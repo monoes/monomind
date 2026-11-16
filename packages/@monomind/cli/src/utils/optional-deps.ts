@@ -215,6 +215,31 @@ export function dependencyDir(name: OptionalDependencyName, env: Env = process.e
   return join(depsRoot(env), `${name.replace('/', '+')}@${OPTIONAL_DEPENDENCIES[name].version}`);
 }
 
+/** Versions of `name` found in the deps root, e.g. ['0.3.303'] (#781). A pin
+ *  that moved leaves the older copies behind, and nothing says so. */
+export function installedVersions(name: OptionalDependencyName, env: Env = process.env): string[] {
+  const prefix = `${name.replace('/', '+')}@`;
+  try {
+    return readdirSync(depsRoot(env))
+      .filter((e) => e.startsWith(prefix))
+      .map((e) => e.slice(prefix.length))
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/** Why `name` is "not installed" when other versions are (#781), or ''. */
+function stalePinNote(name: OptionalDependencyName, env: Env): string {
+  const have = installedVersions(name, env);
+  if (have.length === 0) return '';
+  const { version } = OPTIONAL_DEPENDENCIES[name];
+  return (
+    ` The pin moved to ${version} but ${depsRoot(env)} only holds ${have.join(', ')}, ` +
+    'so the pinned copy is missing.'
+  );
+}
+
 /** Single-quotes `s` for a POSIX shell. */
 export const shellQuote = (s: string): string => `'${s.replaceAll("'", `'\\''`)}'`;
 
@@ -606,7 +631,8 @@ function readOnlyError(
     name === '@anthropic-ai/claude-agent-sdk' ? `  ${DEPS_INSTALL_COMMAND}\nor by hand:\n` : '';
   return new OptionalDependencyError(
     `${spec.feature} needs ${name}@${spec.version}, which is not installed, and ` +
-      `${depsRoot(env)} is not writable here (${code}). Org roles cannot install into it; ` +
+      `${depsRoot(env)} is not writable here (${code}).${stalePinNote(name, env)} ` +
+      'Org roles cannot install into it (MONOMIND_ORG_ROLE guard); ' +
       `ask the operator to run this outside the org:\n${operator}` +
       `  ${manualInstallCommand(name, env, noBinary)}`,
   );
