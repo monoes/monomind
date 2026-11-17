@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { mkdirSync, writeFileSync, rmSync, appendFileSync } from 'node:fs';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { MonographWatcher } from '../../src/watch/watcher.js';
+import { fileEventsArrive } from './fs-watch-probe.js';
 
 const tmpRepo = join(tmpdir(), `monograph-watch-test-${Date.now()}`);
 
@@ -29,7 +30,8 @@ afterAll(() => {
   rmSync(dotBase, { recursive: true, force: true });
 });
 
-describe('MonographWatcher', () => {
+// reason: needs fs.watch events, which a macOS Seatbelt sandbox does not deliver (#798)
+describe.skipIf(!fileEventsArrive('watcher'))('MonographWatcher', () => {
   it('emits monograph:updated within 5s after a file change', async () => {
     const updates: string[] = [];
     const watcher = new MonographWatcher(tmpRepo, { debounceMs: 200 });
