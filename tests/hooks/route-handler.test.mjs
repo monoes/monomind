@@ -22,6 +22,26 @@ function loadRH() {
   return require(RH_PATH);
 }
 
+/** A knowledge store the handler's upward walk (8 levels from the project) would
+ *  reach above the temp dir, or null. With TMPDIR under a real home that has one
+ *  (the release gate's $HOME/mrg-tmp), "no knowledge anywhere" cannot hold (#798). */
+function knowledgeAboveTmp() {
+  let dir = os.tmpdir();
+  for (let i = 0; i < 8; i++) {
+    const k = path.join(dir, '.monomind', 'knowledge');
+    if (['chunks.jsonl', 'doc-metadata.jsonl'].some((f) => fs.existsSync(path.join(k, f))))
+      return k;
+    if (path.dirname(dir) === dir) break;
+    dir = path.dirname(dir);
+  }
+  return null;
+}
+const strayStore = knowledgeAboveTmp();
+if (strayStore)
+  console.warn(`route-handler: no-store tests skipped, ${strayStore} is above the temp dir (#798)`);
+// reason: these assert no knowledge store above the project, untrue when TMPDIR is under a home with one (#798)
+const itNoStrayStore = it.skipIf(Boolean(strayStore));
+
 let tmpDir;
 
 beforeEach(() => {
@@ -440,7 +460,7 @@ describe('route-handler second-brain gate', () => {
     expect(fs.existsSync(telemetry(sub))).toBe(true);
   });
 
-  it('stays inert when no knowledge exists anywhere', async () => {
+  itNoStrayStore('stays inert when no knowledge exists anywhere', async () => {
     deadServer(tmpDir);
     await loadRH().handle(
       makeHCtx({ prompt: PROMPT, router: router(), _buildKnowledgeSearchFn: searchFn() }),
@@ -564,7 +584,7 @@ describe('route-handler second-brain gate', () => {
     expect(lastTelemetry(tmpDir)).toMatchObject({ injected: false, hits: 0 });
   });
 
-  it('says so once per session when the project has no knowledge store', async () => {
+  itNoStrayStore('says so once per session when the project has no knowledge store', async () => {
     const run = async (sessionId) => {
       const lines = [];
       vi.spyOn(console, 'log').mockImplementation((...a) => lines.push(a.join(' ')));
@@ -652,25 +672,28 @@ describe('route-handler second-brain gate', () => {
       expect(lastTelemetry(tmpDir)).toMatchObject({ injected: false, hits: 0 });
     });
 
-    it('stays silent about a missing store and does not burn the once-per-session notice', async () => {
-      const run = async () => {
-        const lines = [];
-        vi.spyOn(console, 'log').mockImplementation((...a) => lines.push(a.join(' ')));
-        await loadRH().handle(
-          makeHCtx({
-            prompt: PROMPT,
-            hookInput: { session_id: 'sess-q' },
-            router: router(),
-            _buildKnowledgeSearchFn: searchFn(),
-          }),
-        );
-        vi.restoreAllMocks();
-        return lines.join('\n');
-      };
-      expect(await run()).not.toContain('[SECOND BRAIN]');
-      delete process.env.MONOMIND_HOOK_QUIET;
-      expect(await run()).toContain('[SECOND BRAIN] skipped: no knowledge store');
-    });
+    itNoStrayStore(
+      'stays silent about a missing store and does not burn the once-per-session notice',
+      async () => {
+        const run = async () => {
+          const lines = [];
+          vi.spyOn(console, 'log').mockImplementation((...a) => lines.push(a.join(' ')));
+          await loadRH().handle(
+            makeHCtx({
+              prompt: PROMPT,
+              hookInput: { session_id: 'sess-q' },
+              router: router(),
+              _buildKnowledgeSearchFn: searchFn(),
+            }),
+          );
+          vi.restoreAllMocks();
+          return lines.join('\n');
+        };
+        expect(await run()).not.toContain('[SECOND BRAIN]');
+        delete process.env.MONOMIND_HOOK_QUIET;
+        expect(await run()).toContain('[SECOND BRAIN] skipped: no knowledge store');
+      },
+    );
 
     it('does not run the rest of the enrichment (budget, banners)', async () => {
       writeControl(tmpDir, { url: 'http://127.0.0.1:4242', pid: process.pid });

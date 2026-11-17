@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,6 +80,23 @@ describe('settings.json hook commands build $p through a validated search', () =
   });
 });
 
+/** A `.claude/helpers` dir above the temp dir, which the hook's walk to `/` would
+ *  find. With TMPDIR under a real home that has one (the release gate's
+ *  $HOME/mrg-tmp), "no project can be found" cannot hold (#798). */
+function helpersAboveTmp(): string | null {
+  for (let dir = tmpdir(); ; dir = dirname(dir)) {
+    if (existsSync(join(dir, '.claude', 'helpers'))) return join(dir, '.claude', 'helpers');
+    if (dirname(dir) === dir) return null;
+  }
+}
+const strayHelpers = helpersAboveTmp();
+if (strayHelpers)
+  console.warn(
+    `settings-hook: no-project test skipped, ${strayHelpers} is above the temp dir (#798)`,
+  );
+// reason: asserts no project above the temp dir, untrue when TMPDIR is under a home with one (#798)
+const itNoStrayProject = it.skipIf(strayHelpers !== null);
+
 describe.each([
   ['repo-root', ROOT_SETTINGS],
   ['packaged CLI', CLI_SETTINGS],
@@ -122,7 +139,7 @@ describe.each([
     expect(stdout).toContain('FOUND_IT');
   });
 
-  it('fails without hanging when no project can be found', () => {
+  itNoStrayProject('fails without hanging when no project can be found', () => {
     const emptyDir = join(tmp, 'nothing', 'here');
     mkdirSync(emptyDir, { recursive: true });
 
