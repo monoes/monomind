@@ -24,6 +24,13 @@ describe('resultVisibility', () => {
   });
 });
 
+const COST_ENV_KEYS = [
+  'CLAUDE_CODE_EFFORT_LEVEL',
+  'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
+  'CLAUDE_CODE_MAX_OUTPUT_TOKENS',
+  'ENABLE_TOOL_SEARCH',
+];
+
 describe('checkTokenCostSettings', () => {
   const savedHome = process.env.HOME;
   let home: string;
@@ -35,7 +42,9 @@ describe('checkTokenCostSettings', () => {
     mkdirSync(join(home, '.claude'), { recursive: true });
     mkdirSync(join(proj, '.claude'), { recursive: true });
     process.env.HOME = home;
-    delete process.env.CLAUDE_CODE_EFFORT_LEVEL;
+    // The check reads the process env too, and a suite run from a Claude Code
+    // session inherits that session's settings (#798).
+    for (const k of COST_ENV_KEYS) delete process.env[k];
   });
   afterEach(() => {
     process.env.HOME = savedHome;
