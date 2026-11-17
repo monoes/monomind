@@ -224,8 +224,19 @@ describe('release org config', () => {
       }
       for (const r of def.roles) {
         const allow = (r.policy as { sandbox?: { allowWrite?: string[] } }).sandbox?.allowWrite;
-        expect(allow, r.id).toEqual(['{{home}}/monomind-release', '{{home}}/mrg-tmp']);
+        // The TMPDIR sits outside $HOME (#798). macOS: an allowWrite path that does not exist
+        // yet is matched unresolved and never covers /private/var/tmp, so both spellings.
+        expect(allow, r.id).toEqual([
+          '{{home}}/monomind-release',
+          '{{home}}/mrg-tmp',
+          '/var/tmp/mrg-tmp',
+          '/private/var/tmp/mrg-tmp',
+        ]);
       }
+      // Under $HOME, tests that search upward from their temp dirs find the operator's own
+      // CLAUDE.md, .monomind and .claude/helpers (#798).
+      expect(skill('monomind-release-rules')).toContain('TMPDIR=/var/tmp/mrg-tmp ');
+      expect(skill('monomind-release-rules')).not.toMatch(/TMPDIR=\$HOME/);
       expect(def.run_config.completion_evidence).toBe(true);
     });
   });
