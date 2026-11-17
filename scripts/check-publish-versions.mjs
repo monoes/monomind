@@ -7,9 +7,13 @@
  *   root package.json  dependencies["@monoes/monomindcli"]
  *   cli  package.json  version
  *
+ * It also checks the version shown in the doc site's sidebar logo
+ * (`logo-ver` in doc/index.html) is the root version, which nothing else
+ * updates (#794).
+ *
  * Runs from root prepublishOnly. Exits non-zero with the exact fix on drift.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -46,6 +50,17 @@ if (root.version !== cli.version) {
   problems.push(
     `version mismatch: monomind is ${root.version}, @monoes/monomindcli is ${cli.version}`,
   );
+}
+
+const siteIndex = join(repoRoot, 'doc', 'index.html');
+if (existsSync(siteIndex)) {
+  const logo = readFileSync(siteIndex, 'utf8').match(/class="logo-ver">v([^<]+)</)?.[1];
+  if (logo !== root.version) {
+    problems.push(
+      `doc/index.html shows logo version ${logo ? `v${logo}` : '(none found)'}, ` +
+        `but monomind is ${root.version}: set its \`logo-ver\` line to v${root.version}`,
+    );
+  }
 }
 
 // THE FOOTGUN THIS EXISTS TO STOP.
