@@ -5,7 +5,19 @@
  * the live trees are not touched.
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +27,7 @@ import {
   compileGeneratedSkills,
   diffTrees,
   planTrees,
+  probe,
   writeTrees,
 } from '../../scripts/generate-claude-trees.mjs';
 
@@ -22,8 +35,11 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PKG = 'packages/@monomind/cli';
 const created: string[] = [];
 
+const locked: string[] = [];
+
 afterEach(() => {
   vi.restoreAllMocks();
+  for (const dir of locked.splice(0)) chmodSync(dir, 0o755);
   for (const dir of created.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -143,4 +159,106 @@ describe('generate-claude-trees', () => {
   it('regenerates the live repo deterministically and completely', async () => {
     expect(await checkTrees({ root: REPO_ROOT, kimi: false })).toEqual([]);
   }, 120_000);
+
+  describe('probe (#789)', () => {
+    /** The fixture as a git checkout: the probe plans from `git ls-files`. */
+    const gitFixture = (): string => {
+      const root = realpathSync(makeFixture());
+      execFileSync('git', ['init', '-q'], { cwd: root });
+      execFileSync('git', ['add', '-A'], { cwd: root });
+      return root;
+    };
+    const lock = (dir: string) => {
+      chmodSync(dir, 0o555);
+      locked.push(dir);
+    };
+    const asRoot = process.getuid?.() === 0;
+
+    it('passes on a fresh checkout and leaves nothing behind', () => {
+      const root = gitFixture();
+      const before = readdirSync(root).sort();
+      expect(probe(root)).toEqual([]);
+      expect(readdirSync(root).sort()).toEqual(before);
+      expect(existsSync(join(root, PKG, '.claude'))).toBe(false);
+    });
+
+    it.skipIf(asRoot)(
+      'fails when a destination refuses writes and something there needs writing',
+      () => {
+        const root = gitFixture();
+        writeTrees({ outRoot: root, wanted: planTrees({ root }), withKimi: false });
+        rmSync(join(root, PKG, '.claude/agents/core/coder.md'));
+        lock(join(root, PKG, '.claude/agents'));
+        expect(() => probe(root)).toThrow(
+          /cannot write under .*\.claude\/agents \(EACCES\), and 1 file\(s\) there need writing, e\.g\. .*core\/coder\.md[\s\S]*\.claude\/commands/,
+        );
+        // The release preflight probes the operator's checkout: host only.
+        expect(probe(root, { hostOnly: true })).toEqual([]);
+      },
+    );
+
+    it.skipIf(asRoot)('passes with a note when the refused destination is already current', () => {
+      const root = gitFixture();
+      writeTrees({ outRoot: root, wanted: planTrees({ root }), withKimi: false });
+      lock(join(root, PKG, '.claude/agents'));
+      const notes = probe(root);
+      expect(notes).toHaveLength(1);
+      expect(notes[0]).toMatch(
+        /\.claude\/agents are refused here \(EACCES\), but every file there is current/,
+      );
+    });
+
+    // The 2.29.4 builder: the SDK's seatbelt profile denies writes below any
+    // `.claude/agents` or `.claude/commands` under the session's cwd, however
+    // allowWrite is set (claude-agent-sdk 0.3.319 sandbox runtime).
+    const seatbelt =
+      process.platform === 'darwin' &&
+      spawnSync('sandbox-exec', ['-p', '(version 1)(allow default)', '/usr/bin/true']).status === 0;
+    it.skipIf(!seatbelt)('catches the SDK seatbelt rule before the build does', () => {
+      const root = gitFixture();
+      mkdirSync(join(root, 'scripts'));
+      copyFileSync(
+        join(REPO_ROOT, 'scripts/generate-claude-trees.mjs'),
+        join(root, 'scripts/generate-claude-trees.mjs'),
+      );
+      const esc = (p: string) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const tmp = realpathSync(tmpdir());
+      const deny = ['.claude/agents', '.claude/commands']
+        .map(
+          (d) =>
+            `(subpath ${JSON.stringify(`${root}/${d}`)}) (regex ${JSON.stringify(`^${esc(root)}/(.*/)?${esc(d)}/.*(/.*)?$`)})`,
+        )
+        .join(' ');
+      const profile =
+        `(version 1)(allow default)(deny file-write*)` +
+        `(allow file-write* (subpath ${JSON.stringify(root)}) (subpath ${JSON.stringify(tmp)}) (literal "/dev/null"))` +
+        `(deny file-write* ${deny})`;
+      const run = (...args: string[]) =>
+        spawnSync(
+          'sandbox-exec',
+          ['-p', profile, process.execPath, 'scripts/generate-claude-trees.mjs', ...args],
+          {
+            cwd: root,
+            encoding: 'utf8',
+          },
+        );
+
+      const build = run('--no-kimi');
+      expect(build.status).toBe(1);
+      expect(build.stderr).toMatch(
+        /EPERM: operation not permitted, mkdir '.*\/\.claude\/agents\/core'/,
+      );
+      const stale = run('--probe');
+      expect(stale.status).toBe(1);
+      expect(stale.stderr).toMatch(
+        /cannot write under .*\.claude\/agents \(EPERM\)[\s\S]*from outside that\s+sandbox/,
+      );
+
+      writeTrees({ outRoot: root, wanted: planTrees({ root }), withKimi: false }); // the publisher
+      const fresh = run('--probe');
+      expect(fresh.status, fresh.stderr).toBe(0);
+      expect(fresh.stdout).toMatch(/\.claude\/agents are refused here \(EPERM\)/);
+      expect(run('--no-kimi').stdout).toMatch(/0 written, 0 removed/);
+    });
+  });
 });

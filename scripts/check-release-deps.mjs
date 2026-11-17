@@ -25,9 +25,12 @@
  * instead of the registry check: the Claude SDK version the CLI pins
  * (peerDependencies in packages/@monomind/cli/package.json) must be installed
  * in `$MONOMIND_HOME/deps` (default `~/.monomind/deps`), or agent trials and
- * drills fail late; and scripts/generate-claude-trees.mjs --probe must pass,
- * so a host that cannot run the tree generator is reported before BUILD.
- * Read-only; not run by the release workflow, whose runner has no deps cache.
+ * drills fail late; and scripts/generate-claude-trees.mjs --probe --host-only
+ * must pass, so a host that cannot run the tree generator is reported before
+ * BUILD. Host only: this runs as the publisher in the operator's checkout,
+ * whose derived trees the org cannot write and which is not what gets built,
+ * and outside the builder's SDK sandbox; BUILD probes its own writes in SRC.
+ * Not run by the release workflow, whose runner has no deps cache.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -129,7 +132,7 @@ function preflight() {
   if (sdk) problems.push(sdk);
   const res = spawnSync(
     process.execPath,
-    [join(repoRoot, 'scripts', 'generate-claude-trees.mjs'), '--probe'],
+    [join(repoRoot, 'scripts', 'generate-claude-trees.mjs'), '--probe', '--host-only'],
     { cwd: repoRoot, encoding: 'utf8' },
   );
   if (res.status !== 0) {
