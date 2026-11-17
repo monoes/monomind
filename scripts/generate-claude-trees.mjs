@@ -370,7 +370,10 @@ export function compileGeneratedSkills(root = REPO_ROOT) {
       MONODESIGN_OUTPUTS.every((rel) => existsSync(join(root, rel)));
     if (!fresh) {
       try {
-        execFileSync(process.execPath, [script], { cwd: root, stdio: ['ignore', 'ignore', 'pipe'] });
+        execFileSync(process.execPath, [script], {
+          cwd: root,
+          stdio: ['ignore', 'ignore', 'pipe'],
+        });
       } catch (err) {
         const stderr = `${err.stderr ?? ''}`.trim();
         throw new Error(
@@ -463,7 +466,9 @@ export async function main(argv) {
   try {
     if (argv.includes('--probe')) {
       probe();
-      console.log('✓ generate-claude-trees can run here (git ls-files and node child processes work).');
+      console.log(
+        '✓ generate-claude-trees can run here (git ls-files and node child processes work).',
+      );
       return 0;
     }
     if (check) {

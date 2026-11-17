@@ -2,9 +2,16 @@
  * Publish guard (#780): a released package's workspace deps must be on npm or
  * in the release set. The registry lookup is injected, so this runs offline.
  */
-import { describe, expect, it } from 'vitest';
-// @ts-expect-error plain .mjs script without types
-import { findUnpublishedDeps } from '../../scripts/check-release-deps.mjs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  claudeSdkPin,
+  findClaudeSdkProblem,
+  findUnpublishedDeps,
+  // @ts-expect-error plain .mjs script without types
+} from '../../scripts/check-release-deps.mjs';
 
 const workspace = new Map([
   ['cli', { name: 'cli', version: '2.29.3', deps: ['hooks', 'routing'] }],
@@ -57,5 +64,57 @@ describe('findUnpublishedDeps', () => {
       isOnNpm: () => false,
     });
     expect(problems.map((p: { dep: string }) => p.dep)).toContain('hooks');
+  });
+});
+
+describe('findClaudeSdkProblem (#789)', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  });
+  const tempHome = () => {
+    const d = mkdtempSync(join(tmpdir(), 'release-deps-home-'));
+    dirs.push(d);
+    return d;
+  };
+  const install = (deps: string, version: string, pkgVersion = version) => {
+    const dir = join(
+      deps,
+      `@anthropic-ai+claude-agent-sdk@${version}`,
+      'node_modules',
+      '@anthropic-ai',
+      'claude-agent-sdk',
+    );
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: pkgVersion }));
+  };
+
+  it('reads the pin from the CLI manifest', () => {
+    expect(claudeSdkPin()).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it('passes when MONOMIND_HOME/deps holds the pinned version', () => {
+    const mh = tempHome();
+    install(join(mh, 'deps'), '0.3.319');
+    expect(
+      findClaudeSdkProblem({ pin: '0.3.319', env: { MONOMIND_HOME: mh }, home: '/nonexistent' }),
+    ).toBeNull();
+  });
+
+  it('defaults to <home>/.monomind/deps and names the older versions it found', () => {
+    const home = tempHome();
+    install(join(home, '.monomind', 'deps'), '0.3.303');
+    const problem = findClaudeSdkProblem({ pin: '0.3.319', env: {}, home });
+    expect(problem).toContain(join(home, '.monomind', 'deps'));
+    expect(problem).toContain('found only 0.3.303');
+    expect(problem).toContain('monomind deps install');
+  });
+
+  it('does not count a directory whose package.json carries another version', () => {
+    const mh = tempHome();
+    install(join(mh, 'deps'), '0.3.319', '0.3.1');
+    expect(findClaudeSdkProblem({ pin: '0.3.319', env: { MONOMIND_HOME: mh } })).toMatch(
+      /not installed/,
+    );
   });
 });
