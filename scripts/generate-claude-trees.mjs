@@ -41,7 +41,10 @@
  *         if this host cannot run the generator: git ls-files, spawning node,
  *         and a test write into every destination, which fails only where
  *         something needs writing (#789); writes nothing that stays. The
- *         release preflight and the release org's BUILD run it
+ *         release org's BUILD runs it in the checkout it builds
+ *     node scripts/generate-claude-trees.mjs --probe --host-only    only git
+ *         ls-files and spawning node, no writes: the release preflight, which
+ *         runs in the operator's checkout, not the one that gets built
  *
  * Writes are skipped for files that already hold the right bytes, so running
  * it while tests read the trees is safe.
@@ -500,15 +503,17 @@ function writeDenied(root, dir) {
  * writing (missing, diverged or stale against the plan); when it is already
  * current the generator writes nothing there, which is reported as a note.
  * The kimi trees (they need the built CLI to plan) and the compile cache must
- * be writable. Leaves nothing behind. Throws with the reason; returns notes.
+ * be writable. Leaves nothing behind. `hostOnly` skips the writes. Throws with
+ * the reason; returns notes.
  */
-export function probe(root = REPO_ROOT) {
+export function probe(root = REPO_ROOT, { hostOnly = false } = {}) {
   const wanted = planTrees({ root, strict: true });
   try {
     execFileSync(process.execPath, ['-e', ''], { stdio: ['ignore', 'ignore', 'pipe'] });
   } catch (err) {
     throw new Error(`cannot start a node child process (${process.execPath}): ${err.message}`);
   }
+  if (hostOnly) return [];
   const { missing, diverged, stale } = diffTrees({ outRoot: root, wanted, withKimi: false });
   const pending = [...missing, ...diverged, ...stale];
   const always = [CACHE_DIR, ...OWNED.filter((o) => o.kimi).map((o) => o.dir)];
@@ -538,7 +543,7 @@ export function probe(root = REPO_ROOT) {
 export async function main(argv) {
   if (argv.includes('--help') || argv.includes('-h')) {
     console.log(
-      'Usage: node scripts/generate-claude-trees.mjs [--check] [--no-kimi] [--strict] [--probe]',
+      'Usage: node scripts/generate-claude-trees.mjs [--check] [--no-kimi] [--strict] [--probe [--host-only]]',
     );
     return 0;
   }
@@ -547,9 +552,12 @@ export async function main(argv) {
   const strict = check || argv.includes('--strict');
   try {
     if (argv.includes('--probe')) {
-      for (const note of probe()) console.log(`  note: ${note}`);
+      const hostOnly = argv.includes('--host-only');
+      for (const note of probe(REPO_ROOT, { hostOnly })) console.log(`  note: ${note}`);
       console.log(
-        '✓ generate-claude-trees can run here (git ls-files, node child processes and its writes work).',
+        hostOnly
+          ? '✓ generate-claude-trees can run on this host (git ls-files and node child processes work).'
+          : '✓ generate-claude-trees can run here (git ls-files, node child processes and its writes work).',
       );
       return 0;
     }

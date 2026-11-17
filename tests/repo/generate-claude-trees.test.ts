@@ -192,6 +192,8 @@ describe('generate-claude-trees', () => {
         expect(() => probe(root)).toThrow(
           /cannot write under .*\.claude\/agents \(EACCES\), and 1 file\(s\) there need writing, e\.g\. .*core\/coder\.md[\s\S]*\.claude\/commands/,
         );
+        // The release preflight probes the operator's checkout: host only.
+        expect(probe(root, { hostOnly: true })).toEqual([]);
       },
     );
 
