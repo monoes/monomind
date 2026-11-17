@@ -94,7 +94,11 @@ const mtimeMs = (p) => {
     return undefined;
   }
 };
+/** This process's pid namespace. A platform without them (macOS) has one per
+ *  host, named after it: without a name the dead-holder check never ran there,
+ *  and a crashed run's lock held for max-age-hours (#798). */
 const pidNamespace = () => {
+  if (process.platform !== 'linux') return `host:${hostname()}`;
   try {
     return readlinkSync('/proc/self/ns/pid');
   } catch {

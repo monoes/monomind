@@ -18,12 +18,13 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { trackDescendants } from '../orgrt/process-tree.js';
 import { EXEC_TREE_ENV, pidsWithMarker } from '../orgrt/process-tree-marker.js';
+import { psReadsProcessTable } from './ps-probe.js';
 
 function isAlive(pid: number): boolean {
   try {
@@ -49,16 +50,23 @@ const SETSID =
 /** A long-running job whose environment the marker scan can read. macOS hides
  *  the environment of SIP-protected platform binaries (`ps -E` shows nothing
  *  for /bin/sleep), so there the job is a node process — the marker logic
- *  under test is identical, only the executable differs. `tag` is a unique
- *  number that `pgrep` can anchor on. */
+ *  under test is identical, only the executable differs. */
 const jobCmd = (tag: number): string =>
   process.platform === 'darwin'
     ? `${process.execPath} -e "setInterval(Object,${tag}e6)"`
     : `sleep ${tag}`;
-const jobPattern = (tag: number): string =>
-  process.platform === 'darwin'
-    ? `^${process.execPath} -e setInterval\\(Object,${tag}e6\\)$`
-    : `^sleep ${tag}$`;
+
+/** The pid a nested shell wrote with `echo $! > file`, once it is there. A
+ *  pid file, not a `pgrep` on the command line: a job an earlier run left
+ *  behind has the same command line, and matching it too never settles (#798). */
+function pidFrom(file: string): number | undefined {
+  try {
+    const pid = Number(readFileSync(file, 'utf8').trim());
+    return pid > 0 ? pid : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /** Spawns a leader that runs a NESTED shell in its own session/process
  *  group (`setsid`) — exactly like the real Claude Code CLI's Bash tool
@@ -79,184 +87,197 @@ function spawnLeaderWithFleetingNestedJob(): number {
   return leader.pid;
 }
 
-describe('trackDescendants: continuous sampling reaches a job whose launching shell has ALREADY exited', () => {
-  let spawnedPids: number[] = [];
+// reason: needs a `ps` that can read the process table, which a macOS Seatbelt sandbox denies (#798)
+describe.skipIf(!psReadsProcessTable('process-tree-tracker'))(
+  'trackDescendants: continuous sampling reaches a job whose launching shell has ALREADY exited',
+  () => {
+    let spawnedPids: number[] = [];
+    let scratchDirs: string[] = [];
+    const scratch = (): string => {
+      const dir = mkdtempSync(join(tmpdir(), 'monomind-798-pids-'));
+      scratchDirs.push(dir);
+      return dir;
+    };
 
-  afterEach(() => {
-    // Safety net: kill anything this test discovered but a mid-test
-    // assertion failure left alive, by explicit recorded pid.
-    for (const pid of spawnedPids) {
-      try {
-        process.kill(pid, 'SIGKILL');
-      } catch {
-        /* already gone */
+    afterEach(() => {
+      // Safety net: kill anything this test discovered but a mid-test
+      // assertion failure left alive, by explicit recorded pid.
+      for (const pid of spawnedPids) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {
+          /* already gone */
+        }
       }
-    }
-    spawnedPids = [];
-  });
+      spawnedPids = [];
+      for (const dir of scratchDirs) rmSync(dir, { recursive: true, force: true });
+      scratchDirs = [];
+    });
 
-  it('(a) signal(): kills the orphaned job even after the launching shell is fully gone — the scenario a plain closure cannot reach', async () => {
-    const leaderPid = spawnLeaderWithFleetingNestedJob();
-    const tracker = trackDescendants(leaderPid, { intervalMs: 20 });
+    it('(a) signal(): kills the orphaned job even after the launching shell is fully gone — the scenario a plain closure cannot reach', async () => {
+      const leaderPid = spawnLeaderWithFleetingNestedJob();
+      const tracker = trackDescendants(leaderPid, { intervalMs: 20 });
 
-    // The sampler must catch the job while the nested shell still connects
-    // it to leaderPid. (The set seen at this instant also includes
-    // short-lived scaffolding — the outer/nested shells' own keep-alive
-    // sleeps — that is EXPECTED to exit on its own shortly; only the real
-    // background job is meant to still be running afterward.)
-    await waitFor(() => tracker.liveMembers().pids.length >= 1, 3000);
+      // The sampler must catch the job while the nested shell still connects
+      // it to leaderPid. (The set seen at this instant also includes
+      // short-lived scaffolding — the outer/nested shells' own keep-alive
+      // sleeps — that is EXPECTED to exit on its own shortly; only the real
+      // background job is meant to still be running afterward.)
+      await waitFor(() => tracker.liveMembers().pids.length >= 1, 3000);
 
-    // Now wait for EVERYTHING above the job — the outer leader AND the
-    // nested shell — to be fully gone, simulating "the user hits Stop
-    // minutes later": nothing but the orphan itself is left running, and
-    // a fresh point-in-time closure from leaderPid would find nothing.
-    await waitFor(() => !isAlive(leaderPid), 3000);
-    await new Promise((r) => setTimeout(r, 250)); // let the nested shell fully exit too
+      // Now wait for EVERYTHING above the job — the outer leader AND the
+      // nested shell — to be fully gone, simulating "the user hits Stop
+      // minutes later": nothing but the orphan itself is left running, and
+      // a fresh point-in-time closure from leaderPid would find nothing.
+      await waitFor(() => !isAlive(leaderPid), 3000);
+      await new Promise((r) => setTimeout(r, 250)); // let the nested shell fully exit too
 
-    // Re-query AFTER teardown: `liveMembers()` only returns pids that are
-    // BOTH recorded (seen during sampling) AND still alive right now — the
-    // real assertion this test exists for is that the actual background
-    // job survives this filter (i.e. is still discoverable) even though
-    // its whole launching chain is gone.
-    const survivors = tracker.liveMembers().pids;
-    spawnedPids = [leaderPid, ...survivors];
-    expect(survivors.length).toBeGreaterThanOrEqual(1);
-    for (const p of survivors) expect(isAlive(p)).toBe(true);
+      // Re-query AFTER teardown: `liveMembers()` only returns pids that are
+      // BOTH recorded (seen during sampling) AND still alive right now — the
+      // real assertion this test exists for is that the actual background
+      // job survives this filter (i.e. is still discoverable) even though
+      // its whole launching chain is gone.
+      const survivors = tracker.liveMembers().pids;
+      spawnedPids = [leaderPid, ...survivors];
+      expect(survivors.length).toBeGreaterThanOrEqual(1);
+      for (const p of survivors) expect(isAlive(p)).toBe(true);
 
-    tracker.stop();
-    tracker.signal('SIGKILL');
+      tracker.stop();
+      tracker.signal('SIGKILL');
 
-    await waitFor(() => survivors.every((p) => !isAlive(p)), 3000);
-    for (const p of survivors) expect(isAlive(p)).toBe(false);
-  }, 10_000);
+      await waitFor(() => survivors.every((p) => !isAlive(p)), 3000);
+      for (const p of survivors) expect(isAlive(p)).toBe(false);
+    }, 10_000);
 
-  it('(b) liveMembers(): reports the orphaned job as a background survivor on a normal end_turn (nohup-style)', async () => {
-    const leaderPid = spawnLeaderWithFleetingNestedJob();
-    const tracker = trackDescendants(leaderPid, { intervalMs: 20 });
+    it('(b) liveMembers(): reports the orphaned job as a background survivor on a normal end_turn (nohup-style)', async () => {
+      const leaderPid = spawnLeaderWithFleetingNestedJob();
+      const tracker = trackDescendants(leaderPid, { intervalMs: 20 });
 
-    await waitFor(() => tracker.liveMembers().pids.length >= 1, 3000);
-    await waitFor(() => !isAlive(leaderPid), 3000);
-    await new Promise((r) => setTimeout(r, 250));
+      await waitFor(() => tracker.liveMembers().pids.length >= 1, 3000);
+      await waitFor(() => !isAlive(leaderPid), 3000);
+      await new Promise((r) => setTimeout(r, 250));
 
-    const { pids, supported } = tracker.liveMembers();
-    spawnedPids = [leaderPid, ...pids];
-    expect(supported).toBe(true);
-    expect(pids.length).toBeGreaterThanOrEqual(1);
-    for (const p of pids) expect(isAlive(p)).toBe(true);
+      const { pids, supported } = tracker.liveMembers();
+      spawnedPids = [leaderPid, ...pids];
+      expect(supported).toBe(true);
+      expect(pids.length).toBeGreaterThanOrEqual(1);
+      for (const p of pids) expect(isAlive(p)).toBe(true);
 
-    tracker.stop();
-    // Test cleanup, by explicit recorded pid (afterEach is the backstop).
-    for (const p of pids) {
-      try {
-        process.kill(p, 'SIGKILL');
-      } catch {
-        /* already gone */
+      tracker.stop();
+      // Test cleanup, by explicit recorded pid (afterEach is the backstop).
+      for (const p of pids) {
+        try {
+          process.kill(p, 'SIGKILL');
+        } catch {
+          /* already gone */
+        }
       }
-    }
-  }, 10_000);
+    }, 10_000);
 
-  it("(c) the sampler interval is unref'd — it never keeps a process alive on its own", () => {
-    const scratch = mkdtempSync(join(tmpdir(), 'monomind-359-tracker-'));
-    try {
-      const modulePath = join(__dirname, '..', 'orgrt', 'process-tree.ts').replace(/\\/g, '/');
-      const scriptPath = join(scratch, 'script.cjs');
-      // No stop() call, no other work: if the interval holds the event loop
-      // open, this process hangs until spawnSync's own timeout kills it.
-      writeFileSync(
-        scriptPath,
-        `const { trackDescendants } = require(${JSON.stringify(modulePath)});\n` +
-          `const t = trackDescendants(process.pid, { intervalMs: 20 });\n` +
-          `t.sampleNow();\n`,
-      );
-      const tsxCjs = require.resolve('tsx/cjs');
-      const res = spawnSync(process.execPath, ['-r', tsxCjs, scriptPath], {
-        timeout: 3000,
-        stdio: 'ignore',
-      });
-      // spawnSync sets `.signal` when ITS OWN timeout had to kill the
-      // child — that would mean an interval kept the process alive.
-      expect(res.signal).toBeNull();
-      expect(res.error).toBeUndefined();
-    } finally {
-      rmSync(scratch, { recursive: true, force: true });
-    }
-  }, 8_000);
-
-  it.skipIf(process.platform === 'win32')(
-    '(d) the env marker reaches a job whose whole launching chain exited before any sample ran',
-    async () => {
-      const token = randomUUID();
-      // The nested shell backgrounds the job and exits at once; the tracker
-      // is only created after the whole chain is gone, with no timer tick,
-      // so the sampled closure can never have seen it — only the marker can.
-      const leader = spawn('sh', ['-c', `${SETSID} sh -c '${jobCmd(1000)} & exit' & exit`], {
-        detached: true,
-        stdio: 'ignore',
-        env: { ...process.env, [EXEC_TREE_ENV]: token },
-      });
-      const leaderPid = leader.pid as number;
-      leader.unref();
-      await waitFor(() => !isAlive(leaderPid) && pidsWithMarker(token).length === 1, 5_000);
-      const [jobPid] = pidsWithMarker(token);
-      spawnedPids = [jobPid];
-      expect(pidsWithMarker(randomUUID())).toEqual([]);
-
-      const tracker = trackDescendants(leaderPid, { intervalMs: 60_000, marker: token });
+    it("(c) the sampler interval is unref'd — it never keeps a process alive on its own", () => {
+      const scratch = mkdtempSync(join(tmpdir(), 'monomind-359-tracker-'));
       try {
-        expect(tracker.liveMembers().pids).toContain(jobPid);
-        tracker.signal('SIGKILL');
-        await waitFor(() => !isAlive(jobPid), 5_000);
-        expect(tracker.liveMembers().pids).toEqual([]);
-      } finally {
-        tracker.stop();
-      }
-    },
-    10_000,
-  );
-
-  it.skipIf(process.platform === 'win32')(
-    '(e) a process that left the tree (MONOMIND_EXEC_TREE set to another value, #366) is never reported or killed',
-    async () => {
-      const token = randomUUID();
-      const findByArg = (arg: string): number[] =>
-        spawnSync('pgrep', ['-f', jobPattern(Number(arg))], { encoding: 'utf8' })
-          .stdout.split('\n')
-          .filter(Boolean)
-          .map(Number);
-      // A hook-style setup daemon (env marker cleared) and a real background
-      // job, both started from nested setsid shells that stay long enough for
-      // the sampler to record them.
-      const leader = spawn(
-        'sh',
-        [
-          '-c',
-          `MONOMIND_EXEC_TREE= ${SETSID} sh -c '${jobCmd(1366)} & sleep 0.3' & ${SETSID} sh -c '${jobCmd(1367)} & sleep 0.3' & sleep 0.4`,
-        ],
-        { detached: true, stdio: 'ignore', env: { ...process.env, [EXEC_TREE_ENV]: token } },
-      );
-      const leaderPid = leader.pid as number;
-      leader.unref();
-      const tracker = trackDescendants(leaderPid, { intervalMs: 20, marker: token });
-      try {
-        await waitFor(
-          () => findByArg('1366').length === 1 && findByArg('1367').length === 1,
-          5_000,
+        const modulePath = join(__dirname, '..', 'orgrt', 'process-tree.ts').replace(/\\/g, '/');
+        const scriptPath = join(scratch, 'script.cjs');
+        // No stop() call, no other work: if the interval holds the event loop
+        // open, this process hangs until spawnSync's own timeout kills it.
+        writeFileSync(
+          scriptPath,
+          `const { trackDescendants } = require(${JSON.stringify(modulePath)});\n` +
+            `const t = trackDescendants(process.pid, { intervalMs: 20 });\n` +
+            `t.sampleNow();\n`,
         );
-        const [daemon] = findByArg('1366');
-        const [job] = findByArg('1367');
-        spawnedPids = [daemon, job];
-        await waitFor(() => !isAlive(leaderPid), 5_000);
-        await new Promise((r) => setTimeout(r, 400)); // nested shells exit too
-        const { pids } = tracker.liveMembers();
-        expect(pids).toContain(job);
-        expect(pids).not.toContain(daemon);
-        tracker.signal('SIGKILL');
-        await waitFor(() => !isAlive(job), 5_000);
-        expect(isAlive(daemon)).toBe(true);
+        const tsxCjs = require.resolve('tsx/cjs');
+        const res = spawnSync(process.execPath, ['-r', tsxCjs, scriptPath], {
+          timeout: 3000,
+          stdio: 'ignore',
+        });
+        // spawnSync sets `.signal` when ITS OWN timeout had to kill the
+        // child — that would mean an interval kept the process alive.
+        expect(res.signal).toBeNull();
+        expect(res.error).toBeUndefined();
       } finally {
-        tracker.stop();
+        rmSync(scratch, { recursive: true, force: true });
       }
-    },
-    10_000,
-  );
-});
+    }, 8_000);
+
+    it.skipIf(process.platform === 'win32')(
+      '(d) the env marker reaches a job whose whole launching chain exited before any sample ran',
+      async () => {
+        const token = randomUUID();
+        const jobFile = join(scratch(), 'job.pid');
+        // The nested shell backgrounds the job and exits at once; the tracker
+        // is only created after the whole chain is gone, with no timer tick,
+        // so the sampled closure can never have seen it — only the marker can.
+        const leader = spawn(
+          'sh',
+          ['-c', `${SETSID} sh -c '${jobCmd(1000)} & echo $! > "${jobFile}"; exit' & exit`],
+          { detached: true, stdio: 'ignore', env: { ...process.env, [EXEC_TREE_ENV]: token } },
+        );
+        const leaderPid = leader.pid as number;
+        leader.unref();
+        await waitFor(() => pidFrom(jobFile) !== undefined, 5_000);
+        const jobPid = pidFrom(jobFile) as number;
+        spawnedPids = [jobPid];
+        await waitFor(() => !isAlive(leaderPid) && pidsWithMarker(token).length === 1, 5_000);
+        expect(pidsWithMarker(token)).toEqual([jobPid]);
+        expect(pidsWithMarker(randomUUID())).toEqual([]);
+
+        const tracker = trackDescendants(leaderPid, { intervalMs: 60_000, marker: token });
+        try {
+          expect(tracker.liveMembers().pids).toContain(jobPid);
+          tracker.signal('SIGKILL');
+          await waitFor(() => !isAlive(jobPid), 5_000);
+          expect(tracker.liveMembers().pids).toEqual([]);
+        } finally {
+          tracker.stop();
+        }
+      },
+      10_000,
+    );
+
+    it.skipIf(process.platform === 'win32')(
+      '(e) a process that left the tree (MONOMIND_EXEC_TREE set to another value, #366) is never reported or killed',
+      async () => {
+        const token = randomUUID();
+        const dir = scratch();
+        const daemonFile = join(dir, 'daemon.pid');
+        const jobFile = join(dir, 'job.pid');
+        // A hook-style setup daemon (env marker cleared) and a real background
+        // job, both started from nested setsid shells that stay long enough for
+        // the sampler to record them.
+        const leader = spawn(
+          'sh',
+          [
+            '-c',
+            `MONOMIND_EXEC_TREE= ${SETSID} sh -c '${jobCmd(1366)} & echo $! > "${daemonFile}"; sleep 0.3' & ${SETSID} sh -c '${jobCmd(1367)} & echo $! > "${jobFile}"; sleep 0.3' & sleep 0.4`,
+          ],
+          { detached: true, stdio: 'ignore', env: { ...process.env, [EXEC_TREE_ENV]: token } },
+        );
+        const leaderPid = leader.pid as number;
+        leader.unref();
+        const tracker = trackDescendants(leaderPid, { intervalMs: 20, marker: token });
+        try {
+          await waitFor(
+            () => pidFrom(daemonFile) !== undefined && pidFrom(jobFile) !== undefined,
+            5_000,
+          );
+          const daemon = pidFrom(daemonFile) as number;
+          const job = pidFrom(jobFile) as number;
+          spawnedPids = [daemon, job];
+          await waitFor(() => !isAlive(leaderPid), 5_000);
+          await new Promise((r) => setTimeout(r, 400)); // nested shells exit too
+          const { pids } = tracker.liveMembers();
+          expect(pids).toContain(job);
+          expect(pids).not.toContain(daemon);
+          tracker.signal('SIGKILL');
+          await waitFor(() => !isAlive(job), 5_000);
+          expect(isAlive(daemon)).toBe(true);
+        } finally {
+          tracker.stop();
+        }
+      },
+      10_000,
+    );
+  },
+);

@@ -152,13 +152,19 @@ export default function setup(): () => void {
     }
   }
   const snapshot = realHome ? snapshotHome(realHome) : null;
-  const home = mkdtempSync(join(tmpdir(), 'mm-test-run-home-'));
+  // The workspace run (`test:all:run`) runs this once per project, before any test: an
+  // earlier project's value is kept, so each project's dirs sit side by side in the outer
+  // temp dir instead of one inside the other. Nested three deep under the release gate's
+  // TMPDIR, a daemon lock socket path passed 100 bytes, fell back to /tmp, which the
+  // sandbox denies: 58 files failed with `listen EPERM` in the 2.29.4 gate's full run (#798).
+  const outer = process.env.MONOMIND_TEST_OUTER_TMP ?? tmpdir();
+  const home = mkdtempSync(join(outer, 'mm-test-run-home-'));
   useTestHome(home);
   // One temp root for the run, removed with it: nothing a test leaves reaches /tmp.
   // (A forked file makes its own dir next to it, under the outer temp dir: a shorter
   // path, which suites that start Chrome need for its socket paths.)
-  process.env.MONOMIND_TEST_OUTER_TMP = tmpdir();
-  const tmp = mkdtempSync(join(tmpdir(), 't-'));
+  process.env.MONOMIND_TEST_OUTER_TMP = outer;
+  const tmp = mkdtempSync(join(outer, 't-'));
   useTestTmp(tmp);
   return () => {
     for (const k of KEYS) {

@@ -53,7 +53,7 @@
         "DISPATCH. Everything is an org_task or org_plan_graph, publisher's SETUP, WORKTREES, INTEGRATE, PREP, PUBLISH and ISSUE FILING included, never a plain org_send. Title stays short (`<PHASE> r<N> <VERSION>`, e.g. `TESTS r2 2.16.1`). The `brief` (at most ~25 lines of instructions and paths) holds: VERSION, the SHA, the ABSOLUTE worktree path ({{org_root}}/.monomind/orgs/release/work/src, .../work/docs or .../work/fix-2; never a label like `src`: the completion gate refused 11 of 11 first closes in 2.16.1), GATE, what to run (numbered issues, QA sections), the QA bin `GATE/install-<short-sha>/node_modules/.bin/monomind`, which documents to read, and for publisher the skill to load (`release-preflight-setup`, `release-integrate-prep` or `release-publish`). Never send details in a later org_send: mail reaches a role only when its turn ends (2.16.0: details arrived after the role started, maintainer closed tasks before reading them), so a correction goes in the brief or a follow-up task. Plan a round with org_plan_graph. Dependencies: a node lists prerequisite NAMES in `after`; org_task lists task IDs in `deps`; org_plan_graph silently drops any other key (2.16.7: every node carried `deps`, all came back ready and cli-qa started before the tarballs existed). Every TESTS and QA node has `after: [<that round's BUILD node>]`, DOCS is `after` its WORKTREES node, a fixer FIX is `after` its WORKTREES node. Example (briefs omitted): org_plan_graph({\"tasks\":[{\"name\":\"build_r1\",\"title\":\"BUILD r1 2.16.8\",\"assignee\":\"builder\",\"brief\":\"…\"},{\"name\":\"tests_r1\",\"title\":\"TESTS r1 2.16.8\",\"assignee\":\"builder\",\"after\":[\"build_r1\"],\"brief\":\"…\"},{\"name\":\"cliqa_r1\",\"assignee\":\"cli-qa\",\"after\":[\"build_r1\"],…},{\"name\":\"intqa_r1\",\"assignee\":\"integration-qa\",\"after\":[\"build_r1\"],…},{\"name\":\"runtimeqa_r1\",\"assignee\":\"runtime-qa\",\"after\":[\"build_r1\"],…}]}). CHECK THE RESULT at once: only nodes without `after` may be `ready`; a dependent shown `ready` lost its edge: org_task_cancel it and recreate it with org_task and `deps`. FIX tasks go to maintainer (and fixer, see PARALLEL FIXES), DOCS to docs-writer, audits to release-auditor. Each completion returns as `[task:<id>] DONE`: act on it, do not poll. Look at one task with org_tasks {taskId}; never list the whole board (2.16.2: 37 tasks re-sent every time).",
         "DOCUMENTS. Roles hand work over as schema-validated documents: builder `build-record`, `test-record`; cli-qa, integration-qa, runtime-qa `qa-cli-record`, `qa-integration-record`, `qa-runtime-record`; maintainer/fixer `fix-record`; docs-writer `docs-record`; publisher `prep-record`; release-auditor `audit-verdict`. Publisher decides (accepts or rejects with a reason) test, QA, fix, docs and audit records; docs-writer decides `fix-record`; release-auditor decides `prep-record`. A rejection goes straight to the producer, who republishes (bounded by max_rework_rounds); nobody needs to relay it. When a thread exhausted its rework and its head is still not accepted, decide it yourself with org_doc_decide or cancel and recreate the task. Read a record instead of asking for a report, then verify its cited logs (SUPERVISION). You are the only role that sees unaccepted documents of every section.",
         "QA SCOPE. Before each round map the diff since the last published release (`git -C SRC diff --stat v<previous>..HEAD`) to QA areas: init/cleanup/hooks, monograph, memory/knowledge, MCP, agents/agent-exec, orgs, browse/design, packaging, docs-only. QA is THREE parallel tasks every round (cli-qa: CLI surface; integration-qa: MCP, hooks, browser; runtime-qa: agent exec, org runtime drills), never one role after another (integration QA alone was 29.5 of the 70 min of 2.15.7). Each runs the CORE SMOKE (install from tarball, `--version`, `init --yes` in a scratch project, `doctor`, `mcp start` tools/list, one `org validate`) plus only the checklist sections whose area the diff touches, named in the brief. Run FULL checklists for a MINOR/MAJOR version, when the diff touches shared infrastructure (CLI entry, init, packaging, build config) or is too broad to map. Record the mapping in REPORT.md. SAFETY: never dispatch a task that runs a destructive command (`cleanup`, `init --force`, recursive deletes, `git clean/reset/checkout`) anywhere but a scratch project; if a role reports damage to ORG_ROOT stop dispatching, have publisher restore tracked files from git, and record the incident for ISSUE FILING.",
-        "PIPELINE, strictly in this order. Serialize writers and readers of the SAME worktree: nothing reads or builds SRC while a role changes it (a FIX in SRC, INTEGRATE, PREP); work in DOCS or FIX2 never blocks SRC. (1) ROUND N: builder BUILD (build, static gates, pack, clean install; publishes `build-record`) then builder TESTS (`test-record`) and cli-qa, integration-qa, runtime-qa in parallel on that build, scoped per QA SCOPE. (2) REGRESSION TRIAGE comes before any FIX: for every FAIL, and every FLAKY with a findable root cause, have the reporting QA role (or builder) re-run the EXACT failing repro against the last PUBLISHED version (a quick task: `npm install monomind@<previous>` into a scratch dir under {{home}}/mrg-tmp, foreground, Bash `timeout: 600000`). Fails there too: PRE-EXISTING, not a blocker, draft it for ISSUE FILING with the repro (fix it now only if small and done within ONE fix round). Passes there: REGRESSION, a numbered FIX item. Record each result in REPORT.md (2.16.2 spent 4 FIX tasks and ~70 min on a defect that 2.16.1 already had). FIX CAP: at most 2 fix attempts per defect per release; after the second failure stop, record it, draft an issue; for a regression revert the offending change when isolated, else NO-GO. The next round re-runs build + tests in full and QA only for the areas the fixes touched plus the core smoke. At most 4 fix rounds, still failing means NO-GO. OVERLAP: the moment a task completes dispatch everything whose inputs now exist. QA runs against the round's TARBALLS so it never blocks on SRC. (3) DOCS starts as soon as a round's fix commits are in SRC (or when round 1 closes clean with no fixes), in PARALLEL with the next round: publisher WORKTREES creates DOCS (branch release/<VERSION>-docs at SRC HEAD), docs-writer DOCS `after` it. PRE-AUDIT starts as soon as the next round's BUILD lands: release-auditor reviews the fix commits at SRC HEAD concurrently with the checks and DOCS; a round that closes clean with no FIX items has no next round, so dispatch the PRE-AUDIT at once on that round's SHA, concurrently with DOCS, never skipping it (2.16.1 did and the final audit took 12.9 min instead of a 6 min delta). Its brief gives the range `v<previous>..<round SHA>` and the round's evidence dirs; the FINAL audit's brief gives the pre-audit SHA and re-checks only the delta. (4) DOCS MERGE once DOCS is closed AND the round is clean AND every task pinned to SRC's HEAD is closed: publisher INTEGRATE (fast-forward when SRC has not moved since the docs base, else cherry-pick). If the round failed DOCS waits in its worktree for the next clean round; when later fixes change user-visible behaviour send docs-writer a DOCS top-up task naming those commits. Then publisher PREP (bump + CHANGELOG + release commit; brief per release-captain-ops 'Who takes the release number' and listing every commit in the range with its user-visible effect from the fix records and pre-audit). Never move SRC (FIX in SRC, INTEGRATE, PREP) while a task whose evidence pins SRC's current HEAD is open; a commit in DOCS or FIX2 never stales SRC evidence. (5) FINAL GATE on the exact release HEAD. If every commit since the last fully verified round's SHA only changes version fields in package.json, CHANGELOG.md or docs (prove it: `git -C SRC diff --stat <verified sha>..HEAD` plus the package.json diff, no source, test, build-config or lockfile change) say LIGHT GATE: builder runs install, build, `npm run check:versions`, pack and the install smoke only, then release-auditor. Otherwise builder BUILD, then TESTS and the scoped QA, then release-auditor. (6) A FAIL or an auditor rejection returns to (2). POST-AUDIT FREEZE: once the FINAL audit APPROVES, no source change enters SRC, not a late fix, not a commit on a fix branch; it waits for the next release. Get the CHANGELOG right in PREP; a commit touching only files outside every package's npm `files` list and outside test/build inputs (e.g. CHANGELOG.md) needs only an auditor re-check, not a full gate.",
+        "PIPELINE, strictly in this order. Serialize writers and readers of the SAME worktree: nothing reads or builds SRC while a role changes it (a FIX in SRC, INTEGRATE, PREP); work in DOCS or FIX2 never blocks SRC. (1) ROUND N: builder BUILD (build, static gates, pack, clean install; publishes `build-record`; GENTREES first: builder's SDK sandbox cannot write the derived `.claude/agents` and `.claude/commands` trees, #789, so publisher's SETUP generates them, and after a FIX, INTEGRATE or PREP commit touching `.claude/` or `packages/@monomind/cli/claude-overlay/` dispatch publisher GENTREES with that BUILD `after` it; a BUILD ending `GENTREES NEEDED` gets GENTREES and the same BUILD again, not a fix round) then builder TESTS (`test-record`) and cli-qa, integration-qa, runtime-qa in parallel on that build, scoped per QA SCOPE. (2) REGRESSION TRIAGE comes before any FIX: for every FAIL, and every FLAKY with a findable root cause, have the reporting QA role (or builder) re-run the EXACT failing repro against the last PUBLISHED version (a quick task: `npm install monomind@<previous>` into a scratch dir under {{home}}/mrg-tmp, foreground, Bash `timeout: 600000`). Fails there too: PRE-EXISTING, not a blocker, draft it for ISSUE FILING with the repro (fix it now only if small and done within ONE fix round). Passes there: REGRESSION, a numbered FIX item. Record each result in REPORT.md (2.16.2 spent 4 FIX tasks and ~70 min on a defect that 2.16.1 already had). FIX CAP: at most 2 fix attempts per defect per release; after the second failure stop, record it, draft an issue; for a regression revert the offending change when isolated, else NO-GO. The next round re-runs build + tests in full and QA only for the areas the fixes touched plus the core smoke. At most 4 fix rounds, still failing means NO-GO. OVERLAP: the moment a task completes dispatch everything whose inputs now exist. QA runs against the round's TARBALLS so it never blocks on SRC. (3) DOCS starts as soon as a round's fix commits are in SRC (or when round 1 closes clean with no fixes), in PARALLEL with the next round: publisher WORKTREES creates DOCS (branch release/<VERSION>-docs at SRC HEAD), docs-writer DOCS `after` it. PRE-AUDIT starts as soon as the next round's BUILD lands: release-auditor reviews the fix commits at SRC HEAD concurrently with the checks and DOCS; a round that closes clean with no FIX items has no next round, so dispatch the PRE-AUDIT at once on that round's SHA, concurrently with DOCS, never skipping it (2.16.1 did and the final audit took 12.9 min instead of a 6 min delta). Its brief gives the range `v<previous>..<round SHA>` and the round's evidence dirs; the FINAL audit's brief gives the pre-audit SHA and re-checks only the delta. (4) DOCS MERGE once DOCS is closed AND the round is clean AND every task pinned to SRC's HEAD is closed: publisher INTEGRATE (fast-forward when SRC has not moved since the docs base, else cherry-pick). If the round failed DOCS waits in its worktree for the next clean round; when later fixes change user-visible behaviour send docs-writer a DOCS top-up task naming those commits. Then publisher PREP (bump + CHANGELOG + release commit; brief per release-captain-ops 'Who takes the release number' and listing every commit in the range with its user-visible effect from the fix records and pre-audit). Never move SRC (FIX in SRC, INTEGRATE, PREP) while a task whose evidence pins SRC's current HEAD is open; a commit in DOCS or FIX2 never stales SRC evidence. (5) FINAL GATE on the exact release HEAD. If every commit since the last fully verified round's SHA only changes version fields in package.json, CHANGELOG.md or docs (prove it: `git -C SRC diff --stat <verified sha>..HEAD` plus the package.json diff, no source, test, build-config or lockfile change) say LIGHT GATE: builder runs install, build, `npm run check:versions`, pack and the install smoke only, then release-auditor. Otherwise builder BUILD, then TESTS and the scoped QA, then release-auditor. (6) A FAIL or an auditor rejection returns to (2). POST-AUDIT FREEZE: once the FINAL audit APPROVES, no source change enters SRC, not a late fix, not a commit on a fix branch; it waits for the next release. Get the CHANGELOG right in PREP; a commit touching only files outside every package's npm `files` list and outside test/build inputs (e.g. CHANGELOG.md) needs only an auditor re-check, not a full gate.",
         "PARALLEL FIXES. A role runs its tasks one after another (2.16.0: the second fix queued 14.7 min behind the first on maintainer). With 2 or more FIX items group them by the files each will touch (`grep`, `git -C SRC log`). Disjoint groups run at the same time: group 1 to maintainer in SRC; group 2 to fixer in FIX2 (branch release/<VERSION>-fix-2 at SRC HEAD, created by a publisher WORKTREES task the fixer's task is `after`); more than two groups merge into two. Overlapping or unsure: ONE FIX task to maintainer. When both are closed publisher INTEGRATE cherry-picks FIX2's commits onto SRC, ONLY from FIX tasks that completed: commits a CANCELLED task left are never integrated (cancelling does not stop the assignee; 2.16.2's fixer committed after cancel); keep that branch for the next release and list it in REPORT.md. A conflict aborts and those items go to maintainer as a new FIX task. Only then dispatch the next round's BUILD on SRC HEAD, and DOCS per PIPELINE (3).",
         "SUPERVISION (nobody else will catch these). Before accepting ANY record or report, check its cited $GATE logs yourself for SHA, mtime, exit code and asserted output, in ONE Bash call covering every cited log (`stat -c '%y %n' <logs>; grep -nE 'exit=|FAIL|passed|failed|<sha>' <logs>; tail -n 15 <log>`) or Read with offset/limit; never cat a whole log (the captain was 2.16.2's most expensive role, $15.59). A rejection is ONE follow-up org_task naming exactly what is missing, never also an org_send of the same request (2.15.6 did the work twice). REJECT and re-dispatch: (a) a PASS without matching evidence; (b) a SKIP/'incomplete'/'non-blocking'/'expected' on a mandatory check without proof; (c) 'environmental' failures without a reproduction: re-run each failing test file 3 times in isolation while nothing else runs, 3/3 pass means a FLAKY warning with that evidence, otherwise FAIL; (d) 'no docs needed' without grep evidence per user-visible change; (e) evidence read from older runs. RESTARTS: when `org logs` shows `agent-restart` for a role check its task is still in progress (org_tasks); if it stalled cancel and recreate it naming the log paths already finished (#247). PROVENANCE after every commit and before the final gate: `git -C SRC log --format='%h %an <%ae> / %cn <%ce>' <target>..HEAD` all nokhodian with no forbidden trailers, and `git -C {{org_root}} config --local --get user.name` empty; on a violation send publisher PROVENANCE REPAIR and verify again. LESSONS: record per release-captain-ops. Keep briefs and reports short and evidence on disk: findings about the release go in REPORT.md, not in prose to other roles.",
         "VERDICT and CLOSE-OUT. GO only if every mandatory check on the final release SHA is PASS (FLAKY only with 3/3 isolated-pass evidence), release-auditor APPROVES, your own SUPERVISION re-check agrees and the GitHub `Tests` gate passed (release-captain-ops). When the final audit is in, `org_skill_load` release-closeout and follow it: REPORT.md and verdict.json, the PUBLISH task, DONE CHECK, issue drafting, CLEAN UP, release lock, org_complete. NO-GO still runs CLEAN UP and releases the lock. Never publish without GO."
@@ -88,7 +88,9 @@
         "sandbox": {
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -100,7 +102,7 @@
       "reports_to": "release-captain",
       "responsibilities": [
         "Every task reaches you as an org_task whose brief gives this run's VERSION, SHA, SRC, GATE and the ABSOLUTE worktree path. Your session starts fresh: rely only on the brief, the rules and the logs on disk. Finish with org_task_done (check table in `result`, evidence per the rules, worktree = the absolute path) and publish your record; org_send release-captain only for something it must act on before you finish.",
-        "BUILD task: in SRC at the SHA you were given (`git -C SRC rev-parse HEAD`): `pnpm install --frozen-lockfile` (a mismatch is a FAIL), `pnpm -r run build`, confirm every workspace package produced its dist. Run the install, the build and each gate in its own FOREGROUND Bash call with `timeout: 600000`, logging to $GATE/logs/build/<round>-<step>.log.",
+        "BUILD task: in SRC at the SHA you were given (`git -C SRC rev-parse HEAD`): first `node scripts/generate-claude-trees.mjs --probe` (it test-writes every derived `.claude` tree destination; your SDK sandbox can never write below a `.claude/agents` or `.claude/commands` directory, so it passes only while those trees in SRC are current. Exit 1 naming one of them: build nothing, publish no `build-record`, and org_task_done with result `GENTREES NEEDED` plus its message and that one check in evidence with `expectExit: 1` and the reason, not a FAIL, so release-captain has publisher regenerate them, #789; any other exit 1 is a FAIL), then `pnpm install --frozen-lockfile` (a mismatch is a FAIL), `pnpm -r run build`, confirm every workspace package produced its dist. Run the install, the build and each gate in its own FOREGROUND Bash call with `timeout: 600000`, logging to $GATE/logs/build/<round>-<step>.log.",
         "Static gates: `pnpm run lint`, `pnpm run typecheck`, `node scripts/check-publish-versions.mjs`, `node scripts/generate-doc-counts.mjs --check`, `node scripts/lint-skills.mjs`, `node scripts/check-monograph-exports.mjs`, `node packages/@monomind/cli/bin/cli.js platforms docs --check`, `pnpm audit --audit-level high`, plus any build/lint/check step in .github/workflows/tests.yml or publish-smoke-test.yml not listed. A LIGHT GATE brief runs only install, build, `npm run check:versions`, PACK and CLEAN INSTALL.",
         "PACK every non-private package and root `monomind` into $GATE/tarballs/<short-sha>: bins and dist present, no `workspace:` specifiers. CLEAN INSTALL into $GATE/install-<short-sha> (`npm init -y`, then `npm install` all the tarballs at once; run the release-scratch proof): `--version` and `init --help` exit 0 with no missing-module errors. Publish `build-record` with the bin path and tarball list.",
         "TESTS task (after that round's BUILD): in SRC, built at your SHA: `pnpm run test:all:run`, `pnpm --filter @monoes/monobrowse test`, `pnpm --filter @monoes/monodesign test`, `pnpm --filter monofence-ai test`, `pnpm run test:security`, `node bin/cli.js doc eval --provision-model`, then `pnpm run test:semantic-eval`, plus any test job in .github/workflows/tests.yml not covered. Log each to $GATE/logs/tests/<round>-<suite>.log, each suite in its own FOREGROUND call with `timeout: 600000`; split a suite that can exceed 10 minutes (`pnpm --filter <pkg> test` per package). Record per suite passed/failed/skipped and duration; exit 0 with zero tests, or a jump in skipped tests, is a FAIL. Rerun each failing file 3 times in isolation while nothing else runs: fails any time is FAIL (assertion, file:line); 3/3 passes is FLAKY with all outputs. Never edit tests or source, never use .skip/.only; classify each failure as a real break or an environment problem with the exact error and a reproduction. Publish `test-record`.",
@@ -135,7 +137,9 @@
         "sandbox": {
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -184,7 +188,9 @@
           ],
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -232,7 +238,9 @@
           ],
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -279,7 +287,9 @@
           ],
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -328,7 +338,9 @@
         "sandbox": {
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       },
@@ -378,7 +390,9 @@
         "sandbox": {
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       },
@@ -392,7 +406,7 @@
       "responsibilities": [
         "Every task reaches you as an org_task whose brief gives VERSION, SHA, GATE and DOCS (the ABSOLUTE path). Fresh session per task: rely only on the brief, the rules and the logs on disk. Finish with org_task_done and publish `docs-record`; org_send release-captain only for something it must act on before you finish. You get DOCS tasks, always in DOCS = {{org_root}}/.monomind/orgs/release/work/docs on branch release/<VERSION>-docs (publisher creates it at the last fix SHA). DOCS runs while the next QA round checks SRC, so never touch SRC or ORG_ROOT. Evidence: `worktree` = that absolute path (never `docs`) + its HEAD. Publisher brings your commit into SRC: never merge, rebase or push. DOCS is a fresh worktree: before any command that needs the built CLI run `pnpm install --frozen-lockfile --prefer-offline` and `pnpm -r run build` in it, each in its own FOREGROUND call with `timeout: 600000`. Start with the lessons recall.",
         "DOCS task: edit only docs, with Read/Edit on DOCS paths only; CHANGELOG belongs to publisher; never push. SCOPE: every user-visible change from the last `chore(release): publish` commit to DOCS HEAD: commands, flags, MCP tools (additions AND removals), hooks, org runtime and agent-exec protocol, config, install/init, counts. Read the accepted `fix-record`s for what the fixes changed.",
-        "Update README.md, doc/*.md (including the agent-exec-protocol revision history), docs/, changed package READMEs and the site (doc/index.html, doc/orgs.html, doc/llms.txt; monoes.github.io/monomind deploys from doc/). Keep structure, styles and ids. For removed features grep DOCS and delete or replace every remaining mention.",
+        "Update README.md, doc/*.md (including the agent-exec-protocol revision history), docs/, changed package READMEs and the site (doc/index.html, doc/orgs.html, doc/llms.txt; monoes.github.io/monomind deploys from doc/). Keep structure, styles and ids; leave the `logo-ver` version in doc/index.html alone (PREP bumps it with package.json, #794). For removed features grep DOCS and delete or replace every remaining mention.",
         "READ IN BULK: one Bash command printing every range you need, or Read with offset/limit; never a string of one-range peeks (2.16.0's DOCS made 240 tool calls and cost $11.74, 18% of the run).",
         "VERIFY: `node scripts/generate-doc-counts.mjs` then `--check`; `platforms docs --check`; links/anchors resolve; every documented command exists (`--help`).",
         "Commit once in DOCS (release-commit rules, `git -C DOCS commit`) as `docs: update docs and site for <VERSION>`. If nothing needs changing you MUST attach grep evidence per user-visible change showing its docs are already accurate or not applicable (`docs-record` with no_change true). DOCS top-up (fixes that landed after DOCS was created changed user-visible behaviour): read those commits with `git -C SRC show <sha>`, document only them, VERIFY again, commit once more as `docs: cover <short-sha list> for <VERSION>`."
@@ -429,7 +443,9 @@
         "sandbox": {
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -440,7 +456,7 @@
       "type": "specialist",
       "reports_to": "release-captain",
       "responsibilities": [
-        "You hold the org's npm, GitHub and git credentials (policy.git push). Every task reaches you as an org_task whose brief gives VERSION, SHA, SRC, GATE and the ABSOLUTE worktree path; your session starts fresh. FIRST ACTION of every task: `org_skill_load` the skill for its type, then do exactly what it lists and refuse anything else: PREFLIGHT and SETUP (`release-preflight-setup`); WORKTREES, INTEGRATE, PREP, PROVENANCE REPAIR (`release-integrate-prep`); PUBLISH, post-npm steps, LOCAL MAIN SYNC, ISSUE FILING, CLEAN UP (`release-publish`). Finish with org_task_done (result = table, evidence per the rules, worktree = the absolute path, e.g. {{org_root}}/.monomind/orgs/release/work/src); org_send release-captain only for something it must act on before you finish. SRC/doc/publishing.md is the source of truth.",
+        "You hold the org's npm, GitHub and git credentials (policy.git push). Every task reaches you as an org_task whose brief gives VERSION, SHA, SRC, GATE and the ABSOLUTE worktree path; your session starts fresh. FIRST ACTION of every task: `org_skill_load` the skill for its type, then do exactly what it lists and refuse anything else: PREFLIGHT, SETUP and GENTREES (`release-preflight-setup`); WORKTREES, INTEGRATE, PREP, PROVENANCE REPAIR (`release-integrate-prep`); PUBLISH, post-npm steps, LOCAL MAIN SYNC, ISSUE FILING, CLEAN UP (`release-publish`). Finish with org_task_done (result = table, evidence per the rules, worktree = the absolute path, e.g. {{org_root}}/.monomind/orgs/release/work/src); org_send release-captain only for something it must act on before you finish. SRC/doc/publishing.md is the source of truth.",
         "ALWAYS, whatever you loaded: PUBLISH only in a PUBLISH task from release-captain and only after you confirmed verdict.json says GO for SRC's HEAD and the newest accepted final `audit-verdict` says APPROVE for it; one package at a time in the foreground, never `--force` or force-push, never unpublish, never publish `monomind` before its pinned CLI version is live, stop on an OTP/2FA demand. Push only the fast-forward of main, the release tag and a TAG HEAL tag. Never run `git config` (sole exception: removing a repo-local identity in PROVENANCE REPAIR). Never touch ORG_ROOT except LOCAL MAIN SYNC after its write probe passes. Never push for real, change config or touch SRC during preflight. If an org tool call fails, say what finished and END THE TURN so the runtime restarts you.",
         "DOCUMENTS. You decide `build-record`, `test-record`, `qa-cli-record`, `qa-integration-record`, `qa-runtime-record`, `fix-record`, `docs-record` and `audit-verdict` (a notice wakes you per publish): read the whole document, check its SHA is the round's SHA, every non-PASS row has a finding, the cited logs exist (one stat/grep call on the logs, never a whole log), then accept, or reject with a reason the producer can act on. You publish `prep-record` after PREP."
       ],
@@ -478,7 +494,9 @@
         "sandbox": {
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -528,7 +546,9 @@
           ],
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }

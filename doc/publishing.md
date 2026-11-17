@@ -137,21 +137,22 @@ Bump rules:
 - **A sub-package takes a major only with a breaking commit** (`type(scope)!:` or a `BREAKING CHANGE:` footer) touching it since the last release tag. Never copy the release number onto a sub-package (#636).
 - **A bump does not cascade.** Dependents use `workspace:*`, which pnpm rewrites to the exact version at pack time, so a bumped sub-package is picked up by the next CLI publish without editing the CLI.
 
-`pnpm run check:versions` runs all of these through `scripts/check-versions.mjs` (one summary, every check runs even after a failure; `--no-registry` skips the one that needs npm). Each script also runs alone:
+`pnpm run check:versions` runs all of these through `scripts/check-versions.mjs` (one summary, every check runs even after a failure; `--no-registry` skips the two that need npm). Each script also runs alone:
 
 | Script | Enforces |
 | --- | --- |
-| `check-publish-versions.mjs` | umbrella and CLI versions equal; umbrella pin is `workspace:*`; publishing root with pnpm |
+| `check-publish-versions.mjs` | umbrella and CLI versions equal; the doc site's logo version (`logo-ver` in `doc/index.html`) matches them; umbrella pin is `workspace:*`; publishing root with pnpm |
 | `check-package-bumps.mjs` | shipped changes need a bump; no unearned major. `MONOMIND_ALLOW_STALE_PACKAGES=1` / `MONOMIND_ALLOW_MAJOR_BUMP=1` skip |
 | `check-workspace-protocol.mjs` | every sibling dependency uses `workspace:` |
 | `check-overrides-source.mjs` | overrides live only in `pnpm-workspace.yaml` |
 | `check-published-pins.mjs` | the packages a manifest pins already exist on npm (needs the registry; checks one package, `.` by default). `MONOMIND_ALLOW_UNPUBLISHED_PINS=1` skips |
+| `check-release-deps.mjs` | every workspace dependency of a package in the release set (`release-packages.mjs`) is on npm or released in the same run (needs the registry; skipped with no previous `v*` tag). `MONOMIND_ALLOW_UNPUBLISHED_PINS=1` skips. `--preflight` instead checks the release host: the CLI's pinned Claude SDK is installed in `~/.monomind/deps` (`$MONOMIND_HOME/deps`) and `generate-claude-trees.mjs --probe` runs |
 
-`prepublishOnly` still calls the five scripts directly.
+Root `prepublishOnly` still calls the first five scripts directly; `check-release-deps.mjs` runs as its own step of the release workflow, and its `--preflight` form in the release org's PREFLIGHT.
 
 ### Tagging and the release workflow
 
-Tag every release `v<umbrella version>`. `node scripts/tag-release.mjs` refuses on a dirty tree or failing checks, then **prints** the `git tag -a` and `git push origin` commands; it never runs them. Pushing the tag starts `.github/workflows/release.yml`: it builds, runs `check-versions` and `test:all:run`, then publishes with pnpm (provenance on) every package whose version differs from the previous `v*` tag (`scripts/release-packages.mjs`), siblings first, CLI, then umbrella, skipping versions already on npm. Run it from the Actions tab with `publish` left false for a dry run.
+Tag every release `v<umbrella version>`. `node scripts/tag-release.mjs` refuses on a dirty tree or failing checks, then **prints** the `git tag -a` and `git push origin` commands; it never runs them. Pushing the tag starts `.github/workflows/release.yml`: it builds, runs `check-versions --no-registry`, then `check-release-deps` (registry-backed, so not part of that run), then `test:all:run`, then publishes with pnpm (provenance on) every package whose version differs from the previous `v*` tag (`scripts/release-packages.mjs`), siblings first, CLI, then umbrella, skipping versions already on npm. Run it from the Actions tab with `publish` left false for a dry run.
 
 One-time setup the maintainer owns: an `NPM_TOKEN` secret (automation token with publish rights) scoped to the `release` GitHub environment, required reviewers on that environment as the approval gate, and the packages' npm provenance settings (or trusted publishing) allowing GitHub Actions. The first tag has no previous tag to diff against, so run `release-packages.mjs --base <ref>` by hand once to check the list.
 
@@ -273,6 +274,12 @@ pnpm run sync:claude-trees:check    # regenerate into a temp dir twice, compare;
 `packages/@monomind/cli/.claude/` (the shipped tree) is the root `.claude/` plus the files in
 `packages/@monomind/cli/claude-overlay/`, minus repo-only paths. The CLI `build`, `prepack` and
 the vitest global setup run the generator, so a pack or publish always ships a fresh tree.
+The generator copies only git-tracked `.claude/` files. Where `git ls-files` cannot list them
+(no checkout, a sandbox that blocks git) it warns and copies every file on disk instead, which
+can include untracked machine-local files; with `--strict` it fails instead. `prepack` passes
+`--strict` and `--check` implies it, so a pack or publish never ships an untracked file.
+`node scripts/generate-claude-trees.mjs --probe` checks, without writing anything, that a host
+can run the generator.
 `tests/repo/no-skill-ownership-markers.test.ts` fails if a skill file carries a `skills:`
 ownership marker.
 

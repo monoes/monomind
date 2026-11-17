@@ -18,9 +18,23 @@
  *
  * Skipped when no release tag is reachable. MONOMIND_ALLOW_UNPUBLISHED_PINS=1
  * skips it, matching check-published-pins.mjs.
+ *
+ *   node scripts/check-release-deps.mjs --preflight
+ *
+ * The release org's PREFLIGHT, on the machine that runs the release (#789),
+ * instead of the registry check: the Claude SDK version the CLI pins
+ * (peerDependencies in packages/@monomind/cli/package.json) must be installed
+ * in `$MONOMIND_HOME/deps` (default `~/.monomind/deps`), or agent trials and
+ * drills fail late; and scripts/generate-claude-trees.mjs --probe --host-only
+ * must pass, so a host that cannot run the tree generator is reported before
+ * BUILD. Host only: this runs as the publisher in the operator's checkout,
+ * whose derived trees the org cannot write and which is not what gets built,
+ * and outside the builder's SDK sandbox; BUILD probes its own writes in SRC.
+ * Not run by the release workflow, whose runner has no deps cache.
  */
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { changedPackages, previousTag } from './release-packages.mjs';
@@ -74,6 +88,65 @@ export function findUnpublishedDeps({ workspace, releaseSet, isOnNpm }) {
   return problems;
 }
 
+const SDK = '@anthropic-ai/claude-agent-sdk';
+
+/** The SDK version the CLI pins. */
+export function claudeSdkPin(root = repoRoot) {
+  const cli = JSON.parse(readFileSync(join(root, 'packages/@monomind/cli/package.json'), 'utf8'));
+  return cli.peerDependencies?.[SDK];
+}
+
+/**
+ * Whether the deps cache holds a complete copy of the pinned SDK: the
+ * package.json inside `<deps>/@anthropic-ai+claude-agent-sdk@<pin>/` must carry
+ * the pin (a directory existing proves nothing, #592). Returns a problem
+ * string, or null when it is installed.
+ */
+export function findClaudeSdkProblem({ pin, env = process.env, home = homedir() }) {
+  const deps = join(env.MONOMIND_HOME || join(home, '.monomind'), 'deps');
+  const prefix = `${SDK.replace('/', '+')}@`;
+  const pj = join(deps, `${prefix}${pin}`, 'node_modules', SDK, 'package.json');
+  try {
+    if (JSON.parse(readFileSync(pj, 'utf8')).version === pin) return null;
+  } catch {
+    // missing or unreadable: reported below
+  }
+  let others = [];
+  try {
+    others = readdirSync(deps)
+      .filter((e) => e.startsWith(prefix) && e !== `${prefix}${pin}`)
+      .map((e) => e.slice(prefix.length));
+  } catch {
+    // no deps dir
+  }
+  return (
+    `${SDK}@${pin} (the CLI's pin) is not installed in ${deps}` +
+    (others.length ? ` (found only ${others.join(', ')})` : '') +
+    '. Fix: run `monomind deps install` outside any org role.'
+  );
+}
+
+function preflight() {
+  const problems = [];
+  const sdk = findClaudeSdkProblem({ pin: claudeSdkPin() });
+  if (sdk) problems.push(sdk);
+  const res = spawnSync(
+    process.execPath,
+    [join(repoRoot, 'scripts', 'generate-claude-trees.mjs'), '--probe', '--host-only'],
+    { cwd: repoRoot, encoding: 'utf8' },
+  );
+  if (res.status !== 0) {
+    const why = `${res.stderr ?? ''}`.trim() || res.error?.message || `exit ${res.status}`;
+    problems.push(`scripts/generate-claude-trees.mjs cannot run on this host: ${why}`);
+  }
+  if (problems.length) {
+    console.error('\n✗ release preflight:\n');
+    for (const p of problems) console.error(`    ${p}`);
+    process.exit(1);
+  }
+  console.log(`✓ release preflight ok — ${SDK}@${claudeSdkPin()} installed, tree generator runs`);
+}
+
 /** Whether name@version is on npm; throws if the registry is unreachable. */
 function npmHas(name, version) {
   try {
@@ -90,6 +163,7 @@ function npmHas(name, version) {
 }
 
 function main() {
+  if (process.argv.includes('--preflight')) return preflight();
   if (process.env.MONOMIND_ALLOW_UNPUBLISHED_PINS === '1') {
     console.log('✓ release-deps check skipped (MONOMIND_ALLOW_UNPUBLISHED_PINS=1)');
     return;

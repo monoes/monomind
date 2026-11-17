@@ -82,6 +82,13 @@ export const watchCommand: Command = {
         },
       });
       watcher.on('monograph:updated', (files: string[]) => queue.enqueue(files));
+      // chokidar reports a watch it cannot set up as an error. Inside a macOS
+      // Seatbelt sandbox FSEvents is unreachable: every fs.watch fails with
+      // EMFILE, no handle is left, and the process used to exit right after
+      // "Watching for changes…" without saying why (#798).
+      watcher.on('monograph:error', (err: unknown) =>
+        output.printError(`Watch error: ${formatErrorWithCause(err)}`),
+      );
       await watcher.start();
 
       output.printSuccess('Watching for changes…');

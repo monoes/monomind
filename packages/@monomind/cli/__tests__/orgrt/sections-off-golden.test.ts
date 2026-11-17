@@ -59,6 +59,7 @@ import {
 import { computeOrgDefHash } from '../../src/orgrt/org-signature.js';
 import { OrgBus } from '../../src/orgrt/bus.js';
 import { PolicyEngine } from '../../src/orgrt/policy.js';
+import { processStartId } from '../../src/orgrt/run-liveness.js';
 import { buildRolePrompt, runAgentSession } from '../../src/orgrt/session.js';
 import { MAX_TASK_BRIEF } from '../../src/orgrt/task-dag.js';
 import { checklistFindings } from '../../src/orgrt/validate-checklist.js';
@@ -238,6 +239,9 @@ describe('sections-off golden: a scripted run', () => {
     expectGolden('run-bus', run.bus);
     // the role directories the bubblewrap mask creates up front are absent on a host without bubblewrap
     const maskDirs = /^alpha\/(\.mail|reports|runs|scratch|work|workspace)\/$/;
+    // runtime.json records pidStart only on a host that can read a start identity;
+    // one with no procfs and `ps` denied (a macOS Seatbelt sandbox) cannot (#798)
+    const noStartId = processStartId(process.pid) === undefined;
     expectGolden(
       'run-files',
       {
@@ -247,7 +251,11 @@ describe('sections-off golden: a scripted run', () => {
         checkpointVersion: run.checkpointVersion,
         sessionsKeys: run.sessionsKeys,
       },
-      (v) => ({ ...v, files: v.files.filter((f: string) => !maskDirs.test(f)) }),
+      (v) => ({
+        ...v,
+        files: v.files.filter((f: string) => !maskDirs.test(f)),
+        runtimeKeys: noStartId ? v.runtimeKeys.filter((k: string) => k !== 'pidStart') : v.runtimeKeys,
+      }),
     );
   });
 

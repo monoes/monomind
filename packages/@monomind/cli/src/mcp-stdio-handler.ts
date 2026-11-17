@@ -155,7 +155,8 @@ export async function handleMCPMessage(
 
         try {
           const result = await callMCPTool(toolName, toolParams, { sessionId });
-          trackRequest(toolName, true);
+          // A handler that returns {isError: true} failed, even though it did not throw (#790).
+          trackRequest(toolName, !(result as { isError?: unknown } | null)?.isError);
           // Handlers return MCPToolResult {content, isError} — pass through directly.
           // Only wrap in a text envelope if the result is not already MCP-shaped.
           const isMcpResult =

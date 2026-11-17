@@ -8,11 +8,12 @@
  * check-workspace-protocol, check-overrides-source, check-published-pins,
  * check-release-deps.
  * Every check runs even if an earlier one fails, so one pass reports all the
- * problems. Each script still works alone (and `prepublishOnly` still calls
- * them directly). Exits 1 if any check failed.
+ * problems. Each script still works alone (root `prepublishOnly` still calls
+ * the first five directly; check-release-deps runs as its own step of the
+ * release workflow). Exits 1 if any check failed.
  *
- * check-published-pins asks the npm registry whether the root's pinned
- * siblings exist. --no-registry (or MONOMIND_CHECK_VERSIONS_OFFLINE=1) skips it.
+ * check-published-pins and check-release-deps ask the npm registry.
+ * --no-registry (or MONOMIND_CHECK_VERSIONS_OFFLINE=1) skips both.
  * See doc/publishing.md ("Version policy").
  */
 import { spawnSync } from 'node:child_process';
@@ -26,7 +27,7 @@ const offline =
 export const CHECKS = [
   {
     script: 'check-publish-versions.mjs',
-    what: 'umbrella and CLI versions agree, pin is workspace:*',
+    what: 'umbrella, CLI and doc site logo versions agree, pin is workspace:*',
   },
   { script: 'check-package-bumps.mjs', what: 'changed packages are bumped, no unearned major' },
   { script: 'check-workspace-protocol.mjs', what: 'internal deps use workspace:*' },

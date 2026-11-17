@@ -149,6 +149,32 @@ describe('formatNativeDiagnosis', () => {
     expect(text).toContain('fix     : cd /g/node_modules/monomind && npm rebuild');
     expect(text).toContain('will not touch the file above');
   });
+
+  const missingAt = (resolved: string) =>
+    diagnoseNativeLoadError(
+      new Error('Could not locate the bindings file. Tried:\n → build/better_sqlite3.node'),
+      'better-sqlite3',
+      RUNTIME,
+      resolved,
+    );
+
+  it('gives an npm install tree the npm allow-scripts hint (#793)', () => {
+    const text = formatNativeDiagnosis(missingAt('/p/node_modules/better-sqlite3/lib/index.js'));
+    expect(text).toContain('npm install-scripts approve better-sqlite3');
+    expect(text).not.toContain('pnpm');
+  });
+
+  it('gives a pnpm install tree the pnpm equivalent, never the npm command (#793)', () => {
+    const text = formatNativeDiagnosis(
+      missingAt(
+        '/p/node_modules/.pnpm/better-sqlite3@12.11.1/node_modules/better-sqlite3/lib/index.js',
+      ),
+    );
+    expect(text).toContain('pnpm approve-builds');
+    expect(text).toContain('onlyBuiltDependencies');
+    expect(text).toContain('pnpm rebuild better-sqlite3');
+    expect(text).not.toContain('npm install-scripts');
+  });
 });
 
 describe('planAutoRebuild', () => {
@@ -208,6 +234,14 @@ describe('runNativeRebuild verifies the binding (issue #782)', () => {
     expect(res.output).toContain('npm install-scripts approve better-sqlite3');
   });
 
+  it('trims the whole message, so an empty rebuild output leaves no leading newline (#793)', () => {
+    const res = runNativeRebuild(missing(), {
+      run: () => ({ status: 0, stdout: '', stderr: '' }),
+      verify: missing,
+    });
+    expect(res.output.startsWith('The rebuild command exited 0')).toBe(true);
+  });
+
   it('reports success only when the verification probe loads the binding', () => {
     expect(runNativeRebuild(missing(), { run: exit0, verify: okProbe }).ok).toBe(true);
   });
@@ -234,7 +268,9 @@ describe('explainMonographError (issue #782)', () => {
     const msg = explainMonographError(wrapped);
     expect(msg).toContain('never built');
     expect(msg).toContain('npm rebuild better-sqlite3');
-    expect(msg).toContain('install-scripts approve');
+    // The hint follows the package manager owning the resolved install (#793):
+    // a pnpm workspace checkout gets the pnpm one, an npm install the npm one.
+    expect(msg).toMatch(/npm install-scripts approve|pnpm approve-builds/);
   });
 
   it('keeps the whole cause chain for unrelated errors', () => {

@@ -78,6 +78,15 @@ describe('agent teams are opt-in', () => {
     mkdirSync(join(proj, '.claude'), { recursive: true });
     const saved = process.env.HOME;
     process.env.HOME = home;
+    // The check reads the process env too, and a suite run from a Claude Code
+    // session inherits that session's settings, which outrank these notes (#798).
+    for (const k of [
+      'CLAUDE_CODE_EFFORT_LEVEL',
+      'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
+      'CLAUDE_CODE_MAX_OUTPUT_TOKENS',
+      'ENABLE_TOOL_SEARCH',
+    ])
+      delete process.env[k];
     try {
       writeFileSync(
         join(proj, '.claude', 'settings.json'),

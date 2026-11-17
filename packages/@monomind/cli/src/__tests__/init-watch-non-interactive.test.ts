@@ -135,7 +135,17 @@ describe('init does not orphan a watcher in a non-interactive run', () => {
     if (pid !== undefined) spawned.push(pid);
 
     expect(pid, '--watch should force the watcher even without a TTY').toBeDefined();
-    expect(isAlive(pid as number)).toBe(true);
+    if (isAlive(pid as number)) return;
+    // Dead already: only acceptable where the host cannot watch files. Inside a
+    // macOS Seatbelt sandbox (the release gate's) FSEvents is unreachable, every
+    // fs.watch fails with EMFILE and the watcher exits, saying so in its log
+    // (#798). The spawn decision above is what this test is about.
+    const log = join(cwd, '.monomind', 'monograph.watch.log');
+    const why = existsSync(log) ? readFileSync(log, 'utf8').slice(-2000) : 'no watch log';
+    expect(why, 'the watcher exited without a watch error').toMatch(/Watch error: .*\bwatch\b/);
+    console.warn(
+      `init-watch-non-interactive: the watcher could not watch files here (#798):\n${why}`,
+    );
   }, 130_000);
 
   // init used to shell out to `npx monomind@latest swarm init`: a registry

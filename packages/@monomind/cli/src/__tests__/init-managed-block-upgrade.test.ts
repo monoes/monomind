@@ -1,5 +1,5 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateClaudeMd } from '../init/claudemd-generator.js';
@@ -81,7 +81,9 @@ describe('init --force on instruction files written by an older version (GH #276
   let options: typeof DEFAULT_INIT_OPTIONS;
 
   beforeEach(() => {
-    tmp = mkdtempSync(join(tmpdir(), 'monomind-init-276-'));
+    // Under the test HOME, where the ancestor CLAUDE.md walk stops: a temp dir under a
+    // real home (the release gate's) would otherwise pick up that home's CLAUDE.md (#798).
+    tmp = mkdtempSync(join(homedir(), 'monomind-init-276-'));
     projectDir = join(tmp, 'project');
     mkdirSync(join(projectDir, '.agents'), { recursive: true });
     claudeMdPath = join(projectDir, 'CLAUDE.md');

@@ -14,6 +14,7 @@ import { buildAsync } from '../../src/pipeline/orchestrator.js';
 import { closeDb, openDb } from '../../src/storage/db.js';
 import { ftsSearch } from '../../src/storage/fts-store.js';
 import { watchAsync } from '../../src/watch/watcher.js';
+import { fileEventsArrive } from './fs-watch-probe.js';
 
 const tmpRepo = join(tmpdir(), `monograph-watch-rebuild-${Date.now()}`);
 const dbPath = join(tmpRepo, '.monomind', 'monograph.db');
@@ -73,7 +74,8 @@ afterAll(async () => {
   rmSync(tmpRepo, { recursive: true, force: true });
 });
 
-describe('watchAsync rebuild (#338)', () => {
+// reason: needs fs.watch events, which a macOS Seatbelt sandbox does not deliver (#798)
+describe.skipIf(!fileEventsArrive('watch-rebuild'))('watchAsync rebuild (#338)', () => {
   it('makes a newly added function searchable and reports the node delta', async () => {
     const before = functionCount();
     messages = [];

@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateClaudeMd } from '../init/claudemd-generator.js';
@@ -34,7 +34,9 @@ describe('lean generated CLAUDE.md (GH #412)', () => {
   let counter = 0;
 
   beforeEach(() => {
-    tmp = mkdtempSync(join(tmpdir(), 'monomind-claudemd-lean-'));
+    // Under the test HOME, where the ancestor CLAUDE.md walk stops: a temp dir under a
+    // real home (the release gate's) would otherwise pick up that home's CLAUDE.md (#798).
+    tmp = mkdtempSync(join(homedir(), 'monomind-claudemd-lean-'));
   });
 
   afterEach(() => {

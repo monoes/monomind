@@ -193,7 +193,16 @@ export function formatNativeDiagnosis(diag: NativeBindingDiagnosis): string {
   if (diag.binaryPath) lines.push(`  binary  : ${diag.binaryPath}`);
   if (diag.target) lines.push(`  owned by: ${diag.target.rebuildCwd}`);
   if (diag.fix) lines.push(`  fix     : ${diag.fix}`);
-  if (diag.status === 'missing-binary') {
+  // The note must match the package manager the fix command uses: with no
+  // target the fix falls back to npm, so the npm note applies there too.
+  if (diag.status === 'missing-binary' && diag.target?.packageManager === 'pnpm') {
+    lines.push(
+      '  note    : pnpm 10 and newer skip dependency build scripts unless allow-listed, so no ' +
+        `binary is ever built. Approve it with \`pnpm approve-builds\` (or add ` +
+        `\`${diag.module}\` to \`onlyBuiltDependencies\` / \`pnpm.onlyBuiltDependencies\` in ` +
+        `package.json), then rebuild: \`pnpm rebuild ${diag.module}\`.`,
+    );
+  } else if (diag.status === 'missing-binary') {
     lines.push(
       '  note    : npm 12 and newer skip install scripts unless allow-listed, so no binary is ever ' +
         `built. Approve it, then rebuild: \`npm install-scripts approve ${diag.module}\` ` +
@@ -387,9 +396,10 @@ export function runNativeRebuild(
   return {
     ok: false,
     command,
-    output:
+    output: (
       `${output}\nThe rebuild command exited 0 but the binding still does not load ` +
-      `(install scripts were probably skipped):\n${formatNativeDiagnosis(after)}`.trim(),
+      `(install scripts were probably skipped):\n${formatNativeDiagnosis(after)}`
+    ).trim(),
   };
 }
 

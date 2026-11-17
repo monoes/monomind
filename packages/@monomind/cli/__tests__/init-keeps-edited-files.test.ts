@@ -69,8 +69,10 @@ describe('init keeps shipped files the user edited', () => {
   };
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-init-kept-'));
     fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-init-kept-home-'));
+    // Under that HOME, where the ancestor CLAUDE.md walk stops: a temp dir under a real
+    // home (the release gate's) would otherwise see its CLAUDE.md (#798).
+    tmpDir = fs.mkdtempSync(path.join(fakeHome, 'monomind-init-kept-'));
     realHome = process.env.HOME;
     process.env.HOME = fakeHome;
   });
@@ -183,8 +185,9 @@ describe('managed blocks edited by the user', () => {
   };
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-init-block-'));
     fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-init-block-home-'));
+    // Under that HOME, as above (#798).
+    tmpDir = fs.mkdtempSync(path.join(fakeHome, 'monomind-init-block-'));
     realHome = process.env.HOME;
     process.env.HOME = fakeHome;
   });
