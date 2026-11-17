@@ -9,9 +9,10 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   checkTrees,
+  compileGeneratedSkills,
   diffTrees,
   planTrees,
   writeTrees,
@@ -22,6 +23,7 @@ const PKG = 'packages/@monomind/cli';
 const created: string[] = [];
 
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const dir of created.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -107,6 +109,35 @@ describe('generate-claude-trees', () => {
     expect(diffTrees({ outRoot: root, wanted }).diverged).toEqual([
       '.agents/skills/alpha/SKILL.md',
     ]);
+  });
+
+  it('falls back to every file on disk with a warning when git cannot list .claude/ (#796)', () => {
+    const root = makeFixture(); // a temp dir, not a git checkout
+    write(root, '.claude/skills/alpha/untracked-local.md', 'machine-local\n');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const wanted = planTrees({ root, kimiConvert });
+    expect(wanted.has(`${PKG}/.claude/skills/alpha/untracked-local.md`)).toBe(true);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toMatch(/untracked machine-local files/);
+  });
+
+  it('fails instead of falling back when strict (release builds, #796)', () => {
+    const root = makeFixture();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(() => planTrees({ root, kimiConvert, strict: true })).toThrow(
+      /git ls-files .*ships only git-tracked \.claude\/ files/s,
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('reports the stderr of a failing monodesign compile instead of discarding it (#796)', () => {
+    const root = makeFixture();
+    write(
+      root,
+      'packages/@monoes/monodesign/scripts/sync-skill.mjs',
+      "process.stderr.write('sync-skill exploded\\n'); process.exit(3);\n",
+    );
+    expect(() => compileGeneratedSkills(root)).toThrow(/monodesign[\s\S]*sync-skill exploded/);
   });
 
   it('regenerates the live repo deterministically and completely', async () => {
