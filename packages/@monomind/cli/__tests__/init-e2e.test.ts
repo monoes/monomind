@@ -74,13 +74,15 @@ describe('Init Command E2E (real fs)', () => {
   let ctx: CommandContext;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-init-e2e-'));
     // executeInit's _registerMonomindProject() writes to
     // ~/.monomind-projects.json via os.homedir() (which reads $HOME on
     // Unix) — redirect it to a throwaway dir so real init runs don't get
     // this test's tmpdir permanently registered in the user's actual
     // project registry.
     fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-init-e2e-home-'));
+    // The project lives under that HOME, where the ancestor CLAUDE.md walk stops: a temp
+    // dir under a real home (the release gate's) would otherwise see its CLAUDE.md (#798).
+    tmpDir = fs.mkdtempSync(path.join(fakeHome, 'monomind-init-e2e-'));
     realHome = process.env.HOME;
     process.env.HOME = fakeHome;
     ctx = {

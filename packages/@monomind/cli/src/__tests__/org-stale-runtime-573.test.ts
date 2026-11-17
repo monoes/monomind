@@ -56,6 +56,17 @@ const deadPid = (): number => {
   return r.pid as number;
 };
 
+/** Whether this host reads start identities at all. With no procfs and `ps`
+ *  denied (a macOS Seatbelt sandbox, where the release gate runs the suite)
+ *  there is none, and every live pid reads as the run that wrote it (#798). */
+const hasStartIds = processStartId(process.pid) !== undefined;
+if (!hasStartIds)
+  console.warn(
+    'org-stale-runtime-573: no process start identity readable here, its tests skipped (#798)',
+  );
+// reason: needs a readable process start identity (procfs or ps), which a Seatbelt sandbox denies (#798)
+const itWithStartIds = it.skipIf(!hasStartIds);
+
 async function capture(fn: () => Promise<unknown>): Promise<string> {
   let out = '';
   const log = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => {
@@ -94,7 +105,7 @@ afterEach(() => {
 });
 
 describe('recordedPidLiveness (#573)', () => {
-  it('knows this process by its start identity', () => {
+  itWithStartIds('knows this process by its start identity', () => {
     const id = processStartId(process.pid);
     expect(id).toBeTruthy();
     expect(ownStartId()).toBe(id);
@@ -106,7 +117,7 @@ describe('recordedPidLiveness (#573)', () => {
     expect(recordedPidLiveness(deadPid())).toBe('dead');
   });
 
-  it('calls a live pid with a different start identity reused', () => {
+  itWithStartIds('calls a live pid with a different start identity reused', () => {
     expect(recordedPidLiveness(process.pid, staleStartId())).toBe('reused');
   });
 
@@ -114,18 +125,21 @@ describe('recordedPidLiveness (#573)', () => {
     expect(recordedPidLiveness(process.pid, undefined)).toBe('alive');
   });
 
-  it('does not call a live run reused when writer and reader read its identity differently', () => {
-    const id = processStartId(process.pid) as string;
-    if (!id.startsWith('linux:')) return;
-    const start = id.slice(id.lastIndexOf(':') + 1);
-    // Writer had no boot id; writer had no procfs and fell back to ps.
-    expect(recordedPidLiveness(process.pid, `linux::${start}`)).toBe('alive');
-    expect(recordedPidLiveness(process.pid, 'ps:Wed Sep 30 12:00:00 2026')).toBe('alive');
-    // …but neither proves the run is there.
-    expect(recordedPidVerified(process.pid, 'ps:Wed Sep 30 12:00:00 2026')).toBe(false);
-    expect(recordedPidVerified(process.pid, id)).toBe(true);
-    expect(recordedPidVerified(process.pid, undefined)).toBe(false);
-  });
+  itWithStartIds(
+    'does not call a live run reused when writer and reader read its identity differently',
+    () => {
+      const id = processStartId(process.pid) as string;
+      if (!id.startsWith('linux:')) return;
+      const start = id.slice(id.lastIndexOf(':') + 1);
+      // Writer had no boot id; writer had no procfs and fell back to ps.
+      expect(recordedPidLiveness(process.pid, `linux::${start}`)).toBe('alive');
+      expect(recordedPidLiveness(process.pid, 'ps:Wed Sep 30 12:00:00 2026')).toBe('alive');
+      // …but neither proves the run is there.
+      expect(recordedPidVerified(process.pid, 'ps:Wed Sep 30 12:00:00 2026')).toBe(false);
+      expect(recordedPidVerified(process.pid, id)).toBe(true);
+      expect(recordedPidVerified(process.pid, undefined)).toBe(false);
+    },
+  );
 
   it('sameStartId compares like with like', () => {
     expect(sameStartId('linux:b1:100', 'linux:b1:100')).toBe(true);
@@ -167,7 +181,7 @@ describe('org status on a dead run (#573)', () => {
     expect(readRt().status).toBe('crashed');
   });
 
-  it('treats a reused pid (alive, different process) as dead', async () => {
+  itWithStartIds('treats a reused pid (alive, different process) as dead', async () => {
     // Not process.pid: reconcile skips the caller's own pid, so a live child
     // carries the stale identity instead.
     child = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' });
@@ -193,7 +207,7 @@ describe('org status on a dead run (#573)', () => {
 });
 
 describe('other runtime.json readers (#573)', () => {
-  it('org list reports a reused pid as crashed', async () => {
+  itWithStartIds('org list reports a reused pid as crashed', async () => {
     child = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' });
     writeRt({ pid: child.pid, pidStart: staleStartId() });
     const list = JSON.parse(await capture(() => listAction(ctx([], { format: 'json' }))));
@@ -216,7 +230,7 @@ describe('other runtime.json readers (#573)', () => {
     }
   });
 
-  it('org stop does not signal a run whose pid was reused', async () => {
+  itWithStartIds('org stop does not signal a run whose pid was reused', async () => {
     child = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' });
     writeRt({ pid: child.pid, pidStart: staleStartId() });
     const res = await capture(() => stopAction(ctx([ORG])));
@@ -238,7 +252,7 @@ describe('reconcileStaleRun at org run / serve start (#573)', () => {
     expect(readRt().status).toBe('crashed');
   });
 
-  it('reports a live run with its pid so a second run is refused', async () => {
+  itWithStartIds('reports a live run with its pid so a second run is refused', async () => {
     child = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' });
     await once(child, 'spawn');
     writeRt({ pid: child.pid, pidStart: processStartId(child.pid as number) });

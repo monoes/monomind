@@ -598,6 +598,26 @@ describe('Built-in Workers', () => {
     expect(result.data?.memory).toBeDefined();
   });
 
+  it('health worker still reports when the uptime read is denied (#798)', async () => {
+    vi.resetModules();
+    vi.doMock('node:os', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('node:os')>()),
+      uptime: () => {
+        throw new Error('A system error occurred: uv_uptime returned EPERM (operation not permitted)');
+      },
+    }));
+    try {
+      const { createHealthWorker } = await import('../src/workers/worker-health.js');
+      const result = await createHealthWorker(TEST_PROJECT_ROOT)();
+      expect(result.success).toBe(true);
+      expect(result.data?.system).toMatchObject({ uptime: null });
+      expect(result.data?.memory).toBeDefined();
+    } finally {
+      vi.doUnmock('node:os');
+      vi.resetModules();
+    }
+  });
+
 });
 
 // ============================================================================

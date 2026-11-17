@@ -26,7 +26,6 @@
   "packages/@monomind/cli/__tests__/orgrt/role-sandbox.test.ts": 1,
   "packages/@monomind/cli/__tests__/orgrt/role-tmpdir-claude-sdk.test.ts": 1,
   "packages/@monomind/cli/__tests__/orgrt/sandbox-deny-write.test.ts": 1,
-  "packages/@monomind/cli/__tests__/orgrt/sandbox-shell-cwd.test.ts": 1,
   "packages/@monomind/cli/__tests__/orgrt/sandbox-stubs-sdk.test.ts": 1,
   "packages/@monomind/cli/__tests__/statusline-script-cache.test.ts": 1,
   "packages/@monomind/cli/src/__tests__/claude-sdk-lazy.test.ts": 1,

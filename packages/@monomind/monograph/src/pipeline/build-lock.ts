@@ -98,14 +98,24 @@ function isPidAlive(pid: number): boolean {
   }
 }
 
+/** When this host booted, or 0 when the boot time cannot be read (a macOS
+ *  Seatbelt sandbox denies it: "uv_uptime returned EPERM", #798); the age
+ *  check still applies then. */
+function bootedAtMs(): number {
+  try {
+    return Date.now() - uptime() * 1000;
+  } catch {
+    return 0;
+  }
+}
+
 function isStale(lock: LockFile): boolean {
   if (lock.bootId && ownBootId && lock.bootId !== ownBootId) return true;
   if (lock.pidNamespace && ownPidNamespace && lock.pidNamespace !== ownPidNamespace) {
     return Date.now() - lock.mtimeMs > FOREIGN_STALE_AFTER_MS;
   }
   if (!isPidAlive(lock.holder.pid)) return true;
-  const bootedAt = Date.now() - uptime() * 1000;
-  return lock.mtimeMs < bootedAt || Date.now() - lock.mtimeMs > STALE_AFTER_MS;
+  return lock.mtimeMs < bootedAtMs() || Date.now() - lock.mtimeMs > STALE_AFTER_MS;
 }
 
 /** The process holding the build lock for `dbPath`, or null when no live build holds it. */

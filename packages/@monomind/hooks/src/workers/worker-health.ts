@@ -15,7 +15,14 @@ export function createHealthWorker(projectRoot: string): WorkerHandler {
     const freeMem = os.freemem();
     const memPct = Math.round((1 - freeMem / totalMem) * 100);
 
-    const uptime = os.uptime();
+    // A sandbox can deny the boot-time read (macOS Seatbelt: "uv_uptime returned
+    // EPERM", #798); report the rest instead of failing the whole check.
+    let uptime: number | null = null;
+    try {
+      uptime = os.uptime();
+    } catch {
+      // unreadable here
+    }
     const loadAvg = os.loadavg();
 
     let diskPct = 0;
@@ -45,7 +52,7 @@ export function createHealthWorker(projectRoot: string): WorkerHandler {
         memory: { usedPct: memPct, freeMB: Math.round(freeMem / 1024 / 1024) },
         disk: { usedPct: diskPct, free: diskFree },
         system: {
-          uptime: Math.round(uptime / 3600),
+          uptime: uptime === null ? null : Math.round(uptime / 3600),
           loadAvg: loadAvg.map((l) => l.toFixed(2)),
           platform: os.platform(),
           arch: os.arch(),

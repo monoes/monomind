@@ -174,15 +174,22 @@ async function writeIntoSiblingAfterCd(pinShell: boolean): Promise<string> {
 }
 
 /** bwrap on PATH is not bwrap that works: inside another bwrap/container, user
- *  namespaces can be exhausted (ENOSPC, #783). Probe a real namespace instead. */
+ *  namespaces can be exhausted (ENOSPC, #783). Probe a real namespace instead,
+ *  with a timeout so a hung bwrap cannot stall collection, and say why when it
+ *  fails so the skip below is visible in the run output (#795). */
 function bwrapRuns(): boolean {
   if (process.platform !== 'linux') return true;
   const r = spawnSync('bwrap', ['--unshare-user', '--ro-bind', '/', '/', 'true'], {
     stdio: 'ignore',
+    timeout: 5000,
   });
-  return r.status === 0;
+  if (r.status === 0) return true;
+  const why = r.error?.message ?? (r.signal ? `killed by ${r.signal}` : `exit ${r.status}`);
+  console.warn(`sandbox-shell-cwd: skipping the #339 tests, bwrap cannot create a namespace here (${why})`);
+  return false;
 }
 
+// reason: needs Linux and a bwrap that can create a user namespace (#339, #783); bwrapRuns() warns when it cannot
 describe.skipIf(
   process.platform !== 'linux' || !sandboxAvailability().available || !bwrapRuns(),
 )(

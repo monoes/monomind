@@ -18,7 +18,7 @@ import {
 import { tmpdir, uptime } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { acquireBuildLock, buildLockPath, liveBuildLockHolder } from '../../src/pipeline/build-lock.js';
 
 const fixture = join(dirname(fileURLToPath(import.meta.url)), 'build-lock-holder.fixture.ts');
@@ -27,6 +27,15 @@ let dir: string;
 let dbPath: string;
 let lockPath: string;
 const children: ChildProcess[] = [];
+
+/** This host's uptime in seconds, or undefined where reading it is denied (#798). */
+const bootUptime = ((): number | undefined => {
+  try {
+    return uptime();
+  } catch {
+    return undefined;
+  }
+})();
 
 function deadPid(): number {
   const r = spawnSync(process.execPath, ['-e', '']);
@@ -105,10 +114,31 @@ describe('acquireBuildLock (#340)', () => {
     expect(liveBuildLockHolder(dbPath)?.pid).toBe(child.pid);
   });
 
-  it('takes over a live pid’s lock written before this boot (recycled pid)', () => {
+  it('defers to a live holder when this host denies the boot-time read (#798)', async () => {
+    const child = liveChild();
+    writeFileSync(lockPath, `${child.pid}\n${Date.now()}\n`);
+    vi.resetModules();
+    vi.doMock('node:os', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('node:os')>()),
+      uptime: () => {
+        throw new Error('A system error occurred: uv_uptime returned EPERM (operation not permitted)');
+      },
+    }));
+    try {
+      const mod = await import('../../src/pipeline/build-lock.js');
+      expect(mod.liveBuildLockHolder(dbPath)?.pid).toBe(child.pid);
+      expect(mod.acquireBuildLock(dbPath).acquired).toBe(false);
+    } finally {
+      vi.doUnmock('node:os');
+      vi.resetModules();
+    }
+  });
+
+  // reason: needs the boot time, which a macOS Seatbelt sandbox denies (#798)
+  it.skipIf(bootUptime === undefined)('takes over a live pid’s lock written before this boot (recycled pid)', () => {
     const child = liveChild();
     writeFileSync(lockPath, `${child.pid}\n0\n`);
-    const beforeBoot = new Date(Date.now() - (uptime() + 3600) * 1000);
+    const beforeBoot = new Date(Date.now() - ((bootUptime as number) + 3600) * 1000);
     utimesSync(lockPath, beforeBoot, beforeBoot);
     expect(liveBuildLockHolder(dbPath)).toBeNull();
     expect(acquireBuildLock(dbPath).acquired).toBe(true);
@@ -153,8 +183,14 @@ describe('acquireBuildLock (#340)', () => {
 // reused pids — a lock left by a killed sandboxed build named "pid 47", and in
 // the next sandbox an unrelated process was pid 47, so the lock looked live.
 describe.skipIf(process.platform !== 'linux')('acquireBuildLock across pid namespaces and boots (#370)', () => {
-  const ownNs = readlinkSync('/proc/self/ns/pid');
-  const ownBoot = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
+  // Read in beforeAll: vitest runs a describe body at collection even when it
+  // is skipped, and there is no /proc off Linux (#798).
+  let ownNs = '';
+  let ownBoot = '';
+  beforeAll(() => {
+    ownNs = readlinkSync('/proc/self/ns/pid');
+    ownBoot = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
+  });
   const foreignNs = 'pid:[4026599999]';
   const ago = (ms: number) => new Date(Date.now() - ms);
 

@@ -256,11 +256,13 @@ describe('credentials in source URLs', () => {
 describe('pinned remote sources', () => {
   // These stage from a local file:// remote; an environment that injects
   // protocol.file.allow=never through the GIT_CONFIG_* variables (#783) would
-  // refuse it, so those are dropped for this block.
+  // refuse it, so those are dropped for this block. Only the injected
+  // key/value pairs: GIT_CONFIG_GLOBAL, _SYSTEM and _NOSYSTEM isolate the run
+  // from the user's git config and must stay (#795).
   const saved: Record<string, string | undefined> = {};
   beforeAll(() => {
     for (const k of Object.keys(process.env))
-      if (k.startsWith('GIT_CONFIG_')) {
+      if (/^GIT_CONFIG_(?:COUNT|KEY_\d+|VALUE_\d+)$/.test(k)) {
         saved[k] = process.env[k];
         delete process.env[k];
       }

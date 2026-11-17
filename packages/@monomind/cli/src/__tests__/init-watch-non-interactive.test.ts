@@ -135,7 +135,10 @@ describe('init does not orphan a watcher in a non-interactive run', () => {
     if (pid !== undefined) spawned.push(pid);
 
     expect(pid, '--watch should force the watcher even without a TTY').toBeDefined();
-    expect(isAlive(pid as number)).toBe(true);
+    // Say why when it died: the release gate's sandbox run only showed `false` (#798).
+    const log = join(cwd, '.monomind', 'monograph.watch.log');
+    const why = existsSync(log) ? readFileSync(log, 'utf8').slice(-2000) : 'no watch log';
+    expect(isAlive(pid as number), `the watcher exited; its log:\n${why}`).toBe(true);
   }, 130_000);
 
   // init used to shell out to `npx monomind@latest swarm init`: a registry

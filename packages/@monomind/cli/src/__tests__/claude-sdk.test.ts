@@ -370,9 +370,15 @@ describe('with real files', () => {
     'runs `--version` on a native binary and refuses output that is not Claude Code',
     async () => {
       // node prints "v24.x.y": a real run, and not a Claude Code version line.
-      const file = join(scratch(), 'claude');
+      // A node linked against a shared libnode (Homebrew, some distro builds)
+      // loads it from ../lib beside the binary, so that dir goes beside the copy (#798).
+      const root = scratch();
+      const file = join(root, 'bin', 'claude');
+      mkdirSync(dirname(file));
       copyFileSync(process.execPath, file);
       chmodSync(file, 0o755);
+      const libDir = join(dirname(process.execPath), '..', 'lib');
+      if (existsSync(libDir)) symlinkSync(realpathSync(libDir), join(root, 'lib'));
       const probe = { ...defaultClaudeProbe({ PATH: '', [CLAUDE_PATH_ENV]: file }), log: vi.fn() };
       expect((await findInstalledClaude(probe)).path).toBeUndefined();
       expect(probe.log.mock.calls.at(-1)?.[0]).toMatch(/is Claude Code of an unknown version/);
