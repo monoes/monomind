@@ -215,15 +215,31 @@ export function dependencyDir(name: OptionalDependencyName, env: Env = process.e
   return join(depsRoot(env), `${name.replace('/', '+')}@${OPTIONAL_DEPENDENCIES[name].version}`);
 }
 
+const VERSION_RE = /^\d+\.\d+\.\d+(-[\w.]+)?$/;
+
+/** Orders x.y.z versions numerically; a prerelease sorts before its release. */
+function compareVersions(a: string, b: string): number {
+  const [ca, pa = ''] = a.split(/-(.*)/);
+  const [cb, pb = ''] = b.split(/-(.*)/);
+  const na = ca.split('.').map(Number);
+  const nb = cb.split('.').map(Number);
+  for (let i = 0; i < 3; i++) if (na[i] !== nb[i]) return na[i] - nb[i];
+  if (pa === pb) return 0;
+  if (!pa || !pb) return pa ? -1 : 1;
+  return pa < pb ? -1 : 1;
+}
+
 /** Versions of `name` found in the deps root, e.g. ['0.3.303'] (#781). A pin
- *  that moved leaves the older copies behind, and nothing says so. */
+ *  that moved leaves the older copies behind, and nothing says so. Lock and
+ *  move-aside leftovers (`@x.y.z.lock`, `@x.y.z.old-*`) are not versions (#791). */
 export function installedVersions(name: OptionalDependencyName, env: Env = process.env): string[] {
   const prefix = `${name.replace('/', '+')}@`;
   try {
     return readdirSync(depsRoot(env))
       .filter((e) => e.startsWith(prefix))
       .map((e) => e.slice(prefix.length))
-      .sort();
+      .filter((v) => VERSION_RE.test(v))
+      .sort(compareVersions);
   } catch {
     return [];
   }
@@ -231,9 +247,9 @@ export function installedVersions(name: OptionalDependencyName, env: Env = proce
 
 /** Why `name` is "not installed" when other versions are (#781), or ''. */
 function stalePinNote(name: OptionalDependencyName, env: Env): string {
-  const have = installedVersions(name, env);
-  if (have.length === 0) return '';
   const { version } = OPTIONAL_DEPENDENCIES[name];
+  const have = installedVersions(name, env).filter((v) => v !== version);
+  if (have.length === 0) return '';
   return (
     ` The pin moved to ${version} but ${depsRoot(env)} only holds ${have.join(', ')}, ` +
     'so the pinned copy is missing.'
@@ -629,12 +645,15 @@ function readOnlyError(
   const spec = OPTIONAL_DEPENDENCIES[name];
   const operator =
     name === '@anthropic-ai/claude-agent-sdk' ? `  ${DEPS_INSTALL_COMMAND}\nor by hand:\n` : '';
+  // #792: only an org role is behind the MONOMIND_ORG_ROLE guard.
+  const remedy = env.MONOMIND_ORG_ROLE
+    ? 'Org roles cannot install into it (MONOMIND_ORG_ROLE guard); ' +
+      `ask the operator to run this outside the org:\n${operator}`
+    : `Check the ownership and permissions of ${depsRoot(env)}, then install it with:\n${operator}`;
   return new OptionalDependencyError(
     `${spec.feature} needs ${name}@${spec.version}, which is not installed, and ` +
       `${depsRoot(env)} is not writable here (${code}).${stalePinNote(name, env)} ` +
-      'Org roles cannot install into it (MONOMIND_ORG_ROLE guard); ' +
-      `ask the operator to run this outside the org:\n${operator}` +
-      `  ${manualInstallCommand(name, env, noBinary)}`,
+      `${remedy}  ${manualInstallCommand(name, env, noBinary)}`,
   );
 }
 
