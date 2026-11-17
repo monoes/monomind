@@ -4,8 +4,19 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.29.4] — 2026-11-17
+
+Covers v2.29.3..9d4332c3b (main CI repair and release-tooling hardening).
+
+### Added
+
+- **CI checks that every released package's workspace deps are on npm or in the release set (#780, `06999daf2`).** `scripts/check-release-deps.mjs` runs in the release workflow so a package cannot ship depending on an unpublished version.
+- **Release preflight checks the SDK deps pin and drill signing (#781, `861e55a72`).** Deps errors now name the stale installed versions and use clearer wording when the deps directory is read-only (privacy and getting-started docs updated, including a native-rebuild note).
+
 ### Fixed
 
+- **The native rebuild is verified to actually load, and `monograph_build` explains open failures (#782, `0c513145b`).** A rebuild whose binary would not load is now reported with a reason instead of as success.
+- **Tests no longer break under injected git config or nested bwrap (#783, `d0b227dfa`).** The stage and sandbox-shell-cwd tests are robust to both.
 - **The CLI pinned `monofence-ai` at 2.24.0 after the 2.29.3 release bumped the package to 2.24.1.** The release left `OPTIONAL_DEPENDENCIES`, the lock entry and its URL/integrity at 2.24.0, so main's Tests run failed on `auto-install.test` ("pins monofence-ai to the workspace package version") and the default-loader scanner test, and a first-use install fetched the older 2.24.0. The pin, lock URL and integrity now point at `monofence-ai-2.24.1.tgz` (sha512 matches the registry's `dist.integrity`; the 16 `dist/*.js` sha256 pins are unchanged because the files are byte-identical).
 
 ## [2.29.3] — 2026-11-15
