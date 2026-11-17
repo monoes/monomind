@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { spawnRunnerProcess } from '../orgrt/process-group-spawn.js';
 import { EXEC_TREE_ENV } from '../orgrt/process-tree-marker.js';
+import { psReadsProcessTable } from './ps-probe.js';
 
 const posix = process.platform !== 'win32';
 
@@ -66,7 +67,8 @@ describe('spawnRunnerProcess', () => {
     proc.stop();
   });
 
-  it.runIf(posix)(
+  // reason: finds the survivor with `ps`, which a macOS Seatbelt sandbox denies (#798)
+  it.runIf(posix && psReadsProcessTable('process-group-spawn'))(
     'full: marker set, onProcessSpawned reports a background survivor, target kills the whole tree',
     async () => {
       let survivors: (() => { pids: number[]; supported: boolean }) | undefined;
