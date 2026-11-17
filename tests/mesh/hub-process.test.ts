@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { psReadsProcessTable } from '../../packages/@monomind/cli/src/__tests__/ps-probe.js';
 import * as srcClient from '../../packages/@monomind/cli/src/mesh/client.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -24,15 +25,25 @@ function hubPids(dir: string): number[] {
     .split('\n')
     .filter(Boolean)
     .map(Number)
-    .filter((pid) => {
-      try {
-        return readFileSync(`/proc/${pid}/environ`, 'utf8')
-          .split('\0')
-          .includes(`MONOMIND_MESH_DIR=${dir}`);
-      } catch {
-        return false;
-      }
-    });
+    .filter((pid) => envOf(pid).includes(`MONOMIND_MESH_DIR=${dir}`));
+}
+
+/** The environment entries of `pid`: /proc on Linux, `ps -E` where there is no
+ *  /proc (macOS prints them for this user's node processes). Reading only /proc
+ *  found no hub off Linux, so the test failed on every macOS run (#798). */
+function envOf(pid: number): string[] {
+  try {
+    return readFileSync(`/proc/${pid}/environ`, 'utf8').split('\0');
+  } catch {
+    /* no procfs */
+  }
+  try {
+    return execFileSync('ps', ['-E', '-ww', '-o', 'command=', '-p', String(pid)])
+      .toString()
+      .split(/\s+/);
+  } catch {
+    return [];
+  }
 }
 
 /** Polls until at most one hub process remains for `dir` (or ~20 s pass), then returns them. */
@@ -102,7 +113,8 @@ async function scenario(client: Client, spawnHub?: (dir: string) => void): Promi
   expect(await settledHubPids(dir)).toHaveLength(1);
 }
 
-describe('hub as a real process', () => {
+// reason: finds the hubs with pgrep/ps, which a macOS Seatbelt sandbox denies (#798)
+describe.skipIf(!psReadsProcessTable('hub-process'))('hub as a real process', () => {
   it('runs from source (tsx), so this test never depends on a build', async () => {
     const viaTsx = (dir: string) =>
       void spawn(process.execPath, ['--import', 'tsx', join(srcDir, 'hub-main.ts')], {
