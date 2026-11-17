@@ -182,6 +182,7 @@ describe('generate-claude-trees', () => {
       expect(existsSync(join(root, PKG, '.claude'))).toBe(false);
     });
 
+    // reason: root ignores the chmod that makes the destination refuse writes
     it.skipIf(asRoot)(
       'fails when a destination refuses writes and something there needs writing',
       () => {
@@ -197,6 +198,7 @@ describe('generate-claude-trees', () => {
       },
     );
 
+    // reason: root ignores the chmod that makes the destination refuse writes
     it.skipIf(asRoot)('passes with a note when the refused destination is already current', () => {
       const root = gitFixture();
       writeTrees({ outRoot: root, wanted: planTrees({ root }), withKimi: false });
@@ -214,6 +216,7 @@ describe('generate-claude-trees', () => {
     const seatbelt =
       process.platform === 'darwin' &&
       spawnSync('sandbox-exec', ['-p', '(version 1)(allow default)', '/usr/bin/true']).status === 0;
+    // reason: needs macOS sandbox-exec to apply the SDK seatbelt rule (#789)
     it.skipIf(!seatbelt)('catches the SDK seatbelt rule before the build does', () => {
       const root = gitFixture();
       mkdirSync(join(root, 'scripts'));
