@@ -34,6 +34,12 @@
  *         on-disk tree that is missing or stale (exit 1)
  *     node scripts/generate-claude-trees.mjs --no-kimi  skip the kimi trees
  *         (they need the built CLI; vitest setup uses this before a build)
+ *     node scripts/generate-claude-trees.mjs --strict   fail instead of
+ *         warning when `git ls-files` cannot list the tracked `.claude/` files
+ *         (the CLI's prepack passes it; --check implies it)
+ *     node scripts/generate-claude-trees.mjs --probe    read-only: exit 1 with
+ *         the reason if this host cannot run the generator (git ls-files,
+ *         spawning node); the release preflight runs it (#789)
  *
  * Writes are skipped for files that already hold the right bytes, so running
  * it while tests read the trees is safe.
@@ -140,23 +146,42 @@ function collectFiles(dir, base = dir, out = []) {
  * Files of the root `.claude/` tree: what git tracks (so untracked
  * machine-local files never leak into a shipped tree), plus the gitignored
  * monodesign skill compiled by `compileGeneratedSkills`.
+ *
+ * When git cannot list them (no checkout, no git, a sandbox that blocks it),
+ * every file on disk is used instead, with a warning: that can include
+ * untracked machine-local files, so `strict` (release builds) throws (#796).
  */
-function sourceFiles(root) {
+function sourceFiles(root, { strict = false } = {}) {
   const base = join(root, '.claude');
   let files;
+  let reason;
   try {
     const out = execFileSync('git', ['ls-files', '-z', '--', '.claude'], {
       cwd: root,
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
     files = out
       .split('\0')
       .filter(Boolean)
       .map((p) => p.slice('.claude/'.length))
       .filter((rel) => existsSync(join(base, rel)));
-    if (files.length === 0) throw new Error('no tracked files');
-  } catch {
+    if (files.length === 0) reason = 'git ls-files listed no tracked .claude/ files';
+  } catch (err) {
+    const detail = `${err.stderr ?? ''}`.trim().split('\n')[0] || err.message;
+    reason = `git ls-files failed: ${detail}`;
+  }
+  if (reason) {
+    if (strict) {
+      throw new Error(
+        `${reason} (in ${root}).\n` +
+          '   A release build ships only git-tracked .claude/ files; run it from a git checkout where git works.',
+      );
+    }
+    console.warn(
+      `⚠ generate-claude-trees: ${reason}; using every file under .claude/ instead, ` +
+        'which can include untracked machine-local files (--strict makes this an error).',
+    );
     files = collectFiles(base);
   }
   const gen = collectFiles(join(base, 'skills', 'monodesign')).map((r) => `skills/monodesign/${r}`);
@@ -172,9 +197,9 @@ const under = (rel, prefix) => rel === prefix || rel.startsWith(`${prefix}/`);
  * Map of every file the derived trees must hold: repo-relative target path ->
  * `{ file }` (copy of a source file) or a string (generated content).
  */
-export function planTrees({ root = REPO_ROOT, kimiConvert = null } = {}) {
+export function planTrees({ root = REPO_ROOT, kimiConvert = null, strict = false } = {}) {
   const claude = join(root, '.claude');
-  const files = sourceFiles(root);
+  const files = sourceFiles(root, { strict });
   const wanted = new Map();
   const copy = (target, rel) => wanted.set(target, { file: join(claude, rel) });
 
@@ -344,7 +369,18 @@ export function compileGeneratedSkills(root = REPO_ROOT) {
       readFileSync(stamp, 'utf8') === current &&
       MONODESIGN_OUTPUTS.every((rel) => existsSync(join(root, rel)));
     if (!fresh) {
-      execFileSync('node', [script], { cwd: root, stdio: 'ignore' });
+      try {
+        execFileSync(process.execPath, [script], {
+          cwd: root,
+          stdio: ['ignore', 'ignore', 'pipe'],
+        });
+      } catch (err) {
+        const stderr = `${err.stderr ?? ''}`.trim();
+        throw new Error(
+          `could not compile the monodesign skill (${process.execPath} ${script}): ${err.message}` +
+            (stderr ? `\n${stderr}` : ''),
+        );
+      }
       writeFileSync(stamp, current);
     }
   } finally {
@@ -353,10 +389,10 @@ export function compileGeneratedSkills(root = REPO_ROOT) {
 }
 
 /** Generate every derived tree into the repo. */
-export async function generateTrees({ root = REPO_ROOT, kimi = true } = {}) {
+export async function generateTrees({ root = REPO_ROOT, kimi = true, strict = false } = {}) {
   compileGeneratedSkills(root);
   const kimiConvert = kimi ? await loadKimiConverter(root) : null;
-  const wanted = planTrees({ root, kimiConvert });
+  const wanted = planTrees({ root, kimiConvert, strict });
   return { wanted, ...writeTrees({ outRoot: root, wanted, withKimi: kimi }) };
 }
 
@@ -365,7 +401,7 @@ export async function generateTrees({ root = REPO_ROOT, kimi = true } = {}) {
  * generator is deterministic) and complete (every owned tree and every overlay
  * file is present). Then compare with the on-disk trees.
  */
-export async function checkTrees({ root = REPO_ROOT, kimi = true } = {}) {
+export async function checkTrees({ root = REPO_ROOT, kimi = true, strict = false } = {}) {
   compileGeneratedSkills(root);
   const kimiConvert = kimi ? await loadKimiConverter(root) : null;
   const problems = [];
@@ -374,7 +410,7 @@ export async function checkTrees({ root = REPO_ROOT, kimi = true } = {}) {
     const digests = [];
     for (const name of ['a', 'b']) {
       const out = join(tmp, name);
-      const wanted = planTrees({ root, kimiConvert });
+      const wanted = planTrees({ root, kimiConvert, strict });
       writeTrees({ outRoot: out, wanted, withKimi: kimi });
       digests.push(treeDigest(out));
       if (name === 'a') {
@@ -404,15 +440,39 @@ export async function checkTrees({ root = REPO_ROOT, kimi = true } = {}) {
   return problems;
 }
 
+/**
+ * Read-only check that this host can run the generator: git lists the tracked
+ * `.claude/` files and a node child process starts. Throws with the reason.
+ */
+export function probe(root = REPO_ROOT) {
+  sourceFiles(root, { strict: true });
+  try {
+    execFileSync(process.execPath, ['-e', ''], { stdio: ['ignore', 'ignore', 'pipe'] });
+  } catch (err) {
+    throw new Error(`cannot start a node child process (${process.execPath}): ${err.message}`);
+  }
+}
+
 export async function main(argv) {
   if (argv.includes('--help') || argv.includes('-h')) {
-    console.log('Usage: node scripts/generate-claude-trees.mjs [--check] [--no-kimi]');
+    console.log(
+      'Usage: node scripts/generate-claude-trees.mjs [--check] [--no-kimi] [--strict] [--probe]',
+    );
     return 0;
   }
   const kimi = !argv.includes('--no-kimi');
+  const check = argv.includes('--check');
+  const strict = check || argv.includes('--strict');
   try {
-    if (argv.includes('--check')) {
-      const problems = await checkTrees({ kimi });
+    if (argv.includes('--probe')) {
+      probe();
+      console.log(
+        '✓ generate-claude-trees can run here (git ls-files and node child processes work).',
+      );
+      return 0;
+    }
+    if (check) {
+      const problems = await checkTrees({ kimi, strict });
       if (problems.length === 0) {
         console.log(
           '✓ Derived .claude trees regenerate deterministically and match what is on disk.',
@@ -427,7 +487,7 @@ export async function main(argv) {
       );
       return 1;
     }
-    const { wanted, written, removed } = await generateTrees({ kimi });
+    const { wanted, written, removed } = await generateTrees({ kimi, strict });
     console.log(
       `✓ Derived .claude trees: ${wanted.size} files, ${written.length} written, ${removed.length} removed.`,
     );
