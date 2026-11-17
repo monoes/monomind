@@ -46,7 +46,10 @@ export const monographBuildTool: MCPTool = {
         },
       });
     } catch (err) {
-      return text(`Monograph build failed for ${repoPath}:\n${explainMonographError(err)}`);
+      return {
+        ...text(`Monograph build failed for ${repoPath}:\n${explainMonographError(err)}`),
+        isError: true,
+      };
     }
     const skipped = progressLog.includes('skipping rebuild');
     if (!skipped) triggerBackgroundEmbed(join(resolve(repoPath), '.monomind', 'monograph.db'));
