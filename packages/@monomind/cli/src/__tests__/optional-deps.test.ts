@@ -355,6 +355,7 @@ describe('ensureOptionalDependency', () => {
   it('in a read-only deps dir (an org role), fails with a message for the operator', async () => {
     const err = (await ensureOptionalDependency(SDK, {
       ...base(),
+      env: { ...env, MONOMIND_ORG_ROLE: 'builder' },
       runNpm: async () => {
         throw Object.assign(new Error('EROFS: read-only file system'), { code: 'EROFS' });
       },
