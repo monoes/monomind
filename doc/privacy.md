@@ -145,7 +145,7 @@ Where and how:
   they are denied to the file tools and the Claude sandbox, and the deps
   directory is read-only inside the bubblewrap mask other roles run in. A
   role that needs a missing package gets an error asking the operator to
-  install it. Before loading anything from the deps directory, monomind also
+  install it; the error names any stale installed version and says when the deps directory is read-only. Before loading anything from the deps directory, monomind also
   refuses a tree that contains a symlink on the way in (or one leading out),
   a file owned by another user, or a group- or other-writable file. The
   SDK's entry file, the Claude binary it runs, the `@huggingface/transformers` entry bundle and monofence-ai's files must also match SHA-256
