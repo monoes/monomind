@@ -7,7 +7,7 @@
 // even attempted them. This pins the wiring, not just the generators.
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { executeUpgrade, executeUpgradeWithMissing } from '../init/upgrade.js';
@@ -93,7 +93,9 @@ describe('init upgrade rewrites CLAUDE.md and CAPABILITIES.md (i-035)', () => {
   let capabilitiesPath: string;
 
   beforeEach(() => {
-    tmp = mkdtempSync(join(tmpdir(), 'monomind-upgrade-docs-'));
+    // Under the test HOME, where the ancestor CLAUDE.md walk stops: a temp dir under a
+    // real home (the release gate's) would otherwise pick up that home's CLAUDE.md (#798).
+    tmp = mkdtempSync(join(homedir(), 'monomind-upgrade-docs-'));
     targetDir = join(tmp, 'project');
     seedProject(targetDir);
     claudeMdPath = join(targetDir, 'CLAUDE.md');

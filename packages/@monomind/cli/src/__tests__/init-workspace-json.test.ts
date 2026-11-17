@@ -74,7 +74,9 @@ let cwd: string;
 describe('monomind init --json (workspace init, #358)', () => {
   beforeEach(() => {
     home = realpathSync(mkdtempSync(join(tmpdir(), 'init-json-home-')));
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'init-json-project-')));
+    // Under that HOME, where the ancestor CLAUDE.md walk stops: a temp dir under a real
+    // home (the release gate's) would otherwise see its CLAUDE.md (#798).
+    cwd = realpathSync(mkdtempSync(join(home, 'init-json-project-')));
   });
 
   afterEach(() => {

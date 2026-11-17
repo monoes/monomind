@@ -7,7 +7,7 @@
  */
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getCommandNames, hasCommand } from '../commands/index.js';
@@ -55,7 +55,9 @@ describe('monoswarm and autopilot are removed (#418)', () => {
   let tmp: string;
 
   beforeEach(() => {
-    tmp = mkdtempSync(join(tmpdir(), 'monomind-418-'));
+    // Under the test HOME, where the ancestor CLAUDE.md walk stops: a temp dir under a
+    // real home (the release gate's) would otherwise pick up that home's CLAUDE.md (#798).
+    tmp = mkdtempSync(join(homedir(), 'monomind-418-'));
   });
 
   afterEach(() => {
