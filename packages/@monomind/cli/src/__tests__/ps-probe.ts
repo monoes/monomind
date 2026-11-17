@@ -2,8 +2,10 @@
  * Whether `ps` can read the process table here (#798). The process-group code
  * (orgrt/process-tree.ts, process-tree-marker.ts) finds a run's jobs with
  * `ps -axo`; inside a macOS Seatbelt sandbox (the release gate runs the suite
- * in one) `ps` is denied, so a test that waits for a job to show up can only
- * time out. Runs the same `ps -axo` for this process's own pid, under a
+ * in one) `ps` does not run at all: /bin/ps is setuid root and its exec fails
+ * with EPERM, and pgrep cannot list processes either (checked against the
+ * profile Claude Code's sandbox builds), so a test that waits for a job to
+ * show up can only time out. Runs the same `ps -axo` for this process's own pid, under a
  * timeout, and warns when it fails so the skip shows in the run output.
  */
 import { spawnSync } from 'node:child_process';

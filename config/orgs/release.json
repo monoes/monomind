@@ -88,7 +88,9 @@
         "sandbox": {
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -135,7 +137,9 @@
         "sandbox": {
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -184,7 +188,9 @@
           ],
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -232,7 +238,9 @@
           ],
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -279,7 +287,9 @@
           ],
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -328,7 +338,9 @@
         "sandbox": {
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       },
@@ -378,7 +390,9 @@
         "sandbox": {
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       },
@@ -429,7 +443,9 @@
         "sandbox": {
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -478,7 +494,9 @@
         "sandbox": {
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
@@ -528,7 +546,9 @@
           ],
           "allowWrite": [
             "{{home}}/monomind-release",
-            "{{home}}/mrg-tmp"
+            "{{home}}/mrg-tmp",
+            "/var/tmp/mrg-tmp",
+            "/private/var/tmp/mrg-tmp"
           ]
         }
       }
