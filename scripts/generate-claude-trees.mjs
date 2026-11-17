@@ -37,9 +37,11 @@
  *     node scripts/generate-claude-trees.mjs --strict   fail instead of
  *         warning when `git ls-files` cannot list the tracked `.claude/` files
  *         (the CLI's prepack passes it; --check implies it)
- *     node scripts/generate-claude-trees.mjs --probe    read-only: exit 1 with
- *         the reason if this host cannot run the generator (git ls-files,
- *         spawning node); the release preflight runs it (#789)
+ *     node scripts/generate-claude-trees.mjs --probe    exit 1 with the reason
+ *         if this host cannot run the generator: git ls-files, spawning node,
+ *         and a test write into every destination, which fails only where
+ *         something needs writing (#789); writes nothing that stays. The
+ *         release preflight and the release org's BUILD run it
  *
  * Writes are skipped for files that already hold the right bytes, so running
  * it while tests read the trees is safe.
@@ -53,6 +55,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  rmdirSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -440,17 +443,96 @@ export async function checkTrees({ root = REPO_ROOT, kimi = true, strict = false
   return problems;
 }
 
+/** Probe entries start with `._`, which isIgnored skips, so a concurrent run
+ *  never copies or removes one. */
+const PROBE_NAME = `._gentrees-probe-${process.pid}`;
+const CACHE_DIR = 'node_modules/.cache/sync-claude-trees';
+const SANDBOX_HINT =
+  'A Claude Code / Agent SDK sandbox denies writes below every .claude/agents and ' +
+  '.claude/commands directory under its working directory, whatever its allowWrite ' +
+  'says, so a sandboxed role cannot create these files. Run ' +
+  '`node scripts/generate-claude-trees.mjs --no-kimi` in this checkout from outside that ' +
+  "sandbox first (the release org's publisher, #789); once they are current the " +
+  'generator has nothing to write there.';
+
+/** The directory a write test covers for `target`: the owned directory, or its
+ *  first subdirectory when the target lies deeper. The SDK's rule matches only
+ *  BELOW `.claude/agents`, so a file directly in the package tree proves
+ *  nothing about `.claude/agents/...`. */
+function probeDir(target) {
+  const owned = OWNED.find(({ dir }) => under(target, dir));
+  if (!owned) return dirname(target);
+  const rest = target.slice(owned.dir.length + 1).split('/');
+  return rest.length > 1 ? `${owned.dir}/${rest[0]}` : owned.dir;
+}
+
+/** Create and remove a file in `dir` (creating `dir` too when missing, and
+ *  removing what was created). Returns the error code of a refused write. */
+function writeDenied(root, dir) {
+  const abs = join(root, dir);
+  let made;
+  try {
+    made = mkdirSync(abs, { recursive: true });
+    writeFileSync(join(abs, PROBE_NAME), '');
+    return null;
+  } catch (err) {
+    return err.code ?? err.message;
+  } finally {
+    rmSync(join(abs, PROBE_NAME), { force: true });
+    // Only the directories this probe created, innermost first, and only while
+    // empty: a concurrent run may have started filling them.
+    for (let d = abs; made && d.length >= made.length; d = dirname(d)) {
+      try {
+        rmdirSync(d);
+      } catch {
+        break;
+      }
+    }
+  }
+}
+
 /**
- * Read-only check that this host can run the generator: git lists the tracked
- * `.claude/` files and a node child process starts. Throws with the reason.
+ * Check that this host can run the generator: git lists the tracked `.claude/`
+ * files, a node child process starts, and every destination the generator
+ * writes to takes a new file (#789: the 2.29.4 release builder's sandbox
+ * refused `mkdir packages/@monomind/cli/.claude/agents/...` with EPERM). A
+ * destination that refuses writes fails only when something there needs
+ * writing (missing, diverged or stale against the plan); when it is already
+ * current the generator writes nothing there, which is reported as a note.
+ * The kimi trees (they need the built CLI to plan) and the compile cache must
+ * be writable. Leaves nothing behind. Throws with the reason; returns notes.
  */
 export function probe(root = REPO_ROOT) {
-  sourceFiles(root, { strict: true });
+  const wanted = planTrees({ root, strict: true });
   try {
     execFileSync(process.execPath, ['-e', ''], { stdio: ['ignore', 'ignore', 'pipe'] });
   } catch (err) {
     throw new Error(`cannot start a node child process (${process.execPath}): ${err.message}`);
   }
+  const { missing, diverged, stale } = diffTrees({ outRoot: root, wanted, withKimi: false });
+  const pending = [...missing, ...diverged, ...stale];
+  const always = [CACHE_DIR, ...OWNED.filter((o) => o.kimi).map((o) => o.dir)];
+  const dirs = new Set([...always, ...[...wanted.keys()].map(probeDir)]);
+  const notes = [];
+  for (const dir of [...dirs].sort()) {
+    const code = writeDenied(root, dir);
+    if (!code) continue;
+    if (always.includes(dir)) {
+      throw new Error(
+        `cannot write under ${join(root, dir)} (${code}); every run of the generator writes there.`,
+      );
+    }
+    const need = pending.filter((t) => probeDir(t) === dir).sort();
+    if (need.length === 0) {
+      notes.push(`writes under ${dir} are refused here (${code}), but every file there is current`);
+      continue;
+    }
+    throw new Error(
+      `cannot write under ${join(root, dir)} (${code}), and ${need.length} file(s) there ` +
+        `need writing, e.g. ${need[0]}.\n   ${SANDBOX_HINT}`,
+    );
+  }
+  return notes;
 }
 
 export async function main(argv) {
@@ -465,9 +547,9 @@ export async function main(argv) {
   const strict = check || argv.includes('--strict');
   try {
     if (argv.includes('--probe')) {
-      probe();
+      for (const note of probe()) console.log(`  note: ${note}`);
       console.log(
-        '✓ generate-claude-trees can run here (git ls-files and node child processes work).',
+        '✓ generate-claude-trees can run here (git ls-files, node child processes and its writes work).',
       );
       return 0;
     }
@@ -494,6 +576,12 @@ export async function main(argv) {
     return 0;
   } catch (err) {
     console.error(`\n❌ ${err.message}`);
+    if (
+      ['EPERM', 'EACCES'].includes(err.code) &&
+      /\/\.claude\/(agents|commands)\//.test(err.path ?? '')
+    ) {
+      console.error(`   ${SANDBOX_HINT}`);
+    }
     return 1;
   }
 }

@@ -1,6 +1,6 @@
 ---
 name: release-preflight-setup
-description: "Publisher's PREFLIGHT and SETUP tasks: access checks, VERSION and TAG CHAIN resolution, SRC worktree, hygiene. Load first for those tasks."
+description: "Publisher's PREFLIGHT, SETUP and GENTREES tasks: access checks, VERSION and TAG CHAIN resolution, SRC worktree and its derived .claude trees, hygiene. Load first for those tasks."
 tags: ["operations","devops"]
 tools: []
 license: Apache-2.0
@@ -28,5 +28,9 @@ Anything MISSING in 1-4, 6, or insufficient disk/tmp: say so plainly in the resu
 - VERSION (no human input): base is the last `chore(release): publish X`; any commit since with a `type(scope)!:` subject or a `BREAKING CHANGE:` footer means next MINOR, else next PATCH. It must be above both ORG_ROOT's package.json version and `npm view @monoes/monomindcli version`. A task-named version is used only if it is above both (deliberate minor/major); otherwise release the next free one and note `VERSION: task named X, npm already has Y, releasing Z`.
 - GATE: `mkdir -p $GATE/npm-cache $GATE/logs $HOME/mrg-tmp` with GATE = `$HOME/monomind-release/<VERSION>-<UTC ts>`.
 - WORKSPACE: if SRC exists on branch `release/<VERSION>` (interrupted run) reuse it: it must descend from the target with no tracked changes, and every commit since the target is re-verified, not trusted. Else `git -C ORG_ROOT worktree add -b release/<VERSION> .monomind/orgs/release/work/src <sha>` and confirm `git -C SRC rev-parse HEAD`.
+- TREES: run the GENTREES task's steps below in SRC.
 - HYGIENE, narrow: leave every other run's GATE under `$HOME/monomind-release` alone whatever its age (this run's is pruned at CLEAN UP; 2.16.14 deleted the logs issues #351/#352 cited); delete `.monomind/orgs/release/work/*.log`; in `$HOME/mrg-tmp` prune only immediate subdirectories named `<check>-<short-sha>` or `home-<short-sha>` of an EARLIER run (short-sha is not this target, mtime before this run's start), never the root, never an unattributable entry (#273); close stale pending items (`monomind org questions release`, `monomind org approvals release`; answer each "stale: from a previous run", #248); delete local `release/*` branches contained in origin/main (`git branch --merged origin/main --list "release/*"`).
 - Reply: VERSION, TARGET SHA, `<previous>` and C, GATE, SRC, warnings. Evidence pins to SRC (absolute path) and its HEAD.
+
+## GENTREES task
+The derived `.claude` trees (`packages/@monomind/cli/.claude` and the platform copies) are gitignored and written by `scripts/generate-claude-trees.mjs`, which every build and `npm pack` runs. Builder's SDK sandbox can never write below a `.claude/agents` or `.claude/commands` directory under its working directory (the SDK's own rule, whatever allowWrite says; 2.29.4 BUILD r1 failed with EPERM there, #789). You run without that sandbox, so you keep them current: `cd SRC && node scripts/generate-claude-trees.mjs --no-kimi` (the kimi trees need the built CLI and builder can write them), log to `$GATE/logs/build/gentrees-<SHA>.log`, then `git -C SRC status --short` must be empty. PREFLIGHT's `--probe` runs as you and cannot see builder's sandbox; BUILD's own probe does. Reply: SRC HEAD, files written, exit code.

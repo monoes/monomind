@@ -26,8 +26,10 @@
  * (peerDependencies in packages/@monomind/cli/package.json) must be installed
  * in `$MONOMIND_HOME/deps` (default `~/.monomind/deps`), or agent trials and
  * drills fail late; and scripts/generate-claude-trees.mjs --probe must pass,
- * so a host that cannot run the tree generator is reported before BUILD.
- * Read-only; not run by the release workflow, whose runner has no deps cache.
+ * so a host that cannot run the tree generator is reported before BUILD. It
+ * runs as the publisher, outside the builder's SDK sandbox, so it cannot see
+ * that sandbox's denies; BUILD runs the probe again as the builder.
+ * Not run by the release workflow, whose runner has no deps cache.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
