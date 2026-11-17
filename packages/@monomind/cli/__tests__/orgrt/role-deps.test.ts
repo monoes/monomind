@@ -316,6 +316,67 @@ describe('stale pin in the deps dir (#781)', () => {
   );
 });
 
+// #795: the same read-only error, provoked without chmod (so it also runs as
+// root and on Windows): npm itself fails with EROFS.
+describe('read-only deps dir, faked through npm (#791, #792, #795)', () => {
+  let home: string;
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'mm-erofs-'));
+  });
+  afterEach(() => rmSync(home, { recursive: true, force: true }));
+
+  const erofsNpm = async () => {
+    throw Object.assign(new Error('EROFS: read-only file system'), { code: 'EROFS' });
+  };
+  const failWith = async (env: NodeJS.ProcessEnv) =>
+    (await ensureOptionalDependency(SDK, {
+      env, resolveOwn: notFound, log: vi.fn(), host: HOST, pins: FAKE_PINS, runNpm: erofsNpm,
+    }).catch((e: unknown) => e)) as Error;
+  const sdkDir = (env: NodeJS.ProcessEnv, v: string) =>
+    join(depsRoot(env), `@anthropic-ai+claude-agent-sdk@${v}`);
+
+  it('lists only real versions, in version order', () => {
+    const env = { MONOMIND_HOME: home };
+    const pin = dependencyDir(SDK, env);
+    for (const d of ['0.3.303', '0.3.99', '1.0.0-beta.1', '0.3.99.lock', '0.3.303.old-42-abcd1234']) {
+      mkdirSync(sdkDir(env, d), { recursive: true });
+    }
+    mkdirSync(`${pin}.lock`, { recursive: true });
+    expect(installedVersions(SDK, env)).toEqual(['0.3.99', '0.3.303', '1.0.0-beta.1']);
+  });
+
+  it('in a role, names the older versions held and the MONOMIND_ORG_ROLE guard', async () => {
+    const env = { MONOMIND_HOME: home, MONOMIND_ORG_ROLE: 'builder' };
+    mkdirSync(sdkDir(env, '0.3.303'), { recursive: true });
+    mkdirSync(sdkDir(env, '0.3.99'), { recursive: true });
+    const err = await failWith(env);
+    expect(err).toBeInstanceOf(OptionalDependencyError);
+    expect(err.message).toMatch(/pin moved to .* only holds 0\.3\.99, 0\.3\.303,/);
+    expect(err.message).toContain('monomind deps install');
+    expect(err.message).toContain('MONOMIND_ORG_ROLE guard');
+  });
+
+  it('says nothing of a moved pin when only the pin and leftovers are there', async () => {
+    const env = { MONOMIND_HOME: home, MONOMIND_ORG_ROLE: 'builder' };
+    const pin = dependencyDir(SDK, env);
+    mkdirSync(pin, { recursive: true }); // an interrupted manual install
+    mkdirSync(`${pin}.old-42-abcd1234`, { recursive: true });
+    const err = await failWith(env);
+    expect(err.message).toContain('(EROFS)');
+    expect(err.message).not.toContain('pin moved');
+  });
+
+  it('outside a role, gives a plain permissions message without the guard', async () => {
+    const env = { MONOMIND_HOME: home };
+    const err = await failWith(env);
+    expect(err).toBeInstanceOf(OptionalDependencyError);
+    expect(err.message).toContain(`${depsRoot(env)} is not writable here (EROFS)`);
+    expect(err.message).toMatch(/ownership and permissions/);
+    expect(err.message).not.toContain('MONOMIND_ORG_ROLE');
+    expect(err.message).toContain(manualInstallCommand(SDK, env));
+  });
+});
+
 describe('monomind deps install', () => {
   it('is an explicit request: installs even with MONOMIND_NO_AUTO_INSTALL set', async () => {
     const install = depsCommand.subcommands?.find((c) => c.name === 'install');
