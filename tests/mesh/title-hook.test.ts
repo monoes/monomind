@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { psReadsProcessTable } from '../../packages/@monomind/cli/src/__tests__/ps-probe.js';
 import { meshCall } from '../../packages/@monomind/cli/src/mesh/client.js';
 import { MeshHub } from '../../packages/@monomind/cli/src/mesh/hub.js';
 import { projectIdFor } from '../../packages/@monomind/cli/src/mesh/project-id.js';
@@ -12,6 +13,7 @@ import {
 } from '../../packages/@monomind/cli/src/mesh/session-files.js';
 
 const HOOK = join(__dirname, '../../.claude/helpers/mesh-title.cjs');
+const noPs = !psReadsProcessTable('title-hook');
 const dirs: string[] = [];
 afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -47,14 +49,20 @@ describe('mesh-title hook', () => {
     expect(await runHook(meshDir(), { cwd: '/w/p', session_title: 'mine' })).toBe('');
   });
 
-  it('is the name the MCP side then adopts, and settles on a suffixed one', async () => {
-    const dir = meshDir();
-    const title = titleOf(await runHook(dir, { cwd: '/w/p' }));
-    expect(claimSessionName(dir, () => 'other-20000101-000000')).toBe(title);
-    settleSessionName(dir, `${title}-2`);
-    expect(claimSessionName(dir, () => 'x')).toBe(`${title}-2`);
-    expect(readFileSync(join(dir, 'sessions', `${process.ppid}.name`), 'utf8')).toBe(`${title}-2`);
-  });
+  // reason: both sides find the session pid by walking parents with ps, which a Seatbelt sandbox denies (#798)
+  it.skipIf(noPs)(
+    'is the name the MCP side then adopts, and settles on a suffixed one',
+    async () => {
+      const dir = meshDir();
+      const title = titleOf(await runHook(dir, { cwd: '/w/p' }));
+      expect(claimSessionName(dir, () => 'other-20000101-000000')).toBe(title);
+      settleSessionName(dir, `${title}-2`);
+      expect(claimSessionName(dir, () => 'x')).toBe(`${title}-2`);
+      expect(readFileSync(join(dir, 'sessions', `${process.ppid}.name`), 'utf8')).toBe(
+        `${title}-2`,
+      );
+    },
+  );
 
   it('claimSessionName writes the name for a hook that starts later', () => {
     const dir = meshDir();
