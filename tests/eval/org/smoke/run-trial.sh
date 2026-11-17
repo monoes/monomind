@@ -22,9 +22,11 @@ driver=$(field x driver)
 deadline=${3:-$(field x deadlineSeconds)}
 deadline=${deadline:-3600}
 stopusd=$(field x orgStopUsd)
-mapfile -t guard < <(field x guard)
+# Not mapfile: macOS ships bash 3.2, which has none (#798). `field` ends without a newline.
+guard=()
+while IFS= read -r g || [ -n "$g" ]; do guard+=("$g"); done < <(field x guard)
 
-fingerprint() { for d in "${guard[@]}"; do (cd "$d" && find . -type f -print0 | sort -z | xargs -0 sha256sum); done; }
+fingerprint() { for d in ${guard[@]+"${guard[@]}"}; do (cd "$d" && find . -type f -print0 | sort -z | xargs -0 sha256sum); done; }
 
 t0=$(date +%s)
 cd "$root"

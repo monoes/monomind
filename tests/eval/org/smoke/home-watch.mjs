@@ -12,7 +12,8 @@
 // directory holds is out of scope: the runners' own `.claude`, `.codex`, `.gemini` are written on purpose,
 // and the already-fingerprinted ~/.monomind watch directories are env.mjs's job). An entry whose birth time
 // is after the before-listing is new even under a name that existed before (a file replaced by
-// rename).
+// rename), and so is one whose inode changed: on macOS, setting a file's mtime before its birth time
+// moves the birth time back too, so a rename that kept the old mtime looked born before (#798).
 //
 // Not detectable from two listings: a file created and removed again inside the window, or a change made
 // inside a directory. The home directory's own mtime moves for those, and also for every ignored name below
@@ -73,6 +74,7 @@ export function homeSnapshot(home = homedir(), now = Date.now()) {
     entries[name] = {
       type,
       birthMs: st.birthtimeMs,
+      ino: st.ino,
       ...(type === 'dir'
         ? {}
         : {
@@ -95,7 +97,8 @@ export function homeOffenders(before, after, ignore = HOME_IGNORE) {
     const mark = (kind) => out.push({ name, kind, ...now });
     if (!was) mark('created');
     else if (was.type !== now.type) mark('changed');
-    else if (now.birthMs > before.takenAtMs) mark('replaced');
+    else if (now.birthMs > before.takenAtMs || (was.ino !== undefined && was.ino !== now.ino))
+      mark('replaced');
     else if (
       now.type !== 'dir' &&
       (was.size !== now.size || was.mtimeMs !== now.mtimeMs || was.target !== now.target)
