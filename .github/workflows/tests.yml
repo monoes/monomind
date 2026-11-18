@@ -126,6 +126,22 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         run: sudo apt-get install -y ripgrep
 
+      # The org runtime's confinement suites need a bubblewrap that runs, also
+      # inside itself (the SDK's Bash sandbox nests in a role's layer), and
+      # socat for the SDK sandbox. ubuntu-26.04 ships bubblewrap with AppArmor's
+      # bwrap-userns-restrict profile enforced: bwrap may make a user namespace,
+      # its children may not, so every nested case fails (#803). Unloading the
+      # profile alone leaves bwrap under the userns restriction, hence the sysctl.
+      - name: Set up bubblewrap for the sandbox suites
+        if: needs.changes.outputs.code == 'true'
+        run: |
+          sudo apt-get install -y bubblewrap socat
+          if [ -e /etc/apparmor.d/bwrap-userns-restrict ]; then
+            sudo apparmor_parser -R /etc/apparmor.d/bwrap-userns-restrict
+          fi
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --dev-bind / / -- bwrap --dev-bind / / -- true
+
       - name: Lint
         run: pnpm run lint
 
@@ -744,6 +760,17 @@ jobs:
       - name: Install workspace dependencies
         if: needs.changes.outputs.code == 'true'
         run: pnpm install --frozen-lockfile
+
+      # Same as the root job's identical step: see its comment (#803).
+      - name: Set up bubblewrap for the sandbox suites
+        if: needs.changes.outputs.code == 'true'
+        run: |
+          sudo apt-get install -y bubblewrap socat
+          if [ -e /etc/apparmor.d/bwrap-userns-restrict ]; then
+            sudo apparmor_parser -R /etc/apparmor.d/bwrap-userns-restrict
+          fi
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --dev-bind / / -- bwrap --dev-bind / / -- true
 
       - name: Build cli's workspace dependencies
         if: needs.changes.outputs.code == 'true'
