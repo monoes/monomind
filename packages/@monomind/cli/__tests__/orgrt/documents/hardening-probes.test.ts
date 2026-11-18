@@ -402,8 +402,10 @@ describe('R5 on every runtime: a session on another runtime (real daemon, fake C
       [
         '#!/bin/sh',
         'cat > /dev/null',
-        'printf "CODEX_HOME=%s\\nHOME=%s\\n" "$CODEX_HOME" "$HOME" > "$CODEX_HOME/probe.txt"',
-        'ls "$CODEX_HOME" >> "$CODEX_HOME/probe.txt"',
+        // written whole, then renamed: the test reads the file as soon as it exists
+        'printf "CODEX_HOME=%s\\nHOME=%s\\n" "$CODEX_HOME" "$HOME" > "$CODEX_HOME/probe.tmp"',
+        'ls "$CODEX_HOME" >> "$CODEX_HOME/probe.tmp"',
+        'mv "$CODEX_HOME/probe.tmp" "$CODEX_HOME/probe.txt"',
         'echo \'{"type":"thread.started","thread_id":"t1"}\'',
         'echo \'{"type":"item.completed","item":{"id":"i0","type":"agent_message","text":"done"}}\'',
         'echo \'{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}\'',
