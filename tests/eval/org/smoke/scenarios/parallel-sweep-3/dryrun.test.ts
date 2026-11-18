@@ -8,7 +8,7 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { authorityMaskAvailability } from '../../../../../../packages/@monomind/cli/src/orgrt/authority-mask.js';
+import { bubblewrapRuns } from '../../../../../../packages/@monomind/cli/src/__tests__/bwrap-probe.js';
 import { setOrgSignatureEnforcement } from '../../../../../../packages/@monomind/cli/src/orgrt/org-signature-enforcement.js';
 import { preparePilotTrial } from '../../../pilot/prepare.js';
 import { runOrg } from '../../../pilot/run-org.js';
@@ -91,7 +91,8 @@ const launch = (opts: any, cmd: string): Promise<string> =>
     child.on('close', () => resolve(out));
   });
 
-describe.runIf(authorityMaskAvailability().available)(
+// reason: every role carries policy.sandbox.denyExec, which only bubblewrap applies; the macOS Seatbelt mask refuses it (#798)
+describe.runIf(bubblewrapRuns('parallel-sweep-3/dryrun'))(
   'both arms through the real daemon, scripted',
   () => {
     it.each(['baseline', 'treatment'] as const)(
