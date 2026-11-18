@@ -696,6 +696,43 @@ jobs:
           path: ${{ matrix.dir }}/coverage
           if-no-files-found: warn
 
+  # TEMPORARY (#803 probe): what bubblewrap does on this runner image.
+  sandbox-diag:
+    name: sandbox diag (temporary)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Probe bubblewrap
+        shell: bash
+        run: |
+          set +e
+          p() { echo; echo "### $*"; "$@" 2>&1 | head -40; echo "rc=${PIPESTATUS[0]}"; }
+          p cat /etc/os-release
+          p uname -a
+          p which bwrap socat ruby php perl python3 unshare
+          p bwrap --version
+          p dpkg -l bubblewrap socat apparmor ruby php-cli
+          p sh -c 'apt-cache rdepends --installed bubblewrap'
+          p sysctl kernel.apparmor_restrict_unprivileged_userns kernel.unprivileged_userns_clone user.max_user_namespaces kernel.apparmor_restrict_unprivileged_unconfined
+          p sh -c 'ls -la /etc/apparmor.d | grep -iE "bwrap|userns|unpriv"'
+          p sh -c 'cat /etc/apparmor.d/bwrap-userns-restrict 2>/dev/null || cat /etc/apparmor.d/bwrap 2>/dev/null'
+          p sh -c 'sudo aa-status 2>&1 | grep -iE "bwrap|unpriv|profiles are|processes are"'
+          p sh -c 'ls -l /usr/bin/ruby /usr/bin/php /etc/alternatives/php; readlink -f /usr/bin/ruby /usr/bin/php /usr/bin/perl /usr/bin/python3'
+          probes() {
+            p unshare -Ur true
+            p bwrap --dev-bind / / -- true
+            p bwrap --dev-bind / / --unshare-pid --proc /proc -- true
+            d=$(mktemp -d); p bwrap --dev-bind / / --overlay-src "$d" --tmp-overlay "$d" -- true
+            p bwrap --dev-bind / / -- bwrap --dev-bind / / -- true
+            p bwrap --dev-bind / / --unshare-pid --proc /proc -- bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid -- true
+            p bwrap --dev-bind / / -- unshare -Ur true
+          }
+          echo "===== as found"; probes
+          echo "===== after sysctl kernel.apparmor_restrict_unprivileged_userns=0"
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0; probes
+          echo "===== after installing bubblewrap socat"
+          sudo apt-get install -y bubblewrap socat >/dev/null 2>&1; p bwrap --version; probes
+
   # The cli suite (~850 test files, maxWorkers 4) took ~9 minutes as a single
   # leg, so it runs as four vitest shards. Its own job rather than four legs
   # of `packages`: the `cli` aggregate below must need exactly these shards,
