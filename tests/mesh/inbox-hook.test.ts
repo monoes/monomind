@@ -1,11 +1,22 @@
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { meshCall } from '../../packages/@monomind/cli/src/mesh/client.js';
 import { MeshHub } from '../../packages/@monomind/cli/src/mesh/hub.js';
-import { createSessionFiles } from '../../packages/@monomind/cli/src/mesh/session-files.js';
+import {
+  createSessionFiles,
+  sessionHostPid,
+} from '../../packages/@monomind/cli/src/mesh/session-files.js';
 
 const HOOK = join(__dirname, '../../.claude/helpers/mesh-inbox.cjs');
 const cleanups: Array<() => Promise<void> | void> = [];
@@ -152,12 +163,13 @@ describe('mesh-inbox hook for other CLIs', () => {
 });
 
 describe('createSessionFiles', () => {
-  it('writes 0600 credentials under the parent pid and removes them again', () => {
+  it('writes 0600 credentials under the host pid only and removes them again', () => {
     const dir = mkdtempSync(join(tmpdir(), 'mesh-'));
     cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
     const files = createSessionFiles(dir);
     files.write({ addr: 'h/p/s', key: 'k' });
-    const f = join(dir, 'sessions', `${process.ppid}.json`);
+    const f = join(dir, 'sessions', `${sessionHostPid()}.json`);
+    expect(readdirSync(join(dir, 'sessions'))).toEqual([`${sessionHostPid()}.json`]);
     expect(statSync(f).mode & 0o777).toBe(0o600);
     files.remove();
     expect(existsSync(f)).toBe(false);

@@ -6,6 +6,9 @@
  * hook, the Task|Agent pre-agent adherence hook, the SubagentStart/Stop
  * capture hooks) and keep timeouts written in milliseconds, which Claude
  * Code reads as seconds. Both are fixed by `monomind init upgrade --settings`.
+ * The helpers refresh copies mesh-title.cjs and mesh-inbox.cjs but adds no hook
+ * that runs them, so an upgraded project's sessions get no mesh name and never
+ * see their inbox: those two hooks are checked as well.
  */
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -26,6 +29,9 @@ export const PICK_HOOKS = [
   'SubagentStop: handlers/capture-handler.cjs subagent-stop',
 ];
 
+/** The hooks the Monomind Mesh needs: the session's name as its title, and the inbox. */
+export const MESH_HOOKS = ['SessionStart: mesh-title.cjs', 'UserPromptSubmit: mesh-inbox.cjs'];
+
 export async function checkHookSettings(cwd: string = process.cwd()): Promise<HealthCheck> {
   const settingsPath = join(cwd, '.claude', 'settings.json');
   if (!existsSync(settingsPath))
@@ -40,15 +46,18 @@ export async function checkHookSettings(cwd: string = process.cwd()): Promise<He
   }
 
   const reference = (generateSettings(DEFAULT_INIT_OPTIONS) as { hooks: HooksByEvent }).hooks;
-  const missing = missingMonomindHooks(hooks, reference).filter((h) => PICK_HOOKS.includes(h));
+  const missing = missingMonomindHooks(hooks, reference);
+  const missingPick = missing.filter((h) => PICK_HOOKS.includes(h));
+  const missingMesh = missing.filter((h) => MESH_HOOKS.includes(h));
   const msTimeouts = msTimeoutHooks(hooks);
   const problems: string[] = [];
-  if (missing.length) problems.push(`missing pick hook(s): ${missing.join(', ')}`);
+  if (missingPick.length) problems.push(`missing pick hook(s): ${missingPick.join(', ')}`);
+  if (missingMesh.length) problems.push(`missing mesh hook(s): ${missingMesh.join(', ')}`);
   if (msTimeouts.length)
     problems.push(
       `${msTimeouts.length} monomind hook timeout(s) in milliseconds (Claude Code reads seconds), e.g. ${msTimeouts[0]}`,
     );
   return problems.length
     ? { name: NAME, status: 'warn', message: problems.join('; '), fix: FIX }
-    : { name: NAME, status: 'pass', message: 'pick hooks present, timeouts in seconds' };
+    : { name: NAME, status: 'pass', message: 'pick and mesh hooks present, timeouts in seconds' };
 }
