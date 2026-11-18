@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { authorityMaskAvailability } from '../../../../../../packages/@monomind/cli/src/orgrt/authority-mask.js';
 import { setOrgSignatureEnforcement } from '../../../../../../packages/@monomind/cli/src/orgrt/org-signature-enforcement.js';
+import { sandboxAvailability } from '../../../../../../packages/@monomind/cli/src/orgrt/role-sandbox-restrictions.js';
 import { preparePilotTrial } from '../../../pilot/prepare.js';
 import { runOrg } from '../../../pilot/run-org.js';
 import { scriptedSdk } from '../../../support/scripted.js';
@@ -91,7 +92,9 @@ const launch = (opts: any, cmd: string): Promise<string> =>
     child.on('close', () => resolve(out));
   });
 
-describe.runIf(authorityMaskAvailability().available)(
+// reason: the roles' sandbox mode is required, which a host without bubblewrap, or without socat for the SDK
+// sandbox, refuses: no role starts (#803)
+describe.runIf(authorityMaskAvailability().available && sandboxAvailability().available)(
   'both arms through the real daemon, scripted',
   () => {
     it.each(['baseline', 'treatment'] as const)(
