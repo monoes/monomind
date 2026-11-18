@@ -125,6 +125,23 @@ export interface McpCheckOptions {
   timeoutMs?: number;
 }
 
+/** The release that added the Monomind Mesh (session names, mesh_send/mesh_inbox). */
+const MESH_SINCE = [2, 28, 0];
+
+/**
+ * An entry that pins the server to a release before the mesh: its sessions get no mesh name and
+ * cannot message each other. Only an explicit version counts; `@latest` and unpinned entries pass.
+ */
+function preMeshPin(entry: unknown): string | undefined {
+  const server = (entry ?? {}) as { command?: unknown; args?: unknown };
+  const line = [server.command, ...(Array.isArray(server.args) ? server.args : [])].join(' ');
+  const m = /(?:^|[\s=])(?:monomind|@monoes\/monomindcli)@(\d+)\.(\d+)\.(\d+)\b/.exec(line);
+  if (!m) return undefined;
+  const v = m.slice(1, 4).map(Number);
+  const i = v.findIndex((n, k) => n !== MESH_SINCE[k]);
+  return i >= 0 && v[i] < MESH_SINCE[i] ? v.join('.') : undefined;
+}
+
 export async function checkMcpServers(options: McpCheckOptions = {}): Promise<HealthCheck> {
   const mcpConfigPaths = [
     join(homedir(), '.claude/claude_desktop_config.json'),
@@ -142,6 +159,14 @@ export async function checkMcpServers(options: McpCheckOptions = {}): Promise<He
         const count = Object.keys(servers).length;
         const hasMonomind = 'monomind' in servers || 'monomind_alpha' in servers;
         if (hasMonomind) {
+          const pinned = preMeshPin(servers.monomind ?? servers.monomind_alpha);
+          if (pinned)
+            return {
+              name: 'MCP Servers',
+              status: 'warn',
+              message: `monomind MCP server pinned to ${pinned} in ${configPath}: the Monomind Mesh needs ${MESH_SINCE.join('.')}+, so sessions get no mesh name and cannot message each other`,
+              fix: `Pin ${MESH_SINCE.join('.')} or later (or monomind@latest) in ${configPath}`,
+            };
           if (options.probe)
             return await probeConfiguredMcpServer(
               servers.monomind ?? servers.monomind_alpha,

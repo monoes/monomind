@@ -54,6 +54,21 @@ describe('checkHookSettings', () => {
     expect(r.message).toContain('SubagentStart: handlers/capture-handler.cjs subagent-start');
   });
 
+  it('warns on missing mesh title and inbox hooks', async () => {
+    const s = generateSettings(DEFAULT_INIT_OPTIONS) as {
+      hooks: Record<string, { hooks: { command: string }[] }[]>;
+    };
+    for (const event of ['SessionStart', 'UserPromptSubmit'])
+      for (const g of s.hooks[event]) g.hooks = g.hooks.filter((h) => !/mesh-/.test(h.command));
+    write(s);
+    const r = await checkHookSettings(dir);
+    expect(r.status).toBe('warn');
+    expect(r.message).toMatch(/missing mesh hook\(s\): /);
+    expect(r.message).toContain('SessionStart: mesh-title.cjs');
+    expect(r.message).toContain('UserPromptSubmit: mesh-inbox.cjs');
+    expect(r.fix).toBe('monomind init upgrade --settings');
+  });
+
   it('ignores user hooks with large timeouts', async () => {
     const s = generateSettings(DEFAULT_INIT_OPTIONS) as {
       hooks: Record<string, { hooks: unknown[] }[]>;

@@ -359,6 +359,24 @@ describe('doctor-project-checks', () => {
       expect(result.message).toBe('2 servers (monomind configured)');
     });
 
+    it('warns when .mcp.json pins monomind to a release before the mesh', async () => {
+      for (const [args, warn] of [
+        [['-y', '--package=@monoes/monomindcli@2.22.0', 'monomind', 'mcp', 'start'], true],
+        [['-y', 'monomind@2.24.1', 'mcp', 'start'], true],
+        [['-y', 'monomind@2.28.0', 'mcp', 'start'], false],
+        [['-y', 'monomind@3.0.1', 'mcp', 'start'], false],
+        [['-y', 'monomind@latest', 'mcp', 'start'], false],
+      ] as const) {
+        writeFileSync(
+          join(dir, '.mcp.json'),
+          JSON.stringify({ mcpServers: { monomind: { command: 'npx', args } } }),
+        );
+        const result = await checkMcpServers();
+        expect(result.status, args.join(' ')).toBe(warn ? 'warn' : 'pass');
+        if (warn) expect(result.message).toMatch(/needs 2\.28\.0\+/);
+      }
+    });
+
     it('warns with the correct claude mcp add fix string when monomind is missing', async () => {
       writeFileSync(
         join(dir, '.mcp.json'),
