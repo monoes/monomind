@@ -1,6 +1,6 @@
 ---
 name: release-publish
-description: "Publisher's PUBLISH, post-npm git/GitHub steps, LOCAL MAIN SYNC, ISSUE FILING and CLEAN UP tasks. Load first for those tasks."
+description: "Publisher's PUBLISH (tag push, release workflow), post-npm GitHub steps, LOCAL MAIN SYNC, ISSUE FILING and CLEAN UP tasks. Load first for those tasks."
 tags: ["operations","devops"]
 tools: []
 license: Apache-2.0
@@ -11,20 +11,22 @@ source: https://github.com/monoes/monomind
 SRC/doc/publishing.md is the source of truth. Commits and tags use the `release-commit` identity rules.
 
 ## PUBLISH (only in a PUBLISH task from release-captain)
-- First confirm yourself: verdict.json (ABSOLUTE path in the task, under `.monomind/orgs/release/reports/<VERSION>-<timestamp>/`, never $GATE; if omitted ask release-captain, do not search) says GO for the same SHA as SRC HEAD, AND the newest accepted `audit-verdict` (kind final) says APPROVE for that SHA. `npm whoami`; `git -C SRC fetch origin`; origin/main is an ancestor of HEAD (else STOP, NO-GO); none of packages_to_publish exists on npm.
-- From SRC: `pnpm publish --tag latest --no-git-checks --access public`, ONE package at a time in the FOREGROUND, full output to `$GATE/logs/publisher/<pkg>-publish.log`, exit code checked (the CLI's prepublishOnly is a multi-minute build: "success" after seconds means it did not run). Order: changed sub-packages, then `@monoes/monomindcli`, then `monomind`. Sub-packages that do not depend on each other (e.g. monobrowse and monodesign) are published back to back before waiting on any, then confirmed together (2.15.6 paid the registry lag twice).
-- Before each dependent, confirm its dependency is live on the registry, in ONE foreground call with `timeout: 600000`: `until curl -s https://registry.npmjs.org/<url-encoded name> | grep -qF '"<ver>":{'; do sleep 10; done`; if it times out run it once more, then report. Never end the turn or `org_task_block` to wait (2.16.1: idle 42 min). E409 "previously staged version" means STILL PROCESSING: wait, never re-publish. NEVER publish `monomind` before its exactly-pinned CLI version is confirmed. If an umbrella becomes latest while its CLI is missing: at once `npm dist-tag add monomind@<previous> latest`, wait for the CLI, `npm dist-tag add monomind@<VERSION> latest`, report the incident. npm demands an OTP/2FA: STOP, publish nothing further, never unpublish, report.
+The GitHub release workflow publishes to npm, not you (#797): it runs from CI with npm provenance and the `release` environment's `NPM_TOKEN`. NEVER run `npm publish` or `pnpm publish` yourself, in any task: a version published from this machine has no provenance, and the workflow then skips it as already on npm.
+- First confirm yourself: verdict.json (ABSOLUTE path in the task, under `.monomind/orgs/release/reports/<VERSION>-<timestamp>/`, never $GATE; if omitted ask release-captain, do not search) says GO for the same SHA as SRC HEAD, AND the newest accepted `audit-verdict` (kind final) says APPROVE for that SHA. `git -C SRC fetch origin`; origin/main is an ancestor of HEAD (else STOP, NO-GO); none of packages_to_publish exists on npm; `gh secret list --env release --repo monoes/monomind` lists `NPM_TOKEN` (else STOP and report it: the operator adds the secret; never ask for, read or handle a token).
+1. `git -C SRC push origin <sha>:refs/heads/main` (fast-forward only, never force).
+2. `git -C SRC tag -a vVERSION -m 'monomind VERSION' <sha>` (identity env) and `git -C SRC push origin vVERSION`. The tag push starts `.github/workflows/release.yml`: build, check-versions, check-release-deps, `test:all:run`, then it publishes siblings, CLI, then umbrella, skipping any version already on npm.
+3. Its run: `gh run list --repo monoes/monomind --workflow release.yml --branch vVERSION --json databaseId --jq '.[0].databaseId'` (empty for the first seconds: retry with `sleep 10`). Wait in ONE foreground call with `timeout: 600000`: `until [ "$(gh run view <id> --repo monoes/monomind --json status --jq .status)" = completed ]; do sleep 30; done`, and repeat the call while it runs (2.29.4 took 8 min; the full suite can take longer). Never end the turn or `org_task_block` to wait (2.16.1: idle 42 min). Then read `--json conclusion`.
+4. Not success: `gh run view <id> --repo monoes/monomind --log-failed > $GATE/logs/publisher/release-workflow.log`; report to release-captain the failed step and which packages are already live (`npm view <pkg>@<ver> version`; a failure before the Publish step published nothing). Never move, delete or re-push the tag, never unpublish, never publish by hand to finish it: once fixed, `gh run rerun <id> --repo monoes/monomind --failed` is safe because the workflow skips versions already on npm. NEVER publish `monomind` before its exactly-pinned CLI version is confirmed: if the umbrella became latest while its CLI is missing, at once `npm dist-tag add monomind@<previous> latest`, and once the CLI is live `npm dist-tag add monomind@<VERSION> latest`; report the incident.
+5. Success: confirm every package of packages_to_publish is live, in ONE foreground call with `timeout: 600000`: `until curl -s https://registry.npmjs.org/<url-encoded name> | grep -qF '"<ver>":{'; do sleep 10; done` per package (run it once more on timeout, then report). Then `npm view <pkg>@<ver> dist.attestations --json` must be non-empty for each: a missing attestation is reported (#797), not repaired.
 - If any org tool call (org_task_done, org_send, org_task_block) fails ("Tool permission request failed", "Stream closed"): say in plain text what finished, what is left, the log paths, and END THE TURN so the runtime restarts you (2.16.1 lost its tool channel mid-PUBLISH).
 
 ## After npm (the git side does not wait on registry propagation)
-As soon as every publish exited 0 and each dependency is confirmed live for its dependent: push, tag, release; then the smoke test and Pages check (2.15.7's git side sat idle behind the umbrella's propagation).
-1. `git -C SRC push origin <sha>:refs/heads/main` (fast-forward only, never force).
-2. `git -C SRC tag -a vVERSION -m 'monomind VERSION' <sha>` (identity env) and push the tag.
-3. CHANGELOG entry plus an `**npm**:` line to `$GATE/release-notes.md` (never inside the repo); `gh release create vVERSION --latest --title vVERSION --notes-file $GATE/release-notes.md`.
-4. Registry install smoke in `$GATE/smoke`: `npm install monomind@VERSION --prefer-online`, `--version` reports VERSION, `init --help` works.
-5. Pages: `until gh run list --workflow pages.yml --commit <sha> --json conclusion --jq '.[0].conclusion' | grep -qx success; do sleep 10; done` in a foreground call with `timeout: 600000`.
-6. Close every still-open issue the range references (commit-body scan from `release-commit`) with a comment linking the release.
-7. LOCAL MAIN SYNC, then report every step to release-captain.
+`main` and the tag are already pushed. As soon as every package is confirmed live: the GitHub release, then the smoke test and Pages check.
+1. CHANGELOG entry plus an `**npm**:` line to `$GATE/release-notes.md` (never inside the repo); `gh release create vVERSION --latest --title vVERSION --notes-file $GATE/release-notes.md`.
+2. Registry install smoke in `$GATE/smoke`: `npm install monomind@VERSION --prefer-online`, `--version` reports VERSION, `init --help` works.
+3. Pages: `until gh run list --workflow pages.yml --commit <sha> --json conclusion --jq '.[0].conclusion' | grep -qx success; do sleep 10; done` in a foreground call with `timeout: 600000`.
+4. Close every still-open issue the range references (commit-body scan from `release-commit`) with a comment linking the release.
+5. LOCAL MAIN SYNC, then report every step to release-captain.
 
 ## LOCAL MAIN SYNC (`<sha>` = release SHA, S = `ORG_ROOT-sync-VERSION`)
 Only when ORG_ROOT is on `main` with no tracked changes (`git -C ORG_ROOT symbolic-ref --short HEAD` prints main, `git -C ORG_ROOT status --porcelain --untracked-files=no` prints nothing); otherwise change nothing and report why.

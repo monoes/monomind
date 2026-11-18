@@ -314,6 +314,17 @@ describe('release org config', () => {
       expect(skill('release-captain-ops')).toMatch(/blocks GO unless proven a pre-existing flake/);
       expect(closeout).toMatch(/GitHub `Tests` gate passed/);
     });
+
+    it('npm publishing runs in the release workflow, never on the operator machine (#797)', () => {
+      expect(publish).toMatch(/NEVER run `npm publish` or `pnpm publish` yourself/);
+      expect(publish).not.toMatch(/From SRC: `pnpm publish/);
+      expect(publish).toMatch(/git -C SRC push origin vVERSION/);
+      expect(publish).toMatch(/--workflow release\.yml --branch vVERSION/);
+      expect(publish).toMatch(/dist\.attestations/);
+      expect(publish).toMatch(/gh secret list --env release --repo monoes\/monomind/);
+      expect(preflight).toMatch(/lists `NPM_TOKEN`/);
+      expect(role('publisher')).toMatch(/never run `npm publish` or `pnpm publish` yourself/);
+    });
   });
 
   /** Cross-run lessons: findings become org memory that later runs recall. */
