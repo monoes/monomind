@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  truncateSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
@@ -108,6 +109,8 @@ describe('doctor-project-checks', () => {
     // CommonJS helpers (agent-registry.cjs) use the real os.homedir(), which
     // the mock above cannot reach: point $HOME at the same directory.
     vi.stubEnv('HOME', homeState.dir);
+    // checkMcpServers() reads Claude Code's global config from $CLAUDE_CONFIG_DIR when set.
+    vi.stubEnv('CLAUDE_CONFIG_DIR', '');
 
     execState.claudeAvailable = false;
 
@@ -403,6 +406,88 @@ describe('doctor-project-checks', () => {
       );
       const result = await checkMcpServers();
       expect(result.status).toBe('pass');
+    });
+
+    describe("Claude Code's global config (~/.claude.json)", () => {
+      const pin22 = {
+        command: 'npx',
+        args: ['-y', '--package=@monoes/monomindcli@2.22.0', 'monomind', 'mcp', 'start'],
+      };
+      const writeClaudeJson = (config: unknown, at = homeState.dir) =>
+        writeFileSync(join(at, '.claude.json'), JSON.stringify(config));
+
+      it('warns on a pre-mesh pin in the local scope for this project, naming the claude mcp remove fix', async () => {
+        writeClaudeJson({ projects: { [process.cwd()]: { mcpServers: { monomind: pin22 } } } });
+        // The local scope outranks a project .mcp.json in Claude Code, so it is checked first.
+        writeFileSync(
+          join(dir, '.mcp.json'),
+          JSON.stringify({
+            mcpServers: { monomind: { command: 'npx', args: ['monomind@latest'] } },
+          }),
+        );
+        const result = await checkMcpServers();
+        expect(result.status).toBe('warn');
+        expect(result.message).toContain('pinned to 2.22.0');
+        expect(result.message).toContain('(local scope for ');
+        expect(result.fix).toBe(`claude mcp remove monomind -s local && ${mcpAddHint()}`);
+      });
+
+      it('ignores the local scope of other projects', async () => {
+        writeClaudeJson({
+          projects: { '/some/other/project': { mcpServers: { monomind: pin22 } } },
+        });
+        const result = await checkMcpServers();
+        expect(result.message).toBe('No MCP config found');
+      });
+
+      it('finds a user-scope entry when no project source names monomind', async () => {
+        writeClaudeJson({ mcpServers: { monomind: pin22 } });
+        let result = await checkMcpServers();
+        expect(result.status).toBe('warn');
+        expect(result.message).toContain('(user scope)');
+        expect(result.fix).toContain(
+          'claude mcp remove monomind -s user && claude mcp add -s user monomind',
+        );
+
+        writeClaudeJson({
+          mcpServers: { monomind: { command: 'npx', args: ['-y', 'monomind@latest'] } },
+        });
+        result = await checkMcpServers();
+        expect(result.status).toBe('pass');
+        expect(result.message).toBe('1 servers (monomind configured)');
+      });
+
+      it('does not let empty server maps in the always-present file shadow .mcp.json', async () => {
+        writeClaudeJson({ mcpServers: {}, projects: { [process.cwd()]: { mcpServers: {} } } });
+        writeFileSync(
+          join(dir, '.mcp.json'),
+          JSON.stringify({
+            mcpServers: { monomind: { command: 'npx', args: ['monomind@latest'] } },
+          }),
+        );
+        const result = await checkMcpServers();
+        expect(result.status).toBe('pass');
+      });
+
+      it('skips a malformed or oversized global config without throwing', async () => {
+        writeFileSync(join(homeState.dir, '.claude.json'), '{ not json');
+        expect((await checkMcpServers()).message).toBe('No MCP config found');
+
+        const big = join(homeState.dir, '.claude.json');
+        writeFileSync(big, JSON.stringify({ mcpServers: { monomind: pin22 } }));
+        truncateSync(big, 65 * 1024 * 1024); // sparse: past the 64 MB cap without writing 64 MB
+        expect((await checkMcpServers()).message).toBe('No MCP config found');
+      });
+
+      it('reads $CLAUDE_CONFIG_DIR/.claude.json instead of ~/.claude.json when set', async () => {
+        const configDir = join(dir, '__claude_config__');
+        mkdirSync(configDir);
+        vi.stubEnv('CLAUDE_CONFIG_DIR', configDir);
+        writeClaudeJson({ mcpServers: { monomind: pin22 } });
+        expect((await checkMcpServers()).message).toBe('No MCP config found');
+        writeClaudeJson({ mcpServers: { monomind: pin22 } }, configDir);
+        expect((await checkMcpServers()).message).toContain('pinned to 2.22.0');
+      });
     });
 
     // i-312: the registry-only check passed while the configured command was

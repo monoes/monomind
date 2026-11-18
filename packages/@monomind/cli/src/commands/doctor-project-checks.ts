@@ -4,7 +4,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync, rmSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { mcpAddHint } from '../platform-adapters/renderers/mcp.js';
@@ -142,53 +142,120 @@ function preMeshPin(entry: unknown): string | undefined {
   return i >= 0 && v[i] < MESH_SINCE[i] ? v.join('.') : undefined;
 }
 
+/**
+ * `~/.claude.json` keeps per-project state for every project Claude Code has opened (older
+ * releases also kept prompt history there), so it outgrows MAX_DOCTOR_CONFIG_BYTES on busy
+ * machines. Parsing even this much takes well under a second.
+ */
+const MAX_CLAUDE_GLOBAL_CONFIG_BYTES = 64 * 1024 * 1024;
+
+/** The servers one config source registers; `fix` replaces the hand-edit hint for a pin. */
+interface McpSource {
+  label: string;
+  servers: Record<string, unknown>;
+  fix?: string;
+}
+
+const namesMonomind = (servers: unknown): servers is Record<string, unknown> =>
+  !!servers &&
+  typeof servers === 'object' &&
+  ('monomind' in servers || 'monomind_alpha' in servers);
+
+/** Claude Code's global config: the legacy `<config dir>/.config.json` when it exists, else `.claude.json` in $CLAUDE_CONFIG_DIR or $HOME. */
+function claudeGlobalConfigPath(): string {
+  const dir = process.env.CLAUDE_CONFIG_DIR;
+  const legacy = join(dir || join(homedir(), '.claude'), '.config.json');
+  return existsSync(legacy) ? legacy : join(dir || homedir(), '.claude.json');
+}
+
+/**
+ * The `claude mcp add` scopes kept in the global config: local (`projects[<cwd>].mcpServers`) and
+ * user (top-level `mcpServers`). That file exists on every Claude Code machine and its server maps
+ * are usually empty, so a scope counts only when it names monomind.
+ */
+function claudeConfigScopes(): { local?: McpSource; user?: McpSource } {
+  const path = claudeGlobalConfigPath();
+  try {
+    if (!existsSync(path) || statSync(path).size > MAX_CLAUDE_GLOBAL_CONFIG_BYTES) return {};
+    const config = JSON.parse(readFileSync(path, 'utf8'));
+    const cwd = process.cwd();
+    const project = config.projects?.[cwd] ?? config.projects?.[realpathSync(cwd)];
+    const add = mcpAddHint();
+    return {
+      local: namesMonomind(project?.mcpServers)
+        ? {
+            label: `${path} (local scope for ${cwd})`,
+            servers: project.mcpServers,
+            fix: `claude mcp remove monomind -s local && ${add}`,
+          }
+        : undefined,
+      user: namesMonomind(config.mcpServers)
+        ? {
+            label: `${path} (user scope)`,
+            servers: config.mcpServers,
+            fix: `claude mcp remove monomind -s user && ${add.replace('claude mcp add', 'claude mcp add -s user')}`,
+          }
+        : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function readMcpConfigFile(configPath: string): McpSource | undefined {
+  if (!existsSync(configPath) || statSync(configPath).size > MAX_DOCTOR_CONFIG_BYTES)
+    return undefined;
+  const content = JSON.parse(readFileSync(configPath, 'utf8'));
+  return { label: configPath, servers: content.mcpServers || content.servers || {} };
+}
+
+async function mcpSourceVerdict(source: McpSource, options: McpCheckOptions): Promise<HealthCheck> {
+  const { label, servers } = source;
+  const count = Object.keys(servers).length;
+  if (!namesMonomind(servers))
+    return {
+      name: 'MCP Servers',
+      status: 'warn',
+      message: `${count} servers (monomind not found)`,
+      fix: mcpAddHint(),
+    };
+  const entry = servers.monomind ?? servers.monomind_alpha;
+  const pinned = preMeshPin(entry);
+  if (pinned)
+    return {
+      name: 'MCP Servers',
+      status: 'warn',
+      message: `monomind MCP server pinned to ${pinned} in ${label}: the Monomind Mesh needs ${MESH_SINCE.join('.')}+, so sessions get no mesh name and cannot message each other`,
+      fix: source.fix ?? `Pin ${MESH_SINCE.join('.')} or later (or monomind@latest) in ${label}`,
+    };
+  if (options.probe) return await probeConfiguredMcpServer(entry, count, label, options.timeoutMs);
+  return {
+    name: 'MCP Servers',
+    status: 'pass',
+    message: `${count} servers (monomind configured)`,
+  };
+}
+
 export async function checkMcpServers(options: McpCheckOptions = {}): Promise<HealthCheck> {
-  const mcpConfigPaths = [
+  const { local, user } = claudeConfigScopes();
+  // First source found wins. The local scope leads because Claude Code ranks it above the
+  // project's .mcp.json; the user scope, which Claude Code ranks below it, comes right after.
+  const sources: Array<string | McpSource | undefined> = [
+    local,
     join(homedir(), '.claude/claude_desktop_config.json'),
     join(homedir(), '.config/claude/mcp.json'),
     '.mcp.json',
+    user,
     '.claude/settings.json',
     '.claude/settings.local.json',
     join(homedir(), '.claude/settings.json'),
   ];
-  for (const configPath of mcpConfigPaths) {
-    if (existsSync(configPath) && statSync(configPath).size <= MAX_DOCTOR_CONFIG_BYTES) {
-      try {
-        const content = JSON.parse(readFileSync(configPath, 'utf8'));
-        const servers = content.mcpServers || content.servers || {};
-        const count = Object.keys(servers).length;
-        const hasMonomind = 'monomind' in servers || 'monomind_alpha' in servers;
-        if (hasMonomind) {
-          const pinned = preMeshPin(servers.monomind ?? servers.monomind_alpha);
-          if (pinned)
-            return {
-              name: 'MCP Servers',
-              status: 'warn',
-              message: `monomind MCP server pinned to ${pinned} in ${configPath}: the Monomind Mesh needs ${MESH_SINCE.join('.')}+, so sessions get no mesh name and cannot message each other`,
-              fix: `Pin ${MESH_SINCE.join('.')} or later (or monomind@latest) in ${configPath}`,
-            };
-          if (options.probe)
-            return await probeConfiguredMcpServer(
-              servers.monomind ?? servers.monomind_alpha,
-              count,
-              configPath,
-              options.timeoutMs,
-            );
-          return {
-            name: 'MCP Servers',
-            status: 'pass',
-            message: `${count} servers (monomind configured)`,
-          };
-        }
-        return {
-          name: 'MCP Servers',
-          status: 'warn',
-          message: `${count} servers (monomind not found)`,
-          fix: mcpAddHint(),
-        };
-      } catch {
-        /* try next */
-      }
+  for (const source of sources) {
+    try {
+      const found = typeof source === 'string' ? readMcpConfigFile(source) : source;
+      if (found) return await mcpSourceVerdict(found, options);
+    } catch {
+      /* try next */
     }
   }
   return {
