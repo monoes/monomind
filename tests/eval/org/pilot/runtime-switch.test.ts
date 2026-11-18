@@ -14,7 +14,7 @@ import {
   honestDoc,
   worker,
 } from '../../../../packages/@monomind/cli/__tests__/orgrt/support/check-defs.js';
-import { authorityMaskAvailability } from '../../../../packages/@monomind/cli/src/orgrt/authority-mask.js';
+import { bubblewrapRuns } from '../../../../packages/@monomind/cli/src/__tests__/bwrap-probe.js';
 import { sectionsDefinitionFindings } from '../../../../packages/@monomind/cli/src/orgrt/documents/definition.js';
 import { setOrgSignatureEnforcement } from '../../../../packages/@monomind/cli/src/orgrt/org-signature-enforcement.js';
 import { sandboxAvailability } from '../../../../packages/@monomind/cli/src/orgrt/role-sandbox-restrictions.js';
@@ -226,9 +226,9 @@ describe('run-all.sh and the stage gate take the switch from the same commands a
 });
 
 describe("runOrg on the runtime switch: the kit's ten roles in the real daemon, scripted", () => {
-  // reason: the kit's roles run in the no-node bubblewrap layer and the SDK sandbox (mode required), which a host
-  // without bubblewrap, or without socat for the SDK sandbox, refuses (#803)
-  it.skipIf(!authorityMaskAvailability().available || !sandboxAvailability().available)(
+  // reason: every role carries policy.sandbox.denyExec, which only bubblewrap applies (the macOS Seatbelt
+  // mask refuses it, #798), and the SDK sandbox in mode required, which needs socat (#803)
+  it.skipIf(!bubblewrapRuns('pilot/runtime-switch') || !sandboxAvailability().available)(
     'starts through the eval gate with the runtime tools, runs the sweep loop with a scripted fault, and the trial reads as a runtime trial',
     async () => {
       const root = await preparePilotTrial({
