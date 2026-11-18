@@ -72,6 +72,26 @@ describe('resolveDenyExec', () => {
     expect(got).toContain(join(d, 'tool'));
     expect(got).toContain(realpathSync(process.execPath));
   });
+
+  it('follows a link to a versioned interpreter (ruby -> ruby3.3, php -> alternatives -> php8.5) (#803)', () => {
+    const sys = scratch('xd-ver-');
+    const alt = scratch('xd-alt-');
+    exe(join(sys, 'ruby3.3'));
+    symlinkSync('ruby3.3', join(sys, 'ruby'));
+    exe(join(sys, 'php8.5'));
+    symlinkSync(join(sys, 'php8.5'), join(alt, 'php'));
+    symlinkSync(join(alt, 'php'), join(sys, 'php'));
+    exe(join(sys, 'mise'));
+    symlinkSync('mise', join(sys, 'node')); // a shim: the manager is not the interpreter
+    const got = resolveDenyExec(['ruby', 'php', 'node'], {
+      home: sys,
+      env: { PATH: sys },
+      systemDirs: [],
+    });
+    expect(got).toContain(join(sys, 'ruby3.3'));
+    expect(got).toContain(join(sys, 'php8.5'));
+    expect(got).not.toContain(join(sys, 'mise'));
+  });
 });
 
 describe('execDenyViolation (the Bash command check; the mask is what enforces)', () => {
@@ -195,6 +215,15 @@ describe('roleExecMask', () => {
   });
 });
 
+/** Whether a bwrap started inside bwrap can make its namespaces: Ubuntu's bwrap-userns-restrict
+ *  AppArmor profile (26.04's default) lets bwrap itself in, not its children (#803). */
+const nestedBwrap =
+  bubblewrapAvailability().available &&
+  spawnSync('bwrap', ['--dev-bind', '/', '/', '--', 'bwrap', '--dev-bind', '/', '/', '--', 'true'], {
+    stdio: 'ignore',
+    timeout: 5000,
+  }).status === 0;
+
 const which = (b: string) => {
   const r = spawnSync('sh', ['-c', `command -v ${b}`], { encoding: 'utf8' });
   return r.status === 0 ? r.stdout.trim() : undefined;
@@ -314,7 +343,8 @@ describe.runIf(bubblewrapAvailability().available)(
       expect(spawnSync('sh', ['-c', `test -s '${join(work, 'proc-node')}'`]).status).not.toBe(0);
     });
 
-    it('a nested sandbox (as the SDK builds one for Bash) inherits the mask', () => {
+    // reason: without nested user namespaces the inner bwrap never starts and this passes vacuously (#803)
+    it.runIf(nestedBwrap)('a nested sandbox (as the SDK builds one for Bash) inherits the mask', () => {
       for (const cmd of ['node prog.mjs', `'${real}' prog.mjs`, 'perl -e 1']) {
         const r = run(cmd, true);
         expect(r.stdout).not.toContain('PROGRAM-RAN');
