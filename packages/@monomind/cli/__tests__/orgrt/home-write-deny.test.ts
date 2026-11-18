@@ -21,6 +21,14 @@ import { RolePolicySchema } from '../../src/orgrt/types-policy.js';
 
 const scratch = (p: string) => realpathSync(mkdtempSync(join(tmpdir(), p)));
 const bus = () => new OrgBus('o', 'r', scratch('hw-bus-'));
+/** Whether a bwrap started inside bwrap can make its namespaces: Ubuntu's bwrap-userns-restrict
+ *  AppArmor profile (26.04's default) lets bwrap itself in, not its children (#803). */
+const nestedBwrap =
+  bubblewrapAvailability().available &&
+  spawnSync('bwrap', ['--dev-bind', '/', '/', '--', 'bwrap', '--dev-bind', '/', '/', '--', 'true'], {
+    stdio: 'ignore',
+    timeout: 5000,
+  }).status === 0;
 const ALLOW = ['.claude', '.codex', '.gemini'];
 
 /** A temp home shaped like a real one: runner dirs with dummy credentials, config, ordinary files. */
@@ -242,7 +250,8 @@ describe.runIf(bubblewrapAvailability().available && homeLayerAvailability().ava
       const treeBefore = tree(h);
       const rc = readFileSync(join(h, '.bashrc'), 'utf8');
       const notes = readFileSync(join(h, 'Documents/notes.txt'), 'utf8');
-      for (const nested of [false, true]) {
+      // reason: the nested (SDK-style) pass needs bwrap inside bwrap, which nestedBwrap probes (#803)
+      for (const nested of nestedBwrap ? [false, true] : [false]) {
         const r = run(cmd, nested);
         // the layer lets the role's command succeed (it writes into its own throwaway view) or
         // fails it: what must hold is that the home itself did not change
@@ -298,7 +307,8 @@ describe.runIf(bubblewrapAvailability().available && homeLayerAvailability().ava
       expect(readFileSync(join(h, '.codex/history.jsonl'), 'utf8')).toBe('w\n');
     });
 
-    it('the same allowlisted writes work from a nested (SDK-style) sandbox', () => {
+    // reason: runs bwrap inside the layer, so it needs nested user namespaces (#803)
+    it.runIf(nestedBwrap)('the same allowlisted writes work from a nested (SDK-style) sandbox', () => {
       const r = run('echo n > ~/.claude/nested.txt; echo n2 > ~/work/cwd/nested.txt', true);
       expect(r.status).toBe(0);
       expect(readFileSync(join(h, '.claude/nested.txt'), 'utf8')).toBe('n\n');
@@ -315,7 +325,8 @@ describe.runIf(bubblewrapAvailability().available && homeLayerAvailability().ava
       expect(r.stdout).not.toMatch(/rc=0/);
     });
 
-    it('the SDK stub mount points keep working: stubs created beforehand in ~/.claude are the real files', () => {
+    // reason: runs bwrap inside the layer, so it needs nested user namespaces (#803)
+    it.runIf(nestedBwrap)('the SDK stub mount points keep working: stubs created beforehand in ~/.claude are the real files', () => {
       writeFileSync(join(h, '.claude/CLAUDE.md'), '');
       const r = run(
         `bwrap --ro-bind / / --dev /dev --bind '${h}' '${h}' --ro-bind /dev/null ~/.claude/CLAUDE.md -- sh -c 'cat ~/.claude/CLAUDE.md | wc -c; echo x > ~/.claude/CLAUDE.md; echo rc=$?'`,

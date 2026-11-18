@@ -8,9 +8,10 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { authorityMaskAvailability } from '../../../../../../packages/@monomind/cli/src/orgrt/authority-mask.js';
+import { bubblewrapRuns } from '../../../../../../packages/@monomind/cli/src/__tests__/bwrap-probe.js';
 import { OrgDaemon } from '../../../../../../packages/@monomind/cli/src/orgrt/daemon.js';
 import { setOrgSignatureEnforcement } from '../../../../../../packages/@monomind/cli/src/orgrt/org-signature-enforcement.js';
+import { sandboxAvailability } from '../../../../../../packages/@monomind/cli/src/orgrt/role-sandbox-restrictions.js';
 import { startOrgServer } from '../../../../../../packages/@monomind/cli/src/orgrt/server.js';
 import { attachPilot } from '../../../pilot/harness.js';
 import { preparePilotTrial } from '../../../pilot/prepare.js';
@@ -34,8 +35,9 @@ afterAll(() => {
 });
 
 describe('v2 through the real daemon, scripted', () => {
-  // the kit's roles run in the no-node bubblewrap layer (mode required), which a host without bubblewrap refuses
-  it.skipIf(!authorityMaskAvailability().available)(
+  // reason: every role carries policy.sandbox.denyExec, which only bubblewrap applies (the macOS Seatbelt
+  // mask refuses it, #798), and the SDK sandbox in mode required, which needs socat (#803)
+  it.skipIf(!bubblewrapRuns('parallel-sweep-3/dryrun-v2') || !sandboxAvailability().available)(
     'a rejection lands in the producer mailbox and the lead copy, the workspace is the one the roles write, and a role-to-role cross-section send is still refused',
     async () => {
       const root = await preparePilotTrial({

@@ -19,6 +19,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { bubblewrapRuns } from '../../../../../../packages/@monomind/cli/src/__tests__/bwrap-probe.js';
 import { mkdtempSync } from '../../../../../../packages/@monomind/cli/src/__tests__/tmp-track.js';
 import {
   authorityMaskAvailability,
@@ -382,7 +383,8 @@ describe.runIf(authorityMaskAvailability().available && homeLayerAvailability().
   },
 );
 
-describe.runIf(authorityMaskAvailability().available)(
+// reason: every role carries policy.sandbox.denyExec, which only bubblewrap applies; the macOS Seatbelt mask refuses it (#798)
+describe.runIf(bubblewrapRuns('parallel-sweep/kit'))(
   'a role cannot run the code (real bubblewrap, every role of every arm)',
   () => {
     const real = realpathSync(process.execPath);
