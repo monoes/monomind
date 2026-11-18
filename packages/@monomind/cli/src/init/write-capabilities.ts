@@ -19,6 +19,7 @@ import { securityCommand } from '../commands/security.js';
 import { sessionCommand } from '../commands/session.js';
 import { statusCommand } from '../commands/status.js';
 import { taskCommand } from '../commands/task.js';
+import { mcpAddHint } from '../platform-adapters/renderers/mcp.js';
 import { atomicWriteFile } from './fs-helpers.js';
 import { WORKER_COUNT, WORKER_ROWS } from './generated-counts.js';
 import {
@@ -252,7 +253,7 @@ npx monomind memory init --force
 ### MCP Server Setup
 \`\`\`bash
 # Add Monomind MCP
-claude mcp add monomind -- npx -y monomind mcp start
+${mcpAddHint(options.mcp?.pin)}
 \`\`\`
 
 ---
