@@ -252,15 +252,25 @@ if (argv.includes('--help')) {
     }
 
     it('a hung probe times out, the run falls back to --query=, and the next run probes again', async () => {
-      const { bin, tmpDir, probes } = makeProbeHermes('setTimeout(() => {}, 60_000);');
+      // The probe hangs while the `hang` flag exists, else answers with --query-file.
+      // A killed probe may die before it logs, so the re-probe is proven by the
+      // second run's --query-file argv, not by counting probes.
+      const { bin, tmpDir } = makeProbeHermes(
+        "if (fs.existsSync(__dirname + '/hang')) setTimeout(() => {}, 60_000); else console.log('usage: hermes chat --query-file PATH --oneshot');",
+      );
       try {
-        const runner = new HermesAgentRunner(bin, { helpProbeTimeoutMs: 300 });
+        fs.writeFileSync(path.join(tmpDir, 'hang'), '');
+        const opts = { helpProbeTimeoutMs: 300 };
+        const runner = new HermesAgentRunner(bin, opts);
         const { messages } = await collect(runner, makeRunArgs(tmpDir));
         expect(messages.find((m) => m.type === 'result')?.subtype).toBe('success');
-        const [inv] = readInvocations(path.join(tmpDir, 'argv.log'));
-        expect(inv.argv[1].startsWith('--query=')).toBe(true);
+        expect(readInvocations(path.join(tmpDir, 'argv.log'))[0].argv[1].startsWith('--query=')).toBe(true);
+        fs.rmSync(path.join(tmpDir, 'hang'));
+        // The runner reads opts on every probe: give the clean probe room to answer under load.
+        opts.helpProbeTimeoutMs = 10_000;
         await collect(runner, makeRunArgs(tmpDir));
-        expect(probes()).toBe(2);
+        const [, inv2] = readInvocations(path.join(tmpDir, 'argv.log'));
+        expect(inv2.argv.slice(0, 2)).toEqual(['chat', '--query-file']);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
