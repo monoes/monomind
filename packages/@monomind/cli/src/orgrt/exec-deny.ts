@@ -116,9 +116,10 @@ export interface DenyExecCtx {
 
 /** The real paths of every executable file `patterns` name: bare names (`*` globs) wherever the
  *  resolver looks, absolute paths as themselves. A symlink is followed; its target is masked only
- *  when the target's own name matches too (so a version manager's shim, which points at the manager,
- *  is left alone: it ends in the masked interpreter). The running node is always among them when its
- *  name matches. */
+ *  when the target's own name matches too, with or without a version suffix (Debian's
+ *  `ruby -> ruby3.3`, `php -> /etc/alternatives/php -> php8.5`, #803), so a version manager's shim,
+ *  which points at the manager, is left alone: it ends in the masked interpreter. The running node
+ *  is always among them when its name matches. */
 export function resolveDenyExec(patterns: string[], ctx: DenyExecCtx): string[] {
   const names = patterns.filter((p) => !p.startsWith('/'));
   const wanted = matcher(names);
@@ -132,7 +133,9 @@ export function resolveDenyExec(patterns: string[], ctx: DenyExecCtx): string[] 
     }
     const target = st.isSymbolicLink() ? real(path) : path;
     if (!target || !isFile(target)) return;
-    if (st.isSymbolicLink() && !wanted(basename(target))) return;
+    const name = basename(target);
+    if (st.isSymbolicLink() && !wanted(name) && !wanted(name.replace(/[-.]?\d+(\.\d+)*$/, '')))
+      return;
     if (!(statSync(target).mode & 0o111)) return;
     const r = real(target);
     if (r) out.add(r);

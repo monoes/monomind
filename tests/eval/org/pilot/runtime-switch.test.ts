@@ -17,6 +17,7 @@ import {
 import { authorityMaskAvailability } from '../../../../packages/@monomind/cli/src/orgrt/authority-mask.js';
 import { sectionsDefinitionFindings } from '../../../../packages/@monomind/cli/src/orgrt/documents/definition.js';
 import { setOrgSignatureEnforcement } from '../../../../packages/@monomind/cli/src/orgrt/org-signature-enforcement.js';
+import { sandboxAvailability } from '../../../../packages/@monomind/cli/src/orgrt/role-sandbox-restrictions.js';
 import { OrgDefSchema } from '../../../../packages/@monomind/cli/src/orgrt/types.js';
 import { checklistFindings } from '../../../../packages/@monomind/cli/src/orgrt/validate-checklist.js';
 import { handoffMetrics } from '../fixtures/parallel-sweep-3/handoff-metrics.mjs';
@@ -225,8 +226,9 @@ describe('run-all.sh and the stage gate take the switch from the same commands a
 });
 
 describe("runOrg on the runtime switch: the kit's ten roles in the real daemon, scripted", () => {
-  // the kit's roles run in the no-node bubblewrap layer (mode required), which a host without bubblewrap refuses
-  it.skipIf(!authorityMaskAvailability().available)(
+  // reason: the kit's roles run in the no-node bubblewrap layer and the SDK sandbox (mode required), which a host
+  // without bubblewrap, or without socat for the SDK sandbox, refuses (#803)
+  it.skipIf(!authorityMaskAvailability().available || !sandboxAvailability().available)(
     'starts through the eval gate with the runtime tools, runs the sweep loop with a scripted fault, and the trial reads as a runtime trial',
     async () => {
       const root = await preparePilotTrial({
