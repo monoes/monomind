@@ -78,6 +78,17 @@ jobs:
       - name: Check release deps are published or in the release
         run: node scripts/check-release-deps.mjs
 
+      # As in tests.yml (#803): ubuntu-latest is 26.04, whose AppArmor profile blocks the nested
+      # bubblewrap the sandbox suites need, and socat is not preinstalled.
+      - name: Set up bubblewrap for the sandbox suites
+        run: |
+          sudo apt-get install -y bubblewrap socat
+          if [ -e /etc/apparmor.d/bwrap-userns-restrict ]; then
+            sudo apparmor_parser -R /etc/apparmor.d/bwrap-userns-restrict
+          fi
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --dev-bind / / -- bwrap --dev-bind / / -- true
+
       - name: Test (every package, as CI does)
         run: pnpm run test:all:run
 

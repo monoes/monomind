@@ -183,11 +183,13 @@ Startup context is kept small: every role pins one ~5 KB shared rules skill
 captain.
 
 One run is meant to be unattended. PREFLIGHT comes first, run by `publisher` (the one role with
-credentials) as a read-only task: it checks npm publish rights without an OTP, GitHub and git
+credentials) as a read-only task: it checks the `NPM_TOKEN` secret the release workflow publishes with, GitHub and git
 push rights, a Claude login for the agent trials, tools and disk, and the captain asks the human
 once, only when something is missing. After that the org verifies, fixes, updates
 docs and the site, bumps the version and CHANGELOG, and re-verifies the release commit. On an
-evidence-backed GO it publishes to npm, fast-forwards `main`, tags, creates the GitHub release,
+evidence-backed GO it fast-forwards `main` and pushes the tag, which starts the release workflow: npm
+publishing runs there, from CI with provenance, never from the operator's machine (#797). Once every
+package is live it creates the GitHub release,
 confirms the website deploy, syncs local `main`, files GitHub issues for anything left unfixed
 and cleans up. Only the `publisher` role has `policy.git: push`; the captain and the auditor are
 read-only.
