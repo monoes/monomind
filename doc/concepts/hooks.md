@@ -24,7 +24,7 @@ Claude Code event (JSON via stdin)
 
 All async operations use a 1500ms timeout guard (`runWithTimeout`) to prevent blocking Claude.
 
-**Bridge mechanism — dynamic import, not a copy or symlink.** Each hook event fires a fresh `node` process running `.claude/helpers/hook-handler.cjs`; that process lazily does `await import('@monoes/hooks')` (`_ensureHooksModule()`), falling back to a direct `packages/@monomind/hooks/dist/workers/*.js` import in the dev repo since the bare specifier doesn't resolve from `.claude/helpers`'s location. **If the `@monoes/hooks` package isn't built, the import fails and the hook silently no-ops** — this is the first thing to check when hooks/workers appear to do nothing. This is separate from the "helper self-heal" mechanism (`session-restore-handler.cjs`), which sha256-hashes bundled vs. local `.claude/helpers/*` files and atomically overwrites drifted ones to keep the npm-bundled helper copy in sync — that mechanism is explicitly skipped inside the monomind dev repo itself and has nothing to do with the `@monoes/hooks` bridge.
+**Bridge mechanism — dynamic import, not a copy or symlink.** Each hook event fires a fresh `node` process running `.claude/helpers/hook-handler.cjs`; that process lazily does `await import('@monoes/hooks')` (`_ensureHooksModule()`), falling back to a direct `packages/@monomind/hooks/dist/index.js` import in the dev repo since the bare specifier doesn't resolve from `.claude/helpers`'s location (the session-start metrics refresh imports `dist/workers/*.js` directly). The bare specifier resolves only when `@monoes/hooks` is reachable from the project's `node_modules`; with a global or `npx` install it is not. **If neither import works, the bridge does nothing and prints a warning once per session** (`_warnHooksBridgeUnavailable`) — this is the first thing to check when hooks/workers appear to do nothing. This is separate from the "helper self-heal" mechanism (`session-restore-handler.cjs`), which sha256-hashes bundled vs. local `.claude/helpers/*` files and atomically overwrites drifted ones to keep the npm-bundled helper copy in sync — that mechanism is explicitly skipped inside the monomind dev repo itself and has nothing to do with the `@monoes/hooks` bridge.
 
 ---
 
@@ -32,17 +32,26 @@ All async operations use a 1500ms timeout guard (`runWithTimeout`) to prevent bl
 
 ### `SessionStart` → `session-restore`
 
-Runs 7 sequential phases at the start of every session:
+Runs these steps in order at the start of every session:
 
-| Phase | Operation | Output |
+| Step | Operation | Output |
 |---|---|---|
-| 1 | `session.restore()` | Restores `current.json` |
-| 2 | `intelligence.init()` | Loads patterns from `patterns.json`, deduplicates |
-| 3 | Init <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers | Metrics workers refresh if output is missing or older than 6 hours |
-| 4 | Knowledge base preload | CLAUDE.md + docs chunked → `[KNOWLEDGE_PRELOADED]` |
-| 5 | Shared instructions | `.agents/shared_instructions.md` → `[SHARED_INSTRUCTIONS]` |
-| 6 | Token usage summary | Scan JSONL → `[TOKEN_USAGE]` |
-| 7 | MicroAgent trigger cache | `.claude/agents/**/*.md` patterns cached |
+| 1 | `session.restore()` (or `session.start()`) | Restores `current.json` |
+| 2 | Skill and agent registry refresh | Rebuilds `.claude/helpers/skill-registry.json` and `.monomind/registry.json` when a source is newer |
+| 3 | Security scan | Fire-and-forget `@monoes/hooks` security worker, when the package resolves |
+| 4 | Helper self-heal | Overwrites drifted `.claude/helpers/*` files with the bundled copies (skipped inside the monomind repo) |
+| 5 | `@monoes/hooks` bridge | Fires the `SessionStart` hook event, when the package resolves |
+| 6 | Worker metrics refresh | `ddd` always; `map`, `audit`, `consolidate` when their output is missing or older than 6 hours — only when `@monoes/hooks` resolves or inside the monomind repo (see [Background Workers](#background-workers-9)) |
+| 7 | Knowledge index | Rebuilds `.monomind/knowledge/chunks.jsonl` from project instruction files → `[KNOWLEDGE_INDEXED]`, `[KNOWLEDGE_PRELOADED]` |
+| 8 | Second Brain re-ingest | Detached `doc ingest` when a document is newer than the last ingest (30-minute rate limit) |
+| 9 | Monograph god-nodes context | Injected from `utils/monograph.cjs` |
+| 10 | Shared instructions | `.agents/shared_instructions.md` → `[SHARED_INSTRUCTIONS]` |
+| 11 | Update check | Once per day |
+| 12 | Token usage summary | Scan JSONL → `[TOKEN_USAGE]` |
+| 13 | Registry and runtimes | `[REGISTRY]` agent count, `[AGENT_RUNTIMES]` installed coding-agent CLIs |
+| 14 | Control UI status | Probed only when a daemon PID file exists |
+
+The MicroAgent trigger cache is not built here; `utils/micro-agents.cjs` builds it on first use.
 
 ### `UserPromptSubmit` → `route`
 
@@ -62,7 +71,7 @@ When a Jev decision model is configured (`MONOMIND_JEV_URL`, or `TYPESAFE_API_KE
 
 ### `SessionStart` skill index
 
-SessionStart rebuilds `.claude/helpers/skill-registry.json` when it is missing or older than any of its sources: `.claude/skills`, `.claude/commands`, `~/.claude/skills`, the Org skill roots or the catalog state. The file is generated per machine (also by `monomind init`, `init upgrade` and `monomind pick`) and is no longer shipped. The agent registry, `.monomind/registry.json`, is read as it is; `monomind` commands rebuild it when an agent file is newer (see [Agents & Skills](./agents-and-skills.md#agents)).
+SessionStart rebuilds `.claude/helpers/skill-registry.json` when it is missing or older than any of its sources: `.claude/skills`, `.claude/commands`, `~/.claude/skills`, the Org skill roots or the catalog state. The file is generated per machine (also by `monomind init`, `init upgrade` and `monomind pick`) and is no longer shipped. SessionStart also rebuilds the agent registry, `.monomind/registry.json`, when an agent file is newer, as `monomind` commands do (see [Agents & Skills](./agents-and-skills.md#agents)).
 
 ### Hook timeouts
 
@@ -70,19 +79,20 @@ Claude Code reads a hook's `timeout` in seconds. Generated settings used to writ
 
 ### `PreToolUse(Bash)` → `pre-bash`
 
-Safety validation — blocks dangerous patterns:
-- `rm -rf /`, `format c:`, `dd if=/dev/zero`, fork bombs
-- Returns `{action: "block", reason}` to Claude Code
+Safety validation in `handlers/gates-handler.cjs` — blocks dangerous patterns (the built-in table, unless `.monomind/guidance/active-gates.json` overrides it):
+- recursive `rm` (`-rf`, `-r`, `--recursive --force`, any target), `DROP DATABASE/TABLE/SCHEMA/INDEX`, `TRUNCATE TABLE`, `DELETE FROM`, `ALTER TABLE … DROP`, `git push --force`, `git reset --hard`, `git clean -f`, `format X:`, `del /s`, `kubectl`/`helm delete --all|namespace`
+- the monofence threat scan blocks a flagged command when that command pipes network content into a shell; other findings are reported as warnings
+- Writes `{"decision": "block", "reason": …}` to stderr and exits with code 2
 
 It also runs the graph gate (`pre-search` does the same for `Grep`/`Glob`). The gate never blocks. The first source-code grep, rg or find of a session, when the monograph graph is fresh and non-empty and no monograph tool has been called yet, gets a one-time reminder to try `monograph_query`/`monograph_suggest`, delivered as PreToolUse `additionalContext`. Piped greps (`… | grep x`) and searches over dependencies, build output, logs, docs/data files or paths outside the project get no reminder.
 
 ### `PostToolUse(Write|Edit|MultiEdit)` → `post-edit`
 
-Records the edited file for compact injection and test lookup, and queues a graph rebuild.
+Records the edited file for compact injection and test lookup, and counts the edit toward a graph rebuild: after 20 edits, and at most once every 5 minutes, it spawns `monograph-freshen.cjs`, which starts a background `monograph build` unless one ran in the last 10 minutes, one is already running, or the project is not a git work tree.
 
 ### `SubagentStart` / `SubagentStop`
 
-`SubagentStart` runs `capture-handler.cjs subagent-start` (agent telemetry for the org dashboard) and `monolean-propagate.cjs`. `SubagentStop` runs `hook-handler.cjs post-task` (routing pattern save and the `routing-feedback.jsonl` line described above) and `capture-handler.cjs subagent-stop`.
+`SubagentStart` runs `capture-handler.cjs subagent-start` (agent telemetry for the org dashboard) and `monolean-propagate.cjs`. `SubagentStop` runs `hook-handler.cjs post-task` (agent-registration cleanup, the `monoswarm-activity.json` write and the `@monoes/hooks` `PostTask` bridge) and `capture-handler.cjs subagent-stop` (the `routing-feedback.jsonl` line described above and the `pick-stats.json` fold).
 
 `TeammateIdle` and `TaskCompleted` are not valid Claude Code settings keys, so `init` writes neither and `init upgrade` removes them from an existing `settings.json`. `init` registers no `Stop` or `Notification` hook either, because the two it used to write only printed a line (#417).
 
@@ -105,7 +115,7 @@ Hooks are identified by event, matcher and helper script plus argument, not by t
 
 > **These are a different mechanism from the CLI Subcommands below.** Hook *events* are typed `HookEvent` enum members processed by the `HookRegistry`/`HookExecutor` in `@monoes/hooks` (pre-edit, post-edit, session-start, etc.). The `hooks` CLI *subcommands* documented further down (`route`, `explain`, `pretrain`, `intelligence`, `transfer`, `worker`, ...) are separate CLI entry points implemented in `packages/@monomind/cli/src/commands/hooks-*.ts` and `neural-core.ts` — none of them are `HookEvent` enum members. Docs and prompts should not conflate the two.
 
-Defined in `packages/@monomind/hooks/src/types.ts`:
+Defined in `packages/@monomind/hooks/src/types.ts`. Nothing in monomind calls `registerHook`. The only handlers the default `HookExecutor` registers are monofence-ai's security hooks (`registerSecurityHooks`: `pre-task`, `pre-command`); the other events below, `PatternLearned` included, have no handlers, so the helpers' `executeHooks` bridge calls for them do nothing:
 
 | Event | Internal name | Description |
 |---|---|---|
@@ -144,9 +154,9 @@ Defined in `packages/@monomind/hooks/src/types.ts`:
 
 ## Background Workers (<!-- doc-count:workers -->9<!-- /doc-count:workers -->)
 
-There is no separate background daemon. All <!-- doc-count:workers -->9<!-- /doc-count:workers --> workers (`health`, `ddd`, `security`, `cache`, `map`, `audit`, `consolidate`, `progress`, `reflexion`) live in `@monoes/hooks` (`WorkerManager`) as entries in the static `WORKER_CONFIGS` map, run in-process, and are initialized at session start (see table). The metrics-producing workers (`map`, `audit`, `consolidate`, `ddd`) refresh automatically when their output file under `.monomind/metrics/` is missing or older than 6 hours; `ddd` runs unconditionally every session start (`always: true`), the other three only when stale; `doctor` reports worker-metrics freshness.
+There is no separate background daemon. All <!-- doc-count:workers -->9<!-- /doc-count:workers --> workers (`health`, `ddd`, `security`, `cache`, `map`, `audit`, `consolidate`, `progress`, `reflexion`) live in `@monoes/hooks` (`WorkerManager`) as entries in the static `WORKER_CONFIGS` map, run in-process, and are all `enabled: false`: no worker runs on a timer, and the intervals below are nominal. A worker runs when `monomind hooks worker run <name>` asks for it, and `monomind init` seeds `map` and `audit` once. The SessionStart hook also refreshes `ddd` every session and `map`, `audit` and `consolidate` when their output file under `.monomind/metrics/` is missing or older than 6 hours, and fires a security scan, but only when `@monoes/hooks` resolves from the project (a local install) or inside the monomind repo; with a global or `npx` install no worker runs at session start. `doctor` reports worker-metrics freshness.
 
-| Worker | Interval | Priority | Purpose |
+| Worker | Nominal interval | Priority | Purpose |
 |---|---|---|---|
 | `health` | 5 min | High | Monitor disk, memory, CPU, processes |
 | `security` | 30 min | High | Scan for secrets, vulnerabilities, CVEs |
@@ -193,7 +203,7 @@ monomind hooks list            # List all registered hooks
 
 ### Workers & output (4)
 ```bash
-monomind hooks intelligence    # JS pattern store, not a trained model: logs edit/outcome/trajectory records to local files and lists, searches, exports and imports them — nests the former `neural` subcommands (train, status, patterns, predict, optimize, export, list, import)
+monomind hooks intelligence    # JS pattern store, not a trained model: logs edit/outcome/trajectory records to local files and lists, searches, exports and imports them — nests the former `neural` subcommands (train, status, patterns, predict, optimize, export, import)
 monomind hooks notify          # Send notification
 monomind hooks worker          # Worker management: `worker list`, `worker run <name>`
 monomind hooks statusline      # Generate statusline output
@@ -254,28 +264,32 @@ Monomind exposes 8 primary lifecycle & routing MCP tools registered in `packages
 
 | MCP Tool | Implementation | Purpose & Key Payloads |
 |---|---|---|
-| `hooks_route` | [`hooks-route.ts → hooksRoute`](packages/@monomind/cli/src/mcp-tools/hooks-route.ts#hooksRoute) | **Task Agent Routing**: Routes a task to the best registry agent through the central picker ([`agent-pick.ts → pickAgents`](packages/@monomind/cli/src/routing/agent-pick.ts#pickAgents), the same ranking as the `pick` tool and `monomind pick`); `primaryAgent.type` is a spawnable Task `subagent_type`. <br>• *Input*: `{ task, context?, topK? }` <br>• *Output*: `{ routeId, task, routing, primaryAgent, alternativeAgents, estimatedMetrics, swarmRecommendation }` |
+| `hooks_route` | [`hooks-route.ts → hooksRoute`](packages/@monomind/cli/src/mcp-tools/hooks-route.ts#hooksRoute) | **Task Agent Routing**: Routes a task to the best registry agent through the central picker ([`agent-pick.ts → pickAgents`](packages/@monomind/cli/src/routing/agent-pick.ts#pickAgents), the same ranking as the `pick` tool and `monomind pick`); `primaryAgent.type` is a spawnable Task `subagent_type`. <br>• *Input*: `{ task, context?, topK? }` <br>• *Output*: `{ routeId, task, routing, primaryAgent, alternativeAgents, estimatedMetrics, swarmRecommendation }` (`swarmRecommendation` is a leftover hint from the removed monoswarm; nothing reads it) |
 | `hooks_pre-edit` | [`hooks-edit-command.ts → hooksPreEdit`](packages/@monomind/cli/src/mcp-tools/hooks-edit-command.ts#hooksPreEdit) | **Pre-Edit Safety & Context**: Retrieves file context, type, related files, and agent suggestions prior to editing. <br>• *Input*: `{ filePath, operation?, context? }` <br>• *Output*: `{ filePath, operation, context: { fileExists, fileType, suggestedAgents, risks }, recommendations }` (`fileExists` is checked against the project directory) |
 | `hooks_post-edit` | [`hooks-edit-command.ts → hooksPostEdit`](packages/@monomind/cli/src/mcp-tools/hooks-edit-command.ts#hooksPostEdit) | **Edit Outcome Feedback**: Records editing outcome to memory store/feedback loop. <br>• *Input*: `{ filePath, success?, agent? }` <br>• *Output*: `{ recorded, filePath, success, timestamp, feedback }` (`recorded` is true only when the feedback write succeeded) |
 | `hooks_pre-command` | [`hooks-edit-command.ts → hooksPreCommand`](packages/@monomind/cli/src/mcp-tools/hooks-edit-command.ts#hooksPreCommand) | **Command Risk Assessment**: Assesses shell command execution risk and safety enforcement gates. <br>• *Input*: `{ command }` <br>• *Output*: `{ command, riskLevel, risks, recommendations, safeAlternatives, shouldProceed }` |
 | `hooks_post-command` | [`hooks-edit-command.ts → hooksPostCommand`](packages/@monomind/cli/src/mcp-tools/hooks-edit-command.ts#hooksPostCommand) | **Command Execution Persistence**: Records command exit code to time-windowed outcome store (`recordCommand`) and persistent memory store. `success: false` records a failure even with exit code 0; a non-zero exit code is always a failure. <br>• *Input*: `{ command, exitCode?, success? }` <br>• *Output*: `{ recorded, command, exitCode, success, timestamp, _storedIn }` |
 | `hooks_pre-task` | [`hooks-task.ts → hooksPreTask`](packages/@monomind/cli/src/mcp-tools/hooks-task.ts#hooksPreTask) | **Task Initiation & Heuristics**: Records task start, suggests agents through the central picker (as `hooks_route` does), computes complexity, retrieves ERL (Experience Replay Learning) heuristics and TextGrad warning gradients from vector store. <br>• *Input*: `{ taskId, description, filePath? }` <br>• *Output*: `{ taskId, description, suggestedAgents, complexity, estimatedDuration, risks, recommendations, modelRouting, plan, timestamp }` |
-| `hooks_post-task` | [`hooks-task.ts → hooksPostTask`](packages/@monomind/cli/src/mcp-tools/hooks-task.ts#hooksPostTask) | **Task Completion & Learning**: Records task completion, derives success from recent command exit codes if non-explicit (`deriveRecentSuccess`), updates feedback (`bridgeRecordFeedback`), writes causal graph edges (`bridgeRecordCausalEdge`), joins outcome back to prior `routeId`, stores ERL heuristics & TextGrad critiques, and computes Multi-Agent Reflection (MAR) status. <br>• *Input*: `{ taskId, success?, agent?, quality?, task?, storeDecisions?, routeId? }` <br>• *Output*: `{ taskId, success, outcomeKnown, successSource, duration, learningUpdates: { controller, outcomePersisted }, quality, feedback, marReflection, timestamp }` |
-| `hooks_explain` | [`hooks-route.ts → hooksExplain`](packages/@monomind/cli/src/mcp-tools/hooks-route.ts#hooksExplain) | **Routing Transparency**: Explains the central picker's decision (the one `hooks_route` makes) — ranking method, top agent, alternatives, historical success rates (`loadRoutingOutcomes`), and decision factors. <br>• *Input*: `{ task, agent?, verbose? }` <br>• *Output*: `{ task, explanation, factors, patterns, decision }` |
+| `hooks_post-task` | [`hooks-task.ts → hooksPostTask`](packages/@monomind/cli/src/mcp-tools/hooks-task.ts#hooksPostTask) | **Task Completion & Learning**: Records task completion, derives success from recent command exit codes if non-explicit (`deriveRecentSuccess`), updates feedback (`bridgeRecordFeedback`), writes a task-to-outcome knowledge-graph edge (`kgIngest`), joins outcome back to prior `routeId`, stores ERL heuristics & TextGrad critiques, and computes Multi-Agent Reflection (MAR) status. <br>• *Input*: `{ taskId, success?, agent?, quality?, task?, storeDecisions?, routeId? }` <br>• *Output*: `{ taskId, success, outcomeKnown, successSource, duration, learningUpdates: { controller, outcomePersisted }, quality, feedback, marReflection, timestamp }` |
+| `hooks_explain` | [`hooks-route.ts → hooksExplain`](packages/@monomind/cli/src/mcp-tools/hooks-route.ts#hooksExplain) | **Routing Transparency**: Explains the central picker's decision (the one `hooks_route` makes) — ranking method, top agent, alternatives, historical success rates (read from `.monomind/routing-outcomes.json`), and decision factors. <br>• *Input*: `{ task, agent?, verbose? }` <br>• *Output*: `{ task, explanation, factors, patterns, decision }` |
 
 ---
 
 ## Command Risk Assessment & Enforcement Gates
 
-Command safety gating is evaluated dynamically via `assessCommandRisk` in `packages/@monomind/cli/src/mcp-tools/hooks-embedding.ts`:
+Command safety gating is evaluated dynamically via `assessCommandRisk`, defined in `packages/@monomind/cli/src/mcp-tools/hooks-embedding-agents.ts` and re-exported from `hooks-embedding.ts`. Each segment of a compound command is checked on its own, and the highest level wins:
 
 ### Risk Severity Levels & Rules
-- **`rm -rf` / `rm -r`**: Risk Level `0.9` (*Critical*) — Warning: *"Recursive deletion detected - verify target path"*
-- **`curl ... | sh` / `wget ... | bash`**: Risk Level `0.8` (*High*) — Warning: *"Piping remote content to shell"*
-- **`sudo`**: Risk Level `0.7` (*High*) — Warning: *"Elevated privileges requested"*
-- **`> /` or `>> /`**: Risk Level `0.6` (*Medium*) — Warning: *"Writing to system path"*
-- **`chmod` / `chown`**: Risk Level `0.5` (*Medium*) — Warning: *"Permission modification"*
-- **Safe Commands (`npm`, `npx`, `git`, `ls`, `cat`, `echo`)**: Low risk overrides (`0.1`–`0.3`)
+- **Fork bomb**, and the critical segment patterns: Risk Level `0.95`
+- **`rm -rf` / `rm -r`**: Risk Level `0.9` — Warning: *"Recursive deletion detected - verify target path"*
+- **Other destructive commands the Bash gate blocks**: Risk Level `0.9`
+- **Content piped into a shell** (`curl ... | sh`, `wget ... | bash`): Risk Level `0.9` — Warning: *"Piping content into a shell"*
+- **`sudo`**: Risk Level `0.7` — Warning: *"Elevated privileges requested"*
+- **`> /` or `>> /`** (not `/dev/null`): Risk Level `0.6` — Warning: *"Writing to system path"*
+- **`chmod` / `chown`**: Risk Level `0.5` — Warning: *"Permission modification"*
+- Anything else starts at `0`. There are no per-command low-risk overrides.
+
+`hooks_pre-command` reports `riskLevel` as `critical` at `0.8` or above, `high` at `0.6`, `medium` at `0.3`, else `low`.
 
 ### Execution Gate Condition
 In `hooks_pre-command` ([`hooks-edit-command.ts → hooksPreCommand`](packages/@monomind/cli/src/mcp-tools/hooks-edit-command.ts#hooksPreCommand)), the evaluation flag `shouldProceed` is calculated deterministically as:
@@ -309,7 +323,7 @@ Confirmed read by hooks/helpers source:
 | `MONOMIND_MONOFENCE_GATE` | Set to `off` to disable the monofence threat-scan gate (`.claude/helpers/handlers/gates-handler.cjs`) |
 | `MONOMIND_MEMORY_PRESSURE_THRESHOLD` | Overrides the free-memory ratio below which `control-start.cjs`'s `SessionStart` hook skips spawning the control plane (default `0.10`, i.e. 10% free; set to `0` to disable the guard entirely). Invalid or negative values fall back to the default |
 
-`MONOMIND_LOG_LEVEL` (referenced elsewhere, e.g. `CLAUDE.local.md`) is **not** consumed by this hooks/helpers subsystem's source — it's read by the CLI logger, not the hook dispatch path.
+`MONOMIND_LOG_LEVEL` (referenced elsewhere, e.g. `CLAUDE.local.md`) is **not** consumed by this hooks/helpers subsystem's source. Its only reader is `bin/cli.js`, where `MONOMIND_LOG_LEVEL=debug` adds MCP startup detail.
 
 ---
 
@@ -363,24 +377,24 @@ It also notes a leftover `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` or `monomind.a
 }
 ```
 
-The real file also registers `PostToolUse` hooks for `Bash` (`post-bash`) and the Monograph tools (`post-graph-tool`), the `SessionStart` helpers `monograph-freshen.cjs`, `control-start.cjs` and `monolean-activate.cjs`, `UserPromptSubmit`'s `monolean-tracker.cjs`, `PreCompact` (`compact-manual` and `compact-auto`) and `SubagentStart`. Run `monomind doctor` to check the result.
+The real file also registers `PostToolUse` hooks for `Bash` (`post-bash`, which `hook-handler.cjs` has no handler for: it only prints `[OK] Hook: post-bash`) and the Monograph tools (`post-graph-tool`), the `SessionStart` helpers `monograph-freshen.cjs`, `control-start.cjs`, `monolean-activate.cjs` and `mesh-title.cjs`, `UserPromptSubmit`'s `monolean-tracker.cjs` and `mesh-inbox.cjs`, `PreCompact` (`compact-manual` and `compact-auto`) and `SubagentStart`. Run `monomind doctor` to check the result.
 
 
 ---
 
 ## Hooks and workers at a glance (moved from the README)
 
-Monomind wires 28 hook subcommands into Claude Code across edit, task, command, and session lifecycle events — logging edits and outcomes to local pattern files and picking agents.
+Monomind wires `.claude/helpers/hook-handler.cjs` and a few helper scripts into Claude Code across edit, task, command, and session lifecycle events — logging edits and outcomes to local pattern files and picking agents. The 28 `monomind hooks` CLI subcommands are separate entry points you run yourself; none of them is wired into `settings.json`.
 
 ```mermaid
 flowchart LR
     CE["Claude Code\nEvent"] --> H["Hook Router"]
-    H --> P["pre-edit\npre-task\npre-command"]
-    H --> SS["session-start\nsession-end\nnotify"]
-    H --> I["route\nlog outcomes"]
+    H --> P["pre-bash\npre-write\npre-agent\npre-search"]
+    H --> SS["session-restore\nsession-end\npost-task"]
+    H --> I["route\npost-edit\nlog outcomes"]
 
     I --> DB[("patterns.json\nmemory store")]
     DB -->|next session| CE
 ```
 
-**9 on-demand workers** run at session start (staleness-gated, refreshed when older than 6 hours): `health` · `ddd` · `security` · `cache` · `progress` · `map` · `audit` · `consolidate` · `reflexion`.
+**9 on-demand workers**, run with `monomind hooks worker run <name>`: `health` · `ddd` · `security` · `cache` · `progress` · `map` · `audit` · `consolidate` · `reflexion`. Session start refreshes `ddd`, `map`, `audit` and `consolidate` only when `@monoes/hooks` resolves from the project (see [Background Workers](#background-workers-9)).
