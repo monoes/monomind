@@ -1,3 +1,4 @@
+import { handleDoctorRoutes } from './routes-doctor.mjs';
 import { handleMonoesRoutes } from './routes-monoes.mjs';
 import { handleMonographRoutes } from './routes-monograph.mjs';
 import { handleOrgRoutes } from './routes-org.mjs';
@@ -60,6 +61,7 @@ async function dispatchRequest(req, res, url, corsOrigin, deps) {
   if (await handleRoutesLoops(req, res, url, corsOrigin, ctx)) return true;
   if (await handleRoutesMisc(req, res, url, corsOrigin, ctx)) return true;
   if (await handleMcpCallRoutes(req, res, url, corsOrigin, ctx)) return true;
+  if (await handleDoctorRoutes(req, res, url, corsOrigin, ctx)) return true;
 
   // ── Monograph routes (extracted to routes-monograph.mjs) ──────────────
   if (
