@@ -17,8 +17,8 @@ describe('browse dashboard port', () => {
     }
   });
 
-  it('dashboard.html uses the injected meta through one constant', () => {
-    expect(html).toContain('meta[name="mm-browse-port"]');
+  it('dashboard.html no longer reads the meta (its only reader, the Playbook builder, was removed)', () => {
+    expect(html).not.toContain('mm-browse-port');
     expect(html).not.toMatch(/localhost:4243/);
   });
 

@@ -34,14 +34,6 @@ export async function handleOrgApprovalRoutes(req, res, url, corsOrigin, ctx) {
     });
   }
 
-  // GET /api/questions?dir= — ask_human questions (pending and answered) for
-  // every org in one project, each with its `blocking` flag.
-  if (req.method === 'GET' && (url === '/api/questions' || url.startsWith('/api/questions?'))) {
-    return hilRespond(res, corsOrigin, () => ({
-      questions: hil.pendingForProject(hilRoot(req, ctx)).questions,
-    }));
-  }
-
   // GET /api/hil?dir= — everything in one project that waits on a human:
   // questions, approvals and decision gates across all its orgs.
   if (req.method === 'GET' && (url === '/api/hil' || url.startsWith('/api/hil?'))) {
