@@ -651,7 +651,7 @@ body {
 <section id="how" class="section">
   <div class="section-label reveal">One JSON file. One command.</div>
   <h2 class="section-title reveal">From org.json to running organization</h2>
-  <p class="section-sub reveal">Author the org once — goal, roles, who reports to whom, per-role policy. `org run` loads it and starts a real Claude Agent SDK session per role.</p>
+  <p class="section-sub reveal">Author the org once — goal, roles, who reports to whom, per-role policy. `org run` loads it and starts an agent session per role (the Claude Agent SDK unless a role or the org sets another <code style="font-family:var(--ff-m);font-size:12px">runtime</code>).</p>
 
   <div class="how-steps">
     <div class="how-step reveal">
@@ -664,7 +664,7 @@ body {
       <div class="step-num">02</div>
       <div class="step-cmd">monomind org run &lt;name&gt;</div>
       <div class="step-title">Start the daemon</div>
-      <p class="step-desc">OrgDaemon loads the definition and starts a real Agent SDK session per role. Every tool call is checked against that role's PolicyEngine gates. An org definition only takes effect once you have signed it: the first <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">org run</code> in a terminal shows what the org may do and asks you to confirm, and a non-interactive start needs <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">monomind org sign &lt;name&gt;</code> first. Roles cannot sign.</p>
+      <p class="step-desc">OrgDaemon loads the definition and starts an agent session per role (Claude Agent SDK by default). Every tool call is checked against that role's PolicyEngine gates. An org definition only takes effect once you have signed it: the first <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">org run</code> in a terminal shows what the org may do and asks you to confirm, and a non-interactive start needs <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">monomind org sign &lt;name&gt;</code> first. Roles cannot sign.</p>
     </div>
     <div class="how-step reveal">
       <div class="step-num">03</div>
@@ -742,7 +742,7 @@ body {
         </div>
         <div>
           <div class="feature-label">Real SDK sessions</div>
-          <div class="feature-desc">Each role is a real Claude Agent SDK session — not a simulated Task-tool subagent inside your current conversation. It runs independently, in the background.</div>
+          <div class="feature-desc">Each role is a real agent session (the Claude Agent SDK by default) — not a simulated Task-tool subagent inside your current conversation. It runs independently, in the background.</div>
         </div>
       </div>
       <div class="feature-item">
@@ -831,9 +831,9 @@ body {
       <div class="terminal-block">
         <div class="terminal-body" style="min-height:0;">
           <span class="t-line"><span class="t-key">boss</span>/<span class="t-val">boss</span>: assigning "Draft: Claude Code vs Cursor" to writer</span>
-          <span class="t-line"><span class="t-key">writer</span> <span class="t-val">write_file</span> <span style="color:var(--accent)">allow</span></span>
+          <span class="t-line"><span class="t-key">writer</span> <span class="t-val">Write</span> <span style="color:var(--accent)">allow</span></span>
           <span class="t-line"><span class="t-key">writer</span> 📄 <b>drafts/claude-vs-cursor.md</b></span>
-          <span class="t-line"><span class="t-key">seo</span> <span class="t-val">Bash</span> <span style="color:#f85149">deny</span> — denyTools: Bash</span>
+          <span class="t-line"><span class="t-key">writer</span> <span class="t-val">Bash</span> <span style="color:#f85149">deny</span> — denyTools: Bash</span>
           <span class="t-line">⇄ <span class="t-key">content-team/boss</span> → <span class="t-val">growth-org/lead</span> [handoff] draft ready for review</span>
         </div>
       </div>
