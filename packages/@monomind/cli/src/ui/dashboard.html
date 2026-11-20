@@ -1610,6 +1610,10 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
         <span class="nav-glob-lbl">Global</span>
       </div>
       <div class="nav-glob-items" id="nav-glob-items">
+        <div class="nav-item" data-view="mesh" title="Agents on this machine's Monomind Mesh (read-only)">
+          <span class="ico">⋈</span><span class="lbl">Mesh</span>
+          <span class="bdg" id="bdg-mesh">—</span>
+        </div>
         <div class="nav-item" data-view="global">
           <span class="ico">⊕</span><span class="lbl">Global Feed</span>
         </div>
@@ -2279,6 +2283,21 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
     </div>
 
     <!-- HUMAN INPUT (global, cross-org) -->
+    <div class="view" id="view-mesh">
+      <div class="vscroll">
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+          <div class="pg-title" style="margin-bottom:0">Mesh</div>
+          <span class="pg-sub" style="margin-bottom:0">Agents on this machine's Monomind Mesh. Read-only: the dashboard does not join it.</span>
+        </div>
+        <div class="hi-tab-bar" style="display:flex;gap:4px;margin-top:12px;border-bottom:1px solid var(--border);padding-bottom:6px">
+          <button class="odt-btn active" data-meshscope="project" onclick="meshSetScope('project')">This project</button>
+          <button class="odt-btn" data-meshscope="all" onclick="meshSetScope('all')">All projects</button>
+          <button class="btn" style="margin-left:auto;font-size:11px" onclick="loadMeshView()">↺ Refresh</button>
+        </div>
+        <div id="mesh-content" style="margin-top:16px"><div class="loading-txt">Loading…</div></div>
+      </div>
+    </div>
+
     <div class="view" id="view-humaninput">
       <div class="vscroll">
         <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
@@ -2509,7 +2528,7 @@ document.querySelectorAll('.nav-item[data-view]').forEach(el => {
 });
 
 // ── collapsible global nav section ──────────────────────────
-const GLOBAL_VIEWS = ['global', 'global-docs', 'global-tokens', 'global-orgs', 'humaninput', 'health'];
+const GLOBAL_VIEWS = ['global', 'global-docs', 'global-tokens', 'global-orgs', 'humaninput', 'health', 'mesh'];
 function setGlobalNavOpen(open) {
   const items = document.getElementById('nav-glob-items');
   const hdr = document.getElementById('nav-glob-hdr');
@@ -2538,10 +2557,10 @@ function switchView(v, { updateHash = true } = {}) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === `view-${v}`));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-docs':'Documents', 'global-tokens':'Global Tokens', 'global-orgs':'All Orgs', humaninput:'Human Input', health:'Health' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-docs':'Documents', 'global-tokens':'Global Tokens', 'global-orgs':'All Orgs', humaninput:'Human Input', health:'Health', mesh:'Mesh' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-docs': 'Documents', 'global-tokens': 'Global Tokens', 'global-orgs': 'All Orgs', humaninput: 'Human Input', health: 'Health' };
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-docs': 'Documents', 'global-tokens': 'Global Tokens', 'global-orgs': 'All Orgs', humaninput: 'Human Input', health: 'Health', mesh: 'Mesh' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   if (updateHash) _pushHash();
   // Projects always re-fetches so onclick paths in cards stay current
@@ -2606,6 +2625,7 @@ function renderView(v) {
   if (v === 'global-orgs') renderGlobalOrgs();
   if (v === 'humaninput') renderHumanInputView();
   if (v === 'health') loadHealthView();
+  if (v === 'mesh') loadMeshView();
 }
 
 function refreshCurrent() {
@@ -4606,6 +4626,57 @@ async function _runHealthChecks() {
     showToast('Health checks', e.message, 'err');
   }
   loadHealthView();
+}
+
+// ── Mesh view: GET /api/mesh/agents (the hub's identity-free `who`) ──────
+let _meshScope = 'project';
+const MESH_STATUS_COLOR = { active: 'var(--green)', stale: 'var(--accent)', gone: 'var(--text-xs)' };
+
+function meshRowHtml(a) {
+  const name = a.alias || a.addr || '';
+  const seen = a.lastSeen ? relTime(a.lastSeen) : '';
+  return `<tr><td style="font-weight:500;word-break:break-all" title="${esc(a.addr)}">${esc(name)}</td>` +
+    `<td>${esc(a.tier)}</td>` +
+    `<td>${_hiPill(a.status || '?', MESH_STATUS_COLOR[a.status] || 'var(--text-lo)')}</td>` +
+    `<td>${esc(a.runtime)}</td>` +
+    (_meshScope === 'all' ? `<td style="word-break:break-all">${esc(a.projectPath || a.project)}</td>` : '') +
+    `<td style="word-break:break-word">${esc(a.task)}</td>` +
+    `<td style="white-space:nowrap;color:var(--text-lo)">${esc(seen)}</td></tr>`;
+}
+
+function renderMesh(d) {
+  const el = document.getElementById('mesh-content');
+  const badge = document.getElementById('bdg-mesh');
+  if (!d.online) {
+    if (badge) badge.textContent = '—';
+    el.innerHTML = '<div class="empty">No mesh hub is running on this machine. It starts with the first agent session that uses monomind\'s mesh (for example <code>monomind mesh who</code>).</div>';
+    return;
+  }
+  const agents = d.agents || [];
+  if (badge) badge.textContent = agents.filter((a) => a.status === 'active').length;
+  if (!agents.length) {
+    el.innerHTML = `<div class="empty">No agents on the mesh${_meshScope === 'project' ? ' for this project' : ''}.</div>`;
+    return;
+  }
+  el.innerHTML = `<table class="tbl" style="width:100%;font-size:12px"><thead><tr><th>Name</th><th>Tier</th><th>Status</th><th>Runtime</th>` +
+    (_meshScope === 'all' ? '<th>Project</th>' : '') +
+    `<th>Task</th><th>Last seen</th></tr></thead><tbody>${agents.map(meshRowHtml).join('')}</tbody></table>` +
+    (d.truncated ? '<div style="margin-top:8px;font-size:11px;color:var(--text-lo)">List cut off by the hub; narrow it to this project.</div>' : '');
+}
+
+async function loadMeshView() {
+  const el = document.getElementById('mesh-content');
+  try {
+    renderMesh(await apiFetch(`/api/mesh/agents?scope=${_meshScope}`));
+  } catch (e) {
+    el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`;
+  }
+}
+
+function _meshSetScope(scope) {
+  _meshScope = scope === 'all' ? 'all' : 'project';
+  document.querySelectorAll('[data-meshscope]').forEach((b) => b.classList.toggle('active', b.dataset.meshscope === _meshScope));
+  loadMeshView();
 }
 
 function _hiPill(text, color) {
@@ -13917,6 +13988,7 @@ async function mmRenderGraph(body) {
 // src/__tests__/dashboard-handler-resolution.test.ts, which fails if this list is
 // ever incomplete or stale.
 Object.assign(window, {
+  meshSetScope: _meshSetScope,
   runHealthChecks: _runHealthChecks,
   toggleGlobalNav: _toggleGlobalNav,
   openBudgetModal: _openBudgetModal,
