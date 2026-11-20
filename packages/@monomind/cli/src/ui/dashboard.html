@@ -8490,6 +8490,12 @@ function v2RenderOrgRoles() {
   }).join('')}</div>`;
 }
 
+// Synthesized rows carry msg; forwarded run events keep their text in a type-specific field.
+function _v2ActivityText(ev) {
+  return ev.msg || ev.question || ev.progress || ev.summary || ev.data?.name || ev.artifact?.label
+    || (ev.tool ? `${ev.tool}${ev.decision ? ` (${ev.decision})` : ''}` : '');
+}
+
 async function v2RenderOrgActivity() {
   const el = document.getElementById('odt-activity');
   if (!el || !_v2SelOrg) return;
@@ -8506,7 +8512,7 @@ async function v2RenderOrgActivity() {
   const rows = (Array.isArray(events) ? events : []).slice(0, 100).map(ev => [
     `<span style="color:var(--text-xs);white-space:nowrap" title="${esc(new Date(ev.ts).toLocaleString())}">${relTime(ev.ts)}</span>`,
     `<span class="ss-pill">${esc(ev.type || '—')}</span>`,
-    esc([ev.role || ev.agent, ev.msg].filter(Boolean).join(' — ') || '—'),
+    esc([ev.role || ev.agent || ev.from, _v2ActivityText(ev)].filter(Boolean).join(' — ') || '—'),
   ]);
   el.innerHTML = `<div style="padding:0 16px 16px">${_rtTable(`RECENT ACTIVITY (${rows.length})`, ['When', 'Event', 'Detail'], rows, 'No activity recorded')}</div>`;
 }

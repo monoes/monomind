@@ -30,6 +30,7 @@ function load(extra: Record<string, unknown>) {
       'v2RenderOrgTab',
       'v2RenderOrgRoles',
       'v2RenderOrgActivity',
+      '_v2ActivityText',
       'v2RenderOrgHealth',
       'esc',
       'enc',
@@ -125,13 +126,20 @@ describe('Orgs view tab renderers', () => {
       replies: {
         '/activity': [
           { type: 'approval', ts: Date.now() - 60_000, role: 'w', msg: XSS },
+          {
+            type: 'org:question',
+            ts: Date.now() - 120_000,
+            from: 'writer',
+            question: 'Approval required for Bash',
+          },
           { type: 'org:create', ts: Date.now() - 3_600_000, msg: 'Org created' },
         ],
       },
     });
     await ctx.v2RenderOrgActivity();
     const html = panes['odt-activity'].innerHTML;
-    expect(html).toContain('RECENT ACTIVITY (2)');
+    expect(html).toContain('RECENT ACTIVITY (3)');
+    expect(html).toContain('writer — Approval required for Bash');
     expect(html).toContain('org:create');
     expect(html.indexOf('approval')).toBeLessThan(html.indexOf('org:create'));
     expect(html).not.toContain('<img');
