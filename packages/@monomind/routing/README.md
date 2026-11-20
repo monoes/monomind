@@ -6,9 +6,9 @@
 
 [![npm version](https://img.shields.io/npm/v/@monoes/routing?style=flat-square)](https://www.npmjs.com/package/@monoes/routing)
 [![license](https://img.shields.io/npm/l/@monoes/routing?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D22.12-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.22-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 
-> **Semantic task-to-agent routing** for Monomind (`@monoes/routing` `v2.24.0` / Monomind CLI `v2.29.1`).
+> **Semantic task-to-agent routing** for Monomind (`@monoes/routing` `v2.24.2` / Monomind CLI `v2.29.4`).
 
 Part of the [Monomind](https://github.com/monoes/monomind) ecosystem. Handles deterministic keyword filtering, hash-embedding cosine similarity matching, and LLM fallback classification to route user tasks to specialized agent roles.
 
@@ -29,7 +29,7 @@ When a task description is processed, `@monoes/routing` executes a multi-tier ca
                               │ No Match
                               ▼
                 ┌───────────────────────────┐
-                │ Tier 2: Cosine Centroid   │ ── Sim >= 0.5 ──▶ confidence: cosine (method: 'semantic')
+                │ Tier 2: Cosine Centroid   │ ── Sim >= 0.5 ──▶ confidence: (cosine+1)/2 (method: 'semantic')
                 │ (256-D MD5/HNSW Vector)   │
                 └───────────────────────────┘
                               │ Below Threshold
@@ -49,7 +49,7 @@ When a task description is processed, `@monoes/routing` executes a multi-tier ca
 - **Source**: [`route-layer.ts`](src/route-layer.ts), [`cosine.ts`](src/cosine.ts)
 - Computes cosine similarity between task vector embeddings and agent route centroid vectors.
 - Supports lightweight 256-D MD5/SHA-256 hash embeddings (`LocalEncoder`) or transformer embeddings (`HNSWEncoder`).
-- If similarity $\ge \text{threshold}$ (default: 0.5), routes task with `method: 'semantic'`.
+- If similarity $\ge \text{threshold}$ (default: 0.5), routes task with `method: 'semantic'`. The reported confidence is $(\text{cosine}+1)/2$ ([`route-layer.ts`](src/route-layer.ts)), so a 0.5 cosine reports as 0.75.
 
 ### 3. Tier 3: LLM Fallback Classification
 - **Source**: [`llm-fallback.ts`](src/llm-fallback.ts), [`prompts/classify.ts`](src/prompts/classify.ts)
@@ -60,7 +60,7 @@ When a task description is processed, `@monoes/routing` executes a multi-tier ca
 
 ## 💻 CLI Command Reference (`monomind route`)
 
-The Monomind CLI provides 9 subcommands under `monomind route` (defined in [`packages/@monomind/cli/src/commands/route.ts`](../cli/src/commands/route.ts) and its `route-*-commands.ts` siblings). `task`, `list-agents`, `stats` and the outcome commands go through the central picker (the same ranking as `monomind pick`); only `semantic` (deprecated) runs the `@monoes/routing` pipeline.
+The Monomind CLI provides 9 subcommands under `monomind route` (defined in [`packages/@monomind/cli/src/commands/route.ts`](../cli/src/commands/route.ts) and its `route-*-commands.ts` siblings). `task`, `list-agents`, `stats` and the outcome commands go through the central picker (the same ranking as `monomind pick`); three paths run the `@monoes/routing` pipeline: `route semantic` (deprecated), the `hooks_route_semantic` MCP tool and `agent spawn --task`. In the CLI (`createConfiguredRouteLayer` in [`route-layer-factory.ts`](../cli/src/routing/route-layer-factory.ts)) the central picker runs before the cascade above: a Jev decision wins, then the keyword pre-filter, then the picker's keyword ranking when it clearly leads, then embedding similarity.
 
 | Subcommand | Usage | Description | Key Flags |
 |---|---|---|---|

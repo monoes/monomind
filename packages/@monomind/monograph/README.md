@@ -6,7 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@monoes/monograph?style=flat-square)](https://www.npmjs.com/package/@monoes/monograph)
 [![license](https://img.shields.io/npm/l/@monoes/monograph?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D22.12-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.22-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 
 **Code intelligence as a graph** — tree-sitter parses your codebase into a SQLite-backed knowledge graph of files, functions, classes, imports, and call relationships. Query blast radius, find callers, and navigate architecture without grep.
 
@@ -31,7 +31,7 @@ Monograph walks your source tree with [tree-sitter](https://tree-sitter.github.i
 # Build the graph for the current project
 monomind monograph build
 
-# Search the knowledge graph (BM25, semantic, or hybrid)
+# Search the knowledge graph (lexical: BM25 FTS, LIKE and fuzzy; the CLI loads no embedder)
 monomind monograph search -q "authentication flow"
 
 # Show graph statistics
@@ -89,7 +89,7 @@ When used via Monomind's MCP server, monograph exposes 20 tools by default (+27 
 | `monograph_watch` | Start incremental file watcher — rebuilds on file changes |
 | `monograph_watch_stop` | Stop the incremental file watcher |
 | `monograph_health` | Manual, on-demand staleness check |
-| `monograph_staleness` | Staleness check — auto-triggers a background rebuild if >3 commits behind HEAD |
+| `monograph_staleness` | Staleness check — auto-triggers a background rebuild when the index is 2 or more commits behind HEAD |
 
 ## Supported languages & Parsers
 
