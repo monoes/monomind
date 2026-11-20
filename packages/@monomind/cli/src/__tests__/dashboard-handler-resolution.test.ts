@@ -2,7 +2,8 @@
  * i-065-dash — 119 dashboard controls threw ReferenceError on click.
  *
  * Commit 9537930fb prefixed 161 function/const declarations with `_` across
- * dashboard.html, orgs.html and mastermind-diagram-fallback.html while
+ * dashboard.html, orgs.html and mastermind-diagram-fallback.html (the last
+ * two since retired) while
  * leaving every inline `onclick="name(...)"` (etc.) attribute pointing at
  * the unprefixed name. The existing dashboard-tabs-wiring.test.ts
  * regex-matches two onclick strings AS TEXT and never checks that the
@@ -30,8 +31,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const UI_DIR = join(__dirname, '../ui');
 
 const DASHBOARD_HTML = readFileSync(join(UI_DIR, 'dashboard.html'), 'utf-8');
-const ORGS_HTML = readFileSync(join(UI_DIR, 'orgs.html'), 'utf-8');
-const MASTERMIND_HTML = readFileSync(join(UI_DIR, 'mastermind-diagram-fallback.html'), 'utf-8');
 
 // ── The resolution checker — this is the part that must assert the JOIN ───
 
@@ -214,26 +213,12 @@ function findObjectAssignCollisions(html: string): string[] {
   return extractObjectAssignKeys(html).filter((k) => declared.has(k));
 }
 
-// ── T1-T3: every inline handler resolves, for all three files ─────────────
+// ── T1: every inline handler resolves ─────────────────────────────────────
 
 describe('dashboard-handler-resolution — every inline handler resolves to a global', () => {
   it('every inline handler in dashboard.html resolves to a global', () => {
     const { unresolved } = checkResolution(DASHBOARD_HTML);
     const detail = unresolved.map((u) => `${u.name} (dashboard.html:${u.line})`).join(', ');
-    expect(unresolved, `unresolved handler(s): ${detail}`).toHaveLength(0);
-  });
-
-  it('every inline handler in orgs.html resolves to a global', () => {
-    const { unresolved } = checkResolution(ORGS_HTML);
-    const detail = unresolved.map((u) => `${u.name} (orgs.html:${u.line})`).join(', ');
-    expect(unresolved, `unresolved handler(s): ${detail}`).toHaveLength(0);
-  });
-
-  it('every inline handler in mastermind-diagram-fallback.html resolves to a global', () => {
-    const { unresolved } = checkResolution(MASTERMIND_HTML);
-    const detail = unresolved
-      .map((u) => `${u.name} (mastermind-diagram-fallback.html:${u.line})`)
-      .join(', ');
     expect(unresolved, `unresolved handler(s): ${detail}`).toHaveLength(0);
   });
 });
@@ -279,17 +264,6 @@ describe('dashboard-handler-resolution — canonical case', () => {
 // ── T6: CSS colour function false-positive pin ─────────────────────────────
 
 describe('dashboard-handler-resolution — false positive pin', () => {
-  it("a CSS colour function inside an attribute string is not treated as a handler (orgs.html: rgba/oklch inside this.style.background='...')", () => {
-    const { invoked } = checkResolution(ORGS_HTML);
-    const names = invoked.map((i) => i.name);
-    // rgba(...) and oklch(...) both appear only as CSS function calls nested
-    // inside a single-quoted string assigned to this.style.background from
-    // onmouseover/onmouseout attributes — never as a bare handler call.
-    // Do not widen the extractor to "fix" these; they were never broken.
-    expect(names).not.toContain('rgba');
-    expect(names).not.toContain('oklch');
-  });
-
   it('pins the same false positive with a synthetic fixture, for both known CSS functions', () => {
     // Not just "the real file happens to pass today" — a fixture that fails
     // the same way if the nested-quote-stripping refinement is ever
@@ -316,11 +290,7 @@ describe('dashboard-handler-resolution — false positive pin', () => {
 // ── Object.assign(window, ...) must not clobber an existing global ────────
 
 describe('dashboard-handler-resolution — no clobbered globals', () => {
-  it.each([
-    ['dashboard.html', DASHBOARD_HTML],
-    ['orgs.html', ORGS_HTML],
-    ['mastermind-diagram-fallback.html', MASTERMIND_HTML],
-  ])(
+  it.each([['dashboard.html', DASHBOARD_HTML]])(
     '%s: no Object.assign(window, ...) key collides with an independently-declared global',
     (_label, html) => {
       expect(findObjectAssignCollisions(html)).toEqual([]);

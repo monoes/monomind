@@ -181,45 +181,6 @@ export async function handleOrgLiveRoutes(req, res, url, corsOrigin, ctx) {
     return true;
   }
 
-  // GET /api/orgs/:name/history — per-run outcome summaries (history.jsonl, newest first)
-  if (req.method === 'GET' && /^\/api\/orgs\/[^/]+\/history$/.test(url)) {
-    try {
-      const orgName = decodeURIComponent(url.split('/')[3]);
-      const _histQs = new URL(req.url, 'http://localhost').searchParams;
-      const root = path.resolve(_histQs.get('dir') || ctx.projectDir || process.cwd());
-      if (!orgName || orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
-        res.writeHead(400);
-        res.end('{"error":"invalid org name"}');
-        return true;
-      }
-      const monoDir = ctx._getGitMonomindDir(root) || path.join(root, '.monomind');
-      const histFile = path.join(monoDir, 'orgs', orgName, 'history.jsonl');
-      let runs = [];
-      if (fs.existsSync(histFile)) {
-        runs = _readTailLines(histFile)
-          .map((l) => {
-            try {
-              return JSON.parse(l);
-            } catch (_) {
-              return null;
-            }
-          })
-          .filter(Boolean)
-          .reverse()
-          .slice(0, 50);
-      }
-      res.writeHead(200, {
-        'Content-Type': 'application/json',
-        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
-      });
-      res.end(JSON.stringify({ runs }));
-    } catch (err) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
-
   // GET /api/orgs/:name/memory — org knowledge-graph stats + glossary + rules
   if (req.method === 'GET' && /^\/api\/orgs\/[^/]+\/memory$/.test(url)) {
     try {
@@ -231,8 +192,12 @@ export async function handleOrgLiveRoutes(req, res, url, corsOrigin, ctx) {
         res.end('{"error":"invalid org name"}');
         return true;
       }
-      const monoDir = ctx._getGitMonomindDir(root) || path.join(root, '.monomind');
-      const dbPath = path.join(monoDir, 'org-memory');
+      // The store the runtime writes (<root>/.monomind/org-memory), not the
+      // shared-git-dir run-file location; and only this org's part of it — all
+      // orgs under one root share the store.
+      const { orgMemoryDbPath, orgKgScope } = await import('../orgrt/org-memory.js');
+      const dbPath = orgMemoryDbPath(root);
+      const scope = orgKgScope(orgName);
       if (!fs.existsSync(dbPath)) {
         res.writeHead(200, {
           'Content-Type': 'application/json',
@@ -243,9 +208,9 @@ export async function handleOrgLiveRoutes(req, res, url, corsOrigin, ctx) {
       }
       const kg = await import('../memory/memory-kg.js');
       const [stats, glossary, ruleList] = await Promise.all([
-        kg.kgStats({ dbPath }),
-        kg.kgGlossary({ dbPath, limit: 12 }),
-        kg.kgListRules({ dbPath, limit: 10 }),
+        kg.kgStats({ dbPath, scope }),
+        kg.kgGlossary({ dbPath, limit: 12, scope }),
+        kg.kgListRules({ dbPath, limit: 10, scope }),
       ]);
       res.writeHead(200, {
         'Content-Type': 'application/json',

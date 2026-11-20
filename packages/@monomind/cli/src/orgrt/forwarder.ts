@@ -30,8 +30,8 @@ import type { BusEvent } from './types.js';
  * companionEvents() additionally emits session:start/session:complete: the
  * dashboard's client-side Chat tab only lists a run in its session dropdown
  * once it has seen a session:start for that session id — org:start alone is
- * NOT enough (verified against src/ui/orgs.html's handleMmEvent, which
- * creates the chatSessions entry solely on session:start). Companions are
+ * NOT enough (verified against src/ui/dashboard.html's _odtHandleLiveEvent,
+ * which creates the _odtChatSessions entry solely on session:start). Companions are
  * sent before the primary translate() payload for the same bus event so the
  * client-side session record exists before anything tries to append to it.
  *

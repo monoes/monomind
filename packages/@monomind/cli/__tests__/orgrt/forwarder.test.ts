@@ -126,7 +126,7 @@ describe('attachForwarder', () => {
   });
 
   it('emits session:start BEFORE org:start so the dashboard session record exists first', async () => {
-    // src/ui/orgs.html only adds a run to chatSessions on session:start;
+    // src/ui/dashboard.html (_odtHandleLiveEvent) only adds a run to _odtChatSessions on session:start;
     // every later event (including org:start itself) is dropped client-side
     // if that record doesn't exist yet — order is load-bearing, not cosmetic.
     const received: any[] = [];
