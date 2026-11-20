@@ -29,7 +29,7 @@
  */
 import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, delimiter, join } from 'node:path';
-import { authorityMaskAvailability } from './authority-mask.js';
+import { authorityMaskAvailability, hasPidIsolation, PID_ISOLATION } from './authority-mask.js';
 import {
   allowWriteRules,
   denyReadRules,
@@ -166,18 +166,17 @@ export function resolveDenyExec(patterns: string[], ctx: DenyExecCtx): string[] 
   return [...out];
 }
 
-/** bubblewrap arguments, to follow an existing mask's or `--dev-bind / /`. `hide` (policy.sandbox
- *  denyRead): an existing file reads as empty, an existing directory as an empty one. */
-function maskTail(paths: string[], hide: string[] = []): string[] {
+/** bubblewrap arguments, to follow `head` (an existing mask or `--dev-bind / /`). `hide`
+ *  (policy.sandbox denyRead): an existing file reads as empty, an existing directory as an empty
+ *  one. The pid namespace only when `head` has none (the authority mask brings its own). */
+function maskTail(head: string[], paths: string[], hide: string[] = []): string[] {
   const hidden = hide.flatMap((p) => {
     const r = real(p);
     if (!r) return [];
     return isFile(r) ? ['--ro-bind', '/dev/null', r] : ['--tmpfs', r];
   });
   return [
-    '--unshare-pid',
-    '--proc',
-    '/proc',
+    ...(hasPidIsolation(head) ? [] : PID_ISOLATION),
     ...paths.flatMap((p) => ['--ro-bind', '/dev/null', p]),
     ...hidden,
   ];
@@ -185,7 +184,8 @@ function maskTail(paths: string[], hide: string[] = []): string[] {
 
 /** A complete mask for `patterns`: the whole filesystem as it is, minus those programs. */
 export function denyExecMask(patterns: string[], ctx: DenyExecCtx): string[] {
-  return ['--dev-bind', '/', '/', ...maskTail(resolveDenyExec(patterns, ctx))];
+  const head = ['--dev-bind', '/', '/'];
+  return [...head, ...maskTail(head, resolveDenyExec(patterns, ctx))];
 }
 
 /** roleExecMask for a Seatbelt mask (macOS, #768): mail digests become unreadable and the mail
@@ -296,13 +296,10 @@ export function roleExecMask(args: {
     const nativeWanted = (args.bestEffortBinds ?? []).length > 0;
     if (!mailWanted && !nativeWanted) return args.authorityMask;
     const avail = args.availability ?? authorityMaskAvailability();
-    if (avail.available)
-      return [
-        ...(args.authorityMask ?? ['--dev-bind', '/', '/']),
-        ...roBinds,
-        ...nativeBinds,
-        ...maskTail([], bestEffort),
-      ];
+    if (avail.available) {
+      const base = args.authorityMask ?? ['--dev-bind', '/', '/'];
+      return [...base, ...roBinds, ...nativeBinds, ...maskTail(base, [], bestEffort)];
+    }
     if (mailWanted)
       args.bus.emit({
         type: 'audit',
@@ -368,7 +365,7 @@ export function roleExecMask(args: {
     ...head,
     ...roBinds,
     ...nativeBinds,
-    ...maskTail(paths, [...(args.denyRead ?? []), ...bestEffort]),
+    ...maskTail(head, paths, [...(args.denyRead ?? []), ...bestEffort]),
   ];
 }
 
