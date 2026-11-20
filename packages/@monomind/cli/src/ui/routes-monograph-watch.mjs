@@ -99,8 +99,12 @@ export async function handleMonographWatchRoutes(req, res, url, corsOrigin, ctx)
   if (req.method === 'GET' && url === '/api/monograph-benchmark') {
     try {
       const qs = new URL(req.url, 'http://localhost').searchParams;
-      const dir = qs.get('dir') || ctx.projectDir || process.cwd();
-      const d = path.resolve(dir || process.cwd());
+      const d = resolveAllowedProjectDir(qs.get('dir'), ctx.projectDir);
+      if (!d) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'dir is not the server project or a known project' }));
+        return true;
+      }
       const graphPath = path.join(d, '.monomind', 'graph', 'graph.json');
       const legacyPath = path.join(d, 'graphify-out', 'graph.json');
       const gp = fs.existsSync(graphPath)
@@ -118,8 +122,9 @@ export async function handleMonographWatchRoutes(req, res, url, corsOrigin, ctx)
         return true;
       }
 
-      const { execSync: ex } = await import('node:child_process');
-      const out = ex(`graphify benchmark ${gp}`, {
+      // execFileSync, not a shell string: gp holds a path built from ?dir=.
+      const { execFileSync: exf } = await import('node:child_process');
+      const out = exf('graphify', ['benchmark', gp], {
         encoding: 'utf8',
         cwd: d,
         timeout: 30000,

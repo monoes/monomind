@@ -1,5 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { isPathInside } from './server-fileutils.mjs';
+
+// Resolves data/sessions/<id>.json for a session id taken from the URL, or
+// null when the id is not one the session writers produce (same pattern and
+// length cap as server-mastermind-event.mjs) or escapes the sessions dir.
+function _sessionFile(ctx, sid) {
+  if (typeof sid !== 'string' || !sid || sid.length > 128 || !ctx.SESSION_ID_RE.test(sid))
+    return null;
+  const sessDir = path.join(ctx.projectDir || process.cwd(), 'data', 'sessions');
+  const file = path.join(sessDir, `${sid}.json`);
+  return isPathInside(sessDir, file) ? file : null;
+}
 
 // Org dashboard routes: artifacts, mastermind events, stream, sessions and pages.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
@@ -207,12 +219,12 @@ export async function handleOrgMastermindRoutes(req, res, url, corsOrigin, ctx) 
   if (req.method === 'GET' && url.match(/^\/api\/mastermind\/session\/[^/]+\/trace$/)) {
     try {
       const sid = url.split('/')[4];
-      const sessFile = path.join(
-        ctx.projectDir || process.cwd(),
-        'data',
-        'sessions',
-        `${sid}.json`,
-      );
+      const sessFile = _sessionFile(ctx, sid);
+      if (!sessFile) {
+        res.writeHead(400);
+        res.end('Invalid session id');
+        return true;
+      }
       let s = null;
       if (fs.existsSync(sessFile)) {
         s = JSON.parse(fs.readFileSync(sessFile, 'utf8'));
@@ -275,13 +287,13 @@ export async function handleOrgMastermindRoutes(req, res, url, corsOrigin, ctx) 
   if (req.method === 'GET' && url.startsWith('/api/mastermind/session/')) {
     try {
       const sid = url.slice('/api/mastermind/session/'.length);
+      const sessFile = _sessionFile(ctx, sid);
+      if (!sessFile) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid session id' }));
+        return true;
+      }
       // Check individual session file first
-      const sessFile = path.join(
-        ctx.projectDir || process.cwd(),
-        'data',
-        'sessions',
-        `${sid}.json`,
-      );
       if (fs.existsSync(sessFile)) {
         res.writeHead(200, {
           'Content-Type': 'application/json',

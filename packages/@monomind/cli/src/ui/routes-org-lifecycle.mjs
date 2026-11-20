@@ -4,6 +4,7 @@ import { lookupOrg, removeOperatorCredential } from '../orgrt/broker.js';
 import { writeFileAtomic } from './org-hil.mjs';
 import { orgIsRunning, orgSignatureState } from './org-runtime.mjs';
 import { readBodyOrReply } from './routes-org-helpers.mjs';
+import { resolveAllowedProjectDir } from './server-fileutils.mjs';
 
 // Org dashboard routes: org delete, stop and copy.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
@@ -136,7 +137,12 @@ export async function handleOrgLifecycleRoutes(req, res, url, corsOrigin, ctx) {
         return true;
       }
       const _stopOrgQs = new URL(req.url, 'http://localhost').searchParams;
-      const _stopOrgBase = path.resolve(_stopOrgQs.get('dir') || ctx.projectDir || process.cwd());
+      const _stopOrgBase = resolveAllowedProjectDir(_stopOrgQs.get('dir'), ctx.projectDir);
+      if (!_stopOrgBase) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'dir is not the server project or a known project' }));
+        return true;
+      }
       const stopEvent = { type: 'org:stop', org: orgName, ts: Date.now() };
       const dataDir = path.join(_stopOrgBase, 'data');
       try {

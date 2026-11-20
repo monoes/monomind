@@ -1,6 +1,25 @@
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { looksLikeOurProcess } from './server-rundb.mjs';
+
+// The token tracker that ships with the CLI package (package.json "files"
+// includes .claude). It reads ~/.claude globally, so ?dir= only picks the
+// fallback metrics file — never which code runs: a project's own
+// .claude/helpers/token-tracker.cjs is writable by any agent in it.
+// src/ui and dist/src/ui sit two and three levels below the package root.
+export function bundledTokenTrackerPath() {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  for (const up of [
+    ['..', '..'],
+    ['..', '..', '..'],
+  ]) {
+    const p = path.join(here, ...up, '.claude', 'helpers', 'token-tracker.cjs');
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
 
 // Shutdown + token-usage routes.
 // Registered, in order, by startServer's request dispatcher in server.mjs.
@@ -50,7 +69,7 @@ export async function handleRoutesMisc(req, res, url, corsOrigin, ctx) {
         ? _periodRaw
         : 'today';
       const dir = path.resolve(qs.get('dir') || projectDir || process.cwd());
-      const trackerPath = path.join(dir, '.claude', 'helpers', 'token-tracker.cjs');
+      const trackerPath = bundledTokenTrackerPath();
       const fallback = () => {
         const summary = (() => {
           try {
@@ -100,7 +119,7 @@ export async function handleRoutesMisc(req, res, url, corsOrigin, ctx) {
           }),
         );
       };
-      if (!fs.existsSync(trackerPath)) {
+      if (!trackerPath) {
         fallback();
         return true;
       }
