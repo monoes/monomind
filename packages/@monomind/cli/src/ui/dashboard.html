@@ -3157,7 +3157,7 @@ function updateAlerts() {
   }
 
   if (alertState.errorCount >= 3) {
-    all.push({ id: 'feed-errors', cls: 'alert-warn', ico: '⚠', msg: `${alertState.errorCount} errors in current session`, action: 'jumpToErrors()' });
+    all.push({ id: 'feed-errors', cls: 'alert-warn', ico: '⚠', msg: `${alertState.errorCount} errors in current session`, action: '_jumpToErrors()' });
   }
 
   if (alertState.anomaly) {
@@ -13673,12 +13673,20 @@ function mmRenderOrgs(body) {
   }).join('');
 }
 
-const _mmSkillFilter = '';
+// biome-ignore lint/style/useConst: reassigned by the search input's inline oninput handler
+let _mmSkillFilter = '';
 function mmRenderSkills(body) {
+  body.innerHTML = `<div class="filter-bar" style="margin-bottom:12px"><input class="filter-input" type="text" placeholder="Search skills…" aria-label="Search skills" value="${esc(_mmSkillFilter)}" oninput="_mmSkillFilter=this.value;mmRenderSkillList()"></div><div id="mm-skill-list"></div>`;
+  mmRenderSkillList();
+}
+
+// Only the list re-renders while typing: replacing the input would drop its focus after each key.
+function mmRenderSkillList() {
+  const list = document.getElementById('mm-skill-list');
+  if (!list) return;
   const q = _mmSkillFilter.toLowerCase();
   const filtered = q ? _MM_SKILLS_CATALOG.filter(s => s.name.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q)) : _MM_SKILLS_CATALOG;
-  body.innerHTML = `<div class="filter-bar" style="margin-bottom:12px"><input class="filter-input" type="text" placeholder="Search skills…" value="${esc(_mmSkillFilter)}" oninput="_mmSkillFilter=this.value;mmRenderSkills(document.getElementById('mm-body'))"></div>` +
-    filtered.map(s => `<div class="mm-skill-item" data-sn="${esc(s.name)}" onclick="navigator.clipboard.writeText(this.dataset.sn).then(()=>showToast('Copied',this.dataset.sn,'ok'))">
+  list.innerHTML = filtered.map(s => `<div class="mm-skill-item" data-sn="${esc(s.name)}" onclick="navigator.clipboard.writeText(this.dataset.sn).then(()=>showToast('Copied',this.dataset.sn,'ok'))">
       <span class="mm-skill-name">${esc(s.name)}</span>
       <span class="mm-skill-desc">${esc(s.desc)}</span>
     </div>`).join('');
