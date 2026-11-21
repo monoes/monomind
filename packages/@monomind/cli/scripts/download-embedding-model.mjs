@@ -7,7 +7,7 @@
  * to keyword mode. Nothing downloads these weights implicitly — run this
  * script (or `monomind download-embeddings`) explicitly:
  *
- *   node scripts/download-embedding-model.mjs
+ *   node packages/@monomind/cli/scripts/download-embedding-model.mjs   (from the repo root)
  *
  * Loading the pipeline once is all it takes — transformers.js populates its
  * `.cache/` directory as a side effect. Exits 0 without downloading when the

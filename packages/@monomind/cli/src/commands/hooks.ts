@@ -151,10 +151,9 @@ export const hooksCommand: Command = {
     output.writeln();
     output.writeln(output.bold('Features:'));
     output.printList([
-      '🧠 Trajectory + outcome logging',
+      '🧠 Routing-outcome and edit logging (JSONL/JSON files under .monomind/)',
       '🎯 Keyword routing + route-outcome measurement',
-      '🔍 SQLite-backed vector search (ANN)',
-      '👥 Agent Teams integration (auto task assignment)',
+      '🔍 Similar-pattern search through the memory store (SQLite, ANN), not the hooks themselves',
     ]);
 
     return { success: true };

@@ -164,7 +164,7 @@ const EXPOSURE: Record<CatalogTarget, string> = {
   jev: 'the configured decision model may receive its name and ≤200-char description',
   'platform:claude':
     '.claude/skills, read by Claude Code; also enters .claude/helpers/skill-registry.json ' +
-    '(per-prompt keyword router; Jev only with the jev target)',
+    '(the per-prompt keyword ranking and Jev rank it only while it is active with the jev target and its package verifies)',
   'platform:agents':
     '.agents/skills, read by Codex, Gemini, Kimi, OpenCode, Cursor, Copilot, VS Code, ' +
     'OpenClaw, Droid, Hermes, Antigravity, Zed',

@@ -3,10 +3,11 @@
  *
  * The default `tools/list` advertises only the core tool set (~20 tools) to
  * keep the per-call schema payload small. Non-core capabilities (browser,
- * github, swarm, claims, terminal, embeddings generation, etc.) remain fully
- * callable but are found through `monomind_tool_search`, which returns their
- * full inputSchema so the model can call them directly. Set
- * MONOMIND_MCP_FULL=1 to advertise the entire roster instead.
+ * github, claims, terminal, embeddings generation, etc.) are found through
+ * `monomind_tool_search`, which returns their full inputSchema. Hosts that
+ * only call listed tools cannot call them directly: run them with
+ * `monomind mcp exec -t <tool>`, or set MONOMIND_MCP_FULL=1 to advertise the
+ * entire roster instead.
  *
  * A2: the previous `import { searchNonCoreTools } from '../mcp-client.js'`
  * was a static cycle — mcp-client.ts lazy-imports monomind-tools.ts, and
@@ -23,19 +24,19 @@ export const monomindTools: MCPTool[] = [
   {
     name: 'monomind_tool_search',
     description:
-      "Discover hidden (non-advertised) monomind MCP tools by keyword. Returns each match's full inputSchema so the tool can be called directly.",
+      'Find hidden (non-advertised) monomind MCP tools by keyword. Hosts cannot call them directly; run one with `monomind mcp exec -t <tool>`.',
     inputSchema: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
           description:
-            'Keywords describing the capability you need (e.g. "open browser page", "create pull request", "swarm topology").',
+            'Keywords describing the capability you need (e.g. "open browser page", "create pull request", "list claims").',
         },
         category: {
           type: 'string',
           description:
-            'Optional category prefix filter (e.g. browser, github, swarm, terminal, embeddings).',
+            'Optional category prefix filter (e.g. browser, github, terminal, embeddings).',
         },
         limit: { type: 'integer', minimum: 1, maximum: 50, default: 10 },
       },
@@ -61,7 +62,7 @@ export const monomindTools: MCPTool[] = [
                 note:
                   results.length === 0
                     ? 'No hidden tools matched. Set MONOMIND_MCP_FULL=1 on the MCP server to advertise the full roster, or rephrase the query.'
-                    : 'Call any returned tool directly by name — it is callable even though it is not in the default tool list.',
+                    : 'These tools are not in the default tool list, so hosts that only call listed tools cannot call them. Run one with `monomind mcp exec -t <tool> -p <json>`, or set MONOMIND_MCP_FULL=1 on the MCP server to advertise them.',
                 tools: results,
               },
               null,

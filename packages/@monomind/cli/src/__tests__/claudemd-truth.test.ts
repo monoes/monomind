@@ -186,7 +186,7 @@ describe('claudemd-truth (i-041/i-117)', () => {
         { ...DEFAULT_INIT_OPTIONS, targetDir: process.cwd() },
         'full',
       );
-      expect(generated).toContain(`${WORKER_COUNT} background workers`);
+      expect(generated).toContain(`${WORKER_COUNT} on-demand workers`);
       expect(generated).not.toContain('8 background workers');
     });
 
