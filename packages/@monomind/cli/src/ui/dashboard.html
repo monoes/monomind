@@ -1462,6 +1462,32 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 .gd-md th, .gd-md td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
 .gd-md th { background: var(--surface-hi); font-weight: 600; color: var(--text-hi); }
 .gd-md tr:nth-child(even) td { background: var(--surface); }
+
+/* ── narrow screens (phones, split windows) ─────────────────────────
+   The sidebar becomes a drawer opened from the topbar's menu button, and
+   side-by-side panes stack, so the content gets the full width instead of
+   being clipped beside a fixed 195px sidebar. */
+#nav-toggle, #nav-backdrop { display: none; }
+@media (max-width: 760px) {
+  #nav-toggle { display: inline-flex; }
+  #sidebar { position: fixed; inset: 0 auto 0 0; width: min(82vw, 280px); z-index: 450; transform: translateX(-100%); transition: transform 0.2s ease; }
+  #app.nav-open #sidebar { transform: none; box-shadow: 0 0 40px oklch(0% 0 0 / 0.6); }
+  #app.nav-open #nav-backdrop { display: block; position: fixed; inset: 0; z-index: 449; background: oklch(0% 0 0 / 0.5); }
+  #topbar { padding: 0 10px; gap: 8px; }
+  #topbar .pill, #live-cost-ticker, #topbar-activity, #feed-time-filter .kb-hint { display: none; }
+  #tb-right { gap: 4px; }
+  #tb-right .btn { padding: 4px 7px; }
+  #tb-right .btn kbd, #btn-budget .tb-lbl, .tb-lbl { display: none; }
+  .view.active { overflow-y: auto; }
+  #view-now, #view-orgs { flex-direction: column; }
+  #feed-pane { border-right: none; min-height: 70vh; }
+  #feed-head, #feed-sess-nav, #feed-time-filter { flex-wrap: wrap; height: auto; row-gap: 6px; padding-top: 6px; padding-bottom: 6px; }
+  #metrics-pane { width: auto; border-top: 1px solid var(--border); }
+  #orgs-list-pane { width: auto; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
+  #org-detail-pane { min-height: 60vh; }
+  #org-detail-tabs { overflow-x: auto; flex-wrap: nowrap; }
+}
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) { #sidebar { transition: none; } }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
@@ -1547,18 +1573,20 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 </nav>
 
 <!-- ── Main ────────────────────────────────────────────── -->
+<div id="nav-backdrop" onclick="toggleNav(false)"></div>
 <div id="main">
   <div id="topbar">
+    <button class="btn" id="nav-toggle" onclick="toggleNav()" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar">☰</button>
     <span id="view-title">Now</span>
     <span class="pill"><span class="live-dot"></span> live</span>
     <span id="topbar-cost"></span>
     <span id="live-cost-ticker" title="Current session accumulated cost"></span>
     <span id="topbar-activity"></span>
     <div id="tb-right">
-      <button class="btn" id="btn-budget" onclick="openBudgetModal()" title="Set daily/monthly cost budget">⚑ Budget</button>
-      <button class="btn" onclick="openCmdPalette()">⌕ Search <kbd style="font-size:10px;opacity:0.6;margin-left:3px">⌘K</kbd></button>
-      <button class="btn" onclick="openShortcutHelp()" title="Keyboard shortcuts (?)">? Help</button>
-      <button class="btn" onclick="refreshCurrent()">↺ Refresh</button>
+      <button class="btn" id="btn-budget" onclick="openBudgetModal()" title="Set daily/monthly cost budget" aria-label="Budget">⚑<span class="tb-lbl"> Budget</span></button>
+      <button class="btn" onclick="openCmdPalette()" aria-label="Search">⌕<span class="tb-lbl"> Search</span> <kbd style="font-size:10px;opacity:0.6;margin-left:3px">⌘K</kbd></button>
+      <button class="btn" onclick="openShortcutHelp()" title="Keyboard shortcuts (?)" aria-label="Help">?<span class="tb-lbl"> Help</span></button>
+      <button class="btn" onclick="refreshCurrent()" aria-label="Refresh">↺<span class="tb-lbl"> Refresh</span></button>
     </div>
   </div>
 
@@ -2397,8 +2425,16 @@ let showStarredOnly = false;
 
 // ── nav ────────────────────────────────────────────────────
 document.querySelectorAll('.nav-item[data-view]').forEach(el => {
-  el.addEventListener('click', () => switchView(el.dataset.view));
+  el.addEventListener('click', () => { switchView(el.dataset.view); toggleNav(false); });
 });
+
+// Narrow screens: the sidebar is a drawer (CSS @media max-width 760px). Picking a view closes it.
+function toggleNav(open) {
+  const app = document.getElementById('app');
+  const show = typeof open === 'boolean' ? open : !app.classList.contains('nav-open');
+  app.classList.toggle('nav-open', show);
+  document.getElementById('nav-toggle')?.setAttribute('aria-expanded', String(show));
+}
 
 // ── collapsible global nav section ──────────────────────────
 const GLOBAL_VIEWS = ['global', 'global-docs', 'global-tokens', 'global-orgs', 'humaninput'];
