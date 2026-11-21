@@ -64,7 +64,7 @@
     "directory": "packages/@monoes/monobrowse"
   },
   "dependencies": {
-    "commander": "^12.1.0",
+    "commander": "^15.1.0",
     "ws": "^8.22.2"
   },
   "devDependencies": {
