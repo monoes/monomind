@@ -99,7 +99,7 @@ echo "DASHBOARD"
 echo "─────────"
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' ".monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 echo "  url:    $CTRL_URL"
-curl -s "${CTRL_URL}/api/health" >/dev/null 2>&1 && echo "  status: ✓ reachable" || echo "  status: ✗ not reachable"
+curl -sf "${CTRL_URL}/api/identity" >/dev/null 2>&1 && echo "  status: ✓ reachable" || echo "  status: ✗ not reachable"
 ```
 
 ### validate
