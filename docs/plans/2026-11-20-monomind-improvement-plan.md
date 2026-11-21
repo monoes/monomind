@@ -232,7 +232,7 @@ Each category has the current state, the 2026 comparison, and the top items. The
 - `mcp start` with flags writes 14 non-JSON lines to stdout.
 - 204 registered tools, 21 advertised (about 4k tokens). The full set is about 23k tokens.
 - `monomind_tool_search` returns schemas that hosts cannot call: `listChanged: true` is declared, but nothing emits it.
-- 264 references in 88 `.claude/` files point at about 50 non-advertised tools.
+- 266 references in 63 root `.claude/` files point at 51 non-advertised tools (`agent_spawn` alone has 105). The derived trees copy them.
 - No `annotations`, `title` or `outputSchema` on any tool (`cli/src/mcp-tools/types.ts:34-47`).
 - `serverInfo.version` is hard-coded to 3.0.0. `mcp toggle` does not hide tools over stdio.
 - Strong: a small default roster; pinned per-host registration that keeps user values.
@@ -248,7 +248,7 @@ Each category has the current state, the 2026 comparison, and the top items. The
 |---|---|---|---|---|---|
 | mcp-1 | Improve | One stdio handler with spec-shaped results; stdout carries protocol only | S | H | Route `cli/bin/cli.js` and `cli/bin/mcp-server.js` through `handleMCPMessage`; `mcp-client.ts` returns `isError`; add a stdio contract test |
 | mcp-2 | Remove | 70 tools in dead families (browser 28, claims 12, terminal, config, github, performance, guidance, quality, platforms) | M | H | Delete the tool files and their loaders in `cli/src/mcp-client-registry.ts:31-61` |
-| mcp-3 | Improve | Rewrite the 264 `.claude/` references to non-advertised tools; add a check | M | H | `P0-19`: point them at CLI or host tools; `sync:claude-trees:check` fails on a non-advertised `mcp__monomind__*` |
+| mcp-3 | Improve | Rewrite the 266 `.claude/` references to non-advertised tools; add a check | M | H | `P0-19`: point them at CLI or host tools; `sync:claude-trees:check` fails on a non-advertised `mcp__monomind__*` |
 | mcp-4 | Remove | Hide-and-search: a tool is advertised and callable, or it is not an MCP tool | M | H | Move the 60 CLI-backend tools to direct imports; delete `monomind_tool_search`; one profile setting |
 | mcp-5 | Add | `annotations` and `title`; mark read-only tools; mark `knowledge_remove` destructive | S | H | Extend `MCPTool` in `types.ts:34-47`; pass the fields through `tools/list` |
 | mcp-6 | Add | `outputSchema`/`structuredContent`; negotiate `protocolVersion` | M | M | Echo the client's revision; add schemas for `pick`, `monograph_brief`, `knowledge_search` |
@@ -514,7 +514,7 @@ The goal: nothing reports success it did not have, and nothing claims a capabili
 | P0-16 | Remove agent definitions for machinery that does not exist; remove bookkeeping mastermind skills (fix or delete the import, backup and env skills first) | co-2, org-4 | S–M | M | `sync:claude-trees` | `remove(agents): swarm-era optimization agents` |
 | P0-17 | Dashboard fixes already in progress | ui-1, ui-3 | M | H | none | dashboard PRs |
 | P0-18 | Two security items are tracked privately (not described here) | n/a | n/a | H | n/a | n/a |
-| P0-19 | **`.claude/` prompts call only tools hosts can reach.** About 88 skill, command and agent files carry 264 references to about 50 non-advertised `mcp__monomind__*` tools (for example `agent_spawn` in `.claude/agents/github/*`). The docs review keeps the file list with its findings. Point each at an advertised tool, a CLI command or a host tool; add a `sync:claude-trees:check` rule that fails on a non-advertised `mcp__monomind__*` | mcp-3 | M | H | `sync:claude-trees`; lands before P0-11 | `fix(claude): point .claude prompts at reachable tools; check rejects non-advertised mcp refs` |
+| P0-19 | **`.claude/` prompts call only tools hosts can reach.** 63 skill, command and agent files in the root tree carry 266 references to 51 tools outside `CORE_ADVERTISED_TOOLS` (`cli/src/mcp-client-roster.ts:38-67`); `agent_spawn` alone has 105. The docs review keeps the per-file list with its findings. Fixing the root tree fixes the derived trees. Point each at an advertised tool, a CLI command (`npx monomind agent spawn`, `monomind mcp exec <tool>`) or a host tool (Task tool, `gh`); add a `sync:claude-trees:check` rule that fails on a non-advertised `mcp__monomind__*` | mcp-3 | M | H | `sync:claude-trees`; lands before P0-11 | `fix(claude): point .claude prompts at reachable tools; check rejects non-advertised mcp refs` |
 
 ### Phase 1: make the core correct, reachable and host-aware
 
@@ -634,5 +634,5 @@ Each line names what to delete and why. Removals follow the warning or deprecati
 
 ### Already decided
 
-- The 264 unreachable `.claude/` tool references are fixed in their own Phase 0 PR (P0-19), not in a docs PR and not inside the removal series.
+- The 266 unreachable `.claude/` tool references are fixed in their own Phase 0 PR (P0-19), not in a docs PR and not inside the removal series.
 - `CLAUDE.local.md` stays untouched, including its env block that lists variables no code reads. No plan item edits it.
