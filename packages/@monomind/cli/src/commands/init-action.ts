@@ -527,7 +527,6 @@ export const initAction = async (ctx: CommandContext): Promise<CommandResult> =>
           result.memory && result.memory.status !== 'failed'
             ? ''
             : `Run ${output.highlight('monomind memory init')} to initialize memory database`,
-          `Run ${output.highlight('monomind swarm init')} to initialize a swarm`,
           `Services auto-start by default; use ${output.highlight('--no-start-all')} to skip`,
           options.components.settings
             ? `Review ${output.highlight('.claude/settings.json')} for hook configurations`

@@ -49,6 +49,6 @@ export const WORKER_ROWS: WorkerRow[] = [
     name: 'reflexion',
     priority: 'normal',
     description:
-      'Turns failed routed tasks from .monomind/route-outcomes.jsonl into templated keyword notes in .monomind/reflexion-store.json (pre-task shows matches)',
+      'Turns failed routed tasks from .monomind/route-outcomes.jsonl into templated keyword notes in .monomind/reflexion-store.json (run it with hooks worker run reflexion; the CLI/MCP hooks pre-task then shows matches, the live hooks do not)',
   },
 ];

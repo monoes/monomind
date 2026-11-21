@@ -35,7 +35,7 @@
 | [`gates`](#gates) | List decision gates from an org's agents |
 | [`gate-approve`](#gate-approve) | Approve a pending decision gate |
 | [`gate-reject`](#gate-reject) | Reject a pending decision gate |
-| [`replay`](#replay) | Time-travel debug from a run ID |
+| [`replay`](#replay) | Copy a past run's bus events into a new `replay-*` run for inspection |
 | [`resume-from`](#resume-from) | Resume live execution from a persisted checkpoint |
 | [`branch`](#branch) | Snapshot a run's event log for replay |
 | [`decisions`](#decisions) | Show rifft-style decision traces |
@@ -132,7 +132,7 @@ monomind org resume <name>
 ## `reload`
 
 Hot-reload a running org's definition from disk without stopping any in-flight agent sessions.
-Applies changes to `goal`, `run_config`, and `schedule`, and to these fields of existing roles:
+Applies changes to `goal` and `run_config` (not `schedule`: `org serve` reads that when it starts), and to these fields of existing roles:
 `tool_providers`, `endpoint`, `kind`, `policy`, `budget_usd` and `budget_tokens`. New roles are
 added as pending (lazy-spawnable on first message), removed roles are **not** killed — they finish
 their current work and are simply never re-spawned.
@@ -249,7 +249,7 @@ monomind org logs <name> [options]
 | `--filter-tool <name>` | Show only tool events for this tool |
 | `--filter-role <id>` | Show only events from this role |
 | `--tools-only` | Show only `tool` type events |
-| `--audit-filter allow\|deny` | Show only tool events with that audit decision |
+| `--audit-filter allow\|deny` | Hide tool events with the other audit decision (other event types still show; add `--tools-only` for tool events only) |
 | `--follow`, `-f` | Follow live (like `tail -f`) |
 
 ---
@@ -267,7 +267,7 @@ monomind org events <name> [--run <run-id>] [--follow] [--since <event-id|iso-86
 | Flag | Purpose |
 |---|---|
 | `--run <run-id>` | Run to read (default: latest) |
-| `--follow`, `-f` | Keep tailing (polls every 500 ms) until Ctrl-C / SIGTERM |
+| `--follow`, `-f` | Keep tailing (polls every 500 ms) until the run closes, Ctrl-C / SIGTERM / SIGHUP, or stdout closes |
 | `--since <cursor>` | Replay cursor. An event id (`run-…`) prints only events after that id — nothing if the id is not in the log. An ISO-8601 timestamp drops events older than it. Any other value is ignored |
 | `--ndjson` | Accepted for spec symmetry; NDJSON is the only output mode |
 
@@ -358,7 +358,7 @@ monomind org memory <name> <subcommand>
 | `stats` (default) | Node/edge/rule counts, per-namespace entry counts |
 | `search <query>` | Semantic search of cross-run memory |
 | `rules` | List up to 50 stored "when X do Y" rules |
-| `rollback <run-ref>` | Undo all memory written by a specific run |
+| `rollback <run-ref>` | Withdraw one run's support from this org's knowledge graph (entries shared with other origins are retained) |
 | `promote <run-ref>` | Share one run's claims with project-wide knowledge; the output names the origin ref that withdraws the promotion |
 
 **Source:** [`commands/org-memory-command.ts → memorySubcommand`](packages/@monomind/cli/src/commands/org-memory-command.ts#memorySubcommand)
@@ -367,13 +367,13 @@ monomind org memory <name> <subcommand>
 
 ## `org skills` — the Org skill library
 
-List, search, read and import the skills org roles are fed by name (`skills`, `skill_pool`). The library is the project's `.monomind/org-skills`, then `~/.monomind/org-skills`, then the bundled set, then active catalog skills; the first match by name wins. How to write one, and where each root lives, is on [Agents & Skills](../concepts/agents-and-skills.md#4-adding-an-org-skill).
+List, search, read and import the skills org roles are fed by name (`skills`, `skill_pool`). The library is the project's `.monomind/org-skills`, then `~/.monomind/org-skills`, then the bundled set, then active catalog skills (one approved with `replacesLegacy` comes first instead); the first match by name wins. How to write one, and where each root lives, is on [Agents & Skills](../concepts/agents-and-skills.md#4-adding-an-org-skill).
 
 ```bash
 monomind org skills [list] [--tag <tag>]                     # every skill, with tags and description
 monomind org skills search "<text>" [--tag <tag>] [--limit 10]
 monomind org skills show <name>                              # frontmatter, license, source, body
-monomind org skills import <owner/repo | git-url | path> [--global | --into <dir>] [--only a,b] [--tags x,y] [--overwrite]
+monomind org skills import <owner/repo | git-url | path> [--commit <sha>] [--yes] [--trust] [--global | --into <dir>] [--only a,b] [--tags x,y] [--overwrite]
 ```
 
 | Verb | Behavior |
@@ -381,7 +381,7 @@ monomind org skills import <owner/repo | git-url | path> [--global | --into <dir
 | `list` (default) | Every skill across the roots, sorted by name; `--tag` filters |
 | `search` | Keyword-ranks name, tags and description (a name or tag hit weighs more); when a Jev decision model is configured it re-ranks the shortlist and each hit shows its probability |
 | `show` | One skill: description, tags, `tools`, license, source and origin, reference files and the full body. The same content as the `org_skill_show` MCP tool |
-| `import` | Copies a repository's skills into `.monomind/org-skills` (`--global`: `~/.monomind/org-skills`; `--into`: any directory). Only MIT and Apache-2.0 skills are imported; others are listed as skipped |
+| `import` | Copies a repository's skills into `.monomind/org-skills` (`--global`: `~/.monomind/org-skills`; `--into`: any directory). Only MIT and Apache-2.0 skills are imported; others are listed as skipped. A remote source must be pinned with `--commit <sha>` (7-40 hex); `--yes` is required without a TTY; skills are imported untrusted, with no tools, unless `--trust` |
 
 The bundled set includes skills imported with `import` from `anthropics/knowledge-work-plugins` (Apache-2.0 and MIT, `.md` files only). Each one records its licence, source repository, path and commit; `show` prints them. Where a name clashes with an older bundled skill, the imported version replaces it (`content-strategy`, `customer-research`, `design-system`, `seo-audit`, `statistical-analysis`).
 
@@ -613,19 +613,26 @@ monomind org gate-reject <name> <gate-id> ["<reason>"] [--by <resolver>]
 
 ## `replay`
 
-Time-travel debugging — re-emit all bus events from a historical run.
+Copy a past run's `bus.jsonl` events into a new `replay-*` run directory for inspection. It runs
+no agents, and every copied event gets the same timestamp (the moment of the replay), so the
+original timing is lost.
+
+It also currently overwrites the org's `.monomind/orgs/<name>/runtime.json`: the record says
+`running` for the replay run, with the replay command's own pid and an empty checkpoint. The
+previous run's resume checkpoint is lost, so `org run --resume` cannot pick that run up
+afterwards. Don't run `replay` on an org you still want to resume.
 
 ```bash
 monomind org replay <name> <run-id>
 ```
 
-**Source:** [`commands/org.ts`](packages/@monomind/cli/src/commands/org.ts) (subcommand entry) → [`orgrt/daemon.ts → replayFrom`](packages/@monomind/cli/src/orgrt/daemon.ts#replayFrom) (`replayFrom()`, now a 2-line delegate) → [`orgrt/checkpoint-ops.ts → replayFrom`](packages/@monomind/cli/src/orgrt/checkpoint-ops.ts#replayFrom)
+**Source:** [`commands/org-observe-checkpoint.ts → replayAction`](packages/@monomind/cli/src/commands/org-observe-checkpoint.ts#replayAction) (subcommand action) → [`orgrt/daemon.ts → replayFrom`](packages/@monomind/cli/src/orgrt/daemon.ts#replayFrom) (`replayFrom()`, now a 2-line delegate) → [`orgrt/checkpoint-ops.ts → replayFrom`](packages/@monomind/cli/src/orgrt/checkpoint-ops.ts#replayFrom)
 
 ---
 
 ## `resume-from`
 
-Resume live execution from the org's persisted checkpoint — restores mailbox/policy/session state, subject to TTL and checksum validation. Distinct from `replay`, which only re-emits a past run's bus events for debugging and does not restart agent execution.
+Resume live execution from the org's persisted checkpoint — restores mailbox/policy/session state, subject to TTL and checksum validation. Distinct from `replay`, which only copies a past run's bus events into a new run for inspection and does not restart agent execution.
 
 ```bash
 monomind org resume-from <name>
@@ -661,7 +668,7 @@ monomind org replay growth "$run"
 
 JSON shape: `{"v":1,"org":"<name>","run":"<generated id>","from":"<source run>","label":"<label>"}`.
 
-**Source:** [`commands/org-observe.ts`](packages/@monomind/cli/src/commands/org-observe.ts) (`branchAction`) → [`orgrt/checkpoint-ops.ts`](packages/@monomind/cli/src/orgrt/checkpoint-ops.ts) (`branchCheckpoint()`)
+**Source:** [`commands/org-observe-checkpoint.ts → branchAction`](packages/@monomind/cli/src/commands/org-observe-checkpoint.ts#branchAction) → [`orgrt/checkpoint-ops.ts`](packages/@monomind/cli/src/orgrt/checkpoint-ops.ts) (`branchCheckpoint()`)
 
 ---
 
@@ -745,7 +752,7 @@ monomind org delete <name> [--yes] [--force]
 
 | Flag | Purpose |
 |---|---|
-| `--yes` | Skip confirmation prompt |
+| `--yes`, `-y` | Required to delete; without it the command prints a warning and exits non-zero (there is no prompt) |
 | `--force` | Delete even if org is currently running |
 
 **Source:** [`commands/org-manage.ts → deleteAction`](packages/@monomind/cli/src/commands/org-manage.ts#deleteAction)

@@ -265,11 +265,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 /* memory */
 .mem-section { margin-bottom: 22px; }
 .mem-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-lo); margin-bottom: 10px; }
-.drawer-item { padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 4px; }
-.dr-key { font-size: 12px; color: var(--accent); font-family: var(--mono); }
-.dr-val { font-size: 12px; color: var(--text-hi); margin-top: 2px; word-break: break-word; }
-.dr-ts { font-size: 10px; color: var(--text-lo); margin-top: 2px; }
-.drawer-item.hidden { display: none; }
 
 /* orgs ── two-panel layout */
 #view-orgs { flex-direction: row; }
@@ -627,12 +622,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #feed-search-count { font-size:11px; color:var(--text-lo); white-space:nowrap; font-family:var(--mono); }
 #feed-search-close { font-size:12px; color:var(--text-lo); background:none; border:none; cursor:pointer; padding:0 2px; }
 #feed-search-close:hover { color:var(--text-hi); }
-
-/* ── memory namespace tabs ───────────────────────────────── */
-#mem-ns-tabs { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:14px; }
-.ns-tab { font-size:11px; padding:3px 10px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text-lo); cursor:pointer; font-family:var(--sans); transition:color 0.1s, background 0.1s; }
-.ns-tab:hover { color:var(--text-hi); }
-.ns-tab.active { background:var(--accent-dim); color:var(--accent); border-color:oklch(72% 0.18 75 / 0.3); }
 
 /* ── copy session button ─────────────────────────────────── */
 .sess-copy-btn { font-size:10px; color:var(--text-lo); background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:2px 7px; cursor:pointer; transition:color 0.1s; line-height:1.4; white-space:nowrap; }
@@ -1402,89 +1391,6 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 #docs-modal-body { overflow-y: auto; }
 .docs-modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
 
-/* ── playbook view tabs ────────────────────────────────────── */
-.wf-pane { display: none; }
-.wf-pane.active { display: block; }
-
-/* ── playbook builder ──────────────────────────────────────── */
-#wf-tab-builder { display: none; height: calc(100vh - 180px); min-height: 400px; }
-#wf-tab-builder.active { display: flex; flex-direction: column; }
-#pb-toolbar { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-#pb-toolbar .btn { font-size: 11px; padding: 4px 10px; }
-#pb-name-input { background: var(--surface-hi); border: 1px solid var(--border); border-radius: 5px; color: var(--text-hi); font-size: 12px; padding: 4px 8px; flex: 1; max-width: 240px; outline: none; }
-#pb-name-input:focus { border-color: var(--accent); }
-#pb-run-status { font-size: 11px; color: var(--text-lo); margin-left: 4px; }
-#pb-editor { display: flex; flex: 1; gap: 0; overflow: hidden; }
-#pb-palette { width: 180px; flex-shrink: 0; border-right: 1px solid var(--border); overflow-y: auto; padding: 8px 0; }
-.pb-cat-hdr { font-size: 10px; font-weight: 700; color: var(--text-xs); letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 12px 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-.pb-cat-hdr:hover { color: var(--text-lo); }
-.pb-cat-arrow { font-size: 8px; transition: transform 0.15s; }
-.pb-cat-body { overflow: hidden; }
-.pb-cat-body.collapsed { display: none; }
-.pb-node-btn { width: 100%; text-align: left; background: none; border: none; font-size: 11px; color: var(--text-lo); padding: 4px 12px 4px 20px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-.pb-node-btn:hover { background: var(--surface-hi); color: var(--text-hi); }
-.pb-node-btn .pb-node-icon { font-size: 13px; width: 16px; text-align: center; flex-shrink: 0; }
-#pb-canvas-wrap { flex: 1; position: relative; overflow: hidden; background: var(--bg); }
-#pb-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-#pb-svg { position: absolute; top: 0; left: 0; pointer-events: none; }
-#pb-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-xs); font-size: 12px; gap: 8px; pointer-events: none; }
-.pb-node-card { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; width: 160px; min-height: 56px; cursor: grab; user-select: none; transition: box-shadow 0.12s, border-color 0.12s; }
-.pb-node-card:active { cursor: grabbing; }
-.pb-node-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px oklch(72% 0.18 75 / 0.25); }
-.pb-node-card.ns-running { border-color: var(--accent); }
-.pb-node-card.ns-completed { border-color: var(--green); }
-.pb-node-card.ns-failed { border-color: var(--red); }
-.pb-node-hdr { display: flex; align-items: center; gap: 6px; padding: 8px 10px 6px; border-bottom: 1px solid var(--border); }
-.pb-node-type-icon { font-size: 14px; }
-.pb-node-title { font-size: 11px; font-weight: 600; color: var(--text-hi); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pb-node-del { font-size: 12px; color: var(--text-xs); cursor: pointer; padding: 0 2px; line-height: 1; background: none; border: none; }
-.pb-node-del:hover { color: var(--red); }
-.pb-node-body { padding: 6px 10px 8px; font-size: 10px; color: var(--text-lo); line-height: 1.5; }
-.pb-node-status { display: flex; align-items: center; gap: 4px; margin-bottom: 2px; }
-.pb-ns-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
-.pb-ns-dot.running  { background: var(--accent); animation: pb-pulse 1s infinite; }
-.pb-ns-dot.completed{ background: var(--green); }
-.pb-ns-dot.failed   { background: var(--red); }
-.pb-node-conn-btn { position: absolute; right: -10px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; border-radius: 50%; background: var(--accent-dim); border: 2px solid var(--accent); cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center; font-size: 8px; color: var(--accent); }
-.pb-node-conn-btn:hover { background: var(--accent); color: #fff; }
-#pb-config { width: 220px; flex-shrink: 0; border-left: 1px solid var(--border); overflow-y: auto; padding: 12px; }
-#pb-config-title { font-size: 11px; font-weight: 700; color: var(--text-hi); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-.pb-cfg-row { margin-bottom: 10px; }
-.pb-cfg-lbl { font-size: 10px; color: var(--text-lo); margin-bottom: 3px; font-weight: 600; }
-.pb-cfg-inp { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text-hi); font-size: 11px; padding: 4px 7px; outline: none; resize: vertical; font-family: var(--mono); }
-.pb-cfg-inp:focus { border-color: var(--accent); }
-select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
-@keyframes pb-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-/* ── playbook runs view ────────────────────────────────────── */
-.wf-run-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
-.wf-run-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.wf-run-name { font-size: 13px; font-weight: 600; color: var(--text-hi); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wf-run-id { font-size: 10px; color: var(--text-xs); font-family: var(--mono); }
-.wf-status { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.04em; flex-shrink: 0; }
-.wf-status.s-running  { background: oklch(72% 0.18 75 / 0.15); color: var(--accent); }
-.wf-status.s-completed{ background: oklch(65% 0.15 150 / 0.15); color: var(--green); }
-.wf-status.s-failed   { background: oklch(60% 0.18 25 / 0.15); color: var(--red); }
-.wf-status.s-stopped  { background: oklch(42% 0.006 75 / 0.15); color: var(--text-lo); }
-.wf-run-meta { display: flex; gap: 16px; font-size: 11px; color: var(--text-lo); }
-.wf-run-meta span { display: flex; align-items: center; gap: 4px; }
-.wf-run-error { font-size: 11px; color: var(--red); margin-top: 6px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wf-progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
-.wf-progress-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
-#wf-runs-list .loading-txt, #wf-defs-list .loading-txt { padding: 40px 0; text-align: center; color: var(--text-lo); }
-.wf-def-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 14px; cursor: default; transition: border-color 0.12s; }
-.wf-def-card:hover { border-color: var(--accent); }
-.wf-def-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
-.wf-def-body { flex: 1; min-width: 0; }
-.wf-def-name { font-size: 13px; font-weight: 600; color: var(--text-hi); margin-bottom: 2px; }
-.wf-def-desc { font-size: 12px; color: var(--text-lo); margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wf-def-meta { display: flex; gap: 10px; flex-wrap: wrap; }
-.wf-def-tag { font-size: 10px; padding: 2px 7px; border-radius: 8px; background: var(--surface-hi); color: var(--text-lo); font-family: var(--mono); }
-.wf-def-run-btn { font-size: 11px; padding: 4px 10px; background: var(--accent-dim); color: var(--accent); border: 1px solid oklch(72% 0.18 75 / 0.3); border-radius: 5px; cursor: pointer; white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
-.wf-def-run-btn:hover { background: oklch(72% 0.18 75 / 0.2); }
-#wf-lib-empty { padding: 40px 0; text-align: center; color: var(--text-lo); font-size: 13px; }
-#wf-empty { padding: 40px 0; text-align: center; color: var(--text-lo); font-size: 13px; }
-
 /* Mastermind overlay */
 #mm-overlay { display: none; position: fixed; top: 0; right: 0; bottom: 0; width: min(680px, 100vw); background: var(--surface); border-left: 1px solid oklch(65% 0.16 295 / 0.3); z-index: 500; flex-direction: column; box-shadow: -8px 0 32px oklch(0% 0 0 / 0.4); transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); transform: translateX(100%); }
 #mm-overlay.open { display: flex; transform: translateX(0); }
@@ -1556,6 +1462,32 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
 .gd-md th, .gd-md td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
 .gd-md th { background: var(--surface-hi); font-weight: 600; color: var(--text-hi); }
 .gd-md tr:nth-child(even) td { background: var(--surface); }
+
+/* ── narrow screens (phones, split windows) ─────────────────────────
+   The sidebar becomes a drawer opened from the topbar's menu button, and
+   side-by-side panes stack, so the content gets the full width instead of
+   being clipped beside a fixed 195px sidebar. */
+#nav-toggle, #nav-backdrop { display: none; }
+@media (max-width: 760px) {
+  #nav-toggle { display: inline-flex; }
+  #sidebar { position: fixed; inset: 0 auto 0 0; width: min(82vw, 280px); z-index: 450; transform: translateX(-100%); transition: transform 0.2s ease; }
+  #app.nav-open #sidebar { transform: none; box-shadow: 0 0 40px oklch(0% 0 0 / 0.6); }
+  #app.nav-open #nav-backdrop { display: block; position: fixed; inset: 0; z-index: 449; background: oklch(0% 0 0 / 0.5); }
+  #topbar { padding: 0 10px; gap: 8px; }
+  #topbar .pill, #live-cost-ticker, #topbar-activity, #feed-time-filter .kb-hint { display: none; }
+  #tb-right { gap: 4px; }
+  #tb-right .btn { padding: 4px 7px; }
+  #tb-right .btn kbd, #btn-budget .tb-lbl, .tb-lbl { display: none; }
+  .view.active { overflow-y: auto; }
+  #view-now, #view-orgs { flex-direction: column; }
+  #feed-pane { border-right: none; min-height: 70vh; }
+  #feed-head, #feed-sess-nav, #feed-time-filter { flex-wrap: wrap; height: auto; row-gap: 6px; padding-top: 6px; padding-bottom: 6px; }
+  #metrics-pane { width: auto; border-top: 1px solid var(--border); }
+  #orgs-list-pane { width: auto; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
+  #org-detail-pane { min-height: 60vh; }
+  #org-detail-tabs { overflow-x: auto; flex-wrap: nowrap; }
+}
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) { #sidebar { transition: none; } }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
@@ -1645,18 +1577,20 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
 </nav>
 
 <!-- ── Main ────────────────────────────────────────────── -->
+<div id="nav-backdrop" onclick="toggleNav(false)"></div>
 <div id="main">
   <div id="topbar">
+    <button class="btn" id="nav-toggle" onclick="toggleNav()" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar">☰</button>
     <span id="view-title">Now</span>
     <span class="pill"><span class="live-dot"></span> live</span>
     <span id="topbar-cost"></span>
     <span id="live-cost-ticker" title="Current session accumulated cost"></span>
     <span id="topbar-activity"></span>
     <div id="tb-right">
-      <button class="btn" id="btn-budget" onclick="openBudgetModal()" title="Set daily/monthly cost budget">⚑ Budget</button>
-      <button class="btn" onclick="openCmdPalette()">⌕ Search <kbd style="font-size:10px;opacity:0.6;margin-left:3px">⌘K</kbd></button>
-      <button class="btn" onclick="openShortcutHelp()" title="Keyboard shortcuts (?)">? Help</button>
-      <button class="btn" onclick="refreshCurrent()">↺ Refresh</button>
+      <button class="btn" id="btn-budget" onclick="openBudgetModal()" title="Set daily/monthly cost budget" aria-label="Budget">⚑<span class="tb-lbl"> Budget</span></button>
+      <button class="btn" onclick="openCmdPalette()" aria-label="Search">⌕<span class="tb-lbl"> Search</span> <kbd style="font-size:10px;opacity:0.6;margin-left:3px">⌘K</kbd></button>
+      <button class="btn" onclick="openShortcutHelp()" title="Keyboard shortcuts (?)" aria-label="Help">?<span class="tb-lbl"> Help</span></button>
+      <button class="btn" onclick="refreshCurrent()" aria-label="Refresh">↺<span class="tb-lbl"> Refresh</span></button>
     </div>
   </div>
 
@@ -1668,7 +1602,7 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
   <div id="cmd-palette" role="dialog" aria-label="Command palette">
     <div id="cmd-input-wrap">
       <span id="cmd-ico">⌕</span>
-      <input id="cmd-input" type="text" placeholder="Search sessions, memory, projects…" oninput="cmdSearch(this.value)" onkeydown="cmdKey(event)" autocomplete="off" spellcheck="false">
+      <input id="cmd-input" type="text" placeholder="Search sessions, projects, orgs, skills…" oninput="cmdSearch(this.value)" onkeydown="cmdKey(event)" autocomplete="off" spellcheck="false">
     </div>
     <div id="cmd-results"></div>
     <div class="cmd-footer">
@@ -1955,7 +1889,7 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
     <div class="view" id="view-memory">
       <div class="vscroll">
         <div class="pg-title">Memory</div>
-        <div class="pg-sub">Knowledge palace — stored facts, graph, identity</div>
+        <div class="pg-sub">Memory files, routing feedback, usage, ADRs, knowledge chunks, docs and the memory store</div>
         <div class="mem-tab-bar" style="display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:6px">
           <button class="odt-btn active" data-memtab="memories" onclick="switchMemTab('memories')">Memories</button>
           <button class="odt-btn" data-memtab="routing" onclick="switchMemTab('routing')">Routing</button>
@@ -2022,7 +1956,7 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
             <input class="filter-input" id="store-search-input" type="text" placeholder="Search SQLite memory store…"
               onkeydown="if(event.key==='Enter')storeSearch()" style="flex:1">
             <input class="filter-input" id="store-ns-input" type="text" placeholder="namespace" style="width:120px"
-              onkeydown="if(event.key==='Enter'){storeSearch()||loadStoreEntries()}">
+              onkeydown="if(event.key==='Enter'){document.getElementById('store-search-input').value.trim()?storeSearch():loadStoreEntries()}">
             <button class="btn" onclick="storeSearch()" title="Semantic search">Search</button>
             <button class="btn" onclick="loadStoreEntries()" title="List entries">List</button>
             <button class="btn" onclick="openStoreNewModal()">+ New</button>
@@ -2151,11 +2085,11 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
 
         <!-- TAB 2: GRAPH -->
         <div class="mg-pane" id="mg-tab-graph">
-          <iframe id="mg-iframe" src="" style="width:100%;height:500px;border:none;border-radius:6px;background:var(--surface);" title="Monograph graph"></iframe>
+          <iframe id="mg-iframe" sandbox="allow-scripts" style="width:100%;height:500px;border:none;border-radius:6px;background:var(--surface);" title="Monograph graph"></iframe>
           <div class="mg-controls-row">
             <button class="btn" id="mg-watch-btn" onclick="mgToggleWatch()">WATCH</button>
             <button class="btn" id="mg-rebuild-btn" onclick="mgRebuild()">REBUILD</button>
-            <a class="btn" id="mg-open-tab-link" href="#" target="_blank" rel="noopener">OPEN IN TAB</a>
+            <button class="btn" id="mg-open-tab-btn" onclick="mgOpenGraphTab()">OPEN IN TAB</button>
             <span class="mg-watch-indicator" id="mg-watch-status">○ IDLE</span>
           </div>
         </div>
@@ -2401,6 +2335,11 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
     <div class="sk-row"><span class="sk-desc">Jump to live session</span><span class="sk-keys"><kbd>G</kbd></span></div>
     <div class="sk-row"><span class="sk-desc">Refresh current view</span><span class="sk-keys"><kbd>R</kbd></span></div>
     <div class="sk-row"><span class="sk-desc">Toggle ambient mode</span><span class="sk-keys"><kbd>A</kbd></span></div>
+    <div class="sk-section">Views</div>
+    <div class="sk-row"><span class="sk-desc">Now · Sessions · Projects</span><span class="sk-keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Loops (in Sessions) · Tokens · Memory</span><span class="sk-keys"><kbd>4</kbd><kbd>5</kbd><kbd>6</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Orgs · Monograph · Global Feed</span><span class="sk-keys"><kbd>7</kbd><kbd>8</kbd><kbd>9</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Mastermind overlay</span><span class="sk-keys"><kbd>M</kbd></span></div>
     <div class="sk-section">Global</div>
     <div class="sk-row"><span class="sk-desc">Command palette</span><span class="sk-keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
     <div class="sk-row"><span class="sk-desc">Close / dismiss</span><span class="sk-keys"><kbd>Esc</kbd></span></div>
@@ -2492,9 +2431,8 @@ let pollTimer = null;
 let viewRendered = {};
 let userScrolled = false;
 let selectedEntryId = null;
-const allDrawers = [];
 const dismissedAlerts = new Set();
-const alertState = { todayCost: 0, todayCostIncomplete: false, errorCount: 0, longLoops: [], anomaly: null, budgetAlert: null, budgetCls: 'alert-warn' };
+const alertState = { todayCost: 0, todayCostIncomplete: false, monthCost: 0, monthCostIncomplete: false, errorCount: 0, longLoops: [], anomaly: null, budgetAlert: null, budgetCls: 'alert-warn', budgetId: 'budget-alert' };
 let feedTimeFilter = 'all';
 let cmdFocusIdx = 0;
 let cmdItems = [];
@@ -2505,8 +2443,16 @@ let showStarredOnly = false;
 
 // ── nav ────────────────────────────────────────────────────
 document.querySelectorAll('.nav-item[data-view]').forEach(el => {
-  el.addEventListener('click', () => switchView(el.dataset.view));
+  el.addEventListener('click', () => { switchView(el.dataset.view); toggleNav(false); });
 });
+
+// Narrow screens: the sidebar is a drawer (CSS @media max-width 760px). Picking a view closes it.
+function toggleNav(open) {
+  const app = document.getElementById('app');
+  const show = typeof open === 'boolean' ? open : !app.classList.contains('nav-open');
+  app.classList.toggle('nav-open', show);
+  document.getElementById('nav-toggle')?.setAttribute('aria-expanded', String(show));
+}
 
 // ── collapsible global nav section ──────────────────────────
 const GLOBAL_VIEWS = ['global', 'global-docs', 'global-tokens', 'global-orgs', 'humaninput', 'health'];
@@ -3176,7 +3122,7 @@ function updateAlerts() {
   }
 
   if (alertState.errorCount >= 3) {
-    all.push({ id: 'feed-errors', cls: 'alert-warn', ico: '⚠', msg: `${alertState.errorCount} errors in current session`, action: 'jumpToErrors()' });
+    all.push({ id: 'feed-errors', cls: 'alert-warn', ico: '⚠', msg: `${alertState.errorCount} errors in current session`, action: '_jumpToErrors()' });
   }
 
   if (alertState.anomaly) {
@@ -3184,7 +3130,7 @@ function updateAlerts() {
   }
 
   if (alertState.budgetAlert) {
-    all.push({ id: 'budget-alert', cls: alertState.budgetCls || 'alert-warn', ico: '⚑', msg: alertState.budgetAlert });
+    all.push({ id: alertState.budgetId, cls: alertState.budgetCls || 'alert-warn', ico: '⚑', msg: alertState.budgetAlert });
   }
 
   for (const l of alertState.longLoops) {
@@ -3255,6 +3201,8 @@ async function loadTodayMetrics() {
     const s = data?.tokens?.summary || {};
     alertState.todayCost = typeof s.todayCost === 'number' ? s.todayCost : 0;
     alertState.todayCostIncomplete = !!s.todayCostIncomplete;
+    alertState.monthCost = typeof s.monthCost === 'number' ? s.monthCost : 0;
+    alertState.monthCostIncomplete = !!s.monthCostIncomplete;
     updateAlerts();
     checkBudget();
     // topbar cost badge
@@ -3761,7 +3709,10 @@ function _filterADRs(q) {
 }
 
 function renderMiniSessions(sessions) {
-  if (!sessions.length) return;
+  if (!sessions.length) {
+    document.getElementById('m-sessions').innerHTML = `<div class="m-group-title">Recent Sessions</div><div class="loading-txt" style="padding:8px 0">None</div>`;
+    return;
+  }
   const items = sessions.map((s, i) => `
     <div class="mini-sess" onclick="sessionIdx=${i};userScrolled=false;loadFeedForSession(allSessions[${i}])">
       <div class="ms-prompt">${esc(s.lastPrompt || s.id.slice(0, 8))}</div>
@@ -4485,7 +4436,9 @@ async function renderHumanInputView() {
   if (!_hiEntries.length) el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
   try {
     const data = await apiFetch('/api/projects');
-    const projects = (data?.projects || []).slice(0, 8);
+    // Every project with orgs, not only the most recent ones: a question waiting in an
+    // older project was invisible and missing from the badge. Capped to bound the fan-out.
+    const projects = (data?.projects || []).filter(p => p.hasOrgs).slice(0, 50);
     // The project this dashboard serves always counts, even when it is not
     // among the most recently active Claude projects.
     if (DIR && !projects.some(p => p.path === DIR)) projects.unshift({ path: DIR, name: baseName(DIR) });
@@ -4920,23 +4873,39 @@ function updateBudgetBtnStyle() {
   btn.style.color = hasBudget ? 'var(--accent)' : '';
 }
 
-function checkBudget() {
-  const cost = alertState.todayCost;
-  if (!cost) return;
-  if (budget.daily) {
-    const pct = cost / budget.daily;
-    if (pct >= 1 && !dismissedAlerts.has('budget-daily-over')) {
-      alertState.budgetAlert = `Daily budget exceeded: ${fmtCost(cost, alertState.todayCostIncomplete)} / $${budget.daily}`;
-      alertState.budgetCls = 'alert-crit';
-    } else if (pct >= 0.8 && !dismissedAlerts.has('budget-daily-warn')) {
-      alertState.budgetAlert = `Approaching daily budget: ${fmtCost(cost, alertState.todayCostIncomplete)} / $${budget.daily}`;
-      alertState.budgetCls = 'alert-warn';
-      maybeNotify('monomind budget', `${fmtCost(cost, alertState.todayCostIncomplete)} of $${budget.daily} daily budget used`);
-    } else {
-      alertState.budgetAlert = null;
-    }
-    updateAlerts();
+// Budget levels already notified, keyed by level and day: checkBudget() runs on every metrics
+// refresh, and used to raise a desktop notification each time while spend was at 80% or more.
+const _budgetNotified = new Set();
+
+// The most severe budget level reached, daily before monthly. Each level has its own alert id,
+// so dismissing "approaching" does not also hide "exceeded" later.
+function budgetLevel(b, s) {
+  const levels = [
+    ['daily', b.daily, s.todayCost, s.todayCostIncomplete],
+    ['monthly', b.monthly, s.monthCost, s.monthCostIncomplete],
+  ];
+  for (const [name, limit, cost, incomplete] of levels) {
+    if (limit > 0 && cost >= limit) return { id: `budget-${name}-over`, cls: 'alert-crit', msg: `${name === 'daily' ? 'Daily' : 'Monthly'} budget exceeded: ${fmtCost(cost, incomplete)} / $${limit}` };
   }
+  for (const [name, limit, cost, incomplete] of levels) {
+    if (limit > 0 && cost >= 0.8 * limit) return { id: `budget-${name}-warn`, cls: 'alert-warn', msg: `Approaching ${name} budget: ${fmtCost(cost, incomplete)} / $${limit}` };
+  }
+  return null;
+}
+
+function checkBudget() {
+  const level = budgetLevel(budget, alertState);
+  alertState.budgetAlert = level ? level.msg : null;
+  alertState.budgetCls = level ? level.cls : 'alert-warn';
+  alertState.budgetId = level ? level.id : 'budget-alert';
+  if (level && !dismissedAlerts.has(level.id)) {
+    const key = `${level.id}:${new Date().toDateString()}`;
+    if (!_budgetNotified.has(key)) {
+      _budgetNotified.add(key);
+      maybeNotify('monomind budget', level.msg);
+    }
+  }
+  updateAlerts();
 }
 
 function maybeNotify(title, body) {
@@ -5527,7 +5496,7 @@ async function renderLoops() {
     if (hasRepeatLoops) loops = loops.filter(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
     document.getElementById('bdg-loops').textContent = loops.length || '—';
     if (!loops.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops scheduled</div><div style="font-size:11px;color:var(--text-xs);margin-top:6px">Create one with + New Loop above or via <code>npx monomind autodev --tillend</code></div></div>';
+      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops scheduled</div><div style="font-size:11px;color:var(--text-xs);margin-top:6px">Create one with + New Loop above, or run a <code>/mastermind:</code> command with <code>--repeat N</code> or <code>--tillend</code></div></div>';
       return;
     }
     el.innerHTML = loops.map((l, idx) => {
@@ -5891,25 +5860,6 @@ async function renderMemory() {
   loadMemoriesTab();
 }
 
-let activeMemNs = 'All';
-
-function filterMemory(q) {
-  const items = document.querySelectorAll('#drawers-list .drawer-item');
-  const lq = q.toLowerCase();
-  items.forEach(item => {
-    const key = (item.querySelector('.dr-key')?.textContent || '').toLowerCase();
-    const val = (item.querySelector('.dr-val')?.textContent || '').toLowerCase();
-    const nsMatch = activeMemNs === 'All' || (item.dataset.ns === activeMemNs);
-    item.classList.toggle('hidden', !nsMatch || (!!lq && !key.includes(lq) && !val.includes(lq)));
-  });
-}
-
-function _filterMemoryNs(ns) {
-  activeMemNs = ns;
-  document.querySelectorAll('.ns-tab').forEach(t => t.classList.toggle('active', t.dataset.ns === ns));
-  filterMemory(document.getElementById('mem-filter')?.value || '');
-}
-
 // ── orgs ───────────────────────────────────────────────────
 let _v2Orgs = [];
 let _v2SelOrg = null;
@@ -6049,12 +5999,21 @@ window.v2MarkOrgComplete = async () => {
   if (!_v2SelOrg) return;
   const btn = document.getElementById('org-mark-complete-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Marking…'; }
+  // The result shows on the button for 3s; the finally block used to reset it at once.
+  const done = (label) => {
+    if (!btn) return;
+    btn.textContent = label;
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Mark Complete'; }, 3000);
+  };
   try {
-    const r = await fetch(`/api/orgs/${encodeURIComponent(_v2SelOrg)}/mark-complete`, { method: 'POST' });
-    const j = await r.json();
-    if (!r.ok) { if (btn) { btn.textContent = `Failed: ${j.error || r.status}`; setTimeout(() => { if (btn) btn.textContent = 'Mark Complete'; }, 3000); } }
-  } catch (e) { if (btn) { btn.textContent = 'Error'; setTimeout(() => { if (btn) btn.textContent = 'Mark Complete'; }, 3000); } console.error('[mark-complete]', e); }
-  finally { if (btn) { btn.disabled = false; btn.textContent = 'Mark Complete'; } }
+    const r = await fetch(`/api/orgs/${encodeURIComponent(_v2SelOrg)}/mark-complete${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`, { method: 'POST' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { done(`Failed: ${j.error || r.status}`); return; }
+    done('Marked complete');
+    const marked = _v2SelOrg;
+    showToast('Run marked complete', marked, 'ok');
+    setTimeout(async () => { await renderOrgs(); if (_v2SelOrg === marked) v2SelectOrg(marked); }, 600);
+  } catch (e) { done('Error'); console.error('[mark-complete]', e); }
 };
 
 window.v2SwitchOrgTab = (tab) => {
@@ -6733,7 +6692,7 @@ const _v2AvatarKnown = new Set([
   'byzantine-coord','raft-manager',
   'quorum-manager','consensus-coordinator','perf-analyzer','benchmarker',
   'task-orchestrator','memory-coordinator','load-balancer','resource-allocator',
-  'pr-manager','code-review-swarm','issue-tracker','release-manager','repo-architect',
+  'pr-manager','monoswarm-code-review','issue-tracker','release-manager','repo-architect',
   'architecture','refinement','backend-dev','frontend-developer','mobile-dev',
   'ml-developer','cicd-engineer','system-architect','ai-engineer','model-qa',
   'data-engineer','analytics-reporter','experiment-tracker','data-consolidator',
@@ -8869,10 +8828,14 @@ async function _v2ViewOrgFile(filePath, fileName) {
   const fileUrl = `/api/file-content?path=${encodeURIComponent(filePath)}${dirParam}`;
   if (isImage) {
     const el = document.getElementById('of-content');
-    if (el) {
-      _ofRawText = fileUrl;
-      el.innerHTML = `<img src="${esc(fileUrl)}" alt="${esc(fileName)}" style="max-width:100%;display:block;margin:0 auto" onerror="this.replaceWith(document.createTextNode('Failed to load image'))">`;
-    }
+    if (!el) return;
+    // An <img src> cannot send the token header; load the bytes through fetch() instead.
+    try {
+      const r = await fetch(fileUrl);
+      if (!r.ok) { el.textContent = `Error ${r.status}: ${r.statusText}`; return; }
+      _ofRawText = URL.createObjectURL(await r.blob());
+      el.innerHTML = `<img src="${esc(_ofRawText)}" alt="${esc(fileName)}" style="max-width:100%;display:block;margin:0 auto">`;
+    } catch (e) { el.textContent = `Failed to load image: ${e.message}`; }
     return;
   }
   try {
@@ -9072,7 +9035,7 @@ function _filterLoopList(q) {
 
 function _filterOrgList(q) {
   const query = q.trim().toLowerCase();
-  document.querySelectorAll('#orgs-list-content .org-item').forEach(item => {
+  document.querySelectorAll('#orgs-list-scroll .org-item').forEach(item => {
     item.style.display = (!query || (item.textContent || '').toLowerCase().includes(query)) ? '' : 'none';
   });
 }
@@ -9374,11 +9337,6 @@ function cmdSearch(q) {
     .filter(s => !lq || (s.lastPrompt || s.id).toLowerCase().includes(lq))
     .slice(0, 5);
 
-  const memMatches = allDrawers
-    .filter(d => !lq || (d.key || '').toLowerCase().includes(lq) ||
-      String(d.value || d.text || '').toLowerCase().includes(lq))
-    .slice(0, 3);
-
   const projMatches = allProjects
     .filter(p => !lq || (p.name || p.slug || '').toLowerCase().includes(lq) ||
       (p.path || '').toLowerCase().includes(lq))
@@ -9402,13 +9360,13 @@ function cmdSearch(q) {
   ].filter(a => !lq || a.label.toLowerCase().includes(lq));
 
   // TABS group — only if org room is open
+  // Read from the tab bar itself, so the palette never offers a tab the org room does not have.
   const orgTabs = (_v2SelOrg && currentView === 'orgs') ? [
-    'chart','roles','health','heartbeats','tasks','members',
-    'goals','board','live','approvals','secrets','settings','routines','myissues','plugins'
-  ].filter(t => !lq || t.includes(lq))
+    ...document.querySelectorAll('#org-detail-tabs .odt-btn[data-tab]'),
+  ].map(b => b.dataset.tab).filter(t => !lq || t.includes(lq))
     .map(t => ({ label: `Org Tab: ${t}`, tab: t })) : [];
 
-  if (!sessMatches.length && !memMatches.length && !projMatches.length && !orgMatches.length && !skillMatches.length && !actionItems.length && !orgTabs.length) {
+  if (!sessMatches.length && !projMatches.length && !orgMatches.length && !skillMatches.length && !actionItems.length && !orgTabs.length) {
     results.innerHTML = '<div class="cmd-empty">No results</div>';
     cmdItems = [];
     return;
@@ -9426,21 +9384,6 @@ function cmdSearch(q) {
         <div class="cmd-item-body">
           <div class="ci-title">${esc(s.lastPrompt || s.id.slice(0, 32))}</div>
           <div class="ci-sub">${relTime(s.lastTs || s.mtime)}</div>
-        </div>
-      </div>`;
-    });
-  }
-
-  if (memMatches.length) {
-    html += '<div class="cmd-group-lbl">Memory</div>';
-    memMatches.forEach(d => {
-      const idx = cmdItems.length;
-      cmdItems.push({ type: 'memory', data: d });
-      html += `<div class="cmd-item" data-ci="${idx}">
-        <span class="ci-ico">◈</span>
-        <div class="cmd-item-body">
-          <div class="ci-title">${esc(d.key || d.namespace || '—')}</div>
-          <div class="ci-sub">${esc(String(d.value || d.text || '').slice(0, 60))}</div>
         </div>
       </div>`;
     });
@@ -9550,7 +9493,6 @@ function executeCmdItem() {
   if (!item) return;
   closeCmdPalette();
   if (item.type === 'session') jumpToSession(item.data.id);
-  else if (item.type === 'memory') switchView('memory');
   else if (item.type === 'project') switchProject(item.data.path);
   else if (item.type === 'org') { switchView('orgs'); setTimeout(() => v2SelectOrg(item.data.name), 80); }
   else if (item.type === 'skill') switchView('memory');
@@ -9609,8 +9551,13 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeDetail(); closeCmdPalette(); closeShortcutHelp(); closeMastermind(); closeBudgetModal(); closeDocModal(); v2CloseAgent(); v2CloseMetaModal(); if (document.getElementById('app').classList.contains('ambient')) toggleAmbient(); }
   if (e.key === '?') { e.preventDefault(); openShortcutHelp(); return; }
   if (e.key === 'm' || e.key === 'M') { e.preventDefault(); openMastermind(); return; }
-  const _vkeys = { '1':'now','2':'sessions','3':'projects','4':'loops','5':'tokens','6':'memory','7':'orgs','8':'monograph','9':'global' };
-  if (_vkeys[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) { switchView(_vkeys[e.key]); return; }
+  // Loops live in the Sessions view now (there is no #view-loops), so 4 opens Sessions at its Loops section.
+  const _vkeys = { '1':'now','2':'sessions','3':'projects','4':'sessions','5':'tokens','6':'memory','7':'orgs','8':'monograph','9':'global' };
+  if (_vkeys[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    switchView(_vkeys[e.key]);
+    if (e.key === '4') document.getElementById('loops-content')?.scrollIntoView({ block: 'start' });
+    return;
+  }
   if (e.key === 'a' || e.key === 'A') { if (currentView === 'now') { e.preventDefault(); toggleAmbient(); } }
 
   if (currentView === 'now') {
@@ -10690,976 +10637,6 @@ let _mgWikiFilter = 'all';
 const _mgWikiMode = { value: 'all' };
 let _mgWikiSearchTimer = null;
 
-/* ── Playbook View ─────────────────────────────────────────── */
-
-function _wfSwitchTab(tab) {
-  document.querySelectorAll('.wf-pane, #wf-tab-builder').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('[data-wftab]').forEach(b => b.classList.remove('active'));
-  document.getElementById(`wf-tab-${tab}`).classList.add('active');
-  document.querySelector(`[data-wftab="${tab}"]`).classList.add('active');
-  if (tab === 'library') loadWorkflowDefs();
-  if (tab === 'runs') loadWorkflowRuns();
-  if (tab === 'builder') pbInit();
-}
-
-let _wfDefs = [];
-async function loadWorkflowDefs() {
-  const el = document.getElementById('wf-defs-list');
-  if (!el) return;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    _wfDefs = await apiFetch('/api/workflow-defs');
-  } catch { _wfDefs = []; }
-  if (!_wfDefs.length) {
-    el.innerHTML = `<div id="wf-lib-empty">No playbooks saved yet.<br><span style="font-size:12px;color:var(--text-xs)">Create one: <code style="font-family:var(--mono);color:var(--accent)">npx monomind browse playbook create my-playbook</code></span></div>`;
-    return;
-  }
-  el.innerHTML = _wfDefs.map(d => {
-    const ago = relativeTime(d.modifiedAt);
-    const paramTags = (d.params || []).map(p => `<span class="wf-def-tag">${esc(p)}</span>`).join('');
-    return `<div class="wf-def-card">
-      <div class="wf-def-icon">⚡</div>
-      <div class="wf-def-body">
-        <div class="wf-def-name">${esc(d.name || d.id || d.file)}</div>
-        ${d.description ? `<div class="wf-def-desc">${esc(d.description)}</div>` : ''}
-        <div class="wf-def-meta">
-          <span class="wf-def-tag">${esc(d.nodeCount)} node${d.nodeCount !== 1 ? 's' : ''}</span>
-          ${paramTags}
-          <span class="wf-def-tag" style="color:var(--text-xs)">${esc(ago)}</span>
-          <span class="wf-def-tag" style="font-size:9px;color:var(--text-xs)">${esc(d.file)}</span>
-        </div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
-        <button class="wf-def-run-btn" title="Copy run command" onclick="navigator.clipboard?.writeText('npx monomind browse playbook run .monomind/playbooks/${esc(String(d.file).replace(/['\\]/g,'\\$&'))}').then(()=>this.textContent='Copied!').catch(()=>{});setTimeout(()=>this.textContent='▶ Run',1500)">▶ Run</button>
-        <button class="wf-def-run-btn" style="font-size:10px" title="Open in Builder" onclick="pbLoadDef(${esc(JSON.stringify(d.id))});wfSwitchTab('builder')">✎ Edit</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function relativeTime(ts) {
-  if (!ts) return '—';
-  const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
-
-let _wfRuns = [];
-async function loadWorkflowRuns() {
-  const runsListEl = document.getElementById('wf-runs-list');
-  if (!runsListEl) return;
-  runsListEl.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const runs = await apiFetch('/api/workflow-runs');
-    _wfRuns = Array.isArray(runs) ? runs : [];
-  } catch (e) {
-    _wfRuns = [];
-  }
-  const wfCount = document.getElementById('wf-count');
-  if (wfCount) wfCount.textContent = `${_wfRuns.length} run${_wfRuns.length !== 1 ? 's' : ''}`;
-  renderWorkflowRuns();
-}
-
-function renderWorkflowRuns() {
-  const filter = document.getElementById('wf-status-filter')?.value || '';
-  const runs = filter ? _wfRuns.filter(r => r.status === filter) : _wfRuns;
-  const el = document.getElementById('wf-runs-list');
-  if (!runs.length) {
-    el.innerHTML = '<div id="wf-empty">No playbook runs found. Run a playbook with:<br><code style="font-family:var(--mono);font-size:12px;color:var(--accent)">npx monomind browse playbook run &lt;file&gt;</code></div>';
-    return;
-  }
-  el.innerHTML = runs.map(r => {
-    const st = r.status || 'unknown';
-    const elapsed = r.completedAt
-      ? `${((r.completedAt - r.startedAt) / 1000).toFixed(1)}s`
-      : r.startedAt ? `${((Date.now() - r.startedAt) / 1000).toFixed(0)}s` : '—';
-    const pct = r.itemsTotal > 0 ? Math.round((r.itemsProcessed || 0) / r.itemsTotal * 100) : (st === 'completed' ? 100 : 0);
-    const items = r.itemsTotal > 0 ? `${r.itemsProcessed || 0}/${r.itemsTotal}` : (r.itemsProcessed ? String(r.itemsProcessed) : '—');
-    const started = r.startedAt ? new Date(r.startedAt).toLocaleString() : '—';
-    return `<div class="wf-run-card">
-      <div class="wf-run-header">
-        <span class="wf-run-name" title="${esc(r.playbookName || r.playbookId || r.workflowName || r.workflowId || 'Playbook')}">${esc(r.playbookName || r.playbookId || r.workflowName || r.workflowId || 'Playbook')}</span>
-        <span class="wf-status s-${esc(st)}">${esc(st.toUpperCase())}</span>
-      </div>
-      <div class="wf-run-meta">
-        <span>⏱ ${esc(elapsed)}</span>
-        <span>📦 ${esc(items)} items</span>
-        <span>🕐 ${esc(started)}</span>
-        <span class="wf-run-id">${esc((r.id || '').slice(0,12))}</span>
-      </div>
-      ${r.error ? `<div class="wf-run-error">✗ ${esc(r.error)}</div>` : ''}
-      ${r.itemsTotal > 0 ? `<div class="wf-progress-bar"><div class="wf-progress-bar-fill" style="width:${pct}%"></div></div>` : ''}
-    </div>`;
-  }).join('');
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   PLAYBOOK BUILDER
-   ═══════════════════════════════════════════════════════════════ */
-const PB_CAT_COLOR = {
-  'Triggers':'#7c3aed','Control':'#0891b2','Data':'#d97706','Actions':'#059669',
-  'HTTP':'#ea580c','Comm':'#9333ea','Google':'#1d4ed8','Services':'#0f766e',
-};
-
-const PB_NODE_DEFS = [
-  // ── Triggers ──────────────────────────────────────────────────────────────
-  { cat:'Triggers', type:'trigger.manual',   label:'Manual Trigger', icon:'▶' },
-  { cat:'Triggers', type:'trigger.schedule', label:'Schedule',       icon:'⏰' },
-  { cat:'Triggers', type:'trigger.webhook',  label:'Webhook',        icon:'🔗' },
-  // ── Control ───────────────────────────────────────────────────────────────
-  { cat:'Control',  type:'core.if',                  label:'If / Branch',    icon:'⑂' },
-  { cat:'Control',  type:'core.switch',              label:'Switch',         icon:'⑃' },
-  { cat:'Control',  type:'core.filter',              label:'Filter',         icon:'⚗' },
-  { cat:'Control',  type:'core.merge',               label:'Merge',          icon:'⊕' },
-  { cat:'Control',  type:'core.wait',                label:'Wait',           icon:'⏱' },
-  { cat:'Control',  type:'core.stop_error',          label:'Stop & Error',   icon:'⛔' },
-  // ── Data ──────────────────────────────────────────────────────────────────
-  { cat:'Data',     type:'core.set',                 label:'Set Fields',     icon:'✎' },
-  { cat:'Data',     type:'core.aggregate',           label:'Aggregate',      icon:'∑' },
-  { cat:'Data',     type:'core.sort',                label:'Sort',           icon:'⇅' },
-  { cat:'Data',     type:'core.limit',               label:'Limit',          icon:'✂' },
-  { cat:'Data',     type:'core.remove_duplicates',   label:'Dedup',          icon:'⊘' },
-  { cat:'Data',     type:'core.split_in_batches',    label:'Split Batches',  icon:'⋮' },
-  { cat:'Data',     type:'core.compare_datasets',    label:'Compare',        icon:'⟺' },
-  { cat:'Data',     type:'core.code',                label:'Code (JS)',       icon:'〈/〉' },
-  { cat:'Data',     type:'data.datetime',            label:'Date & Time',    icon:'📅' },
-  { cat:'Data',     type:'data.html',                label:'HTML',           icon:'📝' },
-  { cat:'Data',     type:'data.markdown',            label:'Markdown',       icon:'📄' },
-  { cat:'Data',     type:'data.xml',                 label:'XML',            icon:'📋' },
-  // ── Actions (monoplaybook builtins) ───────────────────────────────────────
-  { cat:'Actions',  type:'action.http',              label:'HTTP Request',   icon:'🌐' },
-  { cat:'Actions',  type:'action.log',               label:'Log',            icon:'📜' },
-  { cat:'Actions',  type:'action.save_file',         label:'Save File',      icon:'💾' },
-  { cat:'Actions',  type:'action.gemini_image',      label:'Gemini Image',   icon:'🖼' },
-  // ── HTTP / Network ────────────────────────────────────────────────────────
-  { cat:'HTTP',     type:'http.request',             label:'HTTP Request',   icon:'⊹' },
-  // ── Communications ────────────────────────────────────────────────────────
-  { cat:'Comm',     type:'comm.email_send',          label:'Send Email',     icon:'✉' },
-  { cat:'Comm',     type:'comm.slack',               label:'Slack',          icon:'💬' },
-  { cat:'Comm',     type:'comm.discord',             label:'Discord',        icon:'🎮' },
-  { cat:'Comm',     type:'comm.telegram',            label:'Telegram',       icon:'✈' },
-  { cat:'Comm',     type:'comm.twilio',              label:'Twilio SMS',     icon:'📱' },
-  // ── Google (service.* — real monoplaybook handlers) ──────────────────────
-  { cat:'Google',   type:'service.gmail',        defaultConfig:{operation:'send_message'},  label:'Gmail: Send',    icon:'✉' },
-  { cat:'Google',   type:'service.gmail',        defaultConfig:{operation:'list_messages'}, label:'Gmail: List',    icon:'📬' },
-  { cat:'Google',   type:'service.google_drive', defaultConfig:{operation:'list_files'},    label:'Drive: List',    icon:'📁' },
-  { cat:'Google',   type:'service.google_drive', defaultConfig:{operation:'download_file'}, label:'Drive: Download',icon:'⬇' },
-  { cat:'Google',   type:'service.google_drive', defaultConfig:{operation:'upload_file'},   label:'Drive: Upload',  icon:'⬆' },
-  { cat:'Google',   type:'service.google_sheets',defaultConfig:{operation:'read_rows'},     label:'Sheets: Read',   icon:'📊' },
-  { cat:'Google',   type:'service.google_sheets',defaultConfig:{operation:'append_rows'},   label:'Sheets: Append', icon:'➕' },
-  // ── Services (service.* — real monoplaybook handlers) ────────────────────
-  { cat:'Services', type:'service.github',   defaultConfig:{operation:'list_issues'},    label:'GitHub: Issues',    icon:'⊙' },
-  { cat:'Services', type:'service.github',   defaultConfig:{operation:'create_issue'},   label:'GitHub: Create',    icon:'⊙' },
-  { cat:'Services', type:'service.notion',   defaultConfig:{operation:'query_database'}, label:'Notion: Query',     icon:'📄' },
-  { cat:'Services', type:'service.notion',   defaultConfig:{operation:'create_page'},    label:'Notion: Create',    icon:'📄' },
-  { cat:'Services', type:'service.linear',   defaultConfig:{operation:'list_issues'},    label:'Linear: Issues',    icon:'◉' },
-  { cat:'Services', type:'service.linear',   defaultConfig:{operation:'create_issue'},   label:'Linear: Create',    icon:'◉' },
-  { cat:'Services', type:'service.airtable', defaultConfig:{operation:'list_records'},   label:'Airtable: List',    icon:'⊞' },
-  { cat:'Services', type:'service.airtable', defaultConfig:{operation:'create_record'},  label:'Airtable: Create',  icon:'⊞' },
-  { cat:'Services', type:'service.stripe',   defaultConfig:{operation:'list_customers'}, label:'Stripe: Customers', icon:'💳' },
-  { cat:'Services', type:'service.stripe',   defaultConfig:{operation:'list_charges'},   label:'Stripe: Charges',   icon:'💳' },
-];
-
-const PB_NODE_FIELDS = {
-  // ── Triggers ──────────────────────────────────────────────────────────────
-  'trigger.manual':   [],
-  'trigger.schedule': [
-    { key:'cron',     label:'Cron Expression', type:'text', placeholder:'*/5 * * * *', help:'Standard 5-field cron: min hour day month weekday' },
-    { key:'timezone', label:'Timezone',        type:'text', placeholder:'UTC' },
-  ],
-  'trigger.webhook':  [
-    { key:'path',   label:'Webhook Path', type:'text',     placeholder:'/webhooks/my-playbook' },
-    { key:'method', label:'HTTP Method',  type:'select',   options:['POST','GET','PUT','PATCH'] },
-    { key:'secret', label:'HMAC Secret', type:'password',  placeholder:'optional — verified via X-Signature header' },
-  ],
-  // ── Control ───────────────────────────────────────────────────────────────
-  'core.if':     [{ key:'condition', label:'Condition', type:'textarea', placeholder:'{{ eq $json.active true }}', help:'Go template — items go to "true" or "false" handle' }],
-  'core.filter': [
-    { key:'condition', label:'Condition', type:'textarea', placeholder:'{{ eq $json.status "todo" }}' },
-    { key:'mode',      label:'Mode',      type:'select',   options:['keep','remove'] },
-  ],
-  'core.switch': [
-    { key:'expression',     label:'Expression',    type:'text',     placeholder:'{{$json.status}}' },
-    { key:'cases',          label:'Cases (JSON)',  type:'textarea', placeholder:'[{"value":"active"},{"value":"closed"}]' },
-    { key:'default_handle', label:'Default Handle',type:'text',     placeholder:'default' },
-  ],
-  'core.merge':  [{ key:'mode', label:'Mode', type:'select', options:['append','first'] }],
-  'core.wait':   [{ key:'duration', label:'Duration', type:'text', placeholder:'5s', help:'e.g. 5s, 2m, 1h' }],
-  'core.stop_error': [{ key:'message', label:'Error Message', type:'text', placeholder:'Stopped: condition not met' }],
-  // ── Data ──────────────────────────────────────────────────────────────────
-  'core.set':    [
-    { key:'assignments',   label:'Assignments (JSON)', type:'textarea', placeholder:'[{"name":"output","value":"{{$json.input}}"}]' },
-    { key:'include_input', label:'Include Input',      type:'select',   options:['true','false'] },
-  ],
-  'core.aggregate': [
-    { key:'group_by',   label:'Group By Field', type:'text',     placeholder:'' },
-    { key:'operations', label:'Operations',     type:'textarea', placeholder:'[{"field":"amount","operation":"sum","output_field":"total"}]' },
-  ],
-  'core.sort':   [
-    { key:'field', label:'Sort By', type:'text',   placeholder:'name' },
-    { key:'order', label:'Order',   type:'select', options:['asc','desc'] },
-    { key:'type',  label:'Type',    type:'select', options:['string','number','date'] },
-  ],
-  'core.limit':  [{ key:'max_items', label:'Max Items', type:'number', placeholder:'10' }],
-  'core.remove_duplicates': [
-    { key:'field', label:'Field Key', type:'text',   placeholder:'id' },
-    { key:'keep',  label:'Keep',      type:'select', options:['first','last'] },
-  ],
-  'core.split_in_batches': [{ key:'batch_size', label:'Batch Size', type:'number', placeholder:'10' }],
-  'core.compare_datasets': [
-    { key:'key_field', label:'Key Field',       type:'text',   placeholder:'id' },
-    { key:'split_at',  label:'Split At Index',  type:'number', placeholder:'' },
-  ],
-  'core.code': [{ key:'code', label:'JavaScript', type:'textarea', placeholder:'// return array of items\nreturn items.map(item => ({ ...item.json }))' }],
-  'data.datetime': [
-    { key:'operation',     label:'Operation',     type:'select', options:['format','parse','add','subtract','diff','now'] },
-    { key:'field',         label:'Source Field',  type:'text',   placeholder:'date' },
-    { key:'input_format',  label:'Input Format',  type:'text',   placeholder:'' },
-    { key:'output_format', label:'Output Format', type:'text',   placeholder:'2006-01-02T15:04:05Z07:00' },
-    { key:'duration',      label:'Duration',      type:'text',   placeholder:'24h' },
-    { key:'output_field',  label:'Output Field',  type:'text',   placeholder:'formatted_date' },
-  ],
-  'data.html': [
-    { key:'operation', label:'Operation',    type:'select', options:['extract','extract_all','text','generate'] },
-    { key:'field',     label:'Source Field', type:'text',   placeholder:'' },
-    { key:'selector',  label:'CSS Selector', type:'text',   placeholder:'h1.title' },
-    { key:'attribute', label:'Attribute',    type:'text',   placeholder:'href' },
-    { key:'template',  label:'HTML Template',type:'textarea',placeholder:'<p>{{.Title}}</p>' },
-  ],
-  'data.markdown': [
-    { key:'field',        label:'Source Field', type:'text', placeholder:'' },
-    { key:'output_field', label:'Output Field', type:'text', placeholder:'html' },
-  ],
-  'data.xml': [
-    { key:'operation',    label:'Operation',    type:'select', options:['parse','generate'] },
-    { key:'field',        label:'Source Field', type:'text',   placeholder:'' },
-    { key:'root_element', label:'Root Element', type:'text',   placeholder:'root' },
-  ],
-  // ── Actions (monoplaybook builtins) ───────────────────────────────────────
-  'action.http': [
-    { key:'url',           label:'URL',           type:'text',     placeholder:'https://api.example.com/data' },
-    { key:'method',        label:'Method',        type:'select',   options:['GET','POST','PUT','PATCH','DELETE'] },
-    { key:'body',          label:'Body (JSON)',    type:'textarea', placeholder:'{}' },
-    { key:'responseField', label:'Save As Field', type:'text',     placeholder:'response' },
-    { key:'timeoutMs',     label:'Timeout (ms)',  type:'number',   placeholder:'30000' },
-  ],
-  'action.log': [
-    { key:'label', label:'Label', type:'text', placeholder:'debug', help:'Prefix shown in console output' },
-  ],
-  'action.save_file': [
-    { key:'path',     label:'Output Path', type:'text',   placeholder:'./output/result.json' },
-    { key:'field',    label:'Field',       type:'text',   placeholder:'leave blank for full item' },
-    { key:'encoding', label:'Encoding',    type:'select', options:['utf8','base64','binary'] },
-  ],
-  'action.gemini_image': [
-    { key:'prompt',      label:'Prompt',      type:'textarea', placeholder:'A futuristic city skyline at dusk' },
-    { key:'outputPath',  label:'Output Path', type:'text',     placeholder:'./output/image.png' },
-    { key:'aspectRatio', label:'Aspect Ratio',type:'select',   options:['1:1','16:9','9:16','4:3'] },
-    { key:'apiKey',      label:'API Key',     type:'password', placeholder:'uses GEMINI_API_KEY env if blank' },
-    { key:'model',       label:'Model',       type:'text',     placeholder:'imagen-3.0-generate-001' },
-  ],
-  // ── HTTP / Network ────────────────────────────────────────────────────────
-  'http.request': [
-    { key:'method',          label:'Method',         type:'select',   options:['GET','POST','PUT','PATCH','DELETE','HEAD'] },
-    { key:'url',             label:'URL',            type:'text',     placeholder:'https://api.example.com/endpoint' },
-    { key:'body_type',       label:'Body Type',      type:'select',   options:['none','json','form','raw'] },
-    { key:'body',            label:'Body (JSON)',     type:'textarea', placeholder:'' },
-    { key:'auth_type',       label:'Auth',           type:'select',   options:['none','bearer','basic','api_key'] },
-    { key:'auth_api_key_value', label:'Token / Key', type:'password', placeholder:'' },
-    { key:'response_format', label:'Response',       type:'select',   options:['json','text','binary'] },
-  ],
-  'http.ftp': [
-    { key:'host',        label:'Host',       type:'text',     placeholder:'ftp.example.com' },
-    { key:'port',        label:'Port',       type:'number',   placeholder:'21' },
-    { key:'username',    label:'Username',   type:'text',     placeholder:'' },
-    { key:'password',    label:'Password',   type:'password', placeholder:'' },
-    { key:'remote_path', label:'Remote Path',type:'text',     placeholder:'/' },
-    { key:'operation',   label:'Operation',  type:'select',   options:['list','download','upload','delete'] },
-  ],
-  'http.ssh': [
-    { key:'host',     label:'Host',     type:'text',     placeholder:'server.example.com' },
-    { key:'port',     label:'Port',     type:'number',   placeholder:'22' },
-    { key:'username', label:'Username', type:'text',     placeholder:'' },
-    { key:'password', label:'Password', type:'password', placeholder:'' },
-    { key:'command',  label:'Command',  type:'textarea', placeholder:'ls -la /var/log' },
-  ],
-  'system.execute_command': [
-    { key:'command',     label:'Command',     type:'text',   placeholder:'echo' },
-    { key:'args',        label:'Args (JSON)', type:'text',   placeholder:'["hello world"]' },
-    { key:'working_dir', label:'Working Dir', type:'text',   placeholder:'' },
-    { key:'timeout_seconds', label:'Timeout (s)', type:'number', placeholder:'30' },
-  ],
-  'system.rss_read': [
-    { key:'url',   label:'Feed URL',  type:'text',   placeholder:'https://feeds.example.com/rss' },
-    { key:'limit', label:'Max Items', type:'number', placeholder:'20' },
-  ],
-  // ── Communications ────────────────────────────────────────────────────────
-  'comm.email_send': [
-    { key:'smtp_host',     label:'SMTP Host',     type:'text',     placeholder:'smtp.gmail.com' },
-    { key:'smtp_port',     label:'SMTP Port',     type:'number',   placeholder:'587' },
-    { key:'smtp_user',     label:'Username',      type:'text',     placeholder:'user@example.com' },
-    { key:'smtp_password', label:'Password',      type:'password', placeholder:'' },
-    { key:'from',          label:'From',          type:'text',     placeholder:'sender@example.com' },
-    { key:'to',            label:'To',            type:'text',     placeholder:'recipient@example.com' },
-    { key:'subject',       label:'Subject',       type:'text',     placeholder:'Hello' },
-    { key:'body',          label:'Body',          type:'textarea', placeholder:'Hi {{$json.name}},' },
-    { key:'body_type',     label:'Body Type',     type:'select',   options:['text','html'] },
-  ],
-  'comm.slack': [
-    { key:'webhook_url', label:'Webhook URL', type:'password', placeholder:'https://hooks.slack.com/services/…' },
-    { key:'channel',     label:'Channel',     type:'text',     placeholder:'#general' },
-    { key:'text',        label:'Message',     type:'textarea', placeholder:'Hello from monoplaybook!' },
-    { key:'username',    label:'Bot Name',    type:'text',     placeholder:'Monoplaybook' },
-  ],
-  'comm.discord': [
-    { key:'webhook_url', label:'Webhook URL', type:'password', placeholder:'https://discord.com/api/webhooks/…' },
-    { key:'content',     label:'Message',     type:'textarea', placeholder:'Hello from monoplaybook!' },
-    { key:'username',    label:'Bot Name',    type:'text',     placeholder:'Monoplaybook' },
-  ],
-  'comm.telegram': [
-    { key:'token',   label:'Bot Token', type:'password', placeholder:'123456:ABC-DEF…' },
-    { key:'chat_id', label:'Chat ID',   type:'text',     placeholder:'-100123456' },
-    { key:'text',    label:'Message',   type:'textarea', placeholder:'Hello {{$json.name}}!' },
-    { key:'parse_mode', label:'Format', type:'select',   options:['text','Markdown','HTML'] },
-  ],
-  'comm.twilio': [
-    { key:'account_sid', label:'Account SID', type:'text',     placeholder:'ACxxxx' },
-    { key:'auth_token',  label:'Auth Token',  type:'password', placeholder:'' },
-    { key:'from',        label:'From Number', type:'text',     placeholder:'+15551234567' },
-    { key:'to',          label:'To Number',   type:'text',     placeholder:'{{$json.phone}}' },
-    { key:'body',        label:'Message',     type:'textarea', placeholder:'Your code is {{$json.code}}' },
-  ],
-  // ── Google ────────────────────────────────────────────────────────────────
-  // ── Google (service.* handlers — consolidated with operation selector) ─────
-  'service.gmail': [
-    { key:'operation',    label:'Operation',    type:'select',   options:['send_message','list_messages','get_message','list_labels','trash_message'] },
-    { key:'access_token', label:'OAuth Token',  type:'password', placeholder:'ya29.…' },
-    { key:'to',           label:'To (send)',    type:'text',     placeholder:'recipient@example.com' },
-    { key:'subject',      label:'Subject (send)',type:'text',    placeholder:'Hello from monoplaybook' },
-    { key:'body',         label:'Body (send)',  type:'textarea', placeholder:'Hi there,' },
-    { key:'body_type',    label:'Body Type',    type:'select',   options:['text','html'] },
-    { key:'query',        label:'Search (list)',type:'text',     placeholder:'from:alice is:unread' },
-    { key:'max_results',  label:'Max Results',  type:'number',   placeholder:'10' },
-    { key:'message_id',   label:'Message ID (get/trash)',type:'text', placeholder:'' },
-  ],
-  'service.google_drive': [
-    { key:'operation',        label:'Operation',    type:'select',   options:['list_files','download_file','upload_file','get_file','create_folder','delete_file','share_file'] },
-    { key:'access_token',     label:'OAuth Token',  type:'password', placeholder:'ya29.…' },
-    { key:'query',            label:'Search (list)',type:'text',     placeholder:'name contains "report"' },
-    { key:'file_id',          label:'File ID (get/download/delete/share)',type:'text', placeholder:'1BxiMV…' },
-    { key:'file_path',        label:'Local Path (upload)',type:'text', placeholder:'/tmp/file.pdf' },
-    { key:'file_name',        label:'Name (upload/folder)',type:'text', placeholder:'report.pdf' },
-    { key:'parent_folder_id', label:'Parent Folder ID',   type:'text', placeholder:'' },
-    { key:'mime_type',        label:'MIME Type (upload)',  type:'text', placeholder:'application/pdf' },
-  ],
-  'service.google_sheets': [
-    { key:'operation',      label:'Operation',      type:'select',   options:['read_rows','append_rows','update_rows','clear_range'] },
-    { key:'access_token',   label:'OAuth Token',    type:'password', placeholder:'ya29.…' },
-    { key:'spreadsheet_id', label:'Spreadsheet ID', type:'text',     placeholder:'1BxiMV…' },
-    { key:'sheet',          label:'Sheet Name',     type:'text',     placeholder:'Sheet1' },
-    { key:'range',          label:'Range',          type:'text',     placeholder:'A1:Z' },
-    { key:'use_header_row', label:'Header Row (read)',type:'select', options:['true','false'] },
-  ],
-  // ── Services (service.* handlers) ─────────────────────────────────────────
-  'service.github': [
-    { key:'operation', label:'Operation',    type:'select',   options:['list_issues','create_issue','get_issue','update_issue','list_repos','list_prs','create_pr','list_releases','create_release'] },
-    { key:'token',     label:'Access Token', type:'password', placeholder:'ghp_…' },
-    { key:'owner',     label:'Owner',        type:'text',     placeholder:'octocat' },
-    { key:'repo',      label:'Repo',         type:'text',     placeholder:'hello-world' },
-    { key:'state',     label:'State (list)', type:'select',   options:['open','closed','all'] },
-    { key:'title',     label:'Title (create)',type:'text',    placeholder:'Bug: something is broken' },
-    { key:'body',      label:'Body (create)', type:'textarea',placeholder:'Steps to reproduce…' },
-  ],
-  'service.notion': [
-    { key:'operation',    label:'Operation',            type:'select',   options:['query_database','create_page','get_page','update_page','get_database','create_database','append_blocks'] },
-    { key:'token',        label:'Integration Token',    type:'password', placeholder:'secret_…' },
-    { key:'database_id',  label:'Database ID',          type:'text',     placeholder:'xxxxxxxx-xxxx-…' },
-    { key:'parent_id',    label:'Parent Page/DB ID',    type:'text',     placeholder:'xxxxxxxx-xxxx-…' },
-    { key:'page_id',      label:'Page ID (get/update)', type:'text',     placeholder:'xxxxxxxx-xxxx-…' },
-    { key:'title',        label:'Title (create)',        type:'text',     placeholder:'New Page' },
-    { key:'properties',   label:'Properties (JSON)',     type:'textarea', placeholder:'{}' },
-    { key:'filter',       label:'Filter (JSON, query)',  type:'textarea', placeholder:'{"property":"Status","select":{"equals":"Done"}}' },
-  ],
-  'service.linear': [
-    { key:'operation',   label:'Operation',   type:'select',   options:['list_issues','create_issue','get_issue','update_issue','list_teams','list_projects'] },
-    { key:'token',       label:'API Key',     type:'password', placeholder:'lin_api_…' },
-    { key:'team_id',     label:'Team ID',     type:'text',     placeholder:'' },
-    { key:'issue_id',    label:'Issue ID (get/update)',type:'text', placeholder:'' },
-    { key:'title',       label:'Title (create)',type:'text',   placeholder:'Fix: something broke' },
-    { key:'description', label:'Description', type:'textarea', placeholder:'Details…' },
-    { key:'priority',    label:'Priority (create)',type:'number', placeholder:'1 = urgent, 4 = low' },
-  ],
-  'service.airtable': [
-    { key:'operation',      label:'Operation',      type:'select',   options:['list_records','create_record','get_record','update_record','delete_record'] },
-    { key:'token',          label:'Access Token',   type:'password', placeholder:'patXXX…' },
-    { key:'base_id',        label:'Base ID',        type:'text',     placeholder:'appXXX…' },
-    { key:'table',          label:'Table Name',     type:'text',     placeholder:'Tasks' },
-    { key:'record_id',      label:'Record ID (get/update/delete)',type:'text', placeholder:'recXXX…' },
-    { key:'filter_formula', label:'Filter Formula (list)',type:'text', placeholder:'AND({Status}="Done")' },
-    { key:'max_records',    label:'Max Records (list)',type:'number', placeholder:'100' },
-    { key:'fields',         label:'Fields JSON (create/update)',type:'textarea', placeholder:'{"Name":"{{$json.title}}"}' },
-  ],
-  'service.stripe': [
-    { key:'operation',   label:'Operation',   type:'select',   options:['list_customers','create_customer','get_customer','list_charges','create_charge','list_subscriptions','create_subscription','cancel_subscription','list_products','create_payment_intent'] },
-    { key:'api_key',     label:'Secret Key',  type:'password', placeholder:'sk_live_…' },
-    { key:'customer_id', label:'Customer ID', type:'text',     placeholder:'cus_…' },
-    { key:'limit',       label:'Limit',       type:'number',   placeholder:'20' },
-    { key:'amount',      label:'Amount (cents, charge)',type:'number', placeholder:'2000' },
-    { key:'currency',    label:'Currency',    type:'text',     placeholder:'usd' },
-    { key:'email',       label:'Email (create customer)',type:'text', placeholder:'customer@example.com' },
-  ],
-  // ── Database ──────────────────────────────────────────────────────────────
-  'db.postgres': [
-    { key:'host',     label:'Host',     type:'text',     placeholder:'localhost' },
-    { key:'port',     label:'Port',     type:'number',   placeholder:'5432' },
-    { key:'database', label:'Database', type:'text',     placeholder:'mydb' },
-    { key:'username', label:'Username', type:'text',     placeholder:'postgres' },
-    { key:'password', label:'Password', type:'password', placeholder:'' },
-    { key:'query',    label:'SQL',      type:'textarea', placeholder:'SELECT * FROM users LIMIT 10' },
-  ],
-  'db.mysql': [
-    { key:'host',     label:'Host',     type:'text',     placeholder:'localhost' },
-    { key:'port',     label:'Port',     type:'number',   placeholder:'3306' },
-    { key:'database', label:'Database', type:'text',     placeholder:'mydb' },
-    { key:'username', label:'Username', type:'text',     placeholder:'root' },
-    { key:'password', label:'Password', type:'password', placeholder:'' },
-    { key:'query',    label:'SQL',      type:'textarea', placeholder:'SELECT * FROM users LIMIT 10' },
-  ],
-  'db.mongodb': [
-    { key:'uri',        label:'Connection URI', type:'password', placeholder:'mongodb://localhost:27017/mydb' },
-    { key:'collection', label:'Collection',     type:'text',     placeholder:'users' },
-    { key:'operation',  label:'Operation',      type:'select',   options:['find','findOne','insertOne','updateOne','deleteOne'] },
-    { key:'filter',     label:'Filter (JSON)',  type:'textarea', placeholder:'{"active":true}' },
-    { key:'update',     label:'Update (JSON)',  type:'textarea', placeholder:'{"$set":{"status":"active"}}' },
-    { key:'limit',      label:'Limit',          type:'number',   placeholder:'100' },
-  ],
-  'db.redis': [
-    { key:'url',       label:'Redis URL', type:'password', placeholder:'redis://localhost:6379' },
-    { key:'operation', label:'Operation', type:'select',   options:['get','set','del','keys','hget','hset','lpush','lrange'] },
-    { key:'key',       label:'Key',       type:'text',     placeholder:'mykey' },
-    { key:'value',     label:'Value',     type:'text',     placeholder:'{{$json.value}}' },
-    { key:'ttl',       label:'TTL (s)',   type:'number',   placeholder:'3600' },
-  ],
-  // ── AI ────────────────────────────────────────────────────────────────────
-  'ai.chat': [
-    { key:'provider_id',   label:'Provider',      type:'text',     placeholder:'anthropic' },
-    { key:'model',         label:'Model',         type:'text',     placeholder:'claude-3-5-sonnet-20241022' },
-    { key:'system_prompt', label:'System Prompt', type:'textarea', placeholder:'You are a helpful assistant.' },
-    { key:'prompt',        label:'Prompt',        type:'textarea', placeholder:'{{$json.text}}' },
-    { key:'temperature',   label:'Temperature',   type:'text',     placeholder:'0.7' },
-    { key:'max_tokens',    label:'Max Tokens',    type:'number',   placeholder:'1024' },
-    { key:'output_key',    label:'Output Key',    type:'text',     placeholder:'ai_response' },
-  ],
-  'ai.extract': [
-    { key:'provider_id',   label:'Provider',       type:'text',     placeholder:'anthropic' },
-    { key:'model',         label:'Model',          type:'text',     placeholder:'claude-3-5-haiku-20241022' },
-    { key:'prompt',        label:'Extract Prompt', type:'textarea', placeholder:'Extract the name and email from: {{$json.text}}' },
-    { key:'output_schema', label:'Output Schema',  type:'textarea', placeholder:'{"name":"string","email":"string"}' },
-    { key:'output_key',    label:'Output Key',     type:'text',     placeholder:'extracted' },
-  ],
-  'ai.classify': [
-    { key:'provider_id',      label:'Provider',    type:'text',     placeholder:'anthropic' },
-    { key:'model',            label:'Model',       type:'text',     placeholder:'claude-3-5-haiku-20241022' },
-    { key:'categories',       label:'Categories',  type:'text',     placeholder:'positive,negative,neutral' },
-    { key:'prompt_template',  label:'Prompt',      type:'textarea', placeholder:'Classify this text: {{$json.text}}' },
-  ],
-  'ai.transform': [
-    { key:'provider_id',  label:'Provider',    type:'text',     placeholder:'anthropic' },
-    { key:'model',        label:'Model',       type:'text',     placeholder:'claude-3-5-sonnet-20241022' },
-    { key:'instruction',  label:'Instruction', type:'textarea', placeholder:'Summarize this in 2 sentences' },
-    { key:'input_field',  label:'Input Field', type:'text',     placeholder:'content' },
-    { key:'output_key',   label:'Output Key',  type:'text',     placeholder:'transformed' },
-  ],
-  'ai.agent': [
-    { key:'provider_id', label:'Provider',  type:'text',     placeholder:'anthropic' },
-    { key:'model',       label:'Model',     type:'text',     placeholder:'claude-3-5-sonnet-20241022' },
-    { key:'goal',        label:'Goal',      type:'textarea', placeholder:'Research and summarize the topic: {{$json.query}}' },
-    { key:'max_steps',   label:'Max Steps', type:'number',   placeholder:'5' },
-  ],
-};
-
-const pbState = {
-  playbook: { id: '', name: 'Untitled', nodes: [], connections: [] },
-  positions: {},       // { nodeId: { x, y } }
-  runStatus: {},       // { nodeId: 'running'|'completed'|'failed' }
-  selectedId: null,
-  connecting: null,    // nodeId being connected from
-  _pbInited: false,
-  _dragNode: null,
-  _dragOff: { x: 0, y: 0 },
-};
-
-let _pbWs = null;
-function pbHandleEvent(ev) {
-  if (!ev) return;
-  if (ev.nodeId) {
-    if (ev.eventType === 'step_started')   { pbState.runStatus[ev.nodeId] = 'running';   pbUpdateNodeStatus(ev.nodeId); }
-    if (ev.eventType === 'step_completed') { pbState.runStatus[ev.nodeId] = 'completed'; pbUpdateNodeStatus(ev.nodeId); }
-    if (ev.eventType === 'step_failed')    { pbState.runStatus[ev.nodeId] = 'failed';    pbUpdateNodeStatus(ev.nodeId); }
-  }
-  if (ev.eventType === 'run_started') { pbState.runStatus = {}; pbRenderCanvas(); }
-  if (ev.eventType === 'run_completed' || ev.eventType === 'run_failed' || ev.eventType === 'run_stopped') {
-    const lbl = document.getElementById('pb-run-status');
-    if (lbl) lbl.textContent = `● ${ev.eventType.replace('run_', '').toUpperCase()}`;
-    setTimeout(() => loadWorkflowRuns(), 1000);
-  }
-}
-
-function pbInit() {
-  if (pbState._pbInited) { pbRenderCanvas(); return; }
-  pbState._pbInited = true;
-  pbRenderPalette();
-  pbRenderCanvas();
-  pbConnectEvents();
-}
-
-// Browse dashboard origin; the port comes from the server-injected mm-browse-port meta.
-const PB_BROWSE_PORT = Number(document.querySelector('meta[name="mm-browse-port"]')?.content) || 4243;
-const PB_BROWSE_HTTP = `http://localhost:${PB_BROWSE_PORT}`;
-
-function pbConnectEvents() {
-  // Connect to the monobrowse dashboard WS/SSE for live step events
-  // NOTE: the monobrowse server is not served by this dashboard (see PB_BROWSE_PORT).
-  // When it is not running,
-  // callers degrade gracefully (fallback to /api/workflow-defs, 'Offline' toast).
-  if (_pbWs) { try { _pbWs.close(); } catch {} _pbWs = null; }
-  try {
-    const ws = new WebSocket(`ws://localhost:${PB_BROWSE_PORT}`);
-    ws.onmessage = (e) => { try { const d = JSON.parse(e.data); if (d.type === 'history') return; pbHandleEvent(d); } catch {} };
-    ws.onerror = () => pbConnectSse();
-    ws.onclose = () => { _pbWs = null; };
-    _pbWs = ws;
-  } catch { pbConnectSse(); }
-}
-
-function pbConnectSse() {
-  try {
-    const es = new EventSource(`${PB_BROWSE_HTTP}/events`);
-    es.onmessage = (e) => { try { pbHandleEvent(JSON.parse(e.data)); } catch {} };
-    es.onerror = () => es.close();
-  } catch {}
-}
-
-function pbRenderPalette() {
-  const el = document.getElementById('pb-palette');
-  if (!el) return;
-  const cats = [...new Set(PB_NODE_DEFS.map(n => n.cat))];
-  el.innerHTML = cats.map(cat => {
-    const nodes = PB_NODE_DEFS.filter(n => n.cat === cat);
-    const catColor = PB_CAT_COLOR[cat] || '#6b7280';
-    return `<div>
-      <div class="pb-cat-hdr" onclick="pbToggleCat(this)">
-        <span class="pb-cat-arrow">▸</span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catColor};margin-right:5px;vertical-align:middle;flex-shrink:0"></span>${cat}
-      </div>
-      <div class="pb-cat-body ${cat === cats[0] ? '' : 'collapsed'}">
-        ${nodes.map((n,i) => `<button class="pb-node-btn" onclick="pbAddNode('${esc(String(n.type).replace(/['\\]/g,'\\$&'))}',PB_NODE_DEFS.filter(d=>d.cat==='${cat}')[${i}])" title="${esc(n.type)}${n.defaultConfig ? ` (op: ${n.defaultConfig.operation})` : ''}">
-          <span class="pb-node-icon">${n.icon}</span>${esc(n.label)}
-        </button>`).join('')}
-      </div>
-    </div>`;
-  }).join('');
-  // Expand first category by default
-  el.querySelector('.pb-cat-hdr')?.classList.add('expanded');
-  const firstArrow = el.querySelector('.pb-cat-arrow');
-  if (firstArrow) firstArrow.textContent = '▾';
-}
-
-function _pbToggleCat(hdr) {
-  const body = hdr.nextElementSibling;
-  const arrow = hdr.querySelector('.pb-cat-arrow');
-  body.classList.toggle('collapsed');
-  if (arrow) arrow.textContent = body.classList.contains('collapsed') ? '▸' : '▾';
-}
-
-function _pbNew() {
-  pbState.playbook = { id: `pb-${Date.now()}`, name: 'Untitled', nodes: [], connections: [] };
-  pbState.positions = {};
-  pbState.runStatus = {};
-  pbState.selectedId = null;
-  document.getElementById('pb-name-input').value = 'Untitled';
-  document.getElementById('pb-run-status').textContent = '';
-  pbRenderCanvas();
-  pbShowConfig(null);
-}
-
-function _pbAddNode(type, defOverride) {
-  // defOverride lets palette pass the specific def when multiple defs share a type (e.g. service.gmail)
-  const def = defOverride || PB_NODE_DEFS.find(n => n.type === type) || { label: type, icon: '⊹' };
-  const id = `n-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  const pb = pbState.playbook;
-  // Offset new nodes so they don't stack
-  const offset = pb.nodes.length * 20;
-  pbState.positions[id] = { x: 60 + offset, y: 60 + offset };
-  pb.nodes.push({ id, type, name: def.label, config: Object.assign({}, def.defaultConfig || {}) });
-  const empty = document.getElementById('pb-empty');
-  if (empty) empty.style.display = 'none';
-  pbRenderCanvas();
-  pbSelectNode(id);
-}
-
-function pbRenderCanvas() {
-  const canvas = document.getElementById('pb-canvas');
-  const svg = document.getElementById('pb-svg');
-  if (!canvas || !svg) return;
-
-  // Remove old node cards
-  canvas.querySelectorAll('.pb-node-card').forEach(el => el.remove());
-
-  const pb = pbState.playbook;
-  if (!pb.nodes.length) {
-    const empty = document.getElementById('pb-empty');
-    if (empty) empty.style.display = '';
-    svg.innerHTML = '<defs><marker id="pb-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--text-xs)"/></marker></defs>';
-    return;
-  }
-  const empty = document.getElementById('pb-empty');
-  if (empty) empty.style.display = 'none';
-
-  // Render nodes
-  for (const node of pb.nodes) {
-    const pos = pbState.positions[node.id] || { x: 40, y: 40 };
-    const def = PB_NODE_DEFS.find(n => n.type === node.type) || { icon: '⊹' };
-    const st = pbState.runStatus[node.id] || '';
-    const card = document.createElement('div');
-    card.className = `pb-node-card${node.id === pbState.selectedId ? ' selected' : ''}${st ? ` ns-${st}` : ''}`;
-    card.dataset.id = node.id;
-    card.style.left = `${pos.x}px`;
-    card.style.top = `${pos.y}px`;
-    card.innerHTML = `
-      <div class="pb-node-hdr">
-        <span class="pb-node-type-icon">${def.icon}</span>
-        <span class="pb-node-title" title="${esc(node.type)}">${esc(node.name || node.type)}</span>
-        <button class="pb-node-del" onclick="pbDeleteNode('${esc(String(node.id).replace(/['\\]/g,'\\$&'))}')" title="Remove">✕</button>
-      </div>
-      <div class="pb-node-body">
-        ${st ? `<div class="pb-node-status"><div class="pb-ns-dot ${st}"></div><span style="color:${st==='running'?'var(--accent)':st==='completed'?'var(--green)':'var(--red)'}">${st}</span></div>` : ''}
-        <div style="font-size:10px;color:var(--text-xs)">${esc(node.type)}</div>
-      </div>
-      <button class="pb-node-conn-btn" title="Connect to another node" onclick="pbStartConnect('${esc(String(node.id).replace(/['\\]/g,'\\$&'))}',event)">→</button>
-    `;
-    card.addEventListener('mousedown', (e) => pbDragStart(node.id, e));
-    card.addEventListener('click', (e) => { if (!e.defaultPrevented) pbSelectNode(node.id); });
-    canvas.appendChild(card);
-  }
-
-  // Render SVG connections
-  const w = canvas.offsetWidth || 800;
-  const h = canvas.offsetHeight || 600;
-  svg.setAttribute('width', w);
-  svg.setAttribute('height', h);
-  let paths = '<defs><marker id="pb-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--text-xs)"/></marker></defs>';
-  for (const conn of pb.connections) {
-    const fromPos = pbState.positions[conn.from];
-    const toPos   = pbState.positions[conn.to];
-    if (!fromPos || !toPos) continue;
-    const x1 = fromPos.x + 160; const y1 = fromPos.y + 36;
-    const x2 = toPos.x;         const y2 = toPos.y + 36;
-    const cx1 = x1 + 60; const cx2 = x2 - 60;
-    const label = conn.handle ? `<text x="${(x1+x2)/2}" y="${(y1+y2)/2 - 5}" font-size="9" fill="var(--text-xs)" text-anchor="middle">${esc(conn.handle)}</text>` : '';
-    paths += `<path d="M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}" stroke="var(--border)" stroke-width="2" fill="none" marker-end="url(#pb-arrow)"/>${label}`;
-  }
-  svg.innerHTML = paths;
-}
-
-function pbDragStart(nodeId, e) {
-  if (e.target.classList.contains('pb-node-del') || e.target.classList.contains('pb-node-conn-btn')) return;
-  e.preventDefault();
-  const pos = pbState.positions[nodeId] || { x: 0, y: 0 };
-  pbState._dragNode = nodeId;
-  pbState._dragOff = { x: e.clientX - pos.x, y: e.clientY - pos.y };
-  function onMove(ev) {
-    const wrap = document.getElementById('pb-canvas-wrap');
-    const rect = wrap ? wrap.getBoundingClientRect() : { left: 0, top: 0 };
-    pbState.positions[nodeId] = { x: Math.max(0, ev.clientX - pbState._dragOff.x), y: Math.max(0, ev.clientY - pbState._dragOff.y) };
-    const card = document.querySelector(`.pb-node-card[data-id="${nodeId}"]`);
-    if (card) { card.style.left = `${pbState.positions[nodeId].x}px`; card.style.top = `${pbState.positions[nodeId].y}px`; }
-    pbRenderSvg();
-  }
-  function onUp() {
-    pbState._dragNode = null;
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-  }
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-}
-
-function pbRenderSvg() {
-  const svg = document.getElementById('pb-svg');
-  const canvas = document.getElementById('pb-canvas');
-  if (!svg || !canvas) return;
-  const w = canvas.offsetWidth || 800;
-  const h = canvas.offsetHeight || 600;
-  svg.setAttribute('width', w);
-  svg.setAttribute('height', h);
-  let paths = '<defs><marker id="pb-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--text-xs)"/></marker></defs>';
-  for (const conn of pbState.playbook.connections) {
-    const fromPos = pbState.positions[conn.from];
-    const toPos   = pbState.positions[conn.to];
-    if (!fromPos || !toPos) continue;
-    const x1 = fromPos.x + 160; const y1 = fromPos.y + 36;
-    const x2 = toPos.x;         const y2 = toPos.y + 36;
-    const cx1 = x1 + 60; const cx2 = x2 - 60;
-    const label = conn.handle ? `<text x="${(x1+x2)/2}" y="${(y1+y2)/2 - 5}" font-size="9" fill="var(--text-xs)" text-anchor="middle">${esc(conn.handle)}</text>` : '';
-    paths += `<path d="M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}" stroke="var(--border)" stroke-width="2" fill="none" marker-end="url(#pb-arrow)"/>${label}`;
-  }
-  svg.innerHTML = paths;
-}
-
-function _pbStartConnect(fromId, e) {
-  e.stopPropagation();
-  e.preventDefault();
-  if (pbState.connecting) {
-    // Second click: connect from→to
-    const toId = pbState.connecting === fromId ? null : fromId;
-    if (toId) pbAddConnection(pbState._connectFrom, toId);
-    pbState.connecting = null;
-    pbState._connectFrom = null;
-    document.querySelectorAll('.pb-node-card').forEach(c => c.style.outline = '');
-  } else {
-    pbState.connecting = fromId;
-    pbState._connectFrom = fromId;
-    // Highlight the from node
-    const card = document.querySelector(`.pb-node-card[data-id="${fromId}"]`);
-    if (card) card.style.outline = '2px solid var(--accent)';
-    // Next click on any node's conn-btn will complete
-    showToast('Connect mode', 'Click → on target node to connect', 'info');
-  }
-}
-
-function pbAddConnection(fromId, toId) {
-  const handle = prompt('Handle (optional, e.g. true/false for if-node, or case value for switch):') || undefined;
-  pbState.playbook.connections.push({ from: fromId, to: toId, handle: handle || undefined });
-  pbRenderCanvas();
-}
-
-function pbSelectNode(nodeId) {
-  pbState.selectedId = nodeId;
-  document.querySelectorAll('.pb-node-card').forEach(c => c.classList.toggle('selected', c.dataset.id === nodeId));
-  pbShowConfig(nodeId);
-}
-
-function pbShowConfig(nodeId) {
-  const title = document.getElementById('pb-config-title');
-  const body  = document.getElementById('pb-config-body');
-  if (!nodeId) {
-    if (title) title.textContent = 'Select a node';
-    if (body)  body.innerHTML = '<div style="font-size:11px;color:var(--text-xs);margin-top:8px">Click a node on the canvas to configure it.</div>';
-    return;
-  }
-  const node = pbState.playbook.nodes.find(n => n.id === nodeId);
-  if (!node) return;
-  const fields = PB_NODE_FIELDS[node.type] || [];
-  if (title) title.textContent = node.name || node.type;
-  if (!body) return;
-  body.innerHTML = `
-    <div class="pb-cfg-row">
-      <div class="pb-cfg-lbl">Node Name</div>
-      <input class="pb-cfg-inp" type="text" value="${esc(node.name || '')}" oninput="pbUpdateNodeName('${nodeId}',this.value)">
-    </div>
-    ${fields.map(f => {
-      const val = node.config[f.key] !== undefined ? node.config[f.key] : '';
-      if (f.type === 'select') {
-        return `<div class="pb-cfg-row"><div class="pb-cfg-lbl">${esc(f.label)}</div>
-          <select class="pb-cfg-inp" onchange="pbUpdateConfig('${nodeId}','${f.key}',this.value)">
-            ${(f.options || []).map(o => `<option value="${esc(o)}" ${val === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
-          </select></div>`;
-      }
-      if (f.type === 'textarea') {
-        return `<div class="pb-cfg-row"><div class="pb-cfg-lbl">${esc(f.label)}</div>
-          <textarea class="pb-cfg-inp" rows="4" placeholder="${esc(f.placeholder||'')}" oninput="pbUpdateConfig('${nodeId}','${f.key}',this.value)">${esc(String(val))}</textarea>${f.help ? `<div style="font-size:10px;color:var(--text-xs);margin-top:2px">${esc(f.help)}</div>` : ''}</div>`;
-      }
-      if (f.type === 'password') {
-        return `<div class="pb-cfg-row"><div class="pb-cfg-lbl">${esc(f.label)}</div>
-          <input class="pb-cfg-inp" type="password" value="${esc(String(val))}" placeholder="${esc(f.placeholder||'')}" oninput="pbUpdateConfig('${nodeId}','${f.key}',this.value)">${f.help ? `<div style="font-size:10px;color:var(--text-xs);margin-top:2px">${esc(f.help)}</div>` : ''}</div>`;
-      }
-      return `<div class="pb-cfg-row"><div class="pb-cfg-lbl">${esc(f.label)}</div>
-        <input class="pb-cfg-inp" type="${f.type === 'number' ? 'number' : 'text'}" value="${esc(String(val))}" placeholder="${esc(f.placeholder||'')}" oninput="pbUpdateConfig('${nodeId}','${f.key}',this.value)">${f.help ? `<div style="font-size:10px;color:var(--text-xs);margin-top:2px">${esc(f.help)}</div>` : ''}</div>`;
-    }).join('')}
-    <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
-      <div class="pb-cfg-lbl">Connections from this node</div>
-      ${pbState.playbook.connections.filter(c=>c.from===nodeId).map((c,i) => `
-        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:var(--text-lo)">
-          <span>→ ${esc(c.to.slice(0,10))}…${c.handle ? ` <em>[${esc(c.handle)}]</em>` : ''}</span>
-          <button class="btn" style="font-size:10px;padding:1px 6px" onclick="pbRemoveConn(${i})">✕</button>
-        </div>`).join('') || '<div style="font-size:11px;color:var(--text-xs);margin-top:4px">None yet. Use → button on canvas.</div>'}
-    </div>
-  `;
-}
-
-function _pbUpdateNodeName(id, name) {
-  const node = pbState.playbook.nodes.find(n => n.id === id);
-  if (node) { node.name = name; pbRenderCanvas(); }
-}
-
-function _pbUpdateConfig(id, key, value) {
-  const node = pbState.playbook.nodes.find(n => n.id === id);
-  if (node) node.config[key] = value;
-}
-
-function _pbDeleteNode(id) {
-  pbState.playbook.nodes = pbState.playbook.nodes.filter(n => n.id !== id);
-  pbState.playbook.connections = pbState.playbook.connections.filter(c => c.from !== id && c.to !== id);
-  delete pbState.positions[id];
-  delete pbState.runStatus[id];
-  if (pbState.selectedId === id) { pbState.selectedId = null; pbShowConfig(null); }
-  pbRenderCanvas();
-}
-
-function _pbRemoveConn(idx) {
-  pbState.playbook.connections.splice(idx, 1);
-  pbShowConfig(pbState.selectedId);
-  pbRenderCanvas();
-}
-
-function pbUpdateNodeStatus(nodeId) {
-  const st = pbState.runStatus[nodeId] || '';
-  const card = document.querySelector(`.pb-node-card[data-id="${nodeId}"]`);
-  if (!card) return;
-  card.className = `pb-node-card${nodeId === pbState.selectedId ? ' selected' : ''}${st ? ` ns-${st}` : ''}`;
-  const body = card.querySelector('.pb-node-body');
-  if (body) body.innerHTML = `
-    ${st ? `<div class="pb-node-status"><div class="pb-ns-dot ${st}"></div><span style="color:${st==='running'?'var(--accent)':st==='completed'?'var(--green)':'var(--red)'}">${st}</span></div>` : ''}
-    <div style="font-size:10px;color:var(--text-xs)">${esc(pbState.playbook.nodes.find(n=>n.id===nodeId)?.type||'')}</div>
-  `;
-}
-
-async function pbSave() {
-  const pb = pbState.playbook;
-  if (!pb.name || pb.name === 'Untitled') {
-    pb.name = document.getElementById('pb-name-input').value || 'Untitled';
-  }
-  if (!pb.id) pb.id = `pb-${Date.now()}`;
-  // Save to .monomind/playbooks/<id>.json via API
-  try {
-    const resp = await fetch('/api/playbooks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(pb),
-    });
-    if (resp.ok) {
-      showToast('Saved', 'Playbook saved to .monomind/playbooks/', 'ok');
-      loadWorkflowDefs();
-    } else {
-      const txt = await resp.text();
-      showToast('Save failed', txt, 'err');
-    }
-  } catch (e) {
-    showToast('Save error', e.message, 'err');
-  }
-}
-
-async function _pbLoad() {
-  try {
-    _wfDefs = await apiFetch('/api/workflow-defs');
-  } catch { _wfDefs = []; }
-  if (!_wfDefs.length) { showToast('No playbooks', 'No saved playbooks found', 'warn'); return; }
-  const names = _wfDefs.map((d, i) => `${i}: ${d.name || d.id}`).join('\n');
-  const choice = prompt(`Select a playbook to load:\n${names}`);
-  const idx = parseInt(choice, 10);
-  if (Number.isNaN(idx) || !_wfDefs[idx]) return;
-  pbLoadDef(_wfDefs[idx].id);
-}
-
-async function pbLoadDef(playbookId) {
-  try {
-    // First try to read the saved JSON file directly via workflow-defs + file read
-    // Try monobrowse API for full definition (includes node config)
-    let pb = null;
-    try {
-      pb = await apiFetch(`${PB_BROWSE_HTTP}/api/playbooks/${encodeURIComponent(playbookId)}`);
-    } catch {
-      // Fall back: read the .json file via the defs list and reconstruct
-      const defs = await apiFetch('/api/workflow-defs').catch(() => []);
-      const def = defs.find(d => d.id === playbookId);
-      if (!def) { showToast('Not found', `Playbook not found: ${playbookId}`, 'err'); return; }
-      pb = { id: def.id, name: def.name, description: def.description || '', nodes: [], connections: [] };
-    }
-    pbState.playbook = pb;
-    pbState.positions = {};
-    pbState.runStatus = {};
-    pbState.selectedId = null;
-    pb.nodes.forEach((n, i) => {
-      pbState.positions[n.id] = { x: 60 + (i % 4) * 200, y: 60 + Math.floor(i / 4) * 120 };
-    });
-    document.getElementById('pb-name-input').value = pb.name || '';
-    document.getElementById('pb-run-status').textContent = '';
-    pbRenderCanvas();
-    pbShowConfig(null);
-    showToast('Loaded', pb.name || playbookId, 'ok');
-  } catch (e) {
-    showToast('Load error', e.message, 'err');
-  }
-}
-
-function _pbImportJSON() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.json';
-  input.onchange = () => {
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const pb = JSON.parse(ev.target.result);
-        if (!pb.id || !pb.nodes) { showToast('Invalid JSON', 'Missing id or nodes', 'err'); return; }
-        pbState.playbook = pb;
-        pbState.positions = {};
-        pbState.runStatus = {};
-        pbState.selectedId = null;
-        pb.nodes.forEach((n, i) => { pbState.positions[n.id] = { x: 60 + (i % 4) * 200, y: 60 + Math.floor(i / 4) * 120 }; });
-        document.getElementById('pb-name-input').value = pb.name || '';
-        pbRenderCanvas();
-        showToast('Imported', pb.name || pb.id, 'ok');
-      } catch { showToast('Parse error', 'Invalid JSON file', 'err'); }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-function _pbExportJSON() {
-  const pb = pbState.playbook;
-  if (!pb.nodes.length) { showToast('Nothing to export', 'Add nodes first', 'warn'); return; }
-  const json = JSON.stringify(pb, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${pb.id || 'playbook'}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function _pbRun() {
-  const pb = pbState.playbook;
-  if (!pb.nodes.length) { showToast('Empty playbook', 'Add nodes first', 'warn'); return; }
-  if (!pb.id) pb.id = `pb-${Date.now()}`;
-  await pbSave();
-  pbState.runStatus = {};
-  document.getElementById('pb-run-status').textContent = '● STARTING…';
-  try {
-    const resp = await fetch(`${PB_BROWSE_HTTP}/api/playbooks/${encodeURIComponent(pb.id)}/run`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
-    });
-    if (resp.ok) {
-      showToast('Running', pb.name || pb.id, 'ok');
-    } else {
-      const txt = await resp.text();
-      showToast('Run failed', txt, 'err');
-      document.getElementById('pb-run-status').textContent = '✗ FAILED';
-    }
-  } catch {
-    showToast('Offline', 'Start monobrowse: npx monomind browse dashboard', 'warn');
-    document.getElementById('pb-run-status').textContent = '✗ OFFLINE';
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════ */
-
 async function loadMonograph() {
   if (_mgLoaded) return;
   const loadDir = DIR; // snapshot DIR at call time
@@ -11673,6 +10650,7 @@ async function loadMonograph() {
     mgRenderAnalyzeButtons();
     mgRenderExport();
     mgInitGraph();
+    mgPollWatchStatus(); // the indicator otherwise reads IDLE until the button is toggled
     mgLoadReport();
     mgRenderWiki();
     // Show helpful empty-state if the graph loaded but has no nodes
@@ -11891,10 +10869,41 @@ function mgShortLabel(s) {
 }
 
 // ── GRAPH TAB ──────────────────────────────────────────────
-function mgInitGraph() {
-  const base = `/api/monograph-html?dir=${enc(DIR)}`;
-  document.getElementById('mg-iframe').src = base;
-  document.getElementById('mg-open-tab-link').href = base;
+// /api/monograph-html needs the token, which only the fetch() wrapper sends: an iframe src,
+// link or window.open would 401, and putting the token in a URL would leak it to history.
+// The graph is HTML generated from repo content, so it renders in a sandbox with an opaque
+// origin (no allow-same-origin): it cannot read the dashboard's token or call its API.
+async function mgGraphHtml() {
+  const r = await fetch(`/api/monograph-html?dir=${enc(DIR)}`);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.text();
+}
+
+function mgSandboxedPage(html) {
+  return '<!doctype html><meta charset="utf-8"><title>Monograph graph</title>' +
+    '<style>html,body,iframe{margin:0;width:100%;height:100%;border:0;display:block}</style>' +
+    `<iframe sandbox="allow-scripts" srcdoc="${esc(html)}"></iframe>`;
+}
+
+async function mgInitGraph() {
+  const frame = document.getElementById('mg-iframe');
+  const loadDir = DIR;
+  // A large graph takes seconds to generate.
+  frame.srcdoc = '<p style="font:12px monospace;color:#999;padding:12px">Loading graph…</p>';
+  try {
+    const html = await mgGraphHtml();
+    if (DIR === loadDir) frame.srcdoc = html;
+  } catch (e) {
+    frame.srcdoc = `<p style="font:12px monospace;color:#999;padding:12px">Graph unavailable (${esc(e.message)})</p>`;
+  }
+}
+
+async function _mgOpenGraphTab() {
+  try {
+    const url = URL.createObjectURL(new Blob([mgSandboxedPage(await mgGraphHtml())], { type: 'text/html' }));
+    window.open(url, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) { showToast('Graph unavailable', e.message, 'warn'); }
 }
 
 async function _mgToggleWatch() {
@@ -12482,181 +11491,6 @@ async function _mgRunServer(id) {
   mgClearActiveBtn(id);
 }
 
-// ── QUERY TAB ──────────────────────────────────────────────
-function _mgQuerySearch(q) {
-  const res = document.getElementById('mg-q-search-result');
-  if (!q.trim()) { res.style.display = 'none'; return; }
-  const lq = q.toLowerCase();
-  const nodes = (_mgGraph?.nodes) || [];
-  const degMap = mgBuildDegMap();
-  const matches = nodes.filter(n => (n.label || n.name || '').toLowerCase().includes(lq)).slice(0, 30);
-  if (!matches.length) { res.textContent = 'No matches'; res.style.display = 'block'; return; }
-  res.innerHTML = `<table class="mg-table"><thead><tr><th>Name</th><th>Type</th><th>Degree</th></tr></thead><tbody>` +
-    matches.map(n => {
-      const k = n.id || n.name || n.label || '';
-      return `<tr><td>${esc(n.label || n.name || k)}</td><td>${esc(n.type || n.kind || '')}</td><td>${degMap[k] || 0}</td></tr>`;
-    }).join('') + `</tbody></table>`;
-  res.style.display = 'block';
-}
-
-async function _mgQueryImpact() {
-  const node = document.getElementById('mg-q-impact-node').value.trim();
-  const direction = document.getElementById('mg-q-impact-dir').value;
-  const res = document.getElementById('mg-q-impact-result');
-  if (!node) return;
-  res.textContent = 'Loading…'; res.style.display = 'block';
-  try {
-    const data = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_impact', args:{ node, direction, dir:DIR } }) });
-    const json = data.ok ? await data.json() : { error: `HTTP ${data.status}` };
-    res.textContent = typeof json === 'string' ? json
-      : json.error ? json.error
-      : Array.isArray(json.content) ? json.content.map(c => c.text || '').join('\n')
-      : JSON.stringify(json, null, 2);
-  } catch (e) { res.textContent = `Error: ${String(e)}`; }
-}
-
-async function _mgQueryContext() {
-  const nodeId = document.getElementById('mg-q-ctx-node').value.trim();
-  const res = document.getElementById('mg-q-ctx-result');
-  if (!nodeId) return;
-  res.textContent = 'Loading…'; res.style.display = 'block';
-  try {
-    const data = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_context', args:{ file: nodeId, dir:DIR } }) });
-    const json = data.ok ? await data.json() : { error: `HTTP ${data.status}` };
-    res.textContent = typeof json === 'string' ? json
-      : json.error ? json.error
-      : Array.isArray(json.content) ? json.content.map(c => c.text || '').join('\n')
-      : JSON.stringify(json, null, 2);
-  } catch (e) { res.textContent = `Error: ${String(e)}`; }
-}
-
-async function _mgQueryPath() {
-  const from = document.getElementById('mg-q-path-from').value.trim();
-  const to = document.getElementById('mg-q-path-to').value.trim();
-  const res = document.getElementById('mg-q-path-result');
-  if (!from || !to) return;
-  res.textContent = 'Loading…'; res.style.display = 'block';
-  try {
-    const data = await apiFetch(`/api/monograph-path?from=${enc(from)}&to=${enc(to)}&dir=${enc(DIR)}`);
-    res.textContent = typeof data === 'string' ? data
-      : data.path || data.result || data.error || JSON.stringify(data, null, 2);
-  } catch (e) { res.textContent = `Error: ${String(e)}`; }
-}
-
-async function _mgQueryCypher() {
-  const query = document.getElementById('mg-q-cypher').value.trim();
-  const res = document.getElementById('mg-q-cypher-result');
-  if (!query) return;
-  res.textContent = 'Loading…'; res.style.display = 'block';
-  try {
-    const data = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_cypher', args:{ query, dir:DIR } }) });
-    const json = data.ok ? await data.json() : { error: `HTTP ${data.status}` };
-    res.textContent = typeof json === 'string' ? json
-      : json.error ? json.error
-      : Array.isArray(json.content) ? json.content.map(c => c.text || '').join('\n')
-      : JSON.stringify(json, null, 2);
-  } catch (e) { res.textContent = `Error: ${String(e)}`; }
-}
-
-async function _mgQueryRipple() {
-  const node = document.getElementById('mg-q-ripple-node').value.trim();
-  const hops = parseInt(document.getElementById('mg-q-ripple-hops').value, 10) || 3;
-  const res = document.getElementById('mg-q-ripple-result');
-  if (!node) return;
-  res.textContent = 'Computing…'; res.style.display = 'block';
-  const g = _mgGraph || { nodes: [], edges: [] };
-  // Build outbound adj for BFS
-  const adj = {};
-  g.nodes.forEach(n => { adj[n.id||n.name||n.label] = []; });
-  g.edges.forEach(e => { const s = e.source||e.from, t = e.target||e.to; if (s in adj) adj[s].push(t); });
-  // Find start node (fuzzy match)
-  const lq = node.toLowerCase();
-  const start = g.nodes.find(n => (n.id||n.name||n.label||'').toLowerCase().includes(lq));
-  if (!start) { res.textContent = `No node matching "${node}"`; return; }
-  const startKey = start.id||start.name||start.label;
-  // BFS by hop
-  const visited = new Map([[startKey, 0]]);
-  let frontier = [startKey];
-  const layers = [];
-  for (let h = 1; h <= hops; h++) {
-    const next = [];
-    frontier.forEach(src => {
-      (adj[src]||[]).forEach(tgt => {
-        if (!visited.has(tgt)) { visited.set(tgt, h); next.push(tgt); }
-      });
-    });
-    if (!next.length) break;
-    layers.push({ hop: h, nodes: next });
-    frontier = next;
-  }
-  if (!layers.length) { res.textContent = 'No downstream dependents found.'; return; }
-  const total = layers.reduce((s, l) => s + l.nodes.length, 0);
-  res.innerHTML = `<div style="margin-bottom:8px;font-size:12px;color:var(--text-mid)">Starting from <strong>${esc(mgShortLabel(startKey))}</strong> — <strong>${total}</strong> nodes affected across ${layers.length} hop(s)</div>` +
-    layers.map(l => `
-      <div style="margin-bottom:6px">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-xs);margin-bottom:3px">Hop ${l.hop} — ${l.nodes.length} node(s)</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px">
-          ${l.nodes.slice(0,20).map(id => `<span style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-family:var(--mono);font-size:11px">${esc(mgShortLabel(id))}</span>`).join('')}
-          ${l.nodes.length > 20 ? `<span style="font-size:11px;color:var(--text-xs)">+${l.nodes.length-20} more</span>` : ''}
-        </div>
-      </div>`).join('');
-}
-
-async function _mgQueryImportChain() {
-  const from = document.getElementById('mg-q-chain-from').value.trim();
-  const to = document.getElementById('mg-q-chain-to').value.trim();
-  const res = document.getElementById('mg-q-chain-result');
-  if (!from || !to) return;
-  res.textContent = 'Computing…'; res.style.display = 'block';
-  const g = _mgGraph || { nodes: [], edges: [] };
-  // Build outbound adj
-  const adj = {};
-  g.nodes.forEach(n => { adj[n.id||n.name||n.label] = []; });
-  g.edges.forEach(e => { const s = e.source||e.from, t = e.target||e.to; if (s in adj) adj[s].push(t); });
-  // Fuzzy-match start/end nodes
-  const lf = from.toLowerCase(), lt = to.toLowerCase();
-  const startN = g.nodes.find(n => (n.id||n.name||n.label||'').toLowerCase().includes(lf));
-  const endN = g.nodes.find(n => (n.id||n.name||n.label||'').toLowerCase().includes(lt));
-  if (!startN) { res.textContent = `No node matching "${from}"`; return; }
-  if (!endN) { res.textContent = `No node matching "${to}"`; return; }
-  const src = startN.id||startN.name||startN.label;
-  const dst = endN.id||endN.name||endN.label;
-  if (src === dst) { res.textContent = 'Source and target are the same node.'; return; }
-  // DFS to find all simple paths (cap at 200 paths or depth 8)
-  const paths = [];
-  const stack = [[src]];
-  while (stack.length && paths.length < 200) {
-    const path = stack.pop();
-    const cur = path[path.length - 1];
-    if (cur === dst) { paths.push([...path]); continue; }
-    if (path.length >= 9) continue;
-    (adj[cur]||[]).forEach(nxt => {
-      if (!path.includes(nxt)) stack.push([...path, nxt]);
-    });
-  }
-  if (!paths.length) { res.textContent = `No path found from "${mgShortLabel(src)}" to "${mgShortLabel(dst)}".`; return; }
-  res.innerHTML = `<div style="margin-bottom:8px;font-size:12px;color:var(--text-mid)"><strong>${paths.length}</strong> path(s) from <strong>${esc(mgShortLabel(src))}</strong> → <strong>${esc(mgShortLabel(dst))}</strong></div>` +
-    paths.slice(0,15).map((p, i) => `
-      <div style="margin-bottom:4px;font-size:11px;font-family:var(--mono);color:var(--text-mid)">
-        <span style="color:var(--text-xs)">${i+1}.</span> ${p.map(id => esc(mgShortLabel(id))).join(' <span style="color:var(--accent)">→</span> ')}
-      </div>`).join('') +
-    (paths.length > 15 ? `<div style="font-size:11px;color:var(--text-xs);margin-top:4px">…and ${paths.length-15} more paths</div>` : '');
-}
-
-async function _mgQueryAsk() {
-  const q = document.getElementById('mg-q-ask').value.trim();
-  const mode = document.getElementById('mg-q-ask-mode').value;
-  const budget = document.getElementById('mg-q-ask-budget').value;
-  const res = document.getElementById('mg-q-ask-result');
-  if (!q) return;
-  res.textContent = 'Loading…'; res.style.display = 'block';
-  try {
-    const data = await apiFetch(`/api/monograph-query?q=${enc(q)}&mode=${enc(mode)}&budget=${enc(budget)}&dir=${enc(DIR)}`);
-    res.textContent = typeof data === 'string' ? data
-      : data.result || data.answer || data.text || data.error || JSON.stringify(data, null, 2);
-  } catch (e) { res.textContent = `Error: ${String(e)}`; }
-}
-
 // ── EXPORT TAB ─────────────────────────────────────────────
 const MG_EXPORTS = [
   { id:'json',       name:'JSON',            desc:'All nodes + edges as JSON array' },
@@ -12683,7 +11517,16 @@ function mgRenderExport() {
 
 function _mgExport(format) {
   const g = _mgGraph || { nodes: [], edges: [] };
-  if (format === 'html') { window.open(`/api/monograph-html?dir=${enc(DIR)}`, '_blank'); return; }
+  if (format === 'html') {
+    mgGraphHtml().then((html) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+      a.download = 'monograph.html';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }).catch((e) => showToast('Export failed', e.message, 'warn'));
+    return;
+  }
   let content = '', mime = 'text/plain', filename = `monograph.${format}`;
   const nodes = g.nodes || []; const edges = g.edges || [];
 
@@ -13205,11 +12048,12 @@ function _selectMem(filename) {
   const rawBody = f.body || f.content || '';
   const bodyHtml = rawBody
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\*\*(.+?)\*\*/g, (_, g) => `<strong>${esc(g)}</strong>`)
-    .replace(/^#{1,3} (.+)/gm, (_, g) => `<div style="font-weight:600;color:var(--text-hi);margin:6px 0 2px">${esc(g)}</div>`)
-    .replace(/^- (.+)/gm, (_, g) => `<div style="padding-left:12px">• ${esc(g)}</div>`);
+    // The text is HTML-escaped above, so the groups are already safe to insert as-is.
+    .replace(/\*\*(.+?)\*\*/g, (_, g) => `<strong>${g}</strong>`)
+    .replace(/^#{1,3} (.+)/gm, (_, g) => `<div style="font-weight:600;color:var(--text-hi);margin:6px 0 2px">${g}</div>`)
+    .replace(/^- (.+)/gm, (_, g) => `<div style="padding-left:12px">• ${g}</div>`);
   const srcBadge = f.source === 'backend'
-    ? '<span class="mem-badge" style="background:var(--text-lo)22;color:var(--text-lo);margin-left:6px" title="Stored in the AgentDB backend store, not as a file">backend</span>'
+    ? '<span class="mem-badge" style="background:var(--text-lo)22;color:var(--text-lo);margin-left:6px" title="Stored in .monomind/data/auto-memory-store.json, not as a memory file">backend</span>'
     : '';
   const actions = (f.readonly || f.source === 'backend')
     ? '<div class="mem-actions"><span style="font-size:11px;color:var(--text-lo)">Read-only — stored in the backend memory store (not a file)</span></div>'
@@ -13308,6 +12152,7 @@ async function loadStoreEntries() {
     if (ns) url += `&namespace=${encodeURIComponent(ns)}`;
     const data = await apiFetch(url);
     const entries = data.entries || [];
+    _storeEntries = entries;
     if (!entries.length) { grid.innerHTML = `<div class="empty">No entries${ns ? ` in namespace "${esc(ns)}"` : ''}</div>`; return; }
     let html = '<table class="tbl" style="width:100%;font-size:12px"><thead><tr><th>Key</th><th>Namespace</th><th>Content</th><th>Tags</th><th>Updated</th><th></th></tr></thead><tbody>';
     for (const e of entries) {
@@ -13364,9 +12209,14 @@ async function _storeSearch() {
   return true;
 }
 
+// The rows last listed by loadStoreEntries(), so View can prefill the current content: an empty
+// prompt saved blank content over the entry when OK was pressed.
+let _storeEntries = [];
+
 function _viewStoreEntry(key, ns) {
-  const content = prompt(`View/edit content for "${key}" (namespace: ${ns}).\nEdit below and press OK to save, or Cancel to dismiss.`);
-  if (content === null) return;
+  const current = _storeEntries.find((e) => e.key === key && e.namespace === ns)?.content ?? '';
+  const content = prompt(`View/edit content for "${key}" (namespace: ${ns}).\nEdit below and press OK to save, or Cancel to dismiss.`, current);
+  if (content === null || content === current) return;
   fetch('/api/memory/entry', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -13476,7 +12326,7 @@ async function loadChunksTab() {
     _renderChunkStats(_chunks);
     _renderChunks(_chunks);
   } catch (e) {
-    grid.innerHTML = `<div class="empty">Failed: ${esc(e.message)}<br><span style="font-size:11px;color:var(--text-xs)">Run /monomind:understand to build the index.</span></div>`;
+    grid.innerHTML = `<div class="empty">Failed: ${esc(e.message)}<br><span style="font-size:11px;color:var(--text-xs)">Chunks are written at session start from CLAUDE.md, README.md and the doc/ and docs/ folders, plus the graph’s key nodes once Monograph is built. Start a new Claude Code session in this project to index them.</span></div>`;
   }
 }
 
@@ -13499,7 +12349,7 @@ function _renderChunks(list) {
   const grid = document.getElementById('chunks-grid');
   if (!grid) return;
   if (!list.length) {
-    grid.innerHTML = '<div class="empty">No chunks indexed.<br><span style="font-size:11px;color:var(--text-xs)">Run /monomind:understand to build the index.</span></div>';
+    grid.innerHTML = '<div class="empty">No chunks indexed.<br><span style="font-size:11px;color:var(--text-xs)">Chunks are written at session start from CLAUDE.md, README.md and the doc/ and docs/ folders, plus the graph’s key nodes once Monograph is built. Start a new Claude Code session in this project to index them.</span></div>';
     return;
   }
   // Keep the rendered slice around so button handlers can look chunks up by
@@ -13727,7 +12577,7 @@ const _MM_SKILLS_CATALOG = [
   { name: '/mastermind:improve', desc: 'Deep component improvement pipeline' },
   { name: '/mastermind:review', desc: 'Multi-agent iterative review with auto-fix' },
   { name: '/mastermind:understand', desc: 'Semantic enrichment for Monograph knowledge graph' },
-  { name: '/mastermind', desc: 'Topology picker — recommends best swarm for your task' },
+  { name: '/mastermind', desc: 'Intent router — picks the right command, skill or org for a request' },
 ];
 
 function openMastermind() {
@@ -13748,9 +12598,13 @@ function mmSwitchTab(tab) {
   if (!body) return;
   if (tab === 'orgs')           mmRenderOrgs(body);
   else if (tab === 'skills')    mmRenderSkills(body);
-  else if (tab === 'loops')     { mmRenderLoops(body); body.insertAdjacentHTML('afterbegin', '<button class="btn" onclick="mmSwitchTab(\'loops\')" style="margin-bottom:10px;font-size:11px">↺ Refresh</button>'); }
+  else if (tab === 'loops' || tab === 'metrics') {
+    // The async renderers replace their container's contents once loaded, so the
+    // Refresh button sits outside it (it used to vanish when loading finished).
+    body.innerHTML = `<button class="btn" onclick="mmSwitchTab('${tab}')" style="margin-bottom:10px;font-size:11px">↺ Refresh</button><div></div>`;
+    (tab === 'loops' ? mmRenderLoops : mmRenderMetrics)(body.lastElementChild);
+  }
   else if (tab === 'createorg') mmRenderCreateOrg(body);
-  else if (tab === 'metrics')   { mmRenderMetrics(body); body.insertAdjacentHTML('afterbegin', '<button class="btn" onclick="mmSwitchTab(\'metrics\')" style="margin-bottom:10px;font-size:11px">↺ Refresh</button>'); }
   else if (tab === 'graph')     mmRenderGraph(body);
 }
 
@@ -13767,12 +12621,20 @@ function mmRenderOrgs(body) {
   }).join('');
 }
 
-const _mmSkillFilter = '';
+// biome-ignore lint/style/useConst: reassigned by the search input's inline oninput handler
+let _mmSkillFilter = '';
 function mmRenderSkills(body) {
+  body.innerHTML = `<div class="filter-bar" style="margin-bottom:12px"><input class="filter-input" type="text" placeholder="Search skills…" aria-label="Search skills" value="${esc(_mmSkillFilter)}" oninput="_mmSkillFilter=this.value;mmRenderSkillList()"></div><div id="mm-skill-list"></div>`;
+  mmRenderSkillList();
+}
+
+// Only the list re-renders while typing: replacing the input would drop its focus after each key.
+function mmRenderSkillList() {
+  const list = document.getElementById('mm-skill-list');
+  if (!list) return;
   const q = _mmSkillFilter.toLowerCase();
   const filtered = q ? _MM_SKILLS_CATALOG.filter(s => s.name.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q)) : _MM_SKILLS_CATALOG;
-  body.innerHTML = `<div class="filter-bar" style="margin-bottom:12px"><input class="filter-input" type="text" placeholder="Search skills…" value="${esc(_mmSkillFilter)}" oninput="_mmSkillFilter=this.value;mmRenderSkills(document.getElementById('mm-body'))"></div>` +
-    filtered.map(s => `<div class="mm-skill-item" data-sn="${esc(s.name)}" onclick="navigator.clipboard.writeText(this.dataset.sn).then(()=>showToast('Copied',this.dataset.sn,'ok'))">
+  list.innerHTML = filtered.map(s => `<div class="mm-skill-item" data-sn="${esc(s.name)}" onclick="navigator.clipboard.writeText(this.dataset.sn).then(()=>showToast('Copied',this.dataset.sn,'ok'))">
       <span class="mm-skill-name">${esc(s.name)}</span>
       <span class="mm-skill-desc">${esc(s.desc)}</span>
     </div>`).join('');
@@ -13783,7 +12645,7 @@ async function mmRenderLoops(body) {
   try {
     const data = await apiFetch(`/api/loops?dir=${enc(DIR)}`);
     const loops = Array.isArray(data) ? data : (data.loops || []);
-    if (!loops.length) { body.innerHTML = '<div class="empty">No active loops. Use /mastermind:autodev --tillend to start one.</div>'; return; }
+    if (!loops.length) { body.innerHTML = '<div class="empty">No active loops. Run a /mastermind: command with --repeat N or --tillend to start one.</div>'; return; }
     body.innerHTML = loops.map(l => {
       const maxReps = l.maxReps || 0;
       const curRep = l.currentRep || 0;
@@ -13814,40 +12676,39 @@ async function mmRenderLoops(body) {
 }
 
 function mmRenderCreateOrg(body) {
-  const topos = ['hierarchical','mesh','hierarchical-mesh','adaptive','centralized','hybrid'];
-  const adapters = ['claude-code','claude-api','openai','gemini','local'];
   body.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:12px;max-width:480px">
-      <div><div class="le-lbl">Org Name</div><input id="mco-name" class="filter-input" placeholder="my-team"></div>
-      <div><div class="le-lbl">Goal</div><input id="mco-goal" class="filter-input" placeholder="Build and ship features autonomously"></div>
-      <div><div class="le-lbl">Topology</div>
-        <select id="mco-topo" class="filter-input" style="cursor:pointer">
-          ${topos.map(t => `<option>${t}</option>`).join('')}
-        </select>
-      </div>
-      <div><div class="le-lbl">Adapter</div>
-        <select id="mco-adapter" class="filter-input" style="cursor:pointer">
-          ${adapters.map(a => `<option>${a}</option>`).join('')}
-        </select>
-      </div>
-      <div><div class="le-lbl">Max Agents</div><input id="mco-agents" class="filter-input" type="number" value="8" min="1" max="50"></div>
-      <button class="btn" style="width:fit-content;color:oklch(65% 0.16 295);border-color:oklch(65% 0.16 295)" onclick="mmGenerateOrgCmd()">Generate CLI Command</button>
+      <div><div class="le-lbl">Goal</div><input id="mco-goal" class="filter-input" placeholder="Weekly competitor intelligence report"></div>
+      <div><div class="le-lbl">Org Name (optional)</div><input id="mco-name" class="filter-input" placeholder="research-pod"></div>
+      <div><div class="le-lbl">Roles (optional)</div><input id="mco-roles" class="filter-input" placeholder="boss, researcher, analyst"></div>
+      <div><div class="le-lbl">Schedule (optional)</div><input id="mco-schedule" class="filter-input" placeholder="30m, 2h — empty for a one-shot org"></div>
+      <button class="btn" style="width:fit-content;color:oklch(65% 0.16 295);border-color:oklch(65% 0.16 295)" onclick="mmGenerateOrgCmd()">Generate Command</button>
       <div id="mco-cmd-out" style="display:none;font-family:var(--mono);font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;word-break:break-all;cursor:pointer;color:var(--text-hi)" title="Click to copy" onclick="navigator.clipboard.writeText(this.textContent).then(()=>showToast('Copied','','ok'))"></div>
     </div>`;
 }
 
+// Builds a /mastermind:createorg line from the options that command accepts
+// (.claude/commands/mastermind/createorg.md): a goal, --name, --roles, --schedule.
 function _mmGenerateOrgCmd() {
-  const name = document.getElementById('mco-name')?.value.trim() || '';
-  const goal = document.getElementById('mco-goal')?.value.trim() || '';
-  const topo = document.getElementById('mco-topo')?.value || 'hierarchical';
-  const adapter = document.getElementById('mco-adapter')?.value || 'claude-code';
-  const agents = document.getElementById('mco-agents')?.value || '8';
-  const parts = ['/mastermind:createorg'];
-  if (name) parts.push(`--name "${name.replace(/"/g,'\\"')}"`);
-  if (goal) parts.push(`--goal "${goal.replace(/"/g,'\\"')}"`);
-  parts.push(`--topology ${topo}`, `--adapter ${adapter}`, `--max-agents ${agents}`);
+  const val = id => (document.getElementById(id)?.value || '').trim();
+  const goal = val('mco-goal');
+  const name = val('mco-name');
+  const roles = val('mco-roles');
+  const schedule = val('mco-schedule').replace(/\s+/g, '');
   const out = document.getElementById('mco-cmd-out');
-  if (out) { out.textContent = parts.join(' '); out.style.display = 'block'; }
+  if (!out) return;
+  let problem = '';
+  if (!goal) problem = 'Enter a goal for the org.';
+  else if (name && !/^[a-z0-9][a-z0-9-]{0,63}$/.test(name)) problem = 'Org name: lowercase letters, digits and dashes, starting with a letter or digit.';
+  else if (schedule && !/^\d+(s|m|h)$/.test(schedule)) problem = 'Schedule: a number followed by s, m or h, for example 30m.';
+  out.style.display = 'block';
+  if (problem) { out.textContent = problem; return; }
+  const parts = ['/mastermind:createorg'];
+  if (name) parts.push(`--name ${name}`);
+  if (roles) parts.push(`--roles "${roles.replace(/["\\]/g, '\\$&')}"`);
+  if (schedule) parts.push(`--schedule ${schedule}`);
+  parts.push(goal);
+  out.textContent = parts.join(' ');
 }
 
 async function mmRenderMetrics(body) {
@@ -13868,9 +12729,9 @@ async function mmRenderMetrics(body) {
         <div class="chunk-stat"><div class="chunk-stat-val">${tok.todayCalls??'—'}</div><div class="chunk-stat-lbl">API Calls</div></div>
         <div class="chunk-stat"><div class="chunk-stat-val">${typeof tok.monthCost==='number' ? fmtCost(tok.monthCost, tok.monthCostIncomplete) : '—'}</div><div class="chunk-stat-lbl">Month</div></div>
       </div>
-      <div class="m-group-title" style="margin-bottom:8px">Routing Intelligence</div>
+      <div class="m-group-title" style="margin-bottom:8px">Agent Routing</div>
       <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--text-hi)">Last Route</span><span style="color:var(--accent);font-family:var(--mono)">${esc(lastRoute)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--text-hi)">Last routed agent</span><span style="color:var(--accent);font-family:var(--mono)">${esc(lastRoute)}</span></div>
       </div>
     `;
   } catch (e) { body.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
@@ -13966,6 +12827,7 @@ Object.assign(window, {
   filterOrgList: _filterOrgList,
   mgSwitchTab: _mgSwitchTab,
   mgToggleWatch: _mgToggleWatch,
+  mgOpenGraphTab: _mgOpenGraphTab,
   mgRebuild: _mgRebuild,
   mgWikiSearchDebounced: _mgWikiSearchDebounced,
   mgRebuildDocs: _mgRebuildDocs,
@@ -14010,14 +12872,6 @@ Object.assign(window, {
   removeCustomTag: _removeCustomTag,
   showCustomTagInput: _showCustomTagInput,
   closeErrDrawer: _closeErrDrawer,
-  wfSwitchTab: _wfSwitchTab,
-  pbToggleCat: _pbToggleCat,
-  pbAddNode: _pbAddNode,
-  pbDeleteNode: _pbDeleteNode,
-  pbStartConnect: _pbStartConnect,
-  pbUpdateNodeName: _pbUpdateNodeName,
-  pbUpdateConfig: _pbUpdateConfig,
-  pbRemoveConn: _pbRemoveConn,
   mgRunClient: _mgRunClient,
   mgRunServer: _mgRunServer,
   mgExport: _mgExport,

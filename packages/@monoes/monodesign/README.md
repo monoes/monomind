@@ -11,7 +11,9 @@
 **Frontend design intelligence for AI agents** — OKLCH design tokens, a 51-rule AI-slop
 antipattern detector, and the `/monodesign` agent skill for Claude Code and Gemini agy.
 
-> Part of the [Monomind](https://github.com/monoes/monomind) ecosystem. v2.24.0 · Apache-2.0
+> Part of the [Monomind](https://github.com/monoes/monomind) ecosystem. v2.24.2 · Apache-2.0
+>
+> Portions incorporate code from [Impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0) by Paul Bakaus and guidance from ehmo/platform-design-skills (MIT); see [NOTICE.md](NOTICE.md).
 
 ---
 
@@ -85,15 +87,15 @@ Source: [`cli/engine/registry/antipatterns.mjs`](cli/engine/registry/antipattern
 
 ### Rule Categories
 
-**`slop`** (23 rules) — AI-generation tells that make UIs feel generic:
+**`slop`** (22 rules) — AI-generation tells that make UIs feel generic:
 
-`side-tab`, `border-accent-on-rounded`, `overused-font`, `single-font`, `flat-type-hierarchy`, `gradient-text`, `ai-color-palette`, `cream-palette`, `nested-cards`, `monotonous-spacing`, `bounce-easing`, `dark-glow`, `icon-tile-stack`, `italic-serif-display`, `hero-eyebrow-chip`, `repeated-section-kickers`, `numbered-section-markers`, `em-dash-overuse`, `marketing-buzzword`, `aphoristic-cadence`, `oversized-h1`, `extreme-negative-tracking`, `broken-image`
+`side-tab`, `border-accent-on-rounded`, `overused-font`, `single-font`, `flat-type-hierarchy`, `gradient-text`, `ai-color-palette`, `cream-palette`, `nested-cards`, `monotonous-spacing`, `bounce-easing`, `dark-glow`, `icon-tile-stack`, `italic-serif-display`, `hero-eyebrow-chip`, `repeated-section-kickers`, `numbered-section-markers`, `em-dash-overuse`, `marketing-buzzword`, `aphoristic-cadence`, `oversized-h1`, `extreme-negative-tracking`
 
-**`quality`** (23 rules) — Accessibility and design principle violations:
+**`quality`** (24 rules) — Accessibility and design principle violations:
 
-`gray-on-color`, `low-contrast`, `layout-transition`, `line-length`, `cramped-padding`, `body-text-viewport-edge`, `tight-leading`, `skipped-heading`, `justified-text`, `tiny-text`, `all-caps-body`, `wide-tracking`, `text-overflow`, `clipped-overflow-container`, `design-system-font`, `design-system-color`, `design-system-radius`, `design-system-font-size`, `missing-focus-visible`, `small-touch-target`, `hover-only-affordance`, `image-missing-dimensions`, `dark-scheme-contrast-blindspot`
+`broken-image`, `gray-on-color`, `low-contrast`, `layout-transition`, `line-length`, `cramped-padding`, `body-text-viewport-edge`, `tight-leading`, `skipped-heading`, `justified-text`, `tiny-text`, `all-caps-body`, `wide-tracking`, `text-overflow`, `clipped-overflow-container`, `design-system-font`, `design-system-color`, `design-system-radius`, `design-system-font-size`, `missing-focus-visible`, `small-touch-target`, `hover-only-affordance`, `image-missing-dimensions`, `dark-scheme-contrast-blindspot`
 
-**Provider-gated** (5 advisory rules, opt-in via `--gpt`/`--gemini`): `gpt-thin-border-wide-shadow`, `repeating-stripes-gradient`, `codex-grid-background`, `theater-slop-phrase`, `image-hover-transform`
+**Provider-gated** (5 advisory `slop` rules, opt-in via `--gpt`/`--gemini`): `gpt-thin-border-wide-shadow`, `repeating-stripes-gradient`, `codex-grid-background`, `theater-slop-phrase`, `image-hover-transform`
 
 ### Detection Engines
 

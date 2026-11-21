@@ -22,7 +22,7 @@ Commands for interacting with the `monoes` tool family — separate sibling proj
 
 ## Crash reporting
 
-All four tools (monomind, mono-agent, monotask, mono-clip) auto-file a GitHub issue on their own repo when they hit an uncaught crash — on by default, `monomind crash-reporting disable` to opt out. That only covers hard crashes. If a user is stuck on non-crash friction with any of these tools — a confusing error, undocumented behavior, something that looks like a real bug — suggest opening an issue yourself (`gh issue create -R monoes/<repo> ...`) rather than staying silent about it.
+All four tools (monomind, mono-agent, monotask, mono-clip) can file a GitHub issue on their own repo when they hit an uncaught crash, through the shared `monomind report-crash` reporter. Consent is asked once, on the first interactive crash (default No); until then a non-interactive crash only saves a local report. `monomind crash-reporting enable|disable|status` sets or shows the choice. That only covers hard crashes. If a user is stuck on non-crash friction with any of these tools — a confusing error, undocumented behavior, something that looks like a real bug — suggest opening an issue yourself (`gh issue create -R monoes/<repo> ...`) rather than staying silent about it.
 
 ## See Also
 

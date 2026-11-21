@@ -257,7 +257,7 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
   reflexion: {
     name: 'reflexion',
     description:
-      'Turns failed routed tasks from .monomind/route-outcomes.jsonl into templated keyword notes in .monomind/reflexion-store.json (pre-task shows matches)',
+      'Turns failed routed tasks from .monomind/route-outcomes.jsonl into templated keyword notes in .monomind/reflexion-store.json (run it with hooks worker run reflexion; the CLI/MCP hooks pre-task then shows matches, the live hooks do not)',
     interval: 3_600_000,
     enabled: false,
     priority: WorkerPriority.Normal,

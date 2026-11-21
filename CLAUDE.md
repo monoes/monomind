@@ -65,10 +65,12 @@
 
 ### Project Config
 
+Topology and max agents are recorded in the config and printed by `monomind start`; no code changes its behavior based on them.
+
 - **Topology**: hierarchical-mesh
 - **Max Agents**: 15
 - **Memory**: hybrid
-- **Neural**: Disabled (keyword routing only)
+- **Neural**: Disabled. Routing is the keyword picker (`monomind pick`, `[PICK]`), plus the Jev decision model when one is configured; no model is trained
 
 ## Build & Test
 
@@ -98,7 +100,7 @@ pnpm run lint
 - NEVER commit .env files or any file containing secrets
 - Always validate user input at system boundaries
 - Always sanitize file paths to prevent directory traversal
-- Run `npx monomind security scan` after security-related changes
+- Run `pnpm audit` (dependencies) and `npx monomind security scan` (secrets and code patterns) after security-related changes
 
 ## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
 
@@ -129,7 +131,7 @@ pnpm run lint
 | `memory` | 12 | SQLite memory with ANN search |
 | `task` | 5 | Task creation and lifecycle |
 | `session` | 6 | Session state management |
-| `hooks` | 28 | Edit/outcome logging, agent routing + 9 background workers |
+| `hooks` | 28 | Edit/outcome logging, agent routing, 9 on-demand workers |
 
 > Note: there is no `neural` CLI command. Its pattern commands live under
 > `hooks intelligence` — a local pattern store (SQLite `patterns.db`, JSON fallback); no model is trained.
@@ -181,13 +183,13 @@ If the `documents` capability is active (check `.monomind/capabilities.json`), t
 - Cite the source document name when referencing specific information
 - Add with `mcp__monomind__knowledge_ingest`; retract a wrong or stale document with `mcp__monomind__knowledge_remove` (hides it from search immediately, reversible by re-ingesting)
 
-**Global brain:** the user has a personal cross-project knowledge store at `~/.monomind/global-brain`. All searches (knowledge_search, doc search, per-prompt injection) automatically merge it with project knowledge — project results win ties, global hits are labeled `[global]`. Cite the label so the user knows which brain answered.
+**Global brain:** the user has a personal cross-project knowledge store at `~/.monomind/global-brain`. `knowledge_search` and `doc search` merge it with project knowledge — project results win ties, global hits are labeled `[global]`. Per-prompt injection searches the document store and global brain only while the dashboard server (`localhost:4242`) is running; otherwise it keyword-matches project instruction files (CLAUDE.md, CLAUDE.local.md, docs/todo.md) and the banner says so. Cite the label so the user knows which brain answered.
 
 **Re-indexing** happens automatically on session start (unchanged files are skipped via content hash).
 
 ## Knowledge Graph — Monograph (Use Before Codebase Exploration)
 
-Built into monomind — no separate install. Pure TypeScript, parses TS/JS/Python/Go/Rust/C/C++/Java/Ruby/Swift into a SQLite graph with BM25 full-text search.
+Built into monomind — no separate install. Pure TypeScript: parses 14 languages with tree-sitter (TS/JS, Python, Go, Rust, Java, C, C++, C#, Ruby, Swift, PHP, Kotlin, Dart, Vue) and 5 more by regex (Scala, Lua, Zig, PowerShell, Elixir) into a SQLite graph. Search is BM25 full-text; the MCP query tools fuse it with local embeddings when the embedding model is installed. Language details: `packages/@monomind/monograph/README.md`.
 
 ### MANDATORY: Graph-First, Grep-Last
 
@@ -210,7 +212,7 @@ Single-file edits, doc/config changes, quick fixes where you already know the ex
 ## Quick Setup
 
 ```bash
-# Add MCP server — includes monograph, memory, hooks and more
+# Add MCP server — code graph (monograph), pick, knowledge base and memory tools
 claude mcp add monomind -- npx -y monomind@latest mcp start
 
 # Verify everything works

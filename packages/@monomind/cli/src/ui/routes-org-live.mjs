@@ -10,35 +10,9 @@ import { companionEvents, translate } from '../orgrt/forwarder.js';
 import { _readTailLines } from './server-fileutils.mjs';
 import { getMmClientCount } from './sse-manager.mjs';
 
-// Org dashboard routes: loops, status, current run, history and memory.
+// Org dashboard routes: status, current run, history and memory.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
 export async function handleOrgLiveRoutes(req, res, url, corsOrigin, ctx) {
-  // GET /api/mastermind/loops — list all active loop state files
-  if (req.method === 'GET' && url === '/api/mastermind/loops') {
-    try {
-      const loopsDir = path.join(ctx.projectDir || process.cwd(), '.monomind', 'loops');
-      const loops = [];
-      if (fs.existsSync(loopsDir)) {
-        const files = fs
-          .readdirSync(loopsDir)
-          .filter((f) => f.endsWith('.json') && !f.includes('-hil'));
-        for (const f of files) {
-          try {
-            const d = JSON.parse(fs.readFileSync(path.join(loopsDir, f), 'utf8'));
-            loops.push(d);
-          } catch (_) {}
-        }
-      }
-      loops.sort((a, b) => (b.lastRunAt || 0) - (a.lastRunAt || 0));
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ loops }));
-    } catch (_) {
-      res.writeHead(500);
-      res.end('{"loops":[]}');
-    }
-    return true;
-  }
-
   // GET /api/status — live system snapshot for dashboard polling
   if (req.method === 'GET' && url === '/api/status') {
     try {

@@ -47,7 +47,7 @@ async function routeOutcomeCheck(): Promise<HealthCheck | null> {
   return {
     name,
     status: 'pass',
-    message: `routing accuracy ${fmtPct(acc.accuracy)} (n=${n}) [native ${fmtPct(acc.byMode.native)} / js ${fmtPct(acc.byMode.js)}]${trend}; ${follow}`,
+    message: `routed-task success rate ${fmtPct(acc.accuracy)} (n=${n}) [native ${fmtPct(acc.byMode.native)} / js ${fmtPct(acc.byMode.js)}]${trend}; ${follow}`,
   };
 }
 

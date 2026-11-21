@@ -63,8 +63,8 @@ export async function handleRoutesMemory1(req, res, url, corsOrigin, ctx) {
         })
         .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
 
-      // Merge backend store (AgentDB / auto-memory bridge). These live in the
-      // SQLite-backed store, not as .md files, so the file-only listing above
+      // Merge the auto-memory store (.monomind/data/auto-memory-store.json). Its
+      // entries are not .md files, so the file-only listing above
       // misses them. Surface them read-only with a source badge so the dashboard
       // reflects ALL memory, not just whatever has been flushed to disk.
       let backend = [];
