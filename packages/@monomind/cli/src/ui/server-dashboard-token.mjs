@@ -85,8 +85,20 @@ function createDashboardTokenManager({ projectDir, dashboardAuthValue }) {
         authFileDir,
         primary ? 'dashboard-token' : `dashboard-token-${actualPort}`,
       );
-      fs.writeFileSync(tokenPath, dashboardAuthValue, { mode: 0o600 });
-      fs.chmodSync(tokenPath, 0o600); // enforce on rewrite — {mode} above is create-only
+      // Write a temp file and rename it into place: a reader polling for the
+      // token file must never see it created but still empty.
+      const tmpPath = `${tokenPath}.${process.pid}.tmp`;
+      try {
+        fs.writeFileSync(tmpPath, dashboardAuthValue, { mode: 0o600 });
+        fs.chmodSync(tmpPath, 0o600); // {mode} above is create-only
+        fs.renameSync(tmpPath, tokenPath);
+      } catch (_) {
+        try {
+          fs.unlinkSync(tmpPath);
+        } catch (_) {}
+        fs.writeFileSync(tokenPath, dashboardAuthValue, { mode: 0o600 });
+      }
+      fs.chmodSync(tokenPath, 0o600); // enforce on rewrite
       tokenState.path = tokenPath;
       // Sweep stale secondary tokens (dead scratch/test instances) so they
       // don't accumulate as orphaned credential files.
