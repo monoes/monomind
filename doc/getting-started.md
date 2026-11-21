@@ -176,12 +176,15 @@ The wizard (`monomind init wizard`) asks which packs to add. A project initialis
 
 ### The dashboard
 
-The dashboard (Control Room, `http://localhost:4242`) does not start on its own. Start it when you want it:
+The dashboard (Control Room, `http://localhost:4242`) does not start on its own, except that `monomind org run` starts one for the org's events. Start it when you want it:
 
 ```bash
 monomind ui                                  # serves on :4242 until Ctrl+C; --no-open skips the browser
 curl -s http://localhost:4242/api/identity   # prints its pid and project dir when it is up
+monomind dashboard open                      # log a browser in to a dashboard that is already running
 ```
+
+The dashboard pages need a logged-in browser. The tab `monomind ui` opens is logged in already; for any other browser or tab, `monomind dashboard open` opens a one-time login link (`--print` prints it instead).
 
 To have it start at every Claude Code session start in this project, run `monomind init --dashboard` (it writes `{"autostart": true}` to `.monomind/dashboard.json`), or set `MONOMIND_DASHBOARD_AUTOSTART=1` in your environment. `MONOMIND_DASHBOARD_AUTOSTART=0` turns auto-start off even for a project that opted in. An auto-started server keeps running after Claude Code closes; `node .claude/helpers/control-stop.cjs` stops it. While a dashboard is running, the per-prompt Second Brain lookup uses its warm semantic search; without one it falls back to keyword matching.
 

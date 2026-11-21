@@ -1402,7 +1402,7 @@ coordinator gets one message (`channel-fault-exhausted`).
 
 #### The idea
 
-Every business function needs a team. Define the org once as a JSON file — goal, roles, who reports to whom, per-role tool/file/budget policy — then run it as a real background daemon backed by the Claude Agent SDK. It persists across sessions, streams live into the dashboard (`monomind org run` starts it unless `MONOMIND_DASHBOARD_AUTOSTART=0`), and can discover and message other Monomind orgs running on the same machine. The operator signs each definition before it runs, so editing an org file never grants a role new authority on its own.
+Every business function needs a team. Define the org once as a JSON file — goal, roles, who reports to whom, per-role tool/file/budget policy — then run it as a real background daemon backed by the Claude Agent SDK. It persists across sessions, streams live into the dashboard (`monomind org run` starts it; `MONOMIND_DASHBOARD_AUTOSTART=0` skips that start step, but the event forwarder still starts a dashboard when none is live unless `MONOMIND_CONTROL_NO_SPAWN=1`), and can discover and message other Monomind orgs running on the same machine. The operator signs each definition before it runs, so editing an org file never grants a role new authority on its own.
 
 ```mermaid
 flowchart TD
@@ -1471,7 +1471,7 @@ Orgs carry context between runs: the coordinator records every run's outcome (`o
 |---|---|
 | **OrgDaemon** | Hosts one or more orgs in a single process; real Claude Agent SDK sessions per role, not simulated |
 | **PolicyEngine** | Per-role gates on tool access, file read/write scope, web access, token budget — enforced, with a full audit trail. Opt-in sandbox settings add `denyRead`, `denyExec` and `homeWriteAllow` for a role's whole process tree |
-| **Dashboard** | `org run` forwards every event to the control server on `:4242` (found via `.monomind/control.json`). Start it by hand with `monomind ui`; the session-start hook starts it only if you ran `monomind init --dashboard` or set `MONOMIND_DASHBOARD_AUTOSTART=1`. The dashboard needs a login: `monomind dashboard open` prints a one-time link. There's no separate per-org dashboard process |
+| **Dashboard** | `org run` forwards every event to the control server on `:4242` (found via `.monomind/control.json`), and starts one when none is live. Start it by hand with `monomind ui`; the session-start hook starts it only if you ran `monomind init --dashboard` or set `MONOMIND_DASHBOARD_AUTOSTART=1`. The dashboard needs a login: `monomind dashboard open` prints a one-time link. There's no separate per-org dashboard process |
 | **Cross-process comms** | `--cross-process` (default on) lets orgs on different `monomind` processes/projects discover and message each other |
 | **Scheduling** | `monomind org serve` hosts orgs whose definition has a `schedule` field, running them on interval |
 
