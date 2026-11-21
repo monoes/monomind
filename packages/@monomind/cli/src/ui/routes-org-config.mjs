@@ -129,7 +129,7 @@ export async function handleOrgConfigRoutes(req, res, url, corsOrigin, ctx) {
     return true;
   }
 
-  // POST /api/orgs/:name/import — import an org config by name (orgs.html upload flow)
+  // POST /api/orgs/:name/import — import an org config by name
   if (req.method === 'POST' && /^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/import$/i.test(url)) {
     const body = await readBodyOrReply(req, res, 2e6, corsOrigin);
     if (body === null) return true;
