@@ -3,38 +3,42 @@
 This directory is the lean replacement for the removed `monovector` vector-DB / SONA
 intelligence package. There is no neural training, no native/WASM engine, and no
 `@monoes/*` runtime dependency here. What ships is a small set of pure-TypeScript
-modules that route tasks deterministically and measure whether the routing helped.
+modules that route tasks through the central picker and measure whether the routing helped.
 
 > The full neural learning loop (SONA, MoE, Flash Attention, EWC++/LoRA, the native
 > `VectorDb`) lives on the `monoes-full-loop` branch. None of it is available in the
-> lean build — do not advertise it as installable.
+> lean build — do not advertise it as installable. (The lean build does keep a JS
+> keyword-pattern `SONA Optimizer` in `../memory/sona-optimizer.ts` and EWC
+> consolidation in `../memory/ewc-consolidation.ts`; neither trains a model.)
 
 ## Modules
 
-| File                  | Purpose                                                                           |
-| --------------------- | --------------------------------------------------------------------------------- |
-| `index.ts`            | Public surface: `createKeywordRouter`, capability/availability probes, re-exports |
-| `capabilities.ts`     | Reports lean capabilities (no native engine); `getCapabilities()` is a JS stub    |
-| `route-outcomes.ts`   | Records recommended routes and correlates them with actual outcomes               |
-| `command-outcomes.ts` | Records command exit codes; derives recent success/failure signal                 |
-| `diff-classifier.ts`  | Pure-JS git-diff classification + risk scoring (feature/bugfix/refactor/…)        |
-| `init-state.ts`       | Tracks initialization status                                                      |
+| File                  | Purpose                                                                                                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts`            | Public surface: `createKeywordRouter`, re-exports                                                                                                                |
+| `route-outcomes.ts`   | Records recommended routes and correlates them with actual outcomes                                                                                              |
+| `command-outcomes.ts` | Records command exit codes; derives recent success/failure signal                                                                                                |
+| `model-outcomes.ts`   | Records model-routing decisions for `hooks model-outcome` / `hooks model-stats`                                                                                  |
+| `diff-classifier.ts`  | Pure-JS git-diff classification + risk scoring (feature/bugfix/refactor/…); split across `diff-classifier-core.ts`, `diff-classifier-types.ts` and `diff-git.ts` |
+| `coverage-router.ts`  | Coverage-aware routing over coverage files on disk (`monomind route coverage`)                                                                                   |
+| `coverage-tools.ts`   | `coverage_*` MCP tools wrapping `coverage-router.ts`                                                                                                             |
+| `init-state.ts`       | Tracks initialization status                                                                                                                                     |
 
 ## Keyword Router
 
-`createKeywordRouter()` returns a deterministic router that maps a task description to
-an agent type using keyword scoring — no LLM call, no learned weights.
+`createKeywordRouter()` returns a router that maps a task description to an agent type
+by delegating to the central picker (`routing/agent-pick.ts → pickAgents`), so it agrees
+with `monomind pick` and `hooks route`. `route()` returns a Promise. The picker uses the
+Jev decision model when one is configured, else BM25 keyword ranking with a bounded
+outcome prior from `.monomind/pick-stats.json`; no model is trained.
 
 ```typescript
 import { createKeywordRouter } from './index.js';
 
 const router = createKeywordRouter();
-const decision = router.route('implement user authentication');
-// → { agentType, confidence, reasoning?, route?, alternatives? }
+const decision = await router.route('implement user authentication');
+// → { agentType, confidence, reasoning?, route, alternatives? }
 ```
-
-`isMonovectorAvailable()` and `isWasmBackendAvailable()` exist for backward
-compatibility and report the lean reality (no native/WASM engine).
 
 ## Route-Outcome Measurement
 
@@ -53,10 +57,10 @@ import {
 await recordRoute(baseDir, {
   /* RouteOutcomeRecord */
 });
-await joinLatestUnresolved(baseDir /* outcome */);
+await joinLatestUnresolved(baseDir, { agentActuallyUsed, measuredSuccess });
 
-const { accuracy, sample } = await computeRoutingAccuracy(baseDir);
-const { adherence } = await computeAdherence(baseDir);
+const { accuracy, totalWithOutcome } = await computeRoutingAccuracy(baseDir);
+const { adherence, sample } = await computeAdherence(baseDir);
 ```
 
 ## Command-Outcome Logging

@@ -26,7 +26,7 @@ Tests for MCP tool invocation:
 - `validateToolInput()` - Input validation against schemas
 - `MCPClientError` - Custom error handling
 
-### 3. `commands.test.ts` (~48+ tests)
+### 3. `commands.test.ts` (~35 tests)
 Tests for all CLI commands:
 
 **Agent Commands (spawn, list, status, stop, metrics):**
@@ -35,13 +35,6 @@ Tests for all CLI commands:
 - Getting agent status and metrics
 - Stopping agents (graceful/force)
 - Agent performance metrics
-
-**Swarm Commands (init, start, status, stop, scale, coordinate):**
-- Initializing swarms with different topologies
-- Starting swarm execution with objectives
-- Checking swarm status
-- Stopping and scaling swarms
-- V1 15-agent coordination structure
 
 **Memory Commands (store, retrieve, search, list, delete, stats, configure):**
 - Storing data in memory (with/without vectors)
@@ -62,11 +55,12 @@ Tests for all CLI commands:
 ## Mocking Strategy
 
 ### MCP Tools
-All MCP tools are mocked at the module level to prevent actual tool execution:
+`mcp-client.test.ts` mocks the MCP tool modules at the module level to prevent actual tool execution:
 - `agent-tools.js` - Mocked agent operations
-- `swarm-tools.js` - Mocked swarm coordination
 - `memory-tools.js` - Mocked memory operations
 - `config-tools.js` - Mocked configuration
+
+`commands.test.ts` mocks `mcp-client.js`, `memory-initializer.js` and `memory-bridge.js` instead.
 
 ### Output
 The `output` module is fully mocked to capture formatted output without console pollution.
@@ -79,18 +73,20 @@ Interactive prompts (`select`, `confirm`, `input`, `multiSelect`) are mocked to 
 
 ## Running Tests
 
+The root `pnpm test` covers `tests/` only. Run these from `packages/@monomind/cli`, which has its own `vitest.config.ts`:
+
 ```bash
 # Run all CLI tests
-npm test -- packages/@monomind/cli/__tests__/
+pnpm exec vitest run __tests__/
 
 # Run specific test file
-npm test -- packages/@monomind/cli/__tests__/cli.test.ts
+pnpm exec vitest run __tests__/cli.test.ts
 
 # Run with coverage
-npm test -- packages/@monomind/cli/__tests__/ --coverage
+pnpm exec vitest run __tests__/ --coverage
 
 # Run in watch mode
-npm test -- packages/@monomind/cli/__tests__/ --watch
+pnpm exec vitest __tests__/
 ```
 
 ## Test Coverage Goals

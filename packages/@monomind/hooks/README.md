@@ -6,9 +6,9 @@
 
 [![npm version](https://img.shields.io/npm/v/@monoes/hooks.svg?style=flat-square)](https://www.npmjs.com/package/@monoes/hooks)
 [![license](https://img.shields.io/npm/l/@monoes/hooks.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D22.12-blue?style=flat-square)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.22-blue?style=flat-square)](https://nodejs.org)
 
-**A library, not a runtime dispatcher.** Provides hook type definitions, an in-memory `HookRegistry`/`HookExecutor` for defining handlers, and a `WorkerManager` with 9 background workers for Monomind.
+**A library, not a runtime dispatcher.** Provides hook type definitions, an in-memory `HookRegistry`/`HookExecutor` for defining handlers, and a `WorkerManager` with 9 on-demand workers for Monomind.
 
 > Part of the [Monomind](https://github.com/monoes/monomind) ecosystem.
 
@@ -100,10 +100,12 @@ function managed by `WorkerManager`:
 | `consolidate` | Memory consolidation → `.monomind/metrics/consolidation.json` |
 | `reflexion` | Turns failed routed tasks in `route-outcomes.jsonl` into templated notes with keywords in `.monomind/reflexion-store.json`, for keyword lookup later (disabled by default) |
 
-The metrics-producing workers run at session start (via the CJS session
-handler) and are staleness-gated: each only runs when its output file is
-missing or older than 6 hours, with a hard per-worker timeout so session
-start is never blocked. `WorkerManager` can also schedule them on intervals,
+Inside the monomind repo, the CJS session handler runs the metrics-producing
+workers at session start, staleness-gated: each runs only when its output
+file is missing or older than 6 hours, with a hard per-worker timeout so
+session start is never blocked. In a user project the session-start hook
+cannot load this package, so `init` seeds the map and audit metrics once and
+workers refresh only on `monomind hooks worker run <name>`. `WorkerManager` can also schedule them on intervals,
 persist run state to `.monomind/metrics/workers-state.json`, raise threshold
 alerts, and export statusline data.
 
