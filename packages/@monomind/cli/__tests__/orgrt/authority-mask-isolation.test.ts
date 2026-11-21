@@ -151,11 +151,17 @@ describe.skipIf(!bubblewrapRuns('authority mask isolation'))('authority mask iso
     }
   });
 
-  it('starts the role in a session of its own', () => {
-    const r = inMask(world(), 'read -r pid _ _ _ _ sid _ < /proc/self/stat; echo "$pid $sid"');
-    const [pid, sid] = r.stdout.trim().split(' ');
-    // `read` is a builtin, so /proc/self is bash itself: the session leader
-    expect(sid).toBe(pid);
+  it('starts the role in a session led from inside the mask', () => {
+    const r = inMask(
+      world(),
+      'read -r _ _ _ _ _ sid _ < /proc/self/stat; echo "$sid"; [ -d "/proc/$sid" ] && echo visible; true',
+    );
+    const [sid, seen] = r.stdout.trim().split('\n');
+    // bwrap calls setsid() and then forks its pid-1 init, so the role (pid 2) inherits
+    // the session bwrap's init leads. Without --new-session the leader is a host
+    // process outside the pid namespace, which /proc/self/stat shows as session 0.
+    expect(sid).not.toBe('0');
+    expect(seen).toBe('visible');
   });
 
   it('empties the runtime dir and keeps what the role writes there from the host', () => {
