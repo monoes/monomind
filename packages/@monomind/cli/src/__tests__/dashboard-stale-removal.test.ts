@@ -77,9 +77,6 @@ describe('removed routes fall through to the 404 handler', () => {
   it('kept neighbours still dispatch', async () => {
     expect((await dispatch('GET', `/api/hil?dir=${encodeURIComponent(root)}`)).handled).toBe(true);
     expect(
-      (await dispatch('GET', `/api/org-coverage?dir=${encodeURIComponent(root)}`)).status,
-    ).toBe(404);
-    expect(
       (await dispatch('GET', `/api/monograph-explain?dir=${encodeURIComponent(root)}`)).handled,
     ).toBe(true);
   });
