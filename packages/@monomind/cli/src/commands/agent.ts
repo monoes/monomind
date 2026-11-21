@@ -29,7 +29,10 @@ export const agentCommand: Command = {
   ],
   options: [],
   examples: [
-    { command: 'monomind agent spawn -t coder', description: 'Spawn a coder agent' },
+    {
+      command: 'monomind agent spawn -t coder',
+      description: 'Record a coder agent (starts no process; use agent exec to run a turn)',
+    },
     { command: 'monomind agent list', description: 'List all agents' },
     { command: 'monomind agent status agent-001', description: 'Show agent status' },
     { command: 'monomind agent scan --json', description: 'Detect installed agent runtimes' },
