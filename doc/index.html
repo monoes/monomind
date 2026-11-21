@@ -1349,6 +1349,20 @@ Session N: empty round (zero findings AND zero actions)
       <p style="font-size:14px;color:var(--text2)">Unlike the Now view (which is scoped to one project), the Global Feed gives a workspace-wide perspective — useful for multi-project workflows and general activity monitoring.</p>
     </div>
 
+    <!-- HEALTH -->
+    <div class="section-title reveal">Health</div>
+    <div class="reveal" style="margin-bottom:24px">
+      <p style="font-size:14px;color:var(--text2);margin-bottom:16px">The <strong>Health</strong> item in the sidebar's Global section runs <code>monomind doctor --json --read-only --offline</code> for the project this dashboard serves, when you click <strong>Run checks</strong>. Read-only and offline, a run changes no file and makes no network call. One run goes at a time and the server keeps the last result in memory; it does not run on its own.</p>
+      <p style="font-size:14px;color:var(--text2)">The view shows the counts (failed, warnings, info, skipped, passed), then a table of every check that did not pass with its result, and the passed checks in a collapsed list. The sidebar badge is failures plus warnings (✓ when there are none).</p>
+    </div>
+
+    <!-- MESH -->
+    <div class="section-title reveal">Mesh</div>
+    <div class="reveal" style="margin-bottom:24px">
+      <p style="font-size:14px;color:var(--text2);margin-bottom:16px">The <strong>Mesh</strong> item in the sidebar's Global section is a read-only list of the agents on this machine's Monomind Mesh, with <strong>This project</strong> and <strong>All projects</strong> tabs. Each row shows the agent's name, tier, status, runtime, task and last-seen time (and its project, under All projects). The sidebar badge counts active agents.</p>
+      <p style="font-size:14px;color:var(--text2)">The dashboard asks the running mesh hub who is on it and nothing else: it never joins the mesh, never starts a hub, and does not show messages. When no hub is running, the view says so.</p>
+    </div>
+
     <!-- MASTERMIND OVERLAY -->
     <div class="section-title reveal">Mastermind Overlay</div>
     <p class="reveal" style="margin-bottom:1rem">The Mastermind overlay opens with the <strong>M</strong> key. It has 6 tabs:</p>
@@ -1486,6 +1500,17 @@ Session N: empty round (zero findings AND zero actions)
           <tr><td>GET</td><td><code>/api/monograph-report</code></td><td>GRAPH_REPORT</td></tr>
           <tr><td>GET</td><td><code>/api/monograph-explain</code></td><td>Node explanation</td></tr>
           <tr><td>POST</td><td><code>/api/mcp/call</code></td><td>MCP tool proxy</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem"><strong>Health and Mesh</strong></p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>POST</td><td><code>/api/doctor/run</code></td><td>Start a <code>monomind doctor --json --read-only --offline</code> run for the dashboard's project (202; one run at a time)</td></tr>
+          <tr><td>GET</td><td><code>/api/doctor</code></td><td>The run state and last report: <code>running</code>, <code>ranAt</code>, <code>durationMs</code>, <code>result</code>, <code>error</code>, <code>projectDir</code></td></tr>
+          <tr><td>GET</td><td><code>/api/mesh/agents?scope=project|all</code></td><td>Agents on the local mesh: <code>online</code>, <code>scope</code>, <code>agents</code>, <code>truncated</code> (<code>online: false</code> when no hub is running)</td></tr>
         </tbody>
       </table>
     </div>
