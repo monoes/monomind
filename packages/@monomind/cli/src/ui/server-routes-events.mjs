@@ -364,6 +364,8 @@ export async function handleRoutesEvents(req, res, url, corsOrigin, ctx) {
             sessionCount,
             memoryCount,
             lastActivity: lastActivity || null,
+            // Human Input only needs to ask projects that can have org questions/approvals.
+            hasOrgs: fs.existsSync(path.join(projPath, '.monomind', 'orgs')),
           };
         })
         .filter((p) => p.sessionCount > 0 || fs.existsSync(path.join(p.path, '.monomind')))

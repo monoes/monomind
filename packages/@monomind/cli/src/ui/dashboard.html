@@ -2018,7 +2018,7 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
             <input class="filter-input" id="store-search-input" type="text" placeholder="Search SQLite memory store…"
               onkeydown="if(event.key==='Enter')storeSearch()" style="flex:1">
             <input class="filter-input" id="store-ns-input" type="text" placeholder="namespace" style="width:120px"
-              onkeydown="if(event.key==='Enter'){storeSearch()||loadStoreEntries()}">
+              onkeydown="if(event.key==='Enter'){document.getElementById('store-search-input').value.trim()?storeSearch():loadStoreEntries()}">
             <button class="btn" onclick="storeSearch()" title="Semantic search">Search</button>
             <button class="btn" onclick="loadStoreEntries()" title="List entries">List</button>
             <button class="btn" onclick="openStoreNewModal()">+ New</button>
@@ -2147,11 +2147,11 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
 
         <!-- TAB 2: GRAPH -->
         <div class="mg-pane" id="mg-tab-graph">
-          <iframe id="mg-iframe" src="" style="width:100%;height:500px;border:none;border-radius:6px;background:var(--surface);" title="Monograph graph"></iframe>
+          <iframe id="mg-iframe" sandbox="allow-scripts" style="width:100%;height:500px;border:none;border-radius:6px;background:var(--surface);" title="Monograph graph"></iframe>
           <div class="mg-controls-row">
             <button class="btn" id="mg-watch-btn" onclick="mgToggleWatch()">WATCH</button>
             <button class="btn" id="mg-rebuild-btn" onclick="mgRebuild()">REBUILD</button>
-            <a class="btn" id="mg-open-tab-link" href="#" target="_blank" rel="noopener">OPEN IN TAB</a>
+            <button class="btn" id="mg-open-tab-btn" onclick="mgOpenGraphTab()">OPEN IN TAB</button>
             <span class="mg-watch-indicator" id="mg-watch-status">○ IDLE</span>
           </div>
         </div>
@@ -2383,6 +2383,11 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
     <div class="sk-row"><span class="sk-desc">Jump to live session</span><span class="sk-keys"><kbd>G</kbd></span></div>
     <div class="sk-row"><span class="sk-desc">Refresh current view</span><span class="sk-keys"><kbd>R</kbd></span></div>
     <div class="sk-row"><span class="sk-desc">Toggle ambient mode</span><span class="sk-keys"><kbd>A</kbd></span></div>
+    <div class="sk-section">Views</div>
+    <div class="sk-row"><span class="sk-desc">Now · Sessions · Projects</span><span class="sk-keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Loops (in Sessions) · Tokens · Memory</span><span class="sk-keys"><kbd>4</kbd><kbd>5</kbd><kbd>6</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Orgs · Monograph · Global Feed</span><span class="sk-keys"><kbd>7</kbd><kbd>8</kbd><kbd>9</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Mastermind overlay</span><span class="sk-keys"><kbd>M</kbd></span></div>
     <div class="sk-section">Global</div>
     <div class="sk-row"><span class="sk-desc">Command palette</span><span class="sk-keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
     <div class="sk-row"><span class="sk-desc">Close / dismiss</span><span class="sk-keys"><kbd>Esc</kbd></span></div>
@@ -2476,7 +2481,7 @@ let userScrolled = false;
 let selectedEntryId = null;
 const allDrawers = [];
 const dismissedAlerts = new Set();
-const alertState = { todayCost: 0, todayCostIncomplete: false, errorCount: 0, longLoops: [], anomaly: null, budgetAlert: null, budgetCls: 'alert-warn' };
+const alertState = { todayCost: 0, todayCostIncomplete: false, monthCost: 0, monthCostIncomplete: false, errorCount: 0, longLoops: [], anomaly: null, budgetAlert: null, budgetCls: 'alert-warn', budgetId: 'budget-alert' };
 let feedTimeFilter = 'all';
 let cmdFocusIdx = 0;
 let cmdItems = [];
@@ -3165,7 +3170,7 @@ function updateAlerts() {
   }
 
   if (alertState.budgetAlert) {
-    all.push({ id: 'budget-alert', cls: alertState.budgetCls || 'alert-warn', ico: '⚑', msg: alertState.budgetAlert });
+    all.push({ id: alertState.budgetId, cls: alertState.budgetCls || 'alert-warn', ico: '⚑', msg: alertState.budgetAlert });
   }
 
   for (const l of alertState.longLoops) {
@@ -3236,6 +3241,8 @@ async function loadTodayMetrics() {
     const s = data?.tokens?.summary || {};
     alertState.todayCost = typeof s.todayCost === 'number' ? s.todayCost : 0;
     alertState.todayCostIncomplete = !!s.todayCostIncomplete;
+    alertState.monthCost = typeof s.monthCost === 'number' ? s.monthCost : 0;
+    alertState.monthCostIncomplete = !!s.monthCostIncomplete;
     updateAlerts();
     checkBudget();
     // topbar cost badge
@@ -3742,7 +3749,10 @@ function _filterADRs(q) {
 }
 
 function renderMiniSessions(sessions) {
-  if (!sessions.length) return;
+  if (!sessions.length) {
+    document.getElementById('m-sessions').innerHTML = `<div class="m-group-title">Recent Sessions</div><div class="loading-txt" style="padding:8px 0">None</div>`;
+    return;
+  }
   const items = sessions.map((s, i) => `
     <div class="mini-sess" onclick="sessionIdx=${i};userScrolled=false;loadFeedForSession(allSessions[${i}])">
       <div class="ms-prompt">${esc(s.lastPrompt || s.id.slice(0, 8))}</div>
@@ -4466,7 +4476,9 @@ async function renderHumanInputView() {
   if (!_hiEntries.length) el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
   try {
     const data = await apiFetch('/api/projects');
-    const projects = (data?.projects || []).slice(0, 8);
+    // Every project with orgs, not only the most recent ones: a question waiting in an
+    // older project was invisible and missing from the badge. Capped to bound the fan-out.
+    const projects = (data?.projects || []).filter(p => p.hasOrgs).slice(0, 50);
     // The project this dashboard serves always counts, even when it is not
     // among the most recently active Claude projects.
     if (DIR && !projects.some(p => p.path === DIR)) projects.unshift({ path: DIR, name: baseName(DIR) });
@@ -4826,23 +4838,39 @@ function updateBudgetBtnStyle() {
   btn.style.color = hasBudget ? 'var(--accent)' : '';
 }
 
-function checkBudget() {
-  const cost = alertState.todayCost;
-  if (!cost) return;
-  if (budget.daily) {
-    const pct = cost / budget.daily;
-    if (pct >= 1 && !dismissedAlerts.has('budget-daily-over')) {
-      alertState.budgetAlert = `Daily budget exceeded: ${fmtCost(cost, alertState.todayCostIncomplete)} / $${budget.daily}`;
-      alertState.budgetCls = 'alert-crit';
-    } else if (pct >= 0.8 && !dismissedAlerts.has('budget-daily-warn')) {
-      alertState.budgetAlert = `Approaching daily budget: ${fmtCost(cost, alertState.todayCostIncomplete)} / $${budget.daily}`;
-      alertState.budgetCls = 'alert-warn';
-      maybeNotify('monomind budget', `${fmtCost(cost, alertState.todayCostIncomplete)} of $${budget.daily} daily budget used`);
-    } else {
-      alertState.budgetAlert = null;
-    }
-    updateAlerts();
+// Budget levels already notified, keyed by level and day: checkBudget() runs on every metrics
+// refresh, and used to raise a desktop notification each time while spend was at 80% or more.
+const _budgetNotified = new Set();
+
+// The most severe budget level reached, daily before monthly. Each level has its own alert id,
+// so dismissing "approaching" does not also hide "exceeded" later.
+function budgetLevel(b, s) {
+  const levels = [
+    ['daily', b.daily, s.todayCost, s.todayCostIncomplete],
+    ['monthly', b.monthly, s.monthCost, s.monthCostIncomplete],
+  ];
+  for (const [name, limit, cost, incomplete] of levels) {
+    if (limit > 0 && cost >= limit) return { id: `budget-${name}-over`, cls: 'alert-crit', msg: `${name === 'daily' ? 'Daily' : 'Monthly'} budget exceeded: ${fmtCost(cost, incomplete)} / $${limit}` };
   }
+  for (const [name, limit, cost, incomplete] of levels) {
+    if (limit > 0 && cost >= 0.8 * limit) return { id: `budget-${name}-warn`, cls: 'alert-warn', msg: `Approaching ${name} budget: ${fmtCost(cost, incomplete)} / $${limit}` };
+  }
+  return null;
+}
+
+function checkBudget() {
+  const level = budgetLevel(budget, alertState);
+  alertState.budgetAlert = level ? level.msg : null;
+  alertState.budgetCls = level ? level.cls : 'alert-warn';
+  alertState.budgetId = level ? level.id : 'budget-alert';
+  if (level && !dismissedAlerts.has(level.id)) {
+    const key = `${level.id}:${new Date().toDateString()}`;
+    if (!_budgetNotified.has(key)) {
+      _budgetNotified.add(key);
+      maybeNotify('monomind budget', level.msg);
+    }
+  }
+  updateAlerts();
 }
 
 function maybeNotify(title, body) {
@@ -5433,7 +5461,7 @@ async function renderLoops() {
     if (hasRepeatLoops) loops = loops.filter(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
     document.getElementById('bdg-loops').textContent = loops.length || '—';
     if (!loops.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops scheduled</div><div style="font-size:11px;color:var(--text-xs);margin-top:6px">Create one with + New Loop above or via <code>npx monomind autodev --tillend</code></div></div>';
+      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops scheduled</div><div style="font-size:11px;color:var(--text-xs);margin-top:6px">Create one with + New Loop above, or run a <code>/mastermind:</code> command with <code>--repeat N</code> or <code>--tillend</code></div></div>';
       return;
     }
     el.innerHTML = loops.map((l, idx) => {
@@ -5955,12 +5983,21 @@ window.v2MarkOrgComplete = async () => {
   if (!_v2SelOrg) return;
   const btn = document.getElementById('org-mark-complete-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Marking…'; }
+  // The result shows on the button for 3s; the finally block used to reset it at once.
+  const done = (label) => {
+    if (!btn) return;
+    btn.textContent = label;
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Mark Complete'; }, 3000);
+  };
   try {
-    const r = await fetch(`/api/orgs/${encodeURIComponent(_v2SelOrg)}/mark-complete`, { method: 'POST' });
-    const j = await r.json();
-    if (!r.ok) { if (btn) { btn.textContent = `Failed: ${j.error || r.status}`; setTimeout(() => { if (btn) btn.textContent = 'Mark Complete'; }, 3000); } }
-  } catch (e) { if (btn) { btn.textContent = 'Error'; setTimeout(() => { if (btn) btn.textContent = 'Mark Complete'; }, 3000); } console.error('[mark-complete]', e); }
-  finally { if (btn) { btn.disabled = false; btn.textContent = 'Mark Complete'; } }
+    const r = await fetch(`/api/orgs/${encodeURIComponent(_v2SelOrg)}/mark-complete${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`, { method: 'POST' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { done(`Failed: ${j.error || r.status}`); return; }
+    done('Marked complete');
+    const marked = _v2SelOrg;
+    showToast('Run marked complete', marked, 'ok');
+    setTimeout(async () => { await renderOrgs(); if (_v2SelOrg === marked) v2SelectOrg(marked); }, 600);
+  } catch (e) { done('Error'); console.error('[mark-complete]', e); }
 };
 
 window.v2SwitchOrgTab = (tab) => {
@@ -8775,10 +8812,14 @@ async function _v2ViewOrgFile(filePath, fileName) {
   const fileUrl = `/api/file-content?path=${encodeURIComponent(filePath)}${dirParam}`;
   if (isImage) {
     const el = document.getElementById('of-content');
-    if (el) {
-      _ofRawText = fileUrl;
-      el.innerHTML = `<img src="${esc(fileUrl)}" alt="${esc(fileName)}" style="max-width:100%;display:block;margin:0 auto" onerror="this.replaceWith(document.createTextNode('Failed to load image'))">`;
-    }
+    if (!el) return;
+    // An <img src> cannot send the token header; load the bytes through fetch() instead.
+    try {
+      const r = await fetch(fileUrl);
+      if (!r.ok) { el.textContent = `Error ${r.status}: ${r.statusText}`; return; }
+      _ofRawText = URL.createObjectURL(await r.blob());
+      el.innerHTML = `<img src="${esc(_ofRawText)}" alt="${esc(fileName)}" style="max-width:100%;display:block;margin:0 auto">`;
+    } catch (e) { el.textContent = `Failed to load image: ${e.message}`; }
     return;
   }
   try {
@@ -8978,7 +9019,7 @@ function _filterLoopList(q) {
 
 function _filterOrgList(q) {
   const query = q.trim().toLowerCase();
-  document.querySelectorAll('#orgs-list-content .org-item').forEach(item => {
+  document.querySelectorAll('#orgs-list-scroll .org-item').forEach(item => {
     item.style.display = (!query || (item.textContent || '').toLowerCase().includes(query)) ? '' : 'none';
   });
 }
@@ -9308,10 +9349,10 @@ function cmdSearch(q) {
   ].filter(a => !lq || a.label.toLowerCase().includes(lq));
 
   // TABS group — only if org room is open
+  // Read from the tab bar itself, so the palette never offers a tab the org room does not have.
   const orgTabs = (_v2SelOrg && currentView === 'orgs') ? [
-    'chart','roles','health','heartbeats','tasks','members',
-    'goals','board','live','approvals','secrets','settings','routines','myissues','plugins'
-  ].filter(t => !lq || t.includes(lq))
+    ...document.querySelectorAll('#org-detail-tabs .odt-btn[data-tab]'),
+  ].map(b => b.dataset.tab).filter(t => !lq || t.includes(lq))
     .map(t => ({ label: `Org Tab: ${t}`, tab: t })) : [];
 
   if (!sessMatches.length && !memMatches.length && !projMatches.length && !orgMatches.length && !skillMatches.length && !actionItems.length && !orgTabs.length) {
@@ -9515,8 +9556,13 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeDetail(); closeCmdPalette(); closeShortcutHelp(); closeMastermind(); closeBudgetModal(); closeDocModal(); v2CloseAgent(); v2CloseMetaModal(); if (document.getElementById('app').classList.contains('ambient')) toggleAmbient(); }
   if (e.key === '?') { e.preventDefault(); openShortcutHelp(); return; }
   if (e.key === 'm' || e.key === 'M') { e.preventDefault(); openMastermind(); return; }
-  const _vkeys = { '1':'now','2':'sessions','3':'projects','4':'loops','5':'tokens','6':'memory','7':'orgs','8':'monograph','9':'global' };
-  if (_vkeys[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) { switchView(_vkeys[e.key]); return; }
+  // Loops live in the Sessions view now (there is no #view-loops), so 4 opens Sessions at its Loops section.
+  const _vkeys = { '1':'now','2':'sessions','3':'projects','4':'sessions','5':'tokens','6':'memory','7':'orgs','8':'monograph','9':'global' };
+  if (_vkeys[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    switchView(_vkeys[e.key]);
+    if (e.key === '4') document.getElementById('loops-content')?.scrollIntoView({ block: 'start' });
+    return;
+  }
   if (e.key === 'a' || e.key === 'A') { if (currentView === 'now') { e.preventDefault(); toggleAmbient(); } }
 
   if (currentView === 'now') {
@@ -11579,6 +11625,7 @@ async function loadMonograph() {
     mgRenderAnalyzeButtons();
     mgRenderExport();
     mgInitGraph();
+    mgPollWatchStatus(); // the indicator otherwise reads IDLE until the button is toggled
     mgLoadReport();
     mgRenderWiki();
     // Show helpful empty-state if the graph loaded but has no nodes
@@ -11797,10 +11844,41 @@ function mgShortLabel(s) {
 }
 
 // ── GRAPH TAB ──────────────────────────────────────────────
-function mgInitGraph() {
-  const base = `/api/monograph-html?dir=${enc(DIR)}`;
-  document.getElementById('mg-iframe').src = base;
-  document.getElementById('mg-open-tab-link').href = base;
+// /api/monograph-html needs the token, which only the fetch() wrapper sends: an iframe src,
+// link or window.open would 401, and putting the token in a URL would leak it to history.
+// The graph is HTML generated from repo content, so it renders in a sandbox with an opaque
+// origin (no allow-same-origin): it cannot read the dashboard's token or call its API.
+async function mgGraphHtml() {
+  const r = await fetch(`/api/monograph-html?dir=${enc(DIR)}`);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.text();
+}
+
+function mgSandboxedPage(html) {
+  return '<!doctype html><meta charset="utf-8"><title>Monograph graph</title>' +
+    '<style>html,body,iframe{margin:0;width:100%;height:100%;border:0;display:block}</style>' +
+    `<iframe sandbox="allow-scripts" srcdoc="${esc(html)}"></iframe>`;
+}
+
+async function mgInitGraph() {
+  const frame = document.getElementById('mg-iframe');
+  const loadDir = DIR;
+  // A large graph takes seconds to generate.
+  frame.srcdoc = '<p style="font:12px monospace;color:#999;padding:12px">Loading graph…</p>';
+  try {
+    const html = await mgGraphHtml();
+    if (DIR === loadDir) frame.srcdoc = html;
+  } catch (e) {
+    frame.srcdoc = `<p style="font:12px monospace;color:#999;padding:12px">Graph unavailable (${esc(e.message)})</p>`;
+  }
+}
+
+async function _mgOpenGraphTab() {
+  try {
+    const url = URL.createObjectURL(new Blob([mgSandboxedPage(await mgGraphHtml())], { type: 'text/html' }));
+    window.open(url, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) { showToast('Graph unavailable', e.message, 'warn'); }
 }
 
 async function _mgToggleWatch() {
@@ -12589,7 +12667,16 @@ function mgRenderExport() {
 
 function _mgExport(format) {
   const g = _mgGraph || { nodes: [], edges: [] };
-  if (format === 'html') { window.open(`/api/monograph-html?dir=${enc(DIR)}`, '_blank'); return; }
+  if (format === 'html') {
+    mgGraphHtml().then((html) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+      a.download = 'monograph.html';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }).catch((e) => showToast('Export failed', e.message, 'warn'));
+    return;
+  }
   let content = '', mime = 'text/plain', filename = `monograph.${format}`;
   const nodes = g.nodes || []; const edges = g.edges || [];
 
@@ -13111,9 +13198,10 @@ function _selectMem(filename) {
   const rawBody = f.body || f.content || '';
   const bodyHtml = rawBody
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\*\*(.+?)\*\*/g, (_, g) => `<strong>${esc(g)}</strong>`)
-    .replace(/^#{1,3} (.+)/gm, (_, g) => `<div style="font-weight:600;color:var(--text-hi);margin:6px 0 2px">${esc(g)}</div>`)
-    .replace(/^- (.+)/gm, (_, g) => `<div style="padding-left:12px">• ${esc(g)}</div>`);
+    // The text is HTML-escaped above, so the groups are already safe to insert as-is.
+    .replace(/\*\*(.+?)\*\*/g, (_, g) => `<strong>${g}</strong>`)
+    .replace(/^#{1,3} (.+)/gm, (_, g) => `<div style="font-weight:600;color:var(--text-hi);margin:6px 0 2px">${g}</div>`)
+    .replace(/^- (.+)/gm, (_, g) => `<div style="padding-left:12px">• ${g}</div>`);
   const srcBadge = f.source === 'backend'
     ? '<span class="mem-badge" style="background:var(--text-lo)22;color:var(--text-lo);margin-left:6px" title="Stored in the AgentDB backend store, not as a file">backend</span>'
     : '';
@@ -13214,6 +13302,7 @@ async function loadStoreEntries() {
     if (ns) url += `&namespace=${encodeURIComponent(ns)}`;
     const data = await apiFetch(url);
     const entries = data.entries || [];
+    _storeEntries = entries;
     if (!entries.length) { grid.innerHTML = `<div class="empty">No entries${ns ? ` in namespace "${esc(ns)}"` : ''}</div>`; return; }
     let html = '<table class="tbl" style="width:100%;font-size:12px"><thead><tr><th>Key</th><th>Namespace</th><th>Content</th><th>Tags</th><th>Updated</th><th></th></tr></thead><tbody>';
     for (const e of entries) {
@@ -13270,9 +13359,14 @@ async function _storeSearch() {
   return true;
 }
 
+// The rows last listed by loadStoreEntries(), so View can prefill the current content: an empty
+// prompt saved blank content over the entry when OK was pressed.
+let _storeEntries = [];
+
 function _viewStoreEntry(key, ns) {
-  const content = prompt(`View/edit content for "${key}" (namespace: ${ns}).\nEdit below and press OK to save, or Cancel to dismiss.`);
-  if (content === null) return;
+  const current = _storeEntries.find((e) => e.key === key && e.namespace === ns)?.content ?? '';
+  const content = prompt(`View/edit content for "${key}" (namespace: ${ns}).\nEdit below and press OK to save, or Cancel to dismiss.`, current);
+  if (content === null || content === current) return;
   fetch('/api/memory/entry', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -13654,9 +13748,13 @@ function mmSwitchTab(tab) {
   if (!body) return;
   if (tab === 'orgs')           mmRenderOrgs(body);
   else if (tab === 'skills')    mmRenderSkills(body);
-  else if (tab === 'loops')     { mmRenderLoops(body); body.insertAdjacentHTML('afterbegin', '<button class="btn" onclick="mmSwitchTab(\'loops\')" style="margin-bottom:10px;font-size:11px">↺ Refresh</button>'); }
+  else if (tab === 'loops' || tab === 'metrics') {
+    // The async renderers replace their container's contents once loaded, so the
+    // Refresh button sits outside it (it used to vanish when loading finished).
+    body.innerHTML = `<button class="btn" onclick="mmSwitchTab('${tab}')" style="margin-bottom:10px;font-size:11px">↺ Refresh</button><div></div>`;
+    (tab === 'loops' ? mmRenderLoops : mmRenderMetrics)(body.lastElementChild);
+  }
   else if (tab === 'createorg') mmRenderCreateOrg(body);
-  else if (tab === 'metrics')   { mmRenderMetrics(body); body.insertAdjacentHTML('afterbegin', '<button class="btn" onclick="mmSwitchTab(\'metrics\')" style="margin-bottom:10px;font-size:11px">↺ Refresh</button>'); }
   else if (tab === 'graph')     mmRenderGraph(body);
 }
 
@@ -13697,7 +13795,7 @@ async function mmRenderLoops(body) {
   try {
     const data = await apiFetch(`/api/loops?dir=${enc(DIR)}`);
     const loops = Array.isArray(data) ? data : (data.loops || []);
-    if (!loops.length) { body.innerHTML = '<div class="empty">No active loops. Use /mastermind:autodev --tillend to start one.</div>'; return; }
+    if (!loops.length) { body.innerHTML = '<div class="empty">No active loops. Run a /mastermind: command with --repeat N or --tillend to start one.</div>'; return; }
     body.innerHTML = loops.map(l => {
       const maxReps = l.maxReps || 0;
       const curRep = l.currentRep || 0;
@@ -13879,6 +13977,7 @@ Object.assign(window, {
   filterOrgList: _filterOrgList,
   mgSwitchTab: _mgSwitchTab,
   mgToggleWatch: _mgToggleWatch,
+  mgOpenGraphTab: _mgOpenGraphTab,
   mgRebuild: _mgRebuild,
   mgWikiSearchDebounced: _mgWikiSearchDebounced,
   mgRebuildDocs: _mgRebuildDocs,
