@@ -38,7 +38,7 @@ export function wrapCommanderCommand(factory: () => import('commander').Command)
         }
       }
       // Re-use the same commander instance to keep state (e.g. option defaults)
-      await getCmd().parseAsync(argv, { from: 'user' });
+      await getCmd().parseAsync(argv, { from: 'node' });
       return { success: true };
     },
   }));
@@ -58,7 +58,7 @@ export function wrapCommanderCommand(factory: () => import('commander').Command)
           argv.push(`--${key}`, String(val));
         }
       }
-      await getCmd().parseAsync(argv, { from: 'user' });
+      await getCmd().parseAsync(argv, { from: 'node' });
       return { success: true };
     },
   };

@@ -78,7 +78,7 @@ export const VERCEL_PROVIDERS: Record<string, VercelProviderDef> = {
   xai: {
     vendor: 'xai',
     package: '@ai-sdk/xai',
-    factory: 'createXAI',
+    factory: 'createXai',
     defaultModel: 'grok-4.5',
     envVar: 'XAI_API_KEY',
   },

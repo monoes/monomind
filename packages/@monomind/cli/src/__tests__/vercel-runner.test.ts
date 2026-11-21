@@ -45,6 +45,24 @@ describe('VERCEL_PROVIDERS registry', () => {
     }
   });
 
+  it('each installed vendor package exports the named factory', async () => {
+    let checked = 0;
+    for (const [name, def] of Object.entries(VERCEL_PROVIDERS)) {
+      let mod: Record<string, unknown>;
+      try {
+        mod = await import(/* @vite-ignore */ def.package);
+      } catch {
+        continue; // optional vendor package not installed here
+      }
+      checked++;
+      expect(typeof mod[def.factory], `${name}: ${def.package} exports ${def.factory}`).toBe(
+        'function',
+      );
+    }
+    expect(checked).toBeGreaterThan(0);
+    expect(VERCEL_PROVIDERS.xai.factory).toBe('createXai');
+  });
+
   it('GLM uses z.ai Anthropic-compatible endpoint', () => {
     expect(VERCEL_PROVIDERS.glm.defaultBaseUrl).toBe('https://api.z.ai/api/anthropic/v1');
     expect(VERCEL_PROVIDERS.glm.package).toBe('@ai-sdk/anthropic');
