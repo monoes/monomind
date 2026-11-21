@@ -5948,7 +5948,10 @@ function v2UpdateOrgHeader(listOrg, data) {
   const _lastEvAt = data ? (data.lastEventAt ?? listOrg.lastEventAt) : listOrg.lastEventAt;
   const badge = document.getElementById('odh-badge');
   const _mcBtn = document.getElementById('org-mark-complete-btn');
-  if (!running) { badge.textContent = 'IDLE'; badge.className = 'odh-badge idle'; if (_mcBtn) _mcBtn.style.display = 'none'; }
+  // runtime.json's record: a run whose daemon died is 'crashed', not idle
+  const _rtStatus = data ? (data.runtimeStatus ?? listOrg.runtimeStatus) : listOrg.runtimeStatus;
+  if (!running && _rtStatus === 'crashed') { badge.textContent = '🔴 CRASHED'; badge.className = 'odh-badge stale'; if (_mcBtn) _mcBtn.style.display = 'none'; }
+  else if (!running) { badge.textContent = 'IDLE'; badge.className = 'odh-badge idle'; if (_mcBtn) _mcBtn.style.display = 'none'; }
   else if (!_lastEvAt) { badge.textContent = '🟡 QUIET'; badge.className = 'odh-badge quiet'; if (_mcBtn) _mcBtn.style.display = 'none'; }
   else { const _a = Date.now() - _lastEvAt; badge.textContent = _a < 1800000 ? '🟢 LIVE' : _a < 7200000 ? '🟡 QUIET' : '🔴 STALE'; badge.className = `odh-badge ${_a < 1800000 ? 'live' : _a < 7200000 ? 'quiet' : 'stale'}`; if (_mcBtn) _mcBtn.style.display = _a >= 7200000 ? '' : 'none'; }
   const roles = data ? (Array.isArray(data.roles) ? data.roles.length : (data.roles || 0)) : (listOrg.roles || 0);

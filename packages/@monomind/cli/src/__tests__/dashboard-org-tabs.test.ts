@@ -204,3 +204,49 @@ describe('Orgs view tab renderers', () => {
     expect(panes['odt-activity'].innerHTML).not.toContain('RECENT ACTIVITY');
   });
 });
+
+describe('Orgs view: header badge', () => {
+  const header = (listOrg: Record<string, unknown>, data: Record<string, unknown> | null) => {
+    const els: Record<
+      string,
+      { textContent: string; className: string; style: { display: string } }
+    > = {};
+    const get = (id: string) => {
+      els[id] ??= { textContent: '', className: '', style: { display: '' } };
+      return els[id];
+    };
+    const ctx = loadPageFunctions(dashboardScript, ['v2UpdateOrgHeader'], {
+      document: { getElementById: get },
+      _v2SelOrg: 'sample-team',
+    });
+    ctx.v2UpdateOrgHeader(listOrg, data);
+    return { badge: els['odh-badge'], stop: els['org-stop-btn'] };
+  };
+
+  it('a crashed last run shows crashed in the stale style, not idle', () => {
+    const { badge, stop } = header(
+      { name: 'sample-team', running: false },
+      { running: false, runtimeStatus: 'crashed', roles: [] },
+    );
+    expect(badge.textContent).toContain('CRASHED');
+    expect(badge.className).toBe('odh-badge stale');
+    expect(stop.style.display).toBe('none');
+  });
+
+  it('the list row alone is enough before the detail loads', () => {
+    const { badge } = header(
+      { name: 'sample-team', running: false, runtimeStatus: 'crashed' },
+      null,
+    );
+    expect(badge.textContent).toContain('CRASHED');
+  });
+
+  it('a stopped run is still idle', () => {
+    const { badge } = header(
+      { name: 'sample-team', running: false },
+      { running: false, runtimeStatus: 'stopped', roles: [] },
+    );
+    expect(badge.textContent).toBe('IDLE');
+    expect(badge.className).toBe('odh-badge idle');
+  });
+});
