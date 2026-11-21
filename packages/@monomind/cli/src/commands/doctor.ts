@@ -112,7 +112,7 @@ export const doctorCommand: Command = {
       name: 'component',
       short: 'c',
       description:
-        'Check specific component (version, node, npm, config, project-root, memory, api, git, mcp, claude, agent-runtimes, disk, native, typescript, monograph, graph-freshness, hook-monograph, graph-semantic, memory-pkg, helpers, monoes, gates, hook-settings, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, dashboard-token, metrics-freshness, security-audit, documents, platforms, crash-reporting, usage-counters, jev, catalog, org-skills, pick)',
+        'Check specific component (agent-runtimes, api, appledouble, catalog, claude, claude-runtime, config, cost-settings, crash-reporting, dashboard-token, decision, deprecated, disk, doc-extractors, documents, freshness, gates, git, gitignore, graph-freshness, graph-semantic, helpers, hook-monograph, hook-settings, jev, kg, mcp, mcp-running, memory, memory-pkg, memory-proficiency, metrics-freshness, monoes, monoes-token, monoes-tools, monograph, native, native-modules, node, npm, org-skills, pick, platforms, project-root, registry, second-brain, security-audit, sidecars, supply-chain, typescript, usage-counters, version)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -127,7 +127,10 @@ export const doctorCommand: Command = {
   ],
   examples: [
     { command: 'monomind doctor', description: 'Run full health check' },
-    { command: 'monomind doctor --fix', description: 'Show fixes for issues' },
+    {
+      command: 'monomind doctor --fix',
+      description: 'Apply the local fixes doctor can make and list commands for the rest',
+    },
     {
       command: 'monomind doctor --json',
       description: 'Machine-readable results (add --fix to apply fixes)',
@@ -495,7 +498,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     if (warnFixes > 0)
       output.writeln(
         output.dim(
-          `\nRun with --fix to see ${warnFixes} suggested fix${warnFixes > 1 ? 'es' : ''} for warnings`,
+          `\nRun with --fix to apply local fixes and see ${warnFixes} suggested fix${warnFixes > 1 ? 'es' : ''} for warnings`,
         ),
       );
   }

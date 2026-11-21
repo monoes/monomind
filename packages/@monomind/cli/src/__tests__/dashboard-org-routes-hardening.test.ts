@@ -437,3 +437,127 @@ describe('adapters list', () => {
       expect(types).toContain(t);
   });
 });
+
+describe('the routes read what the runtime and the server write', () => {
+  // In a git project the server keeps its run files under the git monomind
+  // dir, while the runtime writes under <root>/.monomind/orgs/<org>.
+  const gitMono = () => join(root, '.git', 'monomind');
+  const inGit = { _getGitMonomindDir: () => gitMono() };
+  const bus = (dir: string, run: string, events: Array<Record<string, unknown>>) => {
+    mkdirSync(join(dir, run), { recursive: true });
+    writeFileSync(
+      join(dir, run, 'bus.jsonl'),
+      events.map((e, i) => JSON.stringify({ id: `e${i}`, org: ORG, run, ...e })).join('\n'),
+    );
+  };
+
+  it('a manually stopped run is ended in the run list, not complete', async () => {
+    writeDef(goodDef());
+    bus(orgDir(), RUN, [
+      { ts: 100, type: 'status', msg: 'org started (1 agents)' },
+      { ts: 200, type: 'status', msg: 'org stopped', data: { runnableTasks: 0 } },
+    ]);
+    writeFileSync(join(orgDir(), 'history.jsonl'), `${JSON.stringify({ run: RUN })}\n`);
+    writeRuntime({ status: 'stopped', run: RUN, pid: process.pid });
+    const r = await call('GET', `/api/org/${ORG}/runs?dir=${encodeURIComponent(root)}`);
+    expect(r.json.find((x: any) => x.runId === RUN)).toMatchObject({ status: 'ended' });
+  });
+
+  it('the files list includes the threads file the server appends to', async () => {
+    writeDef(goodDef());
+    writeFileSync(join(orgsDir(), `${ORG}-threads.jsonl`), '{"ts":1}\n');
+    const r = await call('GET', `/api/org/${ORG}/files?dir=${encodeURIComponent(root)}`);
+    expect(r.json.find((f: any) => f.name === `${ORG}-threads.jsonl`)).toMatchObject({
+      type: 'threads',
+    });
+  });
+
+  it('the budgets fallback counts run files in the git monomind dir, once each', async () => {
+    writeDef(goodDef());
+    const line = `${JSON.stringify({ type: 'org:usage', from: 'lead', data: { tokens: 40, cost_usd: 0.4 } })}\n`;
+    for (const dir of [join(gitMono(), 'orgs', ORG, 'runs'), join(orgDir(), 'runs')]) {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, `${RUN}.jsonl`), line);
+    }
+    writeFileSync(join(gitMono(), 'orgs', ORG, 'runs', 'run-2.jsonl'), line);
+    const r = await call(
+      'GET',
+      `/api/org/${ORG}/budgets?dir=${encodeURIComponent(root)}`,
+      undefined,
+      [],
+      inGit,
+    );
+    expect(r.json.agents.find((a: any) => a.id === 'lead')).toMatchObject({ tokens_used: 80 });
+  });
+
+  it('runs/current finds the runtime run directories in a git project', async () => {
+    writeDef(goodDef());
+    const older = 'run-20260921080000-aaaa';
+    bus(join(gitMono(), 'orgs', ORG), older, [{ ts: 1, type: 'chat', from: 'lead', msg: 'old' }]);
+    bus(orgDir(), RUN, [{ ts: 2, type: 'chat', from: 'lead', msg: 'new' }]);
+    const latest = await call(
+      'GET',
+      `/api/orgs/${ORG}/runs/current?dir=${encodeURIComponent(root)}`,
+      undefined,
+      [],
+      inGit,
+    );
+    expect(latest.status).toBe(200);
+    expect(latest.json.runId).toBe(RUN);
+    expect(latest.json.events.find((e: any) => e.type === 'org:comms').msg).toBe('new');
+    const active = await call(
+      'GET',
+      `/api/orgs/${ORG}/runs/current?dir=${encodeURIComponent(root)}`,
+      undefined,
+      [],
+      { ...inGit, activeOrgRuns: new Map([[ORG, RUN]]) },
+    );
+    expect(active.json).toMatchObject({ runId: RUN, active: true });
+  });
+
+  it('the org detail lists the org task DAG, not the CLI task store', async () => {
+    writeDef(goodDef());
+    mkdirSync(join(root, '.monomind', 'tasks'), { recursive: true });
+    writeFileSync(
+      join(root, '.monomind', 'tasks', 'store.json'),
+      JSON.stringify({ tasks: { x: { taskId: 'cli-1', description: 'cli', status: 'pending' } } }),
+    );
+    const t = (id: string, status: string) => ({
+      id,
+      title: `task ${id}`,
+      assignee: 'lead',
+      deps: [],
+      status,
+      createdAt: 1,
+    });
+    writeRuntime({
+      status: 'stopped',
+      run: RUN,
+      pid: process.pid,
+      checkpoint: { tasks: [t('t1', 'ready'), t('t2', 'running'), t('t3', 'done')] },
+    });
+    const r = await call('GET', `/api/org/${ORG}?dir=${encodeURIComponent(root)}`);
+    expect(r.json.tasks.todo).toEqual([
+      { id: 't1', description: 'task t1', status: 'todo', ts: 1 },
+    ]);
+    expect(r.json.tasks.doing.map((x: any) => x.id)).toEqual(['t2']);
+    expect(r.json.tasks.done).toMatchObject([{ id: 't3', status: 'done' }]);
+  });
+
+  it('a crashed last run is reported as crashed by the org list and the org detail', async () => {
+    writeDef(goodDef());
+    writeRuntime({ status: 'crashed', run: RUN, pid: process.pid, closedBy: 'crash-handler' });
+    const list = await call('GET', `/api/orgs?dir=${encodeURIComponent(root)}`);
+    expect(list.json.find((o: any) => o.name === ORG)).toMatchObject({
+      running: false,
+      runtimeStatus: 'crashed',
+    });
+    const detail = await call('GET', `/api/org/${ORG}?dir=${encodeURIComponent(root)}`);
+    expect(detail.json).toMatchObject({ running: false, runtimeStatus: 'crashed' });
+    // a 'running' record whose pid is gone is a crash too
+    writeRuntime({ status: 'running', run: RUN, pid: 2 ** 22 + 12345 });
+    expect(
+      (await call('GET', `/api/org/${ORG}?dir=${encodeURIComponent(root)}`)).json,
+    ).toMatchObject({ running: false, runtimeStatus: 'crashed' });
+  });
+});

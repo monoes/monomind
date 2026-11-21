@@ -56,7 +56,7 @@ try {
 ## Available MCP Tools
 
 Tool names use an underscore convention: `<category>_<action>` (e.g.
-`agent_spawn`, `swarm_init`, `config_get`). The registry lives in
+`agent_spawn`, `memory_store`, `config_get`). The registry lives in
 `src/mcp-client.ts`, which aggregates the tool arrays from
 `src/mcp-tools/*.ts`. Use `listMCPTools()` (or `monomind mcp tools`) for the
 authoritative list. A sample:
@@ -65,19 +65,10 @@ authoritative list. A sample:
 
 | Tool Name | Description |
 |-----------|-------------|
-| `agent_spawn` | Spawn a new agent |
+| `agent_spawn` | Record an agent in the agent store (starts no process) |
 | `agent_list` | List all agents |
 | `agent_status` | Get agent status |
 | `agent_terminate` | Terminate an agent |
-
-### Swarm Tools (`src/mcp-tools/swarm-tools.ts`)
-
-| Tool Name | Description |
-|-----------|-------------|
-| `swarm_init` | Initialize swarm |
-| `swarm_status` | Get swarm status |
-| `swarm_scale` | Scale swarm |
-| `swarm_health` / `swarm_exists` / `swarm_shutdown` | Lifecycle helpers |
 
 ### Memory Tools (`src/mcp-tools/memory-tools.ts`)
 
@@ -184,7 +175,7 @@ Get all unique tool categories.
 ```typescript
 const categories = getToolCategories();
 console.log('Available categories:', categories);
-// Output: ['agent', 'swarm', 'memory', 'config']
+// Output: ['agent', 'memory', 'config', ...]
 ```
 
 ### Error Handling
@@ -302,7 +293,7 @@ const myCommand: Command = {
 
 ✅ Data validation (schema validation)
 ✅ Business rules enforcement
-✅ Resource management (agents, swarms, memory)
+✅ Resource management (agents, memory)
 ✅ State changes
 ✅ Database operations
 ✅ External API calls

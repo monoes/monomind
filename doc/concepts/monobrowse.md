@@ -1,6 +1,6 @@
 # Monobrowse Subsystem (`@monoes/monobrowse`)
 
-> `@monoes/monobrowse` · MIT  
+> `@monoes/monobrowse` · Apache-2.0  
 > Lightweight browser automation powered directly by the **Chrome DevTools Protocol (CDP)** over WebSockets. Designed specifically for AI agents, omitting the weight of Puppeteer or Playwright.
 
 ---
@@ -9,7 +9,7 @@
 
 AI agents require robust browser interaction (navigation, visual inspection, form filling, and JavaScript evaluation). Traditional frameworks like Puppeteer or Playwright download 50+ MB binaries and introduce complex version-pinning requirements.
 
-Monobrowse connects directly to Chrome/Chromium using the native Chrome DevTools Protocol (CDP) over WebSockets. This provides a zero-dependency, low-overhead browser automation layer that meets all agent needs with minimal package weight.
+Monobrowse connects directly to Chrome/Chromium using the native Chrome DevTools Protocol (CDP) over WebSockets. This provides a low-overhead browser automation layer (its only runtime dependencies are `commander` and `ws`) that meets all agent needs with minimal package weight.
 
 ```
 AI Agent / CLI
@@ -33,17 +33,17 @@ Monobrowse converts the browser's Accessibility Tree (AX Tree) into a token-effi
 - Elements are tagged with short references like `@e1`, `@e2`, `@e3`.
 - The in-memory references are written to a localized disk cache (`ref-cache.ts`) so subsequent CLI invocations can interact with elements using these tokens (e.g., `monomind browse click @e3`).
 - **Interactive-Only Filtering:** Reduces the tokens needed by 93% by omitting non-interactive layout nodes.
-- **Safety boundaries:** Snapshot output can be wrapped in cryptographic sentinels to prevent page-content prompt injection attacks.
+- **Safety boundaries:** `snapshot --content-boundaries` wraps the output in nonce-tagged `MONOMIND_PAGE_CONTENT` markers, so page content can be told apart from instructions.
 
 ### 2.2 Headless-to-Headed Redirection
-When running in headless mode, Monobrowse automatically monitors the page URL and DOM contents for login pages and CAPTCHA walls:
-- If a password field, ReCAPTCHA iframe, or login path is encountered, Monobrowse snapshots the cookies.
-- It closes the headless process and spawns a visible (headed) browser.
-- Once the user completes the login or bypasses the CAPTCHA, they press Enter in the terminal.
-- Monobrowse grabs the authenticated cookies and localStorage, shuts down the headed browser, and restores the session in a fresh headless window.
+When running in headless mode, `browse open` checks the page once after it navigates (not with `--headed`) for a login page or CAPTCHA wall:
+- If a password field, ReCAPTCHA iframe, or login path is found, Monobrowse saves the cookies and drops its connection to the headless browser.
+- It launches a visible (headed) browser on a free port with its own profile and opens the same URL there.
+- Once the user completes the login or CAPTCHA, they press Enter in the terminal. Without a terminal (MCP server, piped input, CI) it continues on its own after 30 seconds.
+- Monobrowse grabs the authenticated cookies and localStorage, closes the headed browser, and restores the session in headless mode.
 
 ### 2.3 Dashboard Server
-Includes an embedded dashboard that hosts a live view of the browser's DOM, network logs, and console output (`src/browser/dashboard/server.ts`).
+Includes an embedded run dashboard (`src/browser/dashboard/server.ts`, port 4242 or `MONOBROWSE_DASHBOARD_PORT`) that lists workflow runs, streams their step events and can stop a run.
 
 ---
 
@@ -62,12 +62,12 @@ Located at `packages/@monoes/monobrowse/`.
 
 ### 3.5 Ports and the MonoAgent bridge
 
-**Default CDP port: 9422.** `monomind browse open` launches its Chrome with `--remote-debugging-port=9422`, and `browse connect` defaults to the same port. 9222 used to be the default, but mono-agent's extension bridge permanently owns that port and answers only `/monoagent` routes, so a connect to it never reached Chrome (#666). 9422 sits outside the 922x/932x range mono-agent uses (9222 bridge, 9232 test bridge, 9323 bridge fallback).
+**Default CDP port: 9422.** `browse connect` defaults to 9422. `monomind browse open` without `--port` launches its Chrome on a free port of its own, with a profile of its own. 9222 used to be the default, but mono-agent's extension bridge permanently owns that port and answers only `/monoagent` routes, so a connect to it never reached Chrome (#666). 9422 sits outside the 922x/932x range mono-agent uses (9222 bridge, 9232 test bridge, 9323 bridge fallback).
 
 | Setting | Effect |
 |---|---|
 | `MONOBROWSE_CDP_PORT` | Sets the port that custom `action` runs and the platform login/session commands connect to. `MONOBROWSE_PORT` and `MONOMIND_CDP_PORT` are older aliases, read in that order after it. Default 9422 |
-| `--port <n>` | Port for `browse open` and `browse connect` (both default to 9422; they do not read the environment variable) |
+| `--port <n>` | Port for `browse open` and `browse connect` (`connect` defaults to 9422, `open` to a free port of its own; neither reads the environment variable) |
 | `browse connect --auto-connect` | Probes 9422, 9222 and 9229 in that order, so a Chrome you started yourself with `--remote-debugging-port=9222` is still found |
 
 If the requested port is held by a process that is not Chrome, a launch scans upward for a free port (up to 10 tries). A Chrome that already answers on the requested port is attached to, not relaunched.
@@ -111,7 +111,7 @@ If the requested port is held by a process that is not Chrome, a launch scans up
 | Integration | Location | Description |
 |---|---|---|
 | **CLI command** | `packages/@monomind/cli/src/commands/index.ts` | Registered as `monomind browse` |
-| **Monodesign** | `@monoes/monodesign/cli/engine/` | Optional Puppeteer dependency fallback for live visual audits |
+| **Monodesign** | `@monoes/monodesign/cli/engine/` | Optional dependency of monodesign: its preferred browser driver for live visual audits, with Puppeteer as the fallback |
 | **Session store** | `ref-cache.ts` | One record per session (`.monomind/monobrowse/sessions/<port>.json`) so multiple CLI calls reach the same browser — and concurrent sessions each keep their own. See [`browse` → Sessions](../commands/browse.md#sessions) |
 
 ---
@@ -140,4 +140,4 @@ monomind browse click @e1
 monomind browse screenshot page.png
 ```
 
-The CDP port defaults to 9422 and falls back across bridge endpoints; `--session <name>` selects an isolated named session. Without an installed Chrome, Chromium or Edge, the first run installs Chrome (see [Trust & Security](../../README.md#trust--security)). Details: [Browse reference](../commands/browse.md).
+`browse connect` defaults to CDP port 9422 (`browse open` picks a free port of its own); `--session <name>` selects an isolated named session. Without an installed Chrome, Chromium or Edge, the first run installs Chrome (see [Trust & Security](../../README.md#trust--security)). Details: [Browse reference](../commands/browse.md).

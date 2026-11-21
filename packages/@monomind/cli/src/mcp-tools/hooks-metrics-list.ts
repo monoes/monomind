@@ -185,8 +185,9 @@ export const hooksList: MCPTool = {
       { name: 'post-edit', type: 'PostToolUse', status: 'active' },
       { name: 'pre-command', type: 'PreToolUse', status: 'active' },
       { name: 'post-command', type: 'PostToolUse', status: 'active' },
-      { name: 'pre-task', type: 'PreToolUse', status: 'active' },
-      { name: 'post-task', type: 'PostToolUse', status: 'active' },
+      // init wires post-task to SubagentStop; it wires no event to pre-task (CLI/MCP only).
+      { name: 'pre-task', type: 'cli', status: 'active' },
+      { name: 'post-task', type: 'SubagentStop', status: 'active' },
       // Routing hooks
       { name: 'route', type: 'intelligence', status: 'active' },
       { name: 'explain', type: 'intelligence', status: 'active' },
@@ -199,7 +200,6 @@ export const hooksList: MCPTool = {
       { name: 'transfer', type: 'intelligence', status: 'active' },
       { name: 'metrics', type: 'analytics', status: 'active' },
       // System hooks
-      { name: 'init', type: 'system', status: 'active' },
       { name: 'notify', type: 'coordination', status: 'active' },
       // Intelligence subcommands
       { name: 'intelligence', type: 'intelligence', status: 'active' },

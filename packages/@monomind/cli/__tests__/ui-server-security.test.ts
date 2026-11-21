@@ -561,7 +561,7 @@ describe('human session: the page and the decision routes need a logged-in brows
     expect(r.status).toBe(401);
     expect(r.body).not.toMatch(CRED_RE);
     expect(r.body).toContain('monomind dashboard open');
-    for (const page of ['/orgs', '/mastermind', '/v2']) {
+    for (const page of ['/v2']) {
       expect((await raw(page, { headers: { Host: `127.0.0.1:${port}` } })).body).not.toMatch(CRED_RE);
     }
   });

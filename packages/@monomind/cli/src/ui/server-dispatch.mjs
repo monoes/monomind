@@ -44,7 +44,6 @@ async function dispatchRequest(req, res, url, corsOrigin, deps) {
     _updateRunState,
     _getKnowledgeBridge,
     SESSION_ID_RE,
-    MASTERMIND_DIAGRAM_HTML,
     buildDocsState,
     looksLikeOurProcess,
   } = deps;
@@ -109,9 +108,6 @@ async function dispatchRequest(req, res, url, corsOrigin, deps) {
       _updateRunState,
       _getKnowledgeBridge,
       SESSION_ID_RE,
-      MASTERMIND_DIAGRAM_HTML,
-      dashboardAuthValue,
-      __dirname,
     })
   )
     return true;

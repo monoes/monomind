@@ -7,9 +7,9 @@
 
 ## Executive Overview
 
-Monomind Monograph (`@monoes/monograph` `v2.25.3`) is an in-process, SQLite-backed codebase knowledge graph subsystem. It parses source files into ASTs using Tree-sitter, extracts code symbols and structural relationships into SQLite database tables, performs graph analysis (blast radius calculation, one-hop neighbor-expansion reranking, central god nodes detection, graph surprisingness, and community clustering), tracks graph freshness via Git commits and file content hashing, and exposes native MCP tools for agentic code intelligence.
+Monomind Monograph (`@monoes/monograph`; version in its [package.json](packages/@monomind/monograph/package.json)) is an in-process, SQLite-backed codebase knowledge graph subsystem. It parses source files into ASTs using Tree-sitter, extracts code symbols and structural relationships into SQLite database tables, performs graph analysis (blast radius calculation, one-hop neighbor-expansion reranking, central god nodes detection, graph surprisingness, and community clustering), tracks graph freshness via Git commits and file content hashing, and exposes native MCP tools for agentic code intelligence.
 
-Defined in `packages/@monomind/monograph/` ([package.json](packages/@monomind/monograph/package.json)) and integrated into CLI MCP tools at `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`.
+Defined in `packages/@monomind/monograph/` ([package.json](packages/@monomind/monograph/package.json)) and integrated into CLI MCP tools under `packages/@monomind/cli/src/mcp-tools/monograph/` (`monograph-tools.ts` is a re-export shim).
 
 ---
 
@@ -39,7 +39,7 @@ Defined in `packages/@monomind/monograph/src/storage/schema.ts`:
 |---|---|---|
 | `nodes` | `id (PK)`, `label`, `name`, `norm_label`, `file_path`, `start_line`, `end_line`, `community_id`, `is_exported`, `language`, `properties` | Code symbols, files, folders, and conceptual nodes. |
 | `edges` | `id (PK)`, `source_id (FK)`, `target_id (FK)`, `relation`, `confidence`, `confidence_score`, `weight`, `reason`, `evidence` | Directed relationships between nodes. |
-| `communities` | `id (PK)`, `label`, `size`, `cohesion_score` | Louvain community clusters. |
+| `communities` | `id (PK)`, `label`, `size`, `cohesion_score` | Leiden community clusters (Louvain only if Leiden fails). |
 | `index_meta` | `key (PK)`, `value` | Commit metadata (e.g. `last_commit_hash`). |
 | `file_cache` | `file_path (PK)`, `content_hash` (SHA-256), `last_parsed`, `node_count`, `edge_count` | Incremental parse cache tracking. |
 | `nodes_fts` | FTS5 Virtual Table (`name`, `norm_label`, `file_path`) | Trigram-tokenized full-text search with SQLite auto-sync triggers (`FTS_SYNC_TRIGGERS`). |
@@ -53,7 +53,7 @@ Defined in `packages/@monomind/monograph/src/storage/schema.ts`:
 ### Code & Graph Node Labels
 - **AST / Code**: `File`, `Folder`, `Function`, `Class`, `Method`, `Interface`, `Variable`, `Struct`, `Enum`, `Macro`, `Typedef`, `Union`, `Namespace`, `Trait`, `Impl`, `TypeAlias`, `Const`, `Static`, `Property`, `Record`, `Delegate`, `Annotation`, `Constructor`, `Template`, `Module`, `Process`, `Route`, `Community`.
 - **Knowledge & Concept**: `Concept`, `Section`, `Document`, `Tool`, `Entity`, `Field`.
-- **Agents**: `Agent` and `Skill`, read by the `agent-registry` phase from the root `.claude/agents/**` and `.claude/skills/*/SKILL.md` frontmatter (`.claude/` is not file-scanned because it is mirrored into several platform trees). Their `REFERENCES` edges point at the repository files their text names.
+- **Agents**: `Agent` and `Skill`, read only when tool-asset indexing is on (off by default; see `monograph_build` in §6) by the `agent-registry` phase from the root `.claude/agents/**` and `.claude/skills/*/SKILL.md` frontmatter (`.claude/` is not file-scanned because it is mirrored into several platform trees). Their `REFERENCES` edges point at the repository files their text names.
 
 ### Edge Relationship Kinds (`EdgeRelation`)
 - **Code & Structural**: `CONTAINS`, `DEFINES`, `CALLS`, `IMPORTS`, `RE_EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `HAS_METHOD`, `HAS_PROPERTY`, `ACCESSES`, `METHOD_OVERRIDES`, `METHOD_IMPLEMENTS`, `MEMBER_OF`, `STEP_IN_PROCESS`, `HANDLES_ROUTE`, `FETCHES`, `HANDLES_TOOL`, `ENTRY_POINT_OF`, `WRAPS`, `QUERIES`, `REFERENCES`, `PARENT_SECTION`, `TAGGED_AS`, `HAS_FIELD`, `TESTS` (test `File` → the file it imports, or the symbol its code calls; `INFERRED`, rebuilt from the committed `IMPORTS`/`CALLS` edges by the `tests-edges` phase).
@@ -68,16 +68,13 @@ Defined in `packages/@monomind/monograph/src/storage/schema.ts`:
 
 ## 4. Blast Radius Calculation & Ripple Impact
 
-Monograph computes change blast radius using a multi-hop Breadth-First Search (BFS) graph traversal engine.
+`monograph_impact` ([`impact-tools-blast.ts → monographImpactTool`](packages/@monomind/cli/src/mcp-tools/monograph/impact-tools-blast.ts#monographImpactTool)) calls [`impact.ts → getMonographImpact`](packages/@monomind/monograph/src/mcp-tools/impact.ts#getMonographImpact):
 
-### BFS Ripple Impact Algorithm
-Located at `packages/@monomind/monograph/src/graph/ripple-impact.ts` ([`rippleImpactFromMap`](packages/@monomind/monograph/src/graph/ripple-impact.ts#rippleImpactFromMap)):
+- **Traversal**: reverse BFS from the symbol over **incoming** `CALLS`, `IMPORTS`, `REFERENCES`, `EXTENDS` and `RE_EXPORTS` edges, that is, its callers and importers, to depth 3 by default (at most 6).
+- **Result**: callers by depth, affected files, affected tests (from `TESTS` edges) and a risk score of `min(log2(callers + 1), 10) / 10`.
+- A name that matches several definitions returns the candidates instead of picking one.
 
-- **Traversal**: BFS traversal outward along directed outgoing edges up to a max depth (default `depth = 3`).
-- **Decay Formula**: Calculates impact score using exponential depth decay:
-  $$\text{ImpactScore} = \sum_{d=1}^{\text{maxDepth}} N_d \times (\text{decayFactor})^d$$
-  *(where $N_d$ is the number of affected nodes at depth $d$, and $\text{decayFactor} = 0.5$)*.
-- **LLM Context Formatting**: `formatRippleImpact()` ([`formatRippleImpact`](packages/@monomind/monograph/src/graph/ripple-impact.ts#formatRippleImpact)) transforms the graph traversal tree into a structured markdown report for AI model consumption.
+`packages/@monomind/monograph/src/graph/ripple-impact.ts` (`rippleImpactFromMap`, a forward BFS with 0.5^depth decay, and `formatRippleImpact`) is exported from the package but no MCP tool or CLI command calls it.
 
 ---
 
@@ -86,7 +83,7 @@ Located at `packages/@monomind/monograph/src/graph/ripple-impact.ts` ([`rippleIm
 Monograph detects likely staleness through a three-layer system. It reduces the chance of serving an outdated graph; it does not guarantee the index matches the working tree — see the limitations below before relying on a freshness result:
 
 1. **Git Commit Hash Verification** ([`git-staleness.ts → checkStaleness`](packages/@monomind/monograph/src/staleness/git-staleness.ts#checkStaleness)):
-   Compares `last_commit_hash` in `index_meta` against `git rev-parse HEAD`. If different, runs `git diff --name-only <indexed>..HEAD` to detect changed files and mark graph nodes as stale.
+   Compares `last_commit_hash` in `index_meta` against `git rev-parse HEAD`. If different, runs `git diff --name-only <indexed>..HEAD` and lists the changed files (`changedSince`) in the staleness report. It also runs `git status --porcelain` to detect uncommitted edits.
 2. **SHA-256 File Content Hashing** ([`file-cache.ts → hashFileContent`](packages/@monomind/monograph/src/storage/file-cache.ts#hashFileContent)):
    Computes file content hashes and compares against the `file_cache` table to skip unchanged files during incremental graph builds.
 3. **Live File System Watcher** (`monograph_watch`, [`mcp-tools/monograph/build-tools.ts → monographWatchTool`](packages/@monomind/cli/src/mcp-tools/monograph/build-tools.ts#monographWatchTool), backed by [`packages/@monomind/monograph/src/watch/watcher.ts`](packages/@monomind/monograph/src/watch/watcher.ts)):
@@ -98,23 +95,17 @@ Monograph detects likely staleness through a three-layer system. It reduces the 
 
 ### Known freshness limitations
 
-Layer 1 compares committed revisions, so a "fresh" result does not mean the index
-matches what is currently on disk:
+The report's `isStale` field reflects commit divergence only. Its `state` field (`fresh`, `stale`, `building`, `partial` or `unknown`) is the freshness verdict:
 
-- **Uncommitted working-tree edits are invisible to it.** A file edited but not yet
-  committed leaves `last_commit_hash` equal to `HEAD`, so the index reports fresh
-  while the graph still describes the pre-edit code.
-- **When Git is unavailable, staleness cannot be determined**, and the check does not
-  report the index as stale in that case — so a non-Git checkout, a missing `git`
-  binary, or a shallow/detached state yields a not-stale answer that carries no
-  evidence behind it.
+- **Uncommitted working-tree edits** make `state` `stale` (with `dirtyWorktree`, `dirtyPaths` and `dirtyFileCount`) even when `last_commit_hash` equals `HEAD`; `isStale` stays false in that case.
+- **When Git is unavailable**, or the worktree cannot be read, `state` is `unknown`, never `fresh`.
+- **`fresh`** requires the indexed commit to match `HEAD`, a clean worktree, no parser warnings and no refresh error.
 - **A watcher is not always running.** Layers 2 and 3 only narrow the window while a
   build or an active watch session is in progress; neither runs continuously by
   default.
 
-Treat a fresh result as "no committed change detected", not as a guarantee. When
-coverage or freshness matters for a decision, verify against the files themselves
-rather than relying on the graph alone.
+When coverage or freshness matters for a decision, read `state` rather than `isStale`, and
+verify against the files themselves rather than relying on the graph alone.
 
 ---
 
@@ -126,16 +117,16 @@ re-export shim — the real implementations live in individual files under
 not a curated "top 15" or a meaningful tier — see the note after the list for the real
 category boundary (default vs. advanced-gated):
 
-1. `monograph_build` ([`build-tools.ts → monographBuildTool`](packages/@monomind/cli/src/mcp-tools/monograph/build-tools.ts#monographBuildTool)): Rebuilds or incrementally updates the knowledge graph.
+1. `monograph_build` ([`build-tools.ts → monographBuildTool`](packages/@monomind/cli/src/mcp-tools/monograph/build-tools.ts#monographBuildTool)): Builds or rebuilds the knowledge graph. `incremental: true` only skips the build when the index already matches HEAD; otherwise the full pipeline runs, with the parse cache (`.monomind/parse-cache`) letting unchanged files skip re-extraction.
    - **Tool-managed assets** (`.pi/` and the Agent/Skill definitions under `.claude/`) are left out of the graph by default. A project opts in with `monomind monograph build --tool-assets` or `monograph_build toolAssets:true` (`--no-tool-assets` / `toolAssets:false` opts out). The choice is stored in the project's `index_meta` (`tool_assets`), like the code-only scope, so watcher, hook and auto-freshen rebuilds that state nothing keep it; `monograph_stats` and `doctor -c graph-freshness` show whether it is on.
 2. `monograph_watch` ([`build-tools.ts → monographWatchTool`](packages/@monomind/cli/src/mcp-tools/monograph/build-tools.ts#monographWatchTool)): Starts the live file-watcher described in §5.3 above.
 3. `monograph_query` ([`query-tools-search.ts → monographQueryTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-search.ts#monographQueryTool)): BM25/FTS search over names plus stemmed symbol summaries, with optional one-hop neighbor-expansion reranking (a single outgoing hop taking the maximum propagated score — not iterative Personalized PageRank). `scope` picks the part of the graph: `auto` (default) lists code first and fills with docs — a docs-flavoured query reverses that, a multi-word question that names an agent or skill puts agents first; `code`, `docs`, `agents` restrict (docs-scope search also matches words from the document body, not only titles and headings); `all` ranks by relevance alone. Test files rank below the code they exercise unless the query mentions tests. When vectors exist, lexical and semantic rankings are fused by reciprocal rank (`searchGraphFused`): a one-token query favours lexical and pins an exact name match first, a sentence favours semantic. Keyword search's two best hits are never dropped by the fusion (a sentence that contains a real name keeps its keyword match). With no model, no vectors yet, or `MONOGRAPH_EMBED=0` it is lexical only — never an error. The ~88 MB model is never downloaded implicitly: without it on disk semantic search stays off (`monomind download-embeddings` installs it; `MONOGRAPH_ALLOW_DOWNLOAD=1` lets the background job fetch it). `monomind doctor -c graph-semantic` reports which of the three — no summaries, no model, vectors still catching up — applies.
 4. `monograph_stats` ([`health-tools.ts → monographStatsTool`](packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#monographStatsTool)): Reports node/edge totals and the last build's manifest — generation, duration, scope, identity version, nodes per label, edges per relation, summarized symbols and parse warnings (`index_meta.manifest`).
-5. `monograph_health` ([`health-tools.ts → monographHealthTool`](packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#monographHealthTool)): Computes graph connectivity and complexity health scores.
+5. `monograph_health` ([`health-tools.ts → monographHealthTool`](packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#monographHealthTool)): Reports index freshness as an explicit state (fresh / stale / building / partial / unknown) with the indexed revision, source scope, dirty-worktree status, parser warnings and last refresh error.
 6. `monograph_god_nodes` ([`query-tools-graph.ts → monographGodNodesTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-graph.ts#monographGodNodesTool)): Identifies central high-degree nodes (architectural hubs).
 7. `monograph_get_node` ([`query-tools-nav.ts → monographGetNodeTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-nav.ts#monographGetNodeTool)): Retrieves attributes and edge connections for a specific node.
 8. `monograph_shortest_path` ([`query-tools-graph.ts → monographShortestPathTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-graph.ts#monographShortestPathTool)): Executes BFS pathfinding between two code nodes.
-9. `monograph_community` ([`group-tools.ts → monographCommunityTool`](packages/@monomind/cli/src/mcp-tools/monograph/group-tools.ts#monographCommunityTool)): Inspects Louvain community clusters.
+9. `monograph_community` ([`group-tools.ts → monographCommunityTool`](packages/@monomind/cli/src/mcp-tools/monograph/group-tools.ts#monographCommunityTool)): Inspects the Leiden community clusters.
 10. `monograph_surprises` ([`group-tools.ts → monographSurprisesTool`](packages/@monomind/cli/src/mcp-tools/monograph/group-tools.ts#monographSurprisesTool)): Detects unusual cross-boundary coupling and non-obvious dependencies.
 11. `monograph_brief` ([`brief-tool.ts → monographBriefTool`](packages/@monomind/cli/src/mcp-tools/monograph/brief-tool.ts#monographBriefTool)): One call from a task in plain words to the best code entry points (with callers, callees and covering tests), the docs that describe it, and the blast radius — risk, files and tests to run — of the top hit. Start here instead of chaining suggest, context and impact.
 12. `monograph_suggest` ([`query-tools-search.ts → monographSuggestTool`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools-search.ts#monographSuggestTool)): Recommends relevant code files for task prompts.

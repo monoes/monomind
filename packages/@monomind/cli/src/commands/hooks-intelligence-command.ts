@@ -58,7 +58,7 @@ export const intelligenceCommand: Command = {
     {
       name: 'train',
       short: 't',
-      description: 'Force training cycle',
+      description: 'Record one trajectory step and dedupe similar patterns (no model is trained)',
       type: 'boolean',
       default: false,
     },
@@ -341,7 +341,7 @@ export const intelligenceCommand: Command = {
 
       // SONA Component
       output.writeln();
-      output.writeln(output.bold('SONA (Sub-0.05ms Learning)'));
+      output.writeln(output.bold('Pattern store (confidence adjustments; no model is trained)'));
       const sona = result.components.sona;
       if (sona.enabled) {
         output.printTable({
@@ -367,7 +367,7 @@ export const intelligenceCommand: Command = {
 
       // MoE Component
       output.writeln();
-      output.writeln(output.bold('Mixture of Experts (MoE)'));
+      output.writeln(output.bold('MoE (placeholder values; no MoE component exists)'));
       const moe = result.components.moe;
       if (moe.enabled) {
         output.printTable({
@@ -402,7 +402,7 @@ export const intelligenceCommand: Command = {
           data: [
             { metric: 'Status', value: formatIntelligenceStatus(hnsw.status) },
             { metric: 'Index Size', value: (hnsw.indexSize ?? 0).toLocaleString() },
-            { metric: 'Search Speedup', value: output.success(hnsw.searchSpeedup ?? 'N/A') },
+            { metric: 'Search Backend', value: output.success(hnsw.searchSpeedup ?? 'N/A') },
             { metric: 'Memory Usage', value: hnsw.memoryUsage ?? 'N/A' },
           ],
         });

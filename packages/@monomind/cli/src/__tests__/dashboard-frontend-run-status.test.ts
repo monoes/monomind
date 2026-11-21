@@ -43,4 +43,41 @@ describe('v2RunStatus: ended vs stale', () => {
     expect(v2RunStatus(d, 'r', sum)).toEqual({ status: 'ended', closedBy: 'stop-file' });
     expect(v2RunStatus(d, 'other', sum).status).toBe('stale');
   });
+
+  // The bus's plain 'org stopped' (summary.done) comes from org-complete and
+  // from a bare manual stop alike; history and runtime.json tell them apart.
+  const done = { done: true, mtimeMs: Date.now() };
+
+  it('a manual stop (history line without closedBy) is ended, not complete', () => {
+    const d = mk();
+    writeFileSync(join(d, 'history.jsonl'), `${JSON.stringify({ run: 'r' })}\n`);
+    expect(v2RunStatus(d, 'r', done)).toEqual({ status: 'ended', closedBy: null });
+    expect(v2RunStatus(d, 'r', sum)).toEqual({ status: 'ended', closedBy: null });
+  });
+
+  it('a stopped bus with org-complete in history is complete', () => {
+    const d = mk();
+    writeFileSync(
+      join(d, 'history.jsonl'),
+      `${JSON.stringify({ run: 'r', closedBy: 'org-complete' })}\n`,
+    );
+    expect(v2RunStatus(d, 'r', done)).toEqual({ status: 'complete', closedBy: 'org-complete' });
+  });
+
+  it('without history, runtime.json decides: org-complete is complete, a bare stop is ended', () => {
+    const d = mk();
+    writeFileSync(
+      join(d, 'runtime.json'),
+      JSON.stringify({ run: 'r', status: 'stopped', closedBy: 'org-complete' }),
+    );
+    expect(v2RunStatus(d, 'r', done)).toEqual({ status: 'complete', closedBy: 'org-complete' });
+    writeFileSync(join(d, 'runtime.json'), JSON.stringify({ run: 'r', status: 'stopped' }));
+    expect(v2RunStatus(d, 'r', done)).toEqual({ status: 'ended', closedBy: null });
+    // an older run whose stop the bus recorded, with no record of its own
+    expect(v2RunStatus(d, 'older', done)).toEqual({ status: 'ended', closedBy: null });
+  });
+
+  it('a stopped bus with no records at all is ended', () => {
+    expect(v2RunStatus(mk(), 'r', done)).toEqual({ status: 'ended', closedBy: null });
+  });
 });

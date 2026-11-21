@@ -4,18 +4,9 @@ import crypto from 'node:crypto';
 // (all of /api/*, GET or not) requires _checkAuth. These serve the HTML/JS
 // that embeds the token in a <meta name="mm-token"> tag on page load, so
 // they must be reachable before any fetch() call could attach the token.
-const _OPEN_ROUTES = new Set([
-  '/',
-  '/v2',
-  '/mastermind',
-  '/orgs',
-  '/orgs-files.js',
-  '/markdown.js',
-  '/favicon.ico',
-  '/api/identity',
-]);
+const _OPEN_ROUTES = new Set(['/', '/v2', '/markdown.js', '/favicon.ico', '/api/identity']);
 // Pages that embed the token: served only to a browser with the human session.
-const _HUMAN_PAGES = new Set(['/', '/v2', '/orgs', '/mastermind']);
+const _HUMAN_PAGES = new Set(['/', '/v2']);
 // Mutations that act as the human supervising an org (org-hil.mjs,
 // org-runtime.mjs's config patch) or that write or destroy an org definition
 // or end a run: the token alone, which any local process can read, is not

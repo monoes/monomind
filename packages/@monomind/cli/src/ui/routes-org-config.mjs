@@ -5,8 +5,9 @@ import { writeFileAtomic } from './org-hil.mjs';
 import {
   assertValidOrgDef,
   orgIsRunning,
-  orgRunningState,
+  orgRuntimeStatus,
   orgSignatureState,
+  orgTasks,
 } from './org-runtime.mjs';
 import { approvalsOrEmpty, readBodyOrReply } from './routes-org-helpers.mjs';
 import { _readTailLines } from './server-fileutils.mjs';
@@ -92,10 +93,12 @@ export async function handleOrgConfigRoutes(req, res, url, corsOrigin, ctx) {
             _orgsSeen.add(_lOrgName);
             const _rs = ctx._readRunState(_lOrgName, _opd);
             const _ttl = Math.max((_rs?.checkpointInterval || 600000) * 2, 7200000);
+            const runtimeStatus = orgRuntimeStatus(_opd, _lOrgName);
             const running =
-              orgRunningState(_opd, _lOrgName) ??
-              ((_rs?.status === 'running' && Date.now() - (_rs?.lastEventAt || 0) < _ttl) ||
-                ctx.activeOrgRuns.has(_lOrgName));
+              runtimeStatus !== null
+                ? runtimeStatus === 'running'
+                : (_rs?.status === 'running' && Date.now() - (_rs?.lastEventAt || 0) < _ttl) ||
+                  ctx.activeOrgRuns.has(_lOrgName);
             orgs.push({
               name: cfg.name,
               goal: cfg.goal,
@@ -103,6 +106,7 @@ export async function handleOrgConfigRoutes(req, res, url, corsOrigin, ctx) {
               topology: cfg.topology,
               created_at: cfg.created_at,
               running,
+              runtimeStatus,
               status: cfg.status,
               projectDir: _opd,
               lastEventAt: _rs?.lastEventAt || null,
@@ -129,7 +133,7 @@ export async function handleOrgConfigRoutes(req, res, url, corsOrigin, ctx) {
     return true;
   }
 
-  // POST /api/orgs/:name/import — import an org config by name (orgs.html upload flow)
+  // POST /api/orgs/:name/import — import an org config by name
   if (req.method === 'POST' && /^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/import$/i.test(url)) {
     const body = await readBodyOrReply(req, res, 2e6, corsOrigin);
     if (body === null) return true;
@@ -304,42 +308,27 @@ export async function handleOrgConfigRoutes(req, res, url, corsOrigin, ctx) {
       const _runstateAlive =
         _runstateData?.status === 'running' &&
         Date.now() - (_runstateData?.lastEventAt || 0) < _runstateTtl;
-      const _v2Running = orgRunningState(d, orgName);
+      const runtimeStatus = orgRuntimeStatus(d, orgName);
       const running =
-        _v2Running ??
-        (!fs.existsSync(stopFile) &&
-          (_runstateAlive || ctx.activeOrgRuns.has(orgName) || _loopRunning));
+        runtimeStatus !== null
+          ? runtimeStatus === 'running'
+          : !fs.existsSync(stopFile) &&
+            (_runstateAlive || ctx.activeOrgRuns.has(orgName) || _loopRunning);
 
-      // Read real tasks from the task store and group by status column
-      const taskStoreData = readJsonSafe(path.join(d, '.monomind', 'tasks', 'store.json'));
-      const allTasks = taskStoreData ? Object.values(taskStoreData.tasks || {}) : [];
+      // The org's own task DAG (as the Runtime tab reads it), grouped by
+      // column — not the project-wide CLI task store, which no org writes.
+      const orgTaskList = await orgTasks(d, orgName);
+      const taskRow = (t, status, ts) => ({ id: t.id, description: t.title, status, ts });
       const tasks = {
-        todo: allTasks
-          .filter((t) => t.status === 'pending')
-          .map((t) => ({
-            id: t.taskId,
-            description: t.description,
-            status: 'todo',
-            ts: t.createdAt,
-          })),
-        doing: allTasks
-          .filter((t) => t.status === 'in_progress')
-          .map((t) => ({
-            id: t.taskId,
-            description: t.description,
-            status: 'doing',
-            ts: t.startedAt || t.createdAt,
-          })),
-        done: allTasks
-          .filter(
-            (t) => t.status === 'completed' || t.status === 'failed' || t.status === 'cancelled',
-          )
-          .map((t) => ({
-            id: t.taskId,
-            description: t.description,
-            status: t.status,
-            ts: t.completedAt || t.createdAt,
-          })),
+        todo: orgTaskList
+          .filter((t) => ['pending', 'ready', 'blocked'].includes(t.status))
+          .map((t) => taskRow(t, 'todo', t.createdAt)),
+        doing: orgTaskList
+          .filter((t) => t.status === 'running')
+          .map((t) => taskRow(t, 'doing', t.startedAt || t.createdAt)),
+        done: orgTaskList
+          .filter((t) => ['done', 'failed', 'split', 'merged', 'cancelled'].includes(t.status))
+          .map((t) => taskRow(t, t.status, t.completedAt || t.createdAt)),
       };
 
       const result = {
@@ -349,6 +338,7 @@ export async function handleOrgConfigRoutes(req, res, url, corsOrigin, ctx) {
         routines: routinesData.routines,
         approvals: approvalsData.approvals,
         running,
+        runtimeStatus,
         tasks,
         runId: _runstateData?.runId || null,
         lastEventAt: _runstateData?.lastEventAt || null,

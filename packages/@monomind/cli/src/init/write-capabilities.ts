@@ -109,7 +109,7 @@ Fallback when picking returns nothing — real core agents:
 | \`session\` | ${subcommandCount(sessionCommand)} | Session persistence |
 | \`config\` | ${subcommandCount(configCommand)} | Configuration |
 | \`status\` | ${subcommandCount(statusCommand)} | System monitoring |
-| \`hooks\` | ${subcommandCount(hooksCommand)} | Edit/outcome logging, agent routing + ${hooksAvailable ? `${WORKER_COUNT} ` : ''}background workers${hooksAvailable ? '' : ' (background workers unavailable in this install)'} |
+| \`hooks\` | ${subcommandCount(hooksCommand)} | Edit/outcome logging, agent routing, ${hooksAvailable ? `${WORKER_COUNT} ` : ''}on-demand workers${hooksAvailable ? '' : ' (workers unavailable in this install)'} |
 
 > Note: there is no \`workflow\`, \`neural\`, \`embeddings\`, \`claims\`, \`migrate\`, or \`process\` CLI command.
 > The old \`neural\` pattern commands live under \`hooks intelligence\` — a local pattern store (SQLite \`patterns.db\`, JSON fallback); no model is trained.
@@ -129,7 +129,7 @@ Fallback when picking returns nothing — real core agents:
 # Initialize
 npx monomind init wizard
 
-# Spawn agent
+# Record an agent (starts no process; use agent exec to run a turn)
 npx monomind agent spawn -t coder --name my-coder
 
 # Memory operations
@@ -186,23 +186,23 @@ The four groups below are a curated highlight, not the full ${subcommandCount(ho
 |--------|----------|---------|
 ${workerTableRows(WORKER_ROWS)}
 
-Metrics-producing workers (ddd, map, audit, consolidate) refresh at
-session start when their output is >6h old; run on demand with
-\`monomind hooks worker run <name>\`.
+In a user project, \`init\` seeds the map and audit metrics once.
+Session-start hooks cannot load @monoes/hooks, so workers refresh only when
+you run \`monomind hooks worker run <name>\`.
 
 ---
 
 ## Memory & Intelligence
 
 ### Intelligence System
-- **Keyword routing**: Deterministic task→agent routing with outcome measurement
+- **Keyword routing**: Task→agent routing by keyword ranking (or the Jev decision model, when one is configured) with outcome measurement
 - **ANN pattern search**: Indexed vector search via SQLite
-- **Pattern store**: Hooks log edits, outcomes and trajectories to a local pattern store (SQLite, JSON fallback) for retrieval
+- **Pattern store**: A local SQLite pattern store (JSON fallback), filled by explicit \`hooks intelligence\` and MCP pattern calls; hooks log only routing outcomes and edits, to JSONL/JSON files under \`.monomind/\`, and no hook records trajectories
 - **Pick stats**: Pick adherence and subagent outcomes (\`.monomind/pick-stats.json\`) act as a bounded ranking prior on later picks
 - **Int8 Quantization**: ~4x memory reduction for stored embeddings
 
 No model is trained — routing and pattern logging run in JS on local files.
-Route and command outcomes are recorded and scored so routing quality is measured.
+Route and command outcomes are recorded and scored as a task-success rate of routed prompts.
 
 ### Memory Commands
 \`\`\`bash
