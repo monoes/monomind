@@ -61,7 +61,7 @@ function formatPriority(priority: string): string {
 // Subcommand: check
 const checkCommand: Command = {
   name: 'check',
-  description: 'Check for available @monomind package updates',
+  description: 'Check for available monomind package updates (monomind, @monoes/*)',
   options: [
     { name: 'force', description: 'Force check (ignore rate limit)', type: 'boolean' },
     { name: 'json', description: 'Output as JSON', type: 'boolean' },
@@ -88,7 +88,7 @@ const checkCommand: Command = {
       }
 
       if (results.length === 0) {
-        output.printSuccess('All @monomind packages are up to date!');
+        output.printSuccess('All monomind packages are up to date!');
         return { success: true };
       }
 
@@ -141,7 +141,7 @@ const checkCommand: Command = {
 // Subcommand: all
 const allCommand: Command = {
   name: 'all',
-  description: 'Update all @monomind packages',
+  description: 'Update all monomind packages (monomind, @monoes/*)',
   options: [
     { name: 'dry-run', description: 'Show what would be updated', type: 'boolean' },
     { name: 'include-major', description: 'Include major version updates', type: 'boolean' },
@@ -342,14 +342,16 @@ const clearCacheCommand: Command = {
 // Main update command
 const updateCommand: Command = {
   name: 'update',
-  description: 'Manage @monomind package updates (ADR-025)',
+  description: 'Manage monomind package updates (monomind, @monoes/*)',
   subcommands: [checkCommand, allCommand, historyCommand, rollbackCommand, clearCacheCommand],
   async action(): Promise<CommandResult> {
     // Show help if no subcommand
     output.writeln();
     output.writeln(output.highlight('═══ Update Command ═══'));
     output.writeln();
-    output.writeln('Manage @monomind package updates with auto-update support.');
+    output.writeln(
+      'Manage monomind package updates (monomind, @monoes/*) with auto-update support.',
+    );
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([

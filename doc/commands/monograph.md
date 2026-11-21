@@ -7,7 +7,7 @@
 
 ## Overview
 
-The `monomind monograph` command family manages Monomind's knowledge graph (`@monoes/monograph`). It parses code with Tree-sitter WASM grammars (no native builds), indexes documents (md/txt/rst) and PDFs next to it, and stores everything in SQLite WAL-mode tables. It tracks graph freshness via Git commits, calculates change blast radius, and builds a wiki-style document graph.
+The `monomind monograph` command family manages Monomind's knowledge graph (`@monoes/monograph`). It parses code with Tree-sitter WASM grammars (no native builds), indexes documents (md/mdx/txt/rst) and PDFs next to it, and stores everything in SQLite WAL-mode tables. It tracks graph freshness via Git commits, calculates change blast radius, and builds a wiki-style document graph.
 
 Defined in `packages/@monomind/cli/src/commands/monograph.ts` and `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`.
 
@@ -19,10 +19,10 @@ Every subcommand takes `-p, --path <dir>` for the root to work on (default: the 
 
 | Subcommand | Description | Key Flags | Source Reference |
 |---|---|---|---|
-| `build` | Builds or rebuilds the graph from code, docs and PDFs | `-f, --force` (full rebuild even if the index is fresh), `--code-only` (skip documents), `--llm` and `--llm-sections <n>` (Claude semantic extraction, default 50 sections), `--report-path <path>` (where `GRAPH_REPORT.md` goes; default `.monomind/GRAPH_REPORT.md`, env `MONOGRAPH_REPORT_PATH`) | [`monograph-build.ts → buildCommand`](packages/@monomind/cli/src/commands/monograph-build.ts#buildCommand) |
+| `build` | Builds or rebuilds the graph from code, docs and PDFs | `-f, --force` (full rebuild even if the index is fresh), `--code-only` (skip documents), `--llm` and `--llm-sections <n>` (Claude semantic extraction, default 50 sections), `--tool-assets` (also index `.pi/` and the agent/skill definitions under `.claude/`; off by default, remembered per project, `--no-tool-assets` turns it off), `--report-path <path>` (where `GRAPH_REPORT.md` goes; default `.monomind/GRAPH_REPORT.md`, env `MONOGRAPH_REPORT_PATH`) | [`monograph-build.ts → buildCommand`](packages/@monomind/cli/src/commands/monograph-build.ts#buildCommand) |
 | `embed` | Embeds symbol and document summaries so search can answer plain-language questions. Incremental (only new or changed summaries) and resumable; a cold run over a large repository takes minutes, so it normally runs in the background after a build instead | `-p, --path`, `--max-seconds <n>` (stop after N seconds; run again to continue). Needs the local model (`monomind download-embeddings`); `MONOGRAPH_EMBED=0` turns the semantic index off | [`monograph-embed.ts → embedCommand`](packages/@monomind/cli/src/commands/monograph-embed.ts#embedCommand) |
 | `wiki` | Scans all docs and PDFs in the project into a searchable document graph | `-f, --force`, `--llm`, `--llm-sections <n>` (default 100) | [`monograph-wiki.ts`](packages/@monomind/cli/src/commands/monograph-wiki.ts) |
-| `search` | Searches the graph | `-q, --query` (required), `-l, --limit` (default 15), `-m, --mode bm25\|semantic\|hybrid` (default `hybrid`), `--label <type>` (filter by node type such as `Section`, `Function`, `Concept`, `File`) | [`monograph-search.ts`](packages/@monomind/cli/src/commands/monograph-search.ts) |
+| `search` | Searches the graph. Lexical in every mode: the CLI loads no embedder, and `semantic` runs the lexical hybrid search (FTS5 BM25, LIKE fallback and fuzzy matching), so `semantic` and `hybrid` do not use embeddings. Use the `monograph_query` MCP tool for embedding search | `-q, --query` (required), `-l, --limit` (default 15), `-m, --mode bm25\|semantic\|hybrid` (default `hybrid`), `--label <type>` (filter by node type such as `Section`, `Function`, `Concept`, `File`) | [`monograph-search.ts`](packages/@monomind/cli/src/commands/monograph-search.ts) |
 | `stats` | Displays node counts, edge types and top concepts | `--top <n>` (default 10) | [`monograph-stats.ts`](packages/@monomind/cli/src/commands/monograph-stats.ts) |
 | `watch` | Starts a background file watcher that rebuilds incrementally | `--llm` (enrich on rebuild), `--timeout <seconds>` (stop watching after N seconds, for scripted checks) | [`monograph-watch.ts → watchCommand`](packages/@monomind/cli/src/commands/monograph-watch.ts#watchCommand) |
 | `lsp` | Starts the Monograph LSP server over stdio, for editor integration | | [`monograph-lsp.ts`](packages/@monomind/cli/src/commands/monograph-lsp.ts) |
@@ -54,7 +54,7 @@ Monomind exposes 20 core `monograph_*` tools for Model Context Protocol integrat
 
 | Tool Name | Key Arguments | Purpose |
 |---|---|---|
-| `monograph_build` | `path`, `codeOnly`, `force`, `incremental` | Build or update the knowledge graph. |
+| `monograph_build` | `path`, `codeOnly`, `force`, `toolAssets`, `incremental` | Build or update the knowledge graph. |
 | `monograph_query` | `query` (required), `limit`, `label`, `mode`, `scope`, `expandNeighbors`, `damping`, `tokenBudget` | Search by name and by plain-language description. Lexical ranking (BM25 over names and stemmed summaries, LIKE and fuzzy fallback; `mode=bm25` for BM25 only) is fused with semantic similarity once the index has been embedded; `scope` picks code, docs or agents. |
 | `monograph_suggest` | `task`, `limit`, `checkStaleness` | Nodes most relevant to a task, with `file:line`; without `task`, graph-topology questions. |
 | `monograph_brief` | `task` (required), `entryPoints` (default 5, max 10), `docs` (default 3, max 10) | Task in plain words to the best code entry points (callers, callees, covering tests), the docs that describe it, and the top hit's blast radius (risk, files, tests to run). Use instead of chaining suggest, context and impact. |

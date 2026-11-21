@@ -36,6 +36,7 @@ lists them only as collision context.
 ```text
 .monomind/catalog/
   state.json
+  projection-pins.json               # written by `catalog project --apply`
   packages/
     <name>/<sha12>/
       SKILL.md                       # skill or archetype (+ other *.md references)
@@ -91,12 +92,12 @@ enforces that.
 | — | staged | `stage` | scan verdict clean |
 | — | quarantined | `stage` | scan verdict quarantine, or the scanner failed or is unavailable |
 | staged | approved | `approve` | at least one target; `jev` requires `org`; `platform:*` only for skills; grants ⊆ requested ∩ grantable |
-| staged | quarantined | `quarantine` | `--reason` |
+| staged, active, disabled | quarantined | `quarantine` | `--reason` |
 | quarantined | staged | `release` | `--reason`; records `inspection.override` {actor, reason, at} for this revision |
 | approved | active | `activate` | the package exists and its digest verifies |
 | approved, active | disabled | `disable` | — |
 | disabled | active | `activate` | the digest verifies |
-| staged, quarantined, disabled | staged | `stage` (changed content) | the new revision replaces the old; approval, targets and grants are cleared |
+| staged, quarantined, disabled | staged or quarantined (by the new scan verdict) | `stage` (changed content) | the new revision replaces the old; approval, targets and grants are cleared |
 | any but revoked | revoked | `revoke` | `--reason`; terminal for the id |
 
 Only `active` entries whose digest verifies and whose `targets` name a
@@ -158,7 +159,7 @@ staged packages, approvals and grants unless `--purge-data` is given (#579).
 | `monomind catalog approve <id> --target <t> [--target <t>]… [--grant-tool <tool>]… [--replaces-legacy] --actor <name>` | staged → approved; prints what each target will expose |
 | `monomind catalog activate <id> --actor <name>` | approved/disabled → active |
 | `monomind catalog disable <id> --actor <name> [--reason <text>]` | approved/active → disabled |
-| `monomind catalog quarantine <id> --actor <name> --reason <text>` | staged → quarantined |
+| `monomind catalog quarantine <id> --actor <name> --reason <text>` | staged, active or disabled → quarantined |
 | `monomind catalog release <id> --actor <name> --reason <text>` | quarantined → staged, with an override record |
 | `monomind catalog revoke <id> --actor <name> --reason <text>` | Terminal; package bytes are kept |
 | `monomind catalog project --surface platform:claude\|platform:agents [--apply]` | Plans (default) or writes the projection of every eligible skill, and removes projected copies that are no longer eligible |
@@ -208,7 +209,7 @@ a reason) or `revoke`. Restaging changed content clears the override.
 |---|---|
 | `org` | The Org skill library: roles that name it in `skills` or `skill_pool`, `org skills list/search`, per-task skill suggestions, and blueprint resolution |
 | `jev` | The configured decision model may receive its name and a description of at most 200 characters. Requires `org`. Without `jev`, catalog content is never sent to a model — on the Org path (`jevVisible`) or through a projected tree: the per-prompt Jev pick checks `.monomind/catalog/state.json` and skips a projected skill (its skill-registry entry or its `SKILL.md` carries the catalog marker) whose entry is not active with `jev`, so disabling, revoking or re-approving without `jev` takes effect at once, before the copy is removed. A hand-written, unmarked skill that only shares a catalog entry's name is not affected: legacy roots keep precedence |
-| `platform:claude` | `.claude/skills/<name>/`, read by Claude Code. The projected skill also enters `.claude/helpers/skill-registry.json`, the one skill index the `[PICK]` hook, `monomind pick` and the `pick` MCP tool rank (as an ordinary skill for keyword ranking; for Jev only when the entry also has `jev`). A catalog skill in the index's Org list is ranked only while its entry is active with `jev` and its package verifies |
+| `platform:claude` | `.claude/skills/<name>/`, read by Claude Code. The projected skill also enters `.claude/helpers/skill-registry.json`, the one skill index the `[PICK]` hook, `monomind pick` and the `pick` MCP tool rank, but the picker (keyword ranking and Jev alike) ranks a projected or catalog skill only while its entry is active with `jev` and its package verifies; without `jev` it is never picked |
 | `platform:agents` | `.agents/skills/<name>/`, read by every adapter that uses the shared skill root: Codex, Gemini, Kimi, OpenCode, Cursor, Copilot, VS Code, OpenClaw, Droid, Hermes, Antigravity and Zed |
 
 Other readers of a projected tree see it as ordinary platform content; the
@@ -299,7 +300,8 @@ re-hashes every entry and dry-plans both projection surfaces. It never writes.
 |---|---|
 | No `state.json` | pass — "Not configured" |
 | Only staged, approved or disabled entries | pass |
-| An active entry with a digest mismatch, missing package, escaping path or any other `audit` problem; an unreadable state | fail — names the id and `monomind catalog disable <id>` |
+| An active entry with a digest mismatch, missing package, escaping path or any other `audit` problem | fail — names the id and `monomind catalog disable <id>` |
+| An unreadable `state.json` | fail — "Invalid .monomind/catalog/state.json"; repair the file by hand |
 | An active entry colliding with a legacy skill without `replacesLegacy` | warn |
 | A staged or quarantined entry untouched for 30 days or more | warn |
 | A projected copy whose entry is no longer eligible, or frontmatter drift | warn — names `monomind catalog project --surface <s> --apply` |
@@ -338,10 +340,9 @@ monomind catalog revoke skill:code-review --actor alice --reason "withdrawn"    
 ```
 
 Disabling or revoking removes eligibility immediately for the Org library and
-Jev, including Jev picks over a projected Claude skill. The platform itself —
-Claude Code or the `.agents` readers, and the keyword router through the skill
-registry — keeps seeing a projected copy until the next `catalog project --apply`
-removes it; `disable` and `revoke` print that command for every surface that
+the picker (keyword ranking and Jev), including over a projected Claude skill.
+The platform itself — Claude Code or the `.agents` readers — keeps seeing a
+projected copy until the next `catalog project --apply` removes it; `disable` and `revoke` print that command for every surface that
 still holds a copy. Package bytes stay in the store.
 
 **Remove a projected copy**
@@ -362,5 +363,4 @@ restage and approve without that target, to keep it out.
 No automatic discovery, download, approval, activation or projection; no
 execution of imported scripts or MCP servers; no non-read-only tool grants;
 no shared, git-tracked catalog; no projection for `.kiro/skills` or user
-scope; `runtimeHints` and `recommendedPolicy` are never applied; `stage` does
-not pin a requested ref (it records the fetched `HEAD`).
+scope; `runtimeHints` and `recommendedPolicy` are never applied.

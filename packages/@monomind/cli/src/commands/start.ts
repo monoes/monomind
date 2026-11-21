@@ -389,7 +389,7 @@ const quickCommand: Command = {
 // Main start command
 export const startCommand: Command = {
   name: 'start',
-  description: 'Start the MonoMind orchestration system',
+  description: 'Print the configured topology (starts no process; use org run to run agents)',
   subcommands: [stopCommand, restartCommand, quickCommand],
   options: [
     {

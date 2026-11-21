@@ -1,6 +1,6 @@
 # Local LLM Providers (Ollama, llama.cpp)
 
-> monomind supports local LLMs via the OpenAI-compatible endpoint. This means you can run monomind orgs, memory operations, and agent sessions entirely offline — no cloud API key required.
+> monomind supports local LLMs through the Vercel AI SDK runner, via Ollama's native API or an OpenAI-compatible endpoint. This means you can run monomind orgs, memory operations, and agent sessions entirely offline — no cloud API key required.
 
 ## Ollama Setup
 
@@ -23,7 +23,7 @@ ollama serve            # starts the OpenAI-compatible API on port 11434
 
 ### 3. Configure monomind to use it
 
-For **org runtime roles** — set the provider to use Ollama's OpenAI-compatible endpoint:
+For **org runtime roles** — set the provider to use Ollama. `vendor: "ollama"` speaks Ollama's native API, so `baseUrl` ends in `/api`; leave it out and the runner uses `http://localhost:11434/v1`, where Ollama serves no native chat route:
 
 ```json
 {
@@ -37,13 +37,13 @@ For **org runtime roles** — set the provider to use Ollama's OpenAI-compatible
   "provider": {
     "kind": "vercel-api-key",
     "vendor": "ollama",
-    "baseUrl": "http://localhost:11434/v1"
+    "baseUrl": "http://localhost:11434/api"
   },
   "runtime": "vercel"
 }
 ```
 
-For **memory/embeddings** — monomind already uses local transformers.js embeddings by default. No Ollama dependency needed for embeddings.
+For **memory/embeddings** — monomind runs embeddings locally with transformers.js (`@huggingface/transformers`, about 500 MB, installed on demand); without it, memory falls back to a hash-based embedding. No Ollama dependency needed for embeddings.
 
 ### 4. Verify
 
@@ -60,11 +60,11 @@ monomind org run my-team              # execute (all local, no cloud tokens)
 
 | Provider | Env var | Endpoint | Notes |
 |---|---|---|---|
-| **Ollama** | none | `http://localhost:11434/v1` | OpenAI-compatible; no API key needed |
-| **llama.cpp** | none | `http://localhost:8080/v1` | OpenAI-compatible server mode |
-| **LM Studio** | none | `http://localhost:1234/v1` | OpenAI-compatible; no API key needed |
+| **Ollama** | none | `http://localhost:11434/api` (`vendor: "ollama"`) or `http://localhost:11434/v1` (`vendor: "openai-compatible"`) | No API key needed with `vendor: "ollama"` |
+| **llama.cpp** | see note | `http://localhost:8080/v1` | OpenAI-compatible server mode |
+| **LM Studio** | see note | `http://localhost:1234/v1` | OpenAI-compatible |
 
-All three use `vendor: "ollama"` or `vendor: "openai-compatible"` in the Vercel AI SDK runner.
+llama.cpp, LM Studio and Ollama's `/v1` endpoint use `vendor: "openai-compatible"` in the Vercel AI SDK runner. That vendor still sends an API key: set `apiKeyEnv` to a variable holding any non-empty value (or export `OPENAI_API_KEY`), or the request fails with "API key is missing".
 
 ## Limitations
 

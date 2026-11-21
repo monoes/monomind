@@ -24,9 +24,9 @@ user never asked for, now with a real, unrestricted shell.
 | Source of untrusted text | Present in coder mode? | Mitigation |
 |---|---|---|
 | mono-agent synced messages / DMs / emails / social content (`get_message`, `list_messages`, people notes, …) | **Must not be.** | monomind has no such tool surface at all — there is nothing in this repo to wire in. The guarantee is enforced on mono-agent's side (never handing a coder-mode turn its communications/people tools — monoes/mono-agent#202/#203). Same reason `run_workflow` is locked after any message read in scoped chat. |
-| Web pages (`WebFetch`/`WebSearch`, native SDK tools) | Yes, in `--access full` mode. | Accepted risk, identical to running interactive Claude Code with `--dangerously-skip-permissions`. Every native tool call — including `WebFetch` — is still observed via `tool_activity` (§3, below), so a caller can show/log what a fetched page caused the agent to do next. Not blocked; documented as residual risk (§4). |
+| Web pages (`WebFetch`/`WebSearch`, native SDK tools) | Yes, in `--access full` mode. | Accepted risk, identical to running interactive Claude Code with `--dangerously-skip-permissions`. Every native tool call — including `WebFetch` — is still observed via `tool_activity` (§2.4, below), so a caller can show/log what a fetched page caused the agent to do next. Not blocked; documented as residual risk (§4). |
 | Files in the working folder (a cloned third-party repo's own `README`/`CLAUDE.md`/`AGENTS.md`/`.claude/settings.json`) | Yes, when the turn also opts into `--settings project` (or `user`/`local`). | Accepted, with a sharper edge than the original issue's table: `--settings project` doesn't just let the model *read* a repo's `CLAUDE.md` as ordinary file content — the Claude Code SDK's own settings discovery **loads and executes** that repo's `.claude/settings.json` hooks (`PreToolUse`/`PostToolUse`/etc.) as real, code-level hooks (see §4's residual-risk entry). `--settings none` (the default) never discovers or runs anything from the target directory. |
-| Other agents' output (subagents, org bus) | Its own `Task` subagents only; in orgs, messages from other roles (for roles granted full access under #365). | Chat coder mode is not exposed as a workflow node, MCP tool, or extension action anywhere in monomind (verified — see §3). Org roles may opt in to full access per role under #365, with the taint checks that issue defines (a full-access role must not itself read untrusted input; a role that does must not hand off to one). |
+| Other agents' output (subagents, org bus) | Its own `Task` subagents only; in orgs, messages from other roles (for roles granted full access under #365). | Chat coder mode is not exposed as a workflow node, MCP tool, or extension action anywhere in monomind (verified — see §2.1). Org roles may opt in to full access per role under #365, with the taint checks that issue defines (a full-access role must not itself read untrusted input; a role that does must not hand off to one). |
 
 ## 2. Guardrails implemented (monomind side)
 
@@ -43,9 +43,12 @@ invocation, parsed in [`commands/agent-exec.ts`](../../packages/@monomind/cli/sr
 the only place `permissionMode: 'bypassPermissions'` + `allowDangerouslySkipPermissions: true`
 get set; for every other full-access runtime (rev 19) it is that runner's own switch to its
 CLI's no-approval, no-sandbox mode (codex `--dangerously-bypass-approvals-and-sandbox`, opencode
-permission `allow`, the others' yolo flags; rev 20: pi/pi-rpc `--approve`, cline on the user's
+permission `allow`, the others' yolo flags; rev 20: cline on the user's
 own `~/.cline` with `--auto-approve true`, aider's shim answering every confirmation yes, dsh
-`DSH_PERMISSION_MODE=danger-full-access`), taken only on the same literal `'full'`.
+`DSH_PERMISSION_MODE=danger-full-access`), taken only on the same literal `'full'`. pi/pi-rpc
+have no tool approval to bypass and need no flag of their own: their `--approve` is the
+project-trust flag, passed whenever `--settings` sources are given, in any access mode
+([`orgrt/pi-runner-state.ts`](../../packages/@monomind/cli/src/orgrt/pi-runner-state.ts)).
 
 Audited (by direct source inspection, and pinned by regression tests in
 `agent-exec-no-transitive-escalation.test.ts` so a future change fails loudly):
@@ -56,7 +59,7 @@ Audited (by direct source inspection, and pinned by regression tests in
 | `agent_spawn`/other `agent_*` MCP tools ([`mcp-tools/agent-tools-lifecycle.ts`](../../packages/@monomind/cli/src/mcp-tools/agent-tools-lifecycle.ts)) | **Unrelated surface.** These are the swarm bookkeeping tools (agent records in a JSON store) — they never call `runAgentExec`/`resolveExecRunner` and have no `access` concept at all. | N/A — different subsystem entirely. |
 | Org runtime (`orgrt/session.ts` → `session-stream.ts`'s `sessionRunArgs`, driving every org role's turn) | **Only through the #365 grant gate.** `sessionRunArgs` sets `access: 'full'` only when the session's `resolvedAccess` is `'full'`, and `resolvedAccess` comes only from `access-grant.ts`'s `resolveRoleAccess` (called in `session-full-access.ts`), which requires a human `access_ack` whose HMAC `sig` verifies and whose config hash has not drifted. Anything else — no grant, a forged or copied grant, a drifted config, a runtime without full access support — runs scoped (`permissionMode: 'default'`). Regression tests pin both the single `access:` key in `sessionRunArgs` and its only source. | Signed grant (#365) + regression test. |
 | `RolePolicySchema` ([`orgrt/types-policy.ts`](../../packages/@monomind/cli/src/orgrt/types-policy.ts)) | **Declares, never grants.** `policy.access: 'full'` is a real schema field since #365, but on its own it does nothing: without a valid `access_ack` the role runs scoped with state `suspended`, emits a `full-access-not-active` audit event, and `org validate` reports it. | Runtime backstop (#365). |
-| Workflow/routine nodes | **No such node exists.** There is no workflow-script or routine primitive anywhere in this codebase that shells out to `monomind agent exec` or imports the agent-exec engine (verified by the same source scan — no `src/**` file outside `commands/agent-exec.ts` and its own tests calls `runAgentExec`). | Structural. |
+| Workflow/routine nodes | **No such node exists.** There is no workflow-script or routine primitive anywhere in this codebase that shells out to `monomind agent exec` or imports the agent-exec engine (verified by the same source scan — no `src/**` file outside `commands/agent-exec.ts`, its own tests and the scoped-only `orgrt/agent-test.ts` (#390) calls `runAgentExec`). | Structural. |
 | Local dashboard / extension UI server routes (`src/ui/server-routes-*.mjs`, `src/ui/routes-org-*.mjs`) | **No route touches it.** None of the ~35 UI route modules reference `orgrt/agent-exec`, `resolveExecRunner`, or `runAgentExec` — verified by source scan. Coder mode is deliberately **not** an extension action (epic #364, "out of scope v1"). | Structural. |
 | Hooks (`hooks-*.ts` lifecycle hooks, filesystem `PreToolUse`/etc. hooks a project or `--settings` load installs) | A hook can run arbitrary code as a **side effect** of a tool call (that's what a hook is), including inside a coder-mode turn itself once one is already running under `--access full` — but a hook cannot **initiate** a new `agent exec --access full` invocation with escalated access; it has no privileged entry point into `resolveAccess`/`checkFullAccessGuards` that a plain `agent exec --access full` typed by a human doesn't also have to go through. | Same guard as "any process on this machine can run `monomind agent exec --access full` if a human decided to let it" — see §2.2. |
 | Any org write path — org MCP tools, `create-json`, `import`/`okf-import`, runtime role hiring, or an agent editing the org JSON directly | **Can write the config, cannot make it run with full access.** These paths are not individually filtered; the runtime is the backstop. A role written with `policy.access: 'full'` (and even a copied or hand-written `access_ack`) runs scoped unless `sig` verifies under the machine-local key in the operator-credential directory, which sandboxed roles are denied Read/Edit on. The only command that writes a valid grant, `org role set-access <org> <role> full`, refuses in any agent context (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `MONOMIND_ORG_ROLE`, `MONOMIND_SDK_AGENT`, `MONOMIND_AGENT_EXEC`, and since rev 19 the other CLIs' own markers — see §2.6), even with `--yes-i-understand`. | HMAC-signed human grant + agent-context refusal (#365). |
@@ -96,7 +99,7 @@ tested in `agent-exec.test.ts`'s `"agent exec: --access full"` suite:
   cannot bypass a later turn's settings. Org roles still require the same signed human grant;
   adding Kilo to the allowlist supplies no grant and cannot promote scoped access.
 - **No silent downgrade/upgrade**: `access` is resolved once, before the runner ever starts, and
-  is reported honestly on the `start` event (`access: "scoped"|"full"`) — a runtime that can't
+  is reported honestly on the `start` event (`access: "scoped"|"read"|"full"`) — a runtime that can't
   do what was asked fails loudly rather than quietly running the other mode.
 
 ### 2.3 Env hygiene
@@ -111,9 +114,13 @@ at the `env:` field). `ClaudeAgentRunner` then builds the child's env as:
 
 ```
 env: args.envAuthoritative === false
-  ? { ...process.env, ...args.env }
-  : { ...omitAnthropicManagedKeys(process.env), ...args.env }
+  ? { ...process.env, ...args.env, ...pin?.env }
+  : { ...omitAnthropicManagedKeys(process.env), ...args.env, ...pin?.env }
 ```
+
+`pin?.env` is the coder-mode model/effort pin (§2.10): at most `CLAUDE_CODE_EFFORT_LEVEL`,
+`CLAUDE_CODE_SUBAGENT_MODEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`. `agent exec` also adds
+`MONOMIND_AGENT_EXEC=1` to `args.env` so the child is recognised as an agent context (§2.6).
 
 Every other runner builds `{ ...omitAnthropicManagedKeys(process.env), ...args.env }` (ambient
 Anthropic credentials never reach a vendor CLI), in both access modes. For `agent exec` on
@@ -121,8 +128,8 @@ claude, it's the first branch: the **exact same `process.env`** monomind's own p
 already has (HOME/PATH/USER/keychain-backed Claude credentials, and — deliberately, per the
 `o-18` comment in `agent-runner-claude.ts` — an ambient `ANTHROPIC_API_KEY`/`BASE_URL`/`AUTH_TOKEN`
 if the invoking shell had one) is reconstructed and merged with `--env KEY=V` overrides the caller
-passed. Nothing is *added*: `{...process.env, ...args.env}` cannot introduce a key that
-wasn't already in one of those two sources, and the child would have inherited `process.env`
+passed. Nothing *sensitive* is added: apart from the non-secret pin and marker keys above,
+`{...process.env, ...args.env}` cannot introduce a key that wasn't already in one of those two sources, and the child would have inherited `process.env`
 under Node's own default spawn behavior regardless. `--env` values are the caller's
 responsibility (mono-agent must not pass vault secrets into a coder-mode turn — tracked in
 monoes/mono-agent#202/#203, out of monomind's scope). `omitAnthropicManagedKeys` — used by every
@@ -179,7 +186,7 @@ for `"start-only"` ones.
 - `toolCalls` — the number of native `tool_activity` **start** events observed this turn
   (`ToolActivityTracker.toolCallCount`, `orgrt/tool-activity.ts`) — i.e. how many native tool
   calls (Bash, Edit, Write, Read, …) the agent actually made, not merely how many were requested.
-- `org`/`role` — reserved for full-access org roles (#365); unset for `agent exec`.
+- `org`/`role` — set for full-access org roles (#365); unset for `agent exec`.
 
 The write is **best effort by design** (`full-access-audit.ts`'s own doc comment): a failure to
 write the log (disk full, permissions) never fails or blocks the turn — the live `tool_activity`
@@ -303,14 +310,15 @@ antigravity (`--dangerously-skip-permissions`), kimicode, crush, pi and aider. O
 moves codex/grok into `workspace-write`.
 
 Since rev 23 this is reported rather than implied: every `start` event carries `native_sandbox`
-(`read-only`, `workspace-write`, `full` = native sandbox off, `none` = no native sandbox,
+(`read-only`, `workspace-write`, `restricted` = the CLI's own approval rules, with anything they
+would ask about refused, `full` = native sandbox off, `none` = no native sandbox,
 `monomind` = claude's own enforcement) and `approvals` (`off`, `on`, `n/a`), and `agent scan
 --json` lists the same defaults per runtime plus `sandbox_modes`.
 
 **Callers such as mono-agent that do not want an unsandboxed turn should pass `--sandbox`**
 instead of relying on `--env MONOMIND_GIT_LEVEL=…`: `--sandbox workspace-write` (writes in the
 cwd, network on) or `--sandbox read-only`, on runtimes whose `sandbox_modes` lists the mode
-(codex, grok, dsh today). Anywhere else the turn fails with `error {code:"unsupported"}` rather
+(codex, grok, dsh and copilot, and claude in scoped or read access; pi/pi-rpc take `read-only` only). Anywhere else the turn fails with `error {code:"unsupported"}` rather
 than running unsandboxed, so a caller can pick a different runtime or a container. Check
 `native_sandbox` on `start` for what the turn really got. The flag can only narrow: an org role's
 git level below `push` keeps `workspace-write` even under `--sandbox full`, `--access read` keeps
@@ -457,8 +465,8 @@ are never mistaken for oversights:
   passive text — `--settings project` (or `user`/`local`) makes the Claude Code SDK's own settings
   discovery load and **execute** that repo's `.claude/settings.json` hooks
   (`PreToolUse`/`PostToolUse`/etc.) as real, code-level hooks for the remainder of the turn
-  (`orgrt/agent-runner-claude-settings.ts`'s doc comment: "the user's own `PreToolUse` hooks …
-  **will** run on coder-mode turns," carried over verbatim from #356). A malicious repo's hook
+  (`orgrt/agent-runner-claude-settings.ts`'s doc comment: any non-empty settings list makes "the
+  SDK [load] the requested settings sources (CLAUDE.md, skills, hooks, project + user MCP servers)"). A malicious repo's hook
   runs with the same unrestricted access the turn already has. `--settings none` (the default)
   never discovers or runs anything from the target directory — this risk exists only when a
   caller explicitly opts into `--settings project`/`user`/`local` on top of `--access full`.
@@ -507,7 +515,9 @@ security lens for injection, escalation, path handling, and env leaks:
   by this epic (`--access full` explicitly *rejects* `--allow-bash-prefix` rather than reusing this
   scanner), but reviewed since it sits in the same file family: correctly tracks single/double-quote
   state and backslash-escaping before checking for `;`/`&`/`|`/backtick/`$(`/`<`/`>`, including the
-  documented `\'; touch /tmp/PWNED` backslash-escape bypass class. No issue found.
+  documented `\'; touch /tmp/PWNED` backslash-escape bypass class. No issue found at the time.
+  Superseded: the scanner has since been replaced by an allow-list tokenizer (#702, see the last
+  section).
 - **`--cwd`/`--project` path handling** (`agent-exec-access.ts`'s `checkFullAccessGuards`,
   `init-action.ts`'s `--project` resolution): both resolve the caller-supplied path with
   `path.resolve`/`statSync` against the existing filesystem and reject a missing/non-directory

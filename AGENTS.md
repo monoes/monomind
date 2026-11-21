@@ -21,7 +21,7 @@ recall. Use namespacing to keep project/agent memory separate.
 ## Security
 - NEVER hardcode secrets/keys in source. NEVER commit .env.
 - Always validate input at system boundaries.
-- Run `npx monomind@latest security scan` after security-related changes.
+- Run `pnpm audit` (dependencies) and `npx monomind@latest security scan` (secrets and code patterns) after security-related changes.
 
 ## Conventions
 - Agents live in `.opencode/agent/` (subagents), commands in `.opencode/command/`.

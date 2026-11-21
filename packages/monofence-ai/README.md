@@ -8,7 +8,7 @@
 [![license](https://img.shields.io/npm/l/monofence-ai?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D22.12-blue?style=flat-square)](https://nodejs.org)
 
-**AI manipulation defense** — prompt injection, jailbreak, homoglyph evasion, base64 encoding, multi-turn escalation, and PII detection. Sub-millisecond, 50+ patterns, optional pattern learning (`enableLearning` stores detections and mitigation outcomes you record).
+**AI manipulation defense** — prompt injection, jailbreak, homoglyph evasion, base64 encoding, multi-turn escalation, and PII detection. Sub-millisecond: 34 detection regexes (28 prompt-injection/jailbreak, 6 PII) applied after an evasion-normalisation pass, plus optional recording (`enableLearning` stores detections and mitigation outcomes you record).
 
 > Part of the [Monomind](https://github.com/monoes/monomind) ecosystem.
 
@@ -43,7 +43,7 @@ if (!result.safe) {
 
 ```typescript
 const fence = createMonoDefence({
-  enableLearning: true,        // learn from detections (default: false)
+  enableLearning: true,        // record detections and mitigation outcomes (default: false)
   vectorStore,                 // optional custom VectorStore (default: in-memory)
   trackContext: true,          // track multi-turn context (default: true)
   enablePIIDetection: true,    // detect PII
@@ -79,6 +79,8 @@ singleton), `checkThreats(input)`, `getMonoDefence()`, `resetMonoDefence()`.
 ```
 
 ### Learning (opt-in)
+
+Recording only: no model is trained. With the default in-memory store, `searchSimilarThreats` matches stored detections by substring.
 
 ```typescript
 const fence = createMonoDefence({ enableLearning: true });

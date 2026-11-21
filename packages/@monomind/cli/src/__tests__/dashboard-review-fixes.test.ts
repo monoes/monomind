@@ -1,18 +1,17 @@
 /**
  * Dashboard review fixes: markdown sanitizer, cost-honesty flags, the
- * /mastermind page wiring, and the behavior of the dashboard.html / orgs.html
- * inline scripts (run in a vm with stubbed browser globals).
+ * artifact route, and the behavior of the dashboard.html inline script (run in
+ * a vm with stubbed browser globals).
  */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   calledFromHandlers,
   dashboardScript,
   definedGlobals,
-  inlineScript,
   loadPageFunctions,
   UI_DIR,
 } from './dashboard-script.js';
@@ -120,28 +119,12 @@ describe('collector cost flags', () => {
   });
 });
 
-describe('/mastermind page wiring', () => {
+describe('artifact route', () => {
   const route = read('routes-org-mastermind.mjs');
-  const page = read('mastermind-diagram-fallback.html');
-
-  it('injects the mm-token meta into /mastermind', () => {
-    const seg = route.slice(route.indexOf("url === '/mastermind'"));
-    expect(seg.slice(0, 900)).toContain('name="mm-token"');
-  });
 
   it('artifact route decodes once and re-checks containment after realpath', () => {
     expect(route).not.toMatch(/decodeURIComponent\(_rawPath\)/);
     expect(route).toContain('realpathSync');
-  });
-
-  it('fallback page authenticates fetch and EventSource and escapes data', () => {
-    expect(page).toContain('mm-token');
-    expect(page).toContain('window.mmEventSource');
-    expect(page).not.toMatch(/new EventSource\('\/api\/mastermind-stream'\)/);
-    expect(page).toContain('function esc(');
-    expect(page).not.toContain('<span class="log-msg">${msg}</span>');
-    expect(page).not.toContain('<div class="sess-prompt">${s.prompt||');
-    expect(page).toMatch(/if \(!res\.ok\) return;\s*const sessions/);
   });
 });
 
@@ -339,140 +322,6 @@ describe('inline handlers call functions the page defines', () => {
     );
     expect(missing).toEqual([]);
     expect(html).toMatch(/onclick="_?mgRebuildGraph\(\)"/); // the button exists, so the check above covers it
-  });
-
-  it('every function called from an on*="..." attribute of orgs.html exists', () => {
-    const html = readFileSync(join(UI_DIR, 'orgs.html'), 'utf-8');
-    const defined = definedGlobals(
-      `${html}\n${readFileSync(join(UI_DIR, 'orgs-files.js'), 'utf-8')}`,
-    );
-    const missing = [...calledFromHandlers(html)].filter(
-      (f) => !language.has(f) && !defined.has(f),
-    );
-    expect(missing).toEqual([]);
-  });
-
-  it('orgs-files.js onclick payloads are HTML-escaped (openDiffPanel / viewArtifact)', () => {
-    // Source text: the file's renderer needs the whole orgs.html page state (chatSessions, esc, ...) to run.
-    const orgFiles = readFileSync(join(UI_DIR, 'orgs-files.js'), 'utf-8');
-    expect(orgFiles).toContain('openDiffPanel(${esc(JSON.stringify(art.path))})');
-    expect(orgFiles).toContain('viewArtifact(${esc(JSON.stringify(art.path))}');
-  });
-});
-
-describe('orgs.html behavior', () => {
-  const orgsScript = inlineScript('orgs.html');
-  const timers: Array<{ fn: () => void; ms: number }> = [];
-  const setTimeoutStub = (fn: () => void, ms: number) => timers.push({ fn, ms });
-  beforeEach(() => {
-    timers.length = 0;
-  });
-
-  function fakeSources() {
-    const made: Array<{ closed: number; onerror?: () => void; close(): void }> = [];
-    const mmEventSource = () => {
-      const src = {
-        closed: 0,
-        onerror: undefined as undefined | (() => void),
-        close() {
-          src.closed++;
-        },
-      };
-      made.push(src);
-      return src;
-    };
-    return { made, mmEventSource };
-  }
-
-  it('the mastermind SSE error handler closes the source and schedules one reconnect', () => {
-    const { made, mmEventSource } = fakeSources();
-    const ctx = loadPageFunctions(orgsScript, ['connectMmSSE'], {
-      mmSse: null,
-      mmReconnectTimer: null,
-      window: { mmEventSource },
-      document: fakeDocument(),
-      setTimeout: setTimeoutStub,
-    });
-    ctx.connectMmSSE();
-    expect(made).toHaveLength(1);
-    made[0].onerror?.();
-    made[0].onerror?.(); // a second error before the retry fires must not stack another timer
-    expect(made[0].closed).toBe(1);
-    expect(timers).toHaveLength(1);
-    timers[0].fn();
-    expect(made).toHaveLength(2); // the retry opened a fresh source
-  });
-
-  it('the org activity SSE error handler closes the source and schedules one reconnect', () => {
-    const { made, mmEventSource } = fakeSources();
-    const ctx = loadPageFunctions(orgsScript, ['connectSSE'], {
-      evtSource: null,
-      sseReconnectTimer: null,
-      window: { mmEventSource },
-      setTimeout: setTimeoutStub,
-    });
-    ctx.connectSSE();
-    made[0].onerror?.();
-    made[0].onerror?.();
-    expect(made[0].closed).toBe(1);
-    expect(timers).toHaveLength(1);
-    timers[0].fn();
-    expect(made).toHaveLength(2);
-  });
-
-  it('the live feed escapes event text', () => {
-    const rows = {
-      ...fakeEl(),
-      children: [] as unknown[],
-      appendChild(r: unknown) {
-        rows.children.push(r);
-      },
-      scrollTop: 0,
-      scrollHeight: 0,
-    };
-    const created: Array<Record<string, any>> = [];
-    const ctx = loadPageFunctions(orgsScript, ['appendLiveFeedRow', 'esc'], {
-      document: {
-        getElementById: () => rows,
-        createElement: () => {
-          const el = { className: '', title: '', innerHTML: '' };
-          created.push(el);
-          return el;
-        },
-      },
-    });
-    ctx.appendLiveFeedRow({ type: 'org:note', message: '<img src=x onerror=alert(1)>' }, true);
-    expect(created[0].innerHTML).toContain(
-      '<span class="clf-msg">&lt;img src=x onerror=alert(1)&gt;</span>',
-    );
-    expect(created[0].innerHTML).not.toContain('<img');
-  });
-
-  it('the org list keeps the previous orgs when /api/orgs fails or answers a non-array', async () => {
-    for (const reply of [
-      { ok: false, status: 503, json: async () => ({ error: 'down' }) },
-      { ok: true, json: async () => ({ not: 'a list' }) },
-    ]) {
-      let rendered = 0;
-      const ctx = loadPageFunctions(orgsScript, ['loadOrgs'], {
-        allOrgs: [{ name: 'keep' }],
-        selectedOrg: null,
-        orgDetailData: null,
-        renderSidebar: () => rendered++,
-        fetch: async () => reply,
-      });
-      await ctx.loadOrgs();
-      expect(ctx.allOrgs).toEqual([{ name: 'keep' }]);
-      expect(rendered).toBe(1);
-    }
-    const ctx = loadPageFunctions(orgsScript, ['loadOrgs'], {
-      allOrgs: [],
-      selectedOrg: null,
-      renderSidebar() {},
-      fetch: async () => ({ ok: true, json: async () => [{ name: 'fresh' }] }),
-    });
-    await ctx.loadOrgs();
-    expect(ctx.allOrgs).toEqual([{ name: 'fresh' }]);
   });
 });
 

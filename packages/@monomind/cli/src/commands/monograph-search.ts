@@ -9,7 +9,7 @@ import { getDbPath } from './monograph-shared.js';
 
 export const searchCommand: Command = {
   name: 'search',
-  description: 'Search the knowledge graph (BM25, semantic, or hybrid)',
+  description: 'Search the knowledge graph (lexical: BM25 FTS, LIKE and fuzzy matching)',
   options: [
     { name: 'query', short: 'q', type: 'string', description: 'Search query', required: true },
     {
@@ -28,7 +28,8 @@ export const searchCommand: Command = {
       name: 'mode',
       short: 'm',
       type: 'string',
-      description: 'Search mode: bm25 | semantic | hybrid (default: hybrid)',
+      description:
+        'Search mode: bm25 | semantic | hybrid (default: hybrid). All modes are lexical: the CLI loads no embedder, so semantic is FTS + LIKE + fuzzy matching',
       default: 'hybrid',
     },
     { name: 'path', short: 'p', type: 'string', description: 'Root path (default: cwd)' },
@@ -44,7 +45,7 @@ export const searchCommand: Command = {
     },
     {
       command: 'monomind monograph search -q "pipeline" --mode semantic',
-      description: 'Semantic (embedding) search',
+      description: 'FTS + LIKE + fuzzy lexical match (no embeddings)',
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -154,7 +155,7 @@ export const searchCommand: Command = {
       if (results.length === 0) {
         output.printWarning('No results found.');
         output.writeln(
-          output.dim('  Try: --mode semantic  or  monomind monograph build to rebuild the index'),
+          output.dim('  Try other words  or  monomind monograph build to rebuild the index'),
         );
         return { success: true, data: [] };
       }

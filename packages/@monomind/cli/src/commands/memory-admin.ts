@@ -312,7 +312,8 @@ export const statsCommand: Command = {
 export const configureCommand: Command = {
   name: 'configure',
   aliases: ['config'],
-  description: 'Configure memory backend',
+  description:
+    'Record memory settings in config. The path, cache size and HNSW values are recorded but not applied; only the backend label is read (by memory stats)',
   options: [
     {
       name: 'backend',

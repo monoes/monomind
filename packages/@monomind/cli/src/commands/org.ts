@@ -129,7 +129,7 @@ export const orgCommand: Command = {
     // it only exits with result.exitCode — so this must log itself or bare
     // `monomind org` exits silently with code 1 and zero output.
     const message =
-      'usage: monomind org <run|stop|status|serve|test-loop|logs|report|costs|inbox|questions|answer|approve|deny|replay|resume-from|branch|decisions|create|validate|migrate|list|delete|mark-complete|role|sign|approve-paths>';
+      'usage: monomind org <skills|run|stop|pause|resume|reload|status|serve|supervisor|test-loop|logs|events|watch|report|memory|costs|inbox|flow|questions|approvals|answer|approve|deny|gates|gate-approve|gate-reject|replay|resume-from|branch|decisions|create|validate|migrate|list|delete|mark-complete|role|sign|drill-grant|approve-paths>';
     log(output.error(message));
     return { success: false, message };
   },

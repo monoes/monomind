@@ -455,13 +455,6 @@ describe('privacy-claims (i-078)', () => {
       'www.linkedin.com',
       'www.instagram.com',
       'x.com',
-      // UI form placeholder text (dashboard.html `placeholder:` attribute
-      // values) illustrating the expected format for a field the USER
-      // fills in with their own webhook/feed URL — never fetched by
-      // monomind itself, purely greyed-out hint text in an input box.
-      'discord.com',
-      'hooks.slack.com',
-      'feeds.example.com',
       // Non-network XML/schema namespace identifiers.
       'www.w3.org', // SVG xmlns, present in every bundled avatar .svg
       'json-schema.org',

@@ -90,7 +90,7 @@ Inside an org, a role gets skills in three ways ([Org Runtime § 6.6](./org-runt
    monomind doctor -c pick                     # agent count, duplicates, staleness
    ```
 
-3. Spawn it by its `name`: `Task({ subagent_type: "API Contract Reviewer", ... })` or `monomind agent spawn --type "API Contract Reviewer"`.
+3. Spawn it by its `name`: `Task({ subagent_type: "API Contract Reviewer", ... })`. (`monomind agent spawn --type "API Contract Reviewer"` only records it in the agent store; it starts no process.)
 
 ### Agent frontmatter
 
@@ -101,12 +101,12 @@ Inside an org, a role gets skills in three ways ([Org Runtime § 6.6](./org-runt
 | `when_to_use` | yes | One line, ≤160 characters, starting "Use when…"; say what it is *not* for. The picker leads the agent's text with it |
 | `tags` | yes | A few lowercase keywords; ranked as extra text |
 | `category` | yes | One of `core`, `architecture`, `engineering`, `testing`, `security`, `devops`, `github`, `marketing`, `design`, `coordination`, `data-ai`, `specialized`. Without it, the first directory under the agents root is used (`default` for a file at the top level). `monomind pick --categories` filters on it |
-| `slug` | no | Registry id; defaults to the file name, lowercased, spaces to `-` |
+| `slug` | no | Registry id; defaults to the file name, lowercased, spaces to `-`, other characters outside `a-z0-9-` dropped |
 | `deprecated` / `deprecatedBy` | no | `deprecated: true` drops the agent from ranking but keeps it spawnable; `deprecatedBy` names the replacement |
 | `capability.expertise`, `capability.task_types`, `vibe` | no | Ranked as extra text |
 | `tools`, `version`, `dependencies`, `triggers` | no | Stored in the registry; not used for ranking. Other fields (`color`, `emoji`, …) are ignored by the index |
 
-All bundled agents follow these rules; a project's own agents are indexed either way, but an agent without `when_to_use` ranks on its description alone (`monomind doctor` counts agents missing it, and `monomind init upgrade` refreshes unedited bundled agents that predate it).
+Bundled agents follow these rules, except two whose `when_to_use` runs over 160 characters; a project's own agents are indexed either way, but an agent without `when_to_use` ranks on its description alone (`monomind doctor` counts agents missing it, and `monomind init upgrade` refreshes unedited bundled agents that predate it).
 
 ### User-level agents
 
@@ -176,7 +176,7 @@ license: MIT
 | `license` | Required for imported skills; `org skills import` accepts only MIT and Apache-2.0 |
 | `source`, `source_path`, `source_commit` | Provenance, written by `org skills import` |
 
-Put it in `.monomind/org-skills` (this project), `~/.monomind/org-skills` (every project) or import a repository's skills with `monomind org skills import <owner/repo> [--global]`. Check it:
+Put it in `.monomind/org-skills` (this project), `~/.monomind/org-skills` (every project) or import a repository's skills with `monomind org skills import <owner/repo> --commit <sha> [--global]` (a remote source must be pinned to a commit). Check it:
 
 ```bash
 monomind org skills show incident-postmortem
@@ -205,7 +205,7 @@ So the text you write *is* the routing: `when_to_use`, `description` and `tags` 
 
 In this repository the root `.claude/` is the only hand-edited tree. `packages/@monomind/cli/.claude/` (what `monomind init` copies from and npm ships), `.agents/skills`, `.gemini/skills`, `.gemini/helpers` and the `.kimi-code` agents, commands and skills are gitignored and generated from it by `node scripts/generate-claude-trees.mjs` (run by the CLI build, the vitest global setup and `pnpm run sync:claude-trees`). The package tree is the root tree plus the files under `packages/@monomind/cli/claude-overlay/`, minus a few repo-only paths (`PACKAGE_EXCLUDE` in the script).
 
-- **New agent, skill or command:** add it to the root `.claude/…` (or, if it should ship but the repo itself should not use it, to `packages/@monomind/cli/claude-overlay/…`). A new agent category directory, a new skill or a new command group must also be listed in `AGENTS_MAP`, `SKILLS_MAP` or `COMMANDS_MAP` in [`init/asset-maps.ts`](packages/@monomind/cli/src/init/asset-maps.ts#SKILLS_MAP) (skills named `mastermind-*` are matched by a wildcard), or `init` will not copy it.
+- **New agent, skill or command:** add it to the root `.claude/…` (or, if it should ship but the repo itself should not use it, to `packages/@monomind/cli/claude-overlay/…`). A new agent category directory, a new skill or a new command group must also be added to a pack in [`init/packs.ts`](packages/@monomind/cli/src/init/packs.ts#PACKS) (`AGENTS_MAP`, `SKILLS_MAP` and `COMMANDS_MAP` in `init/asset-maps.ts` are built from it; every skill is listed by name), or `init` will not copy it.
 - **Editing an existing one:** edit the root `.claude/` copy, then run `pnpm run sync:claude-trees` (or rebuild) to regenerate the derived trees.
 - **Org skills:** add them under `packages/@monomind/cli/org-skills/<name>/` with 3-5 tags from `TAGS.md`. Import third-party ones with `monomind org skills import … --into packages/@monomind/cli/org-skills` and add the repository to `SOURCES.md`.
 - **Checks** (all run in `pnpm run verify` or CI):

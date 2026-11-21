@@ -138,23 +138,6 @@ export function _sjCalcCost(model, usage) {
 } // key: resolved dir → { status, sections, files, error, startedAt, completedAt }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// Fallback dashboard HTML used by GET /mastermind when the project has no
-// docs/mastermind-diagram.html of its own. Extracted from an inline string
-// literal (was ~48KB embedded in this file) to a real static asset. Read
-// defensively at module load: a missing sibling asset (e.g. a packaging step
-// that copies server.mjs without it) degrades the /mastermind fallback route
-// to a plain-text error instead of throwing ENOENT and failing the entire
-// dashboard server to start.
-let MASTERMIND_DIAGRAM_HTML;
-try {
-  MASTERMIND_DIAGRAM_HTML = fs.readFileSync(
-    path.join(__dirname, 'mastermind-diagram-fallback.html'),
-    'utf8',
-  );
-} catch (_) {
-  MASTERMIND_DIAGRAM_HTML =
-    '<!DOCTYPE html><html><body>mastermind-diagram-fallback.html is missing from this install.</body></html>';
-}
 
 // Re-resolved from the options at startServer() time (the projectDir only exists then); the
 // call sites below all read it from inside startServer, after that assignment.
@@ -292,7 +275,6 @@ export async function startServer({
       _updateRunState,
       _getKnowledgeBridge,
       SESSION_ID_RE,
-      MASTERMIND_DIAGRAM_HTML,
       buildDocsState,
       looksLikeOurProcess,
     });

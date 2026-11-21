@@ -12,7 +12,7 @@
 │                                                                      │
 │  Pattern store + episodic    Monograph (code graph)                 │
 │  patterns.db (or .json),     .monomind/monograph.db                 │
-│  auto-memory-store.json,     SQLite + dependency graph              │
+│  (.monomind/neural/),        SQLite + dependency graph              │
 │  episodic/episodes.jsonl                                             │
 │         ↓ recall injected at prompt time                            │
 └─────────────────────────────────────────────────────────────────────┘
@@ -22,12 +22,12 @@
 
 ## 1. Memory Palace (removed)
 
-The Memory Palace helper (`.claude/helpers/memory-palace.cjs`) was removed in [#417](https://github.com/monoes/monomind/issues/417): nothing ever wrote its drawers, so its session-start injection was always empty. `monomind init` no longer installs it, and nothing reads `.monomind/palace/`. An older project may still have that directory; it is safe to delete.
+The Memory Palace helper (`.claude/helpers/memory-palace.cjs`) was removed in [#417](https://github.com/monoes/monomind/issues/417): nothing ever wrote its drawers, so its session-start injection was always empty. `monomind init` no longer installs it; only the legacy `memory edit --source palace` and `memory delete --source palace` options still read and rewrite `.monomind/palace/drawers.jsonl`. An older project may still have that directory; it is safe to delete.
 
 ---
 ## 2. Memory Subsystem Architecture (v3.0.0 Schema)
 
-**Schema Architecture**: Embedded SQLite database operating in **WAL mode** (`PRAGMA journal_mode = WAL`); the database file itself is created `chmod 0600` (owner read/write only). Supports standalone `@monoes/memory` core schema (schema version **4** — `SCHEMA_VERSION` constant, [`sql-schema.ts → SCHEMA_VERSION`](packages/@monomind/memory/src/sql-schema.ts#SCHEMA_VERSION), applied via `PRAGMA user_version`) — **5 tables**: `memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`, plus the FTS5 full-text virtual table `memory_entries_fts` ([`sql-schema.ts → createFTS5Index`](packages/@monomind/memory/src/sql-schema.ts#createFTS5Index), added for issue #66) — and CLI project memory schema (v3.0.0, 9 tables at [`memory-schema.ts → MEMORY_SCHEMA`](packages/@monomind/cli/src/memory/memory-schema.ts#MEMORY_SCHEMA): `memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
+**Schema Architecture**: Embedded SQLite database operating in **WAL mode** (`PRAGMA journal_mode = WAL`). Only the CLI's legacy `.swarm/memory.db` is set to `chmod 0600` (owner read/write) after each write; the bridge's `memory.db` and the global brain get no explicit file mode. Supports standalone `@monoes/memory` core schema (schema version **4** — `SCHEMA_VERSION` constant, [`sql-schema.ts → SCHEMA_VERSION`](packages/@monomind/memory/src/sql-schema.ts#SCHEMA_VERSION), applied via `PRAGMA user_version`) — **5 tables**: `memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`, plus the FTS5 full-text virtual table `memory_entries_fts` ([`sql-schema.ts → createFTS5Index`](packages/@monomind/memory/src/sql-schema.ts#createFTS5Index), added for issue #66) — and CLI project memory schema (v3.0.0, 9 tables at [`memory-schema.ts → MEMORY_SCHEMA`](packages/@monomind/cli/src/memory/memory-schema.ts#MEMORY_SCHEMA): `memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
 
 ### Schema versions
 
@@ -49,36 +49,37 @@ The `@monoes/memory` store (the bridge's `memory.db` under `~/.monomind/projects
 
 | Store Type | Namespace / Location | Implementation File | Feature Highlights |
 |---|---|---|---|
-| **Episodic & Semantic** | Namespace `default` (or custom) in `memory_entries` | [`memory-crud.ts → storeEntry`](packages/@monomind/cli/src/memory/memory-crud.ts#storeEntry), [`memory-bridge-store.ts → bridgeStoreEntry`](packages/@monomind/cli/src/memory/memory-bridge-store.ts#bridgeStoreEntry) | Temporal decay (`decay_rate = 0.01`), access frequency tracking, confidence score, importance weighting (`0.5` default). |
+| **Episodic & Semantic** | Namespace `default` (or custom) in `memory_entries` | [`memory-crud.ts → storeEntry`](packages/@monomind/cli/src/memory/memory-crud.ts#storeEntry), [`memory-bridge-store.ts → bridgeStoreEntry`](packages/@monomind/cli/src/memory/memory-bridge-store.ts#bridgeStoreEntry) | Access counts, plus usage weights kept in entry metadata (`feedback_weight`, an EWMA defaulting to `0.5`, and `frequency_weight`). The legacy `.swarm/memory.db` schema also has `decay_rate`/`confidence`/`importance_score` columns, but nothing applies them to entries. |
 | **Pattern Store** | `patterns` table & `.swarm/sona-patterns.json` | [`sona-optimizer-types.ts → LearnedPattern`](packages/@monomind/cli/src/memory/sona-optimizer-types.ts#LearnedPattern), [`memory-schema.ts → MEMORY_SCHEMA`](packages/@monomind/cli/src/memory/memory-schema.ts#MEMORY_SCHEMA) | Learned task routing patterns based on keyword extraction, success/failure counts, and EWC-inspired importance weighting (squared-embedding proxy — not Fisher information) (`.swarm/ewc-fisher.json`). |
-| **Second Brain document index** | `memory_entries` (`doc:<hash>:<chunk>`) in namespace `knowledge:<scope>` | [`document-chunking.ts → chunkDocumentInline`](packages/@monomind/cli/src/knowledge/document-chunking.ts#chunkDocumentInline), [`bm25-index.ts → Bm25Index`](packages/@monomind/cli/src/memory/bm25-index.ts#Bm25Index) | Multi-format document ingestion, content-hash chunking, Okapi BM25 lexical indexing. Stores chunks and metadata only — no entity extraction. |
-| **Memory knowledge graph** | `kg:nodes`, `kg:edges`, `rules` in `memory_entries` | [`memory-kg-names.ts → resolveEntity`](packages/@monomind/cli/src/memory/memory-kg-names.ts#resolveEntity), [`memory-kg-names.ts → resolveEntity`](packages/@monomind/cli/src/memory/memory-kg-names.ts#resolveEntity) | Cognee-style concept triplets. Nodes: `n:<normalized-name>`, Edges: `e:<src>\|<rel>\|<dst>`. Deterministic entity keys and rule deduplication threshold (`0.78`). `resolveEntity` also consults a second, additive `kg:names` index keyed by [`mergeKey`](packages/@monomind/cli/src/memory/entity-name-key.ts) — a coarser, case/separator/plain-plural-insensitive fold (e.g. `Node.js` and `nodejs` resolve to the same entity) that still stays exact on distinct symbols, acronyms and identifiers (`C` vs `C++`, `HTTPS` vs `HTTP`, `fetchUsers` vs `fetchUser`); a merge-key hit is only ever a candidate fed into the same `(type, name)` resolution rules, never an automatic cross-type merge. Populated only by explicit ingestion — see [The two graphs](#the-two-graphs). |
+| **Second Brain document index** | `memory_entries` (`doc:<hash>:<chunk>`) in namespace `knowledge:<scope>` | [`document-chunking.ts → chunkDocumentInline`](packages/@monomind/cli/src/knowledge/document-chunking.ts#chunkDocumentInline), [`bm25-index.ts → Bm25Index`](packages/@monomind/cli/src/memory/bm25-index.ts#Bm25Index) | Multi-format document ingestion, content-hash chunking, keyword search through SQLite FTS5 (Okapi BM25 in JS only as a fallback). Stores chunks and metadata only — no entity extraction. |
+| **Memory knowledge graph** | `kg:nodes`, `kg:edges`, `rules` in `memory_entries` | [`memory-kg-names.ts → resolveEntity`](packages/@monomind/cli/src/memory/memory-kg-names.ts#resolveEntity), [`memory-kg-names.ts → resolveEntity`](packages/@monomind/cli/src/memory/memory-kg-names.ts#resolveEntity) | Cognee-style concept triplets. Nodes: `n:<hash of type + name>`, Edges: `e:<hash of src + relation + dst>` (identity scheme v2, `KG_ID_VERSION`; legacy `n:<name>` / `e:<src>\|<rel>\|<dst>` rows are adopted in place). Deterministic entity keys and rule deduplication threshold (`0.78`). `resolveEntity` also consults a second, additive `kg:names` index keyed by [`mergeKey`](packages/@monomind/cli/src/memory/entity-name-key.ts) — a coarser, case/separator/plain-plural-insensitive fold (e.g. `Node.js` and `nodejs` resolve to the same entity) that still stays exact on distinct symbols, acronyms and identifiers (`C` vs `C++`, `HTTPS` vs `HTTP`, `fetchUsers` vs `fetchUser`); a merge-key hit is only ever a candidate fed into the same `(type, name)` resolution rules, never an automatic cross-type merge. Populated only by explicit ingestion — see [The two graphs](#the-two-graphs). |
 
 ---
 
 ## 3. Retrieval & Hybrid Search Architecture
 
-Monomind uses Reciprocal Rank Fusion (RRF) to combine dense vector representations with lexical BM25 retrieval across multiple memory surfaces.
+Within one memory-store surface, search merges semantic (dense vector) hits with keyword hits: a union deduplicated by key, where the semantic hit wins on duplicates ([`memory-bridge-search.ts → bridgeSearchEntries`](packages/@monomind/cli/src/memory/memory-bridge-search.ts#bridgeSearchEntries)). Keyword matching runs in SQLite FTS5; the JS Okapi BM25 index runs only when FTS5 is unavailable or returns nothing, and only for up to 1,500 entries (`MONOMIND_BM25=0` turns it off). `knowledge_search` and `monomind doc search` then fuse the per-surface result lists with Reciprocal Rank Fusion (RRF). RRF never fuses a dense arm against a BM25 arm, and `monomind memory search` does no RRF at all.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                        HYBRID RRF SEARCH PIPELINE                           │
+│                     KNOWLEDGE SEARCH PIPELINE (knowledge_search)            │
 │                                                                             │
 │                        Query Input: "auth token"                            │
 │                                     │                                       │
-│                ┌────────────────────┴────────────────────┐                  │
-│                ▼                                         ▼                  │
-│     Dense Arm (ModernBERT 768d)               Lexical Arm (Okapi BM25)      │
-│     Alibaba-NLP/gte-modernbert-base           k1=1.2, b=0.75                │
-│     ONNX + HNSW-first search                  Exact Tokenizer Parity        │
-│                │                                         │                  │
-│                └────────────────────┬────────────────────┘                  │
 │                                     ▼                                       │
 │                        Query Router & Surface Rules                         │
 │                        Negation Gate & 2x Confidence Gate                   │
 │                                     │                                       │
+│        ┌──────────────────┬─────────┴────────┬──────────────────┐           │
+│        ▼                  ▼                  ▼                  ▼           │
+│      chunks             rules             memory               kg           │
+│  knowledge:<scope>   rules namespace  patterns namespace  memory graph      │
+│        └──────────────────┴─────────┬────────┴──────────────────┘           │
+│   chunks/rules/memory: dense hits (Alibaba-NLP/gte-modernbert-base 768d,    │
+│   ONNX; brute-force cosine, HNSW above MONOMIND_HNSW_THRESHOLD) merged with │
+│   keyword hits (SQLite FTS5; Okapi BM25 k1=1.2, b=0.75 only as fallback)    │
 │                                     ▼                                       │
-│                       Reciprocal Rank Fusion (RRF)                          │
+│                       Reciprocal Rank Fusion (RRF) across surfaces          │
 │         Score(d) = Σ [ 1 / (rrf_k + rank + 1) ] * (0.75 + 0.5 * importance) │
 │                       Adaptive rrf_k ∈ [30, 60]                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -86,7 +87,7 @@ Monomind uses Reciprocal Rank Fusion (RRF) to combine dense vector representatio
 
 ### 1. Dense Embeddings
 - **Model:** `Alibaba-NLP/gte-modernbert-base` (768 dimensions) ([`memory-bridge-core.ts → BRIDGE_EMBEDDING_MODEL`](packages/@monomind/cli/src/memory/memory-bridge-core.ts#BRIDGE_EMBEDDING_MODEL)).
-- **Engine:** `@huggingface/transformers` ONNX feature extraction (`embedding-operations.ts`). The runtime (about 500 MB with onnxruntime) is not installed with monomind: the first command that embeds installs it into `~/.monomind/deps` with a download notice, model weights go to `~/.monomind/models`, and `MONOMIND_NO_AUTO_INSTALL=1` refuses the install and prints the command. Without it, search uses keyword matching.
+- **Engine:** `@huggingface/transformers` ONNX feature extraction ([`memory-bridge-backend.ts → loadEmbedder`](packages/@monomind/cli/src/memory/memory-bridge-backend.ts#loadEmbedder); `embedding-operations.ts` serves the legacy `.swarm/memory.db` path). The runtime (about 500 MB with onnxruntime) is not installed with monomind: the first command that embeds installs it into `~/.monomind/deps` with a download notice, and `MONOMIND_NO_AUTO_INSTALL=1` refuses the install and prints the command. The model weights are a separate step: the embedder loads with `local_files_only`, so they are fetched only by `monomind init --with-embeddings` or `monomind doc eval --provision-model` ([`downloadEmbeddingModel`](packages/@monomind/cli/src/memory/memory-bridge-backend.ts#downloadEmbeddingModel)) and cached under `~/.monomind/models`. Without the runtime or the weights, ingest stores no vectors and search uses keyword matching.
 - **HNSW (size-gated):** semantic search goes through `SqlBackend.search()` in `@monoes/memory` ([`memory-read.ts → searchEntries`](packages/@monomind/cli/src/memory/memory-read.ts#searchEntries) → `bridgeSearchEntries`). Below `MONOMIND_HNSW_THRESHOLD` (default 100,000 active embedded entries) it uses brute-force cosine; above it, an HNSW ANN index is built once, reused until the entry set changes, and cached next to the SQLite file ([`sql-backend.ts`](packages/@monomind/memory/src/sql-backend.ts)). `memory search --build-hnsw` forces an early build. The old standalone pure-JS HNSW layer in `hnsw-operations.ts` was removed.
 
 ### 2. Lexical Okapi BM25
@@ -96,7 +97,7 @@ Monomind uses Reciprocal Rank Fusion (RRF) to combine dense vector representatio
 
 ### 3. Query Router & Surface Fusion
 - **Surface Routing:** Evaluates rules across `chunks` (prior=0.5), `kg` (wt=2), `rules` (wt=2), `memory` (wt=2) ([`query-router.ts → routeQuery`](packages/@monomind/cli/src/memory/query-router.ts#routeQuery)).
-- **Gates:** 20-character negation pre-match window skips negated query terms ([`query-router.ts → NEGATION_RE`](packages/@monomind/cli/src/memory/query-router.ts#NEGATION_RE)). Top routing surface must score ≥ 2× runner-up or query broadcasts to all surfaces.
+- **Gates:** 20-character negation pre-match window skips negated query terms ([`query-router.ts → NEGATION_RE`](packages/@monomind/cli/src/memory/query-router.ts#NEGATION_RE)). Top routing surface must score ≥ 2× runner-up; otherwise the query goes to `chunks` plus every surface that scored above zero ([`knowledge-tools.ts → knowledgeSearch`](packages/@monomind/cli/src/mcp-tools/knowledge-tools.ts#knowledgeSearch)).
 - **Telemetry:** Override telemetry is logged to `.monomind/metrics/route-overrides.json`.
 
 ---
@@ -113,9 +114,9 @@ MonoMind supports export/import of memory entries and knowledge documents using 
 | Category | Tools | Description |
 |---|---|---|
 | **System & Health** | `memory_health`, `memory_controllers` | Subsystem status, table counts, controller listings |
-| **Pattern & Learning** | `memory_pattern-store`, `memory_pattern-search`, `memory_feedback`, `memory_consolidate` | Stores and searches routing patterns, EWMA feedback updates, EWC consolidation |
+| **Pattern & Learning** | `memory_pattern-store`, `memory_pattern-search`, `memory_feedback`, `memory_consolidate` | Stores and searches routing patterns, EWMA feedback updates, weight-aware garbage collection of stale, unused entries |
 | **Knowledge Graph** | `memory_causal-edge`, `memory_kg_ingest`, `memory_kg_search`, `memory_kg_rollback`, `memory_kg_consolidate`, `memory_kg_stats` | Triplet ingest, edge creation, neighborhood search, extraction rollback, distilled rule ingest |
-| **Routing & Context** | `memory_route`, `memory_semantic-route`, `memory_context-synthesize` | Surface routing, embedding-based route selection, multi-surface context synthesis |
+| **Routing & Context** | `memory_route`, `memory_semantic-route`, `memory_context-synthesize` | Agent routing from past routing patterns, embedding-based route selection, a context block that concatenates the top matching memories (no summarization) |
 | **Sessions & Trees** | `memory_session-start`, `memory_session-end`, `memory_hierarchical-store`, `memory_hierarchical-recall`, `memory_batch` | Agent session tracking, tree-structured storage/recall, batch operations |
 
 ---
@@ -123,11 +124,11 @@ MonoMind supports export/import of memory entries and knowledge documents using 
 ## 5. CLI Memory Commands
 
 ```bash
-monomind memory init                             # initialize SQLite memory database (schema v3.0.0)
+monomind memory init                             # create the legacy fallback database .swarm/memory.db (schema v3.0.0); the bridge store needs no init
 monomind memory store -k <key> --value <val>     # store entry (--namespace, --tags, --ttl, --vector, --upsert)
 monomind memory edit -k <key> --value <val>      # update memory entry
 monomind memory retrieve -k <key>                # retrieve entry by key
-monomind memory search "query"                   # execute RRF hybrid search (vector + BM25)
+monomind memory search -q "query"                # semantic search merged with keyword hits (FTS5, BM25 fallback)
 monomind memory list                             # list entries (--namespace, --limit)
 monomind memory delete -k <key>                  # delete entry
 monomind memory stats                            # view table counts and vector status
@@ -139,8 +140,8 @@ monomind memory import -i <dir>                 # import from OKF Markdown bundl
 
 ## 3. Monograph (Code Knowledge Graph)
 
-**Engine package:** `packages/@monomind/monograph/` (published as `@monoes/monograph`, v2.25.3) — the lower-level parse/storage/query engine: tree-sitter grammars plus a regex fallback tier (see `packages/@monomind/monograph/README.md#supported-languages--parsers` for the authoritative language/grammar count), `better-sqlite3` storage, `graphology` for graph algorithms.  
-**MCP tool layer:** registration and gating for all 20+27 tools actually lives in the CLI package at `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`, **not** inside `packages/@monomind/monograph/` itself — the CLI wraps the engine and exposes it over MCP, same split pattern as the memory subsystem's `memory-bridge.ts`.  
+**Engine package:** `packages/@monomind/monograph/` (published as `@monoes/monograph`; version in its `package.json`) — the lower-level parse/storage/query engine: tree-sitter grammars plus a regex fallback tier (see `packages/@monomind/monograph/README.md#supported-languages--parsers` for the authoritative language/grammar count), `better-sqlite3` storage, `graphology` for graph algorithms.  
+**MCP tool layer:** registration and gating for all 20+27 tools actually lives in the CLI package under `packages/@monomind/cli/src/mcp-tools/monograph/` (gating in `index.ts`; `monograph-tools.ts` is only a re-export shim), **not** inside `packages/@monomind/monograph/` itself — the CLI wraps the engine and exposes it over MCP, same split pattern as the memory subsystem's `memory-bridge.ts`.  
 **Database:** `.monomind/monograph.db` (SQLite)  
 **Tools:** 20 MCP tools by default (`mcp__monomind__monograph_*`); 27 more advanced tools are exposed when `MONOGRAPH_MCP_ADVANCED=1` is set
 
@@ -174,7 +175,7 @@ monomind monograph watch
 | `monograph_neighbors` | Direct inbound/outbound edges of a node |
 | `monograph_dead_code` | Dead exported functions, orphan files, stale dist artifacts |
 | `monograph_detect_changes` | Map current git diff to affected graph nodes + dependents |
-| `monograph_health` | Index staleness: commits behind HEAD |
+| `monograph_health` | Index freshness state (fresh / stale / building / partial / unknown) with the evidence: indexed revision, dirty worktree, parser warnings |
 | `monograph_stats` | Node/edge counts |
 | `monograph_build` | Trigger graph build |
 
@@ -214,7 +215,7 @@ The two graphs that matter operationally are the **Monograph code graph** and th
 | **What it holds** | Parsed repository structure — files, functions, classes, and their import/call/dependency edges. Monograph can also index repository documentation. | Entities, relations, and distilled rules that something asserted. Entries may well describe code elements — `heuristicExtract` types a node `CodeElement` when its name looks like code ([`memory-kg.ts → heuristicExtract`](packages/@monomind/cli/src/memory/memory-kg.ts#heuristicExtract)). |
 | **How it gets there** | `monomind monograph build` parses the repository | Explicit ingestion only: `memory_kg_ingest`, the post-task hook's causal edges ([`hooks-task.ts → hooksPostTask`](packages/@monomind/cli/src/mcp-tools/hooks-task.ts#hooksPostTask)), and org runs via `org_learn` or its run-summary heuristic fallback ([`org-memory.ts → learnOrgKnowledge`](packages/@monomind/cli/src/orgrt/org-memory.ts#learnOrgKnowledge), [`storeRunMemory`](packages/@monomind/cli/src/orgrt/org-memory.ts#storeRunMemory)) |
 | **Producer** | tree-sitter grammars plus a regex fallback tier (see the monograph README for the grammar count) | Whatever the caller supplies: LLM-extracted triples, or `rawText` run through the built-in regex `heuristicExtract` |
-| **Storage** | `.monomind/monograph.db` (SQLite, nodes + edges) | `kg:nodes`, `kg:edges`, `rules` namespaces in a memory store — the project store by default, the org store for org runs |
+| **Storage** | `.monomind/monograph.db` (SQLite, nodes + edges) | `kg:nodes`, `kg:edges`, `rules` namespaces in a memory store — the project store by default; org runs use the org store, under namespaces suffixed `:org:<name>` |
 | **Query tools** | `monograph_query`, `monograph_suggest`, `monograph_impact` | `memory_kg_search`, `memory_kg_stats`; also fused into `knowledge_search` when the router selects the `kg` surface |
 | **Rebuild / undo** | Rebuild from source at any time — the repository is the truth | No rebuild: claims accumulate. `memory_kg_rollback` withdraws one `originRef` from every element's origin list and deletes an element only once no origin remains ([`memory-kg-rollback.ts → kgRollback`](packages/@monomind/cli/src/memory/memory-kg-rollback.ts#kgRollback)) — which is why every ingest requires an `originRef` |
 | **Best for** | "What depends on X?", blast radius, dead code | "What did we conclude about auth?", durable rules and decisions carried across sessions and runs |
@@ -244,10 +245,10 @@ Consequences worth knowing:
 - **Ingesting a document adds nothing to the graph.** `monomind doc ingest` and the init auto-ingest write chunks; entity counts stay at zero.
 - **The graph fills up in projects with no documents at all.** Post-task hooks and org runs write to it regardless of whether Second Brain is active.
 - **`memory_kg_ingest` has no document reader.** To move a document's claims into the graph, read or search the document first and pass `nodes`/`edges`/`rules`, or pass the text as `rawText` — which falls back to regex `heuristicExtract`, noticeably lower quality than LLM extraction.
-- **`knowledge_search` is a retrieval interface, not a store.** Its rule-based router picks among the `chunks`, `kg`, `rules`, and `memory` surfaces and fuses them by reciprocal rank ([`knowledge-tools.ts → knowledgeSearch`](packages/@monomind/cli/src/mcp-tools/knowledge-tools.ts#knowledgeSearch)). Passing `store: 'global'` searches the personal cross-project brain's documents only — the KG, rules, and pattern surfaces are project-scoped and are deliberately excluded. Ask for `surfaces` explicitly when you need a specific one.
+- **`knowledge_search` is a retrieval interface, not a store.** Its rule-based router picks among the `chunks`, `kg`, `rules`, and `memory` surfaces (the `memory` surface searches only the `patterns` namespace) and fuses them by reciprocal rank ([`knowledge-tools.ts → knowledgeSearch`](packages/@monomind/cli/src/mcp-tools/knowledge-tools.ts#knowledgeSearch)). Passing `store: 'global'` searches the personal cross-project brain's documents only — the KG, rules, and pattern surfaces are project-scoped and are deliberately excluded. Ask for `surfaces` explicitly when you need a specific one.
 - **Code questions are not routed to the memory graph.** Phrases like "what calls X" or "what imports X" used to score for the `kg` surface — the *memory* graph, not Monograph — so the answer came from what someone once asserted rather than from parsed code. They are now recognised as code questions ([`query-router.ts → CODE_QUERY_RE`](packages/@monomind/cli/src/memory/query-router.ts#CODE_QUERY_RE)) and `knowledge_search` reports the code graph as an `unsupported` surface, naming the `monograph_*` tools, instead of answering from remembered claims. Call `monograph_query` / `monograph_impact` directly for real dependencies.
 
-### Supported Document Formats (22 extensions)
+### Supported Document Formats (19 extensions, plus saved web pages)
 
 | Category | Extensions | Extractor |
 |---|---|---|
@@ -287,7 +288,7 @@ Portable interchange format for knowledge bases. Each document becomes a Markdow
 
 ```bash
 monomind doc export -o ./bundle -s shared    # Export
-monomind doc ingest ./bundle -s shared       # Import
+monomind doc import ./bundle -s shared       # Import
 /mastermind:okf-export -o ./bundle           # Slash command
 /mastermind:okf-import ./bundle              # Slash command
 ```
@@ -305,16 +306,22 @@ Memory does **not** all live in the project's `.monomind/`, despite what earlier
 ```
 <project>/.monomind/
 ├── data/
-│   ├── auto-memory-store.json  ← intelligence patterns
-│   ├── ranked-context.json     ← ranked pattern view, written at session start
-│   └── pending-insights.jsonl  ← unsaved edit events (cleared on consolidate)
+│   ├── auto-memory-store.json  ← legacy; read if present, no longer written
+│   ├── ranked-context.json     ← legacy; read if present, no longer written
+│   └── pending-insights.jsonl  ← legacy; read and deleted, no longer written
+├── neural/
+│   └── patterns.db          ← hooks intelligence pattern store
+│                              (patterns.json fallback)
 ├── episodic/
 │   └── episodes.jsonl       ← episodic memories, keyword-matched at prompt time
 ├── knowledge/
 │   ├── doc-metadata.jsonl   ← Second Brain: indexed-document metadata log
-│   └── chunks.jsonl         ← NOT the document store: a single monograph
-│                              god-node summary chunk written per working
-│                              directory by the session-restore hook
+│   └── chunks.jsonl         ← NOT the document store: a keyword index of
+│                              project instruction files (CLAUDE.md,
+│                              CLAUDE.local.md, README.md, docs/todo.md,
+│                              depth-1 doc/ and docs/ files, …) plus
+│                              monograph god-nodes, rebuilt by the
+│                              session-restore hook
 ├── org-memory/
 │   └── memory.db            ← org runtime memory store, shared by every org
 │                              rooted here (`orgMemoryDbPath`)
@@ -341,7 +348,7 @@ Memory does **not** all live in the project's `.monomind/`, despite what earlier
 
 **Path overrides.** A caller may pass a custom store path, but a traversal guard accepts it only if it resolves inside the project root, that project's home data directory, or the global brain — anything else silently falls back to the project default ([`memory-bridge-paths.ts → getDbPath`](packages/@monomind/cli/src/memory/memory-bridge-paths.ts#getDbPath)). This is why org memory lives at `<project>/.monomind/org-memory` rather than somewhere outside the tree.
 
-**Scoping caveat.** The memory knowledge graph's `kg:nodes`, `kg:edges`, and `rules` namespaces are fixed strings within whichever store is addressed. Org identity is *not* part of node identity or namespace, so every org rooted at the same project shares one graph in `org-memory`. Do not rely on an org name passed to a KG command as an ownership boundary.
+**Scoping.** The memory knowledge graph's `kg:nodes`, `kg:edges`, and `rules` namespaces are fixed strings for project knowledge. An org run scopes them by org name — `kg:nodes:org:<name>` and so on ([`memory-kg-model.ts → kgNamespaces`](packages/@monomind/cli/src/memory/memory-kg-model.ts#kgNamespaces), [`org-memory.ts → orgKgScope`](packages/@monomind/cli/src/orgrt/org-memory.ts#orgKgScope)) — so orgs rooted at the same project keep separate graphs inside the one `org-memory` store.
 
 ---
 
@@ -375,10 +382,10 @@ If you are pinned to an old `@monoes/memory` (<1.0.14), the workaround is Node 2
 
 ### `Vector: No` on stored entries
 
-Embeddings are generated by a local model (~90MB) that downloads once on first use. If it isn't downloaded, entries store fine and are **keyword-searchable**, but have no vector (`Vector: No`). Warm it up while online:
+Embeddings are generated by a local model that is never downloaded implicitly: the embedder loads with `local_files_only`. If the model isn't on disk, entries store fine and are **keyword-searchable**, but have no vector (`Vector: No`). Fetch it once while online:
 
 ```bash
-monomind doc search -q "warmup"   # one-time ~90MB download, cached locally forever
+monomind doc eval --provision-model   # or: monomind init --with-embeddings
 ```
 
 
@@ -388,7 +395,7 @@ monomind doc search -q "warmup"   # one-time ~90MB download, cached locally fore
 
 Drop documents (Markdown, TXT, PDF, DOCX) anywhere in your project and run `monomind init` — the Second Brain activates itself. No flags, no configuration, no accounts. Indexing and search run on your machine: a local embedding model (`Alibaba-NLP/gte-modernbert-base`, 768-dim, via transformers.js) and a local SQLite vector store. **Your notes are indexed and stored locally** — but the excerpts search returns are injected into your AI tool's prompts, and go to its model provider with the rest of the prompt.
 
-From then on, every substantive prompt you type in Claude Code is automatically answered *with your own knowledge in context* — a hook retrieves the most relevant excerpts semantically (the always-on dashboard keeps the model warm, ~60ms per lookup) and injects them before Claude starts thinking. Ask "when do new parents get time off" and the parental-leave section of your handbook is already on the table, even though you never used the word "leave".
+From then on, every substantive prompt you type in Claude Code is automatically answered *with your own knowledge in context* — a hook retrieves the most relevant excerpts and injects them before Claude starts thinking. The lookup is semantic only when the local dashboard server answers it (it runs when started with `monomind ui` or by `monomind org run`; it starts with a Claude Code session only after `monomind init --dashboard` or with `MONOMIND_DASHBOARD_AUTOSTART=1`) and the embedding model is on disk; otherwise it is a keyword search over `.monomind/knowledge/chunks.jsonl`, which holds project instruction files and monograph god-nodes rather than your ingested documents ([`route-handler.cjs`](.claude/helpers/handlers/route-handler.cjs)). Ask "when do new parents get time off" and the parental-leave section of your handbook is already on the table, even though you never used the word "leave".
 
 ```bash
 monomind doc ingest ./notes        # index documents (init + session-start do this automatically)
@@ -397,15 +404,15 @@ monomind doc list                  # what's indexed
 monomind doc export                # portable OKF bundle — move your brain between machines
 ```
 
-> **Optional spreadsheet support:** `monomind init` never downloads SheetJS. To extract `.xlsx`, `.xls`, or `.ods` files, install it only when you need it: run `pnpm add xlsx` in a project using a local/npx Monomind install, or `npm install -g xlsx` when Monomind is installed globally. Until then, spreadsheet files are skipped while the rest of document ingestion continues.
+> **Optional spreadsheet support:** `monomind init` never downloads SheetJS. To extract `.xlsx` or `.xls` files, install it only when you need it: run `pnpm add xlsx` in a project using a local/npx Monomind install, or `npm install -g xlsx` when Monomind is installed globally. Until then, those files index with empty text while the rest of document ingestion continues; `.ods` falls back to XML extraction and needs no `xlsx`.
 
 **And it follows you across projects.** Ingest a path from *outside* the current project (`monomind doc ingest ~/notes`, or add `--global`) and it lands in your personal global brain at `~/.monomind/global-brain` (override with `MONOMIND_GLOBAL_BRAIN_DIR`) — kept as a sibling of `~/.monomind/projects` specifically so `monomind cleanup --data` can never prune it — searchable from every project on the machine. All retrieval (CLI search, per-prompt injection, the dashboard) merges both stores automatically, with project knowledge winning ties and global hits labeled `[global]`. `doc export --global` moves your whole brain between machines as an OKF bundle — a file you move yourself, with no cloud service involved.
 
 Retrieval quality is a tested invariant, not a hope: a golden-set eval (paraphrase queries against notes written in different vocabulary) runs in CI with an 80% recall bar.
 
-> **Privacy note:** the embedding model (~90MB) is fetched once from HuggingFace's CDN when your first document is indexed, then cached locally forever. That download is the only outbound request the Second Brain's indexing and search make — your documents and queries are processed locally. Excerpts injected into a prompt are a different matter: they go to your AI tool's model provider with that prompt. Offline at first index? Search degrades gracefully to keyword matching and `monomind doctor` tells you how to warm up later.
+> **Privacy note:** the embedding model is fetched from HuggingFace's CDN only when you ask for it (`monomind init --with-embeddings` or `monomind doc eval --provision-model`), then cached locally. That download is the only outbound request the Second Brain's indexing and search make — your documents and queries are processed locally. Excerpts injected into a prompt are a different matter: they go to your AI tool's model provider with that prompt. Without the model, search degrades to keyword matching and `monomind doctor` tells you how to fetch it.
 
-> **Which model where?** Monomind uses two local embedding models. `Snowflake/snowflake-arctic-embed-xs` (~88MB) serves semantic task routing only. Everything the memory bridge embeds — both the Second Brain document index and the persistent memory store, which share that one bridge — uses `Alibaba-NLP/gte-modernbert-base` (768-dim, ~90MB); there is no separate document model. See [Embeddings](../commands/memory.md#hybrid-search-architecture--options) for the per-subsystem detail.
+> **Which model where?** Monomind uses two local embedding models. `Snowflake/snowflake-arctic-embed-xs` (~88MB) serves semantic task routing only. Everything the memory bridge embeds — both the Second Brain document index and the persistent memory store, which share that one bridge — uses `Alibaba-NLP/gte-modernbert-base` (768-dim); there is no separate document model. See [Embeddings](../commands/memory.md#hybrid-search-architecture--options) for the per-subsystem detail.
 
 
 ---
@@ -435,5 +442,5 @@ graph TD
 
 ```bash
 monomind memory store --key "key insight" --value "…" --namespace my-project
-monomind memory search "auth implementation"     # semantic (local embeddings) with keyword fallback
+monomind memory search -q "auth implementation"  # semantic (local embeddings) merged with keyword hits
 ```

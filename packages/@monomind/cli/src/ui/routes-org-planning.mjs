@@ -3,7 +3,7 @@ import path from 'node:path';
 import { writeFileAtomic } from './org-hil.mjs';
 import { readBodyOrReply } from './routes-org-helpers.mjs';
 
-// Org dashboard routes: budgets, threads, routines and goals.
+// Org dashboard routes: budgets, routines and goals.
 // Registered, in order, by handleOrgRoutes in routes-org.mjs.
 export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
   // GET /api/org/:name/budgets — org and per-agent budget data
@@ -17,11 +17,8 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
         return true;
       }
       const _budgetsQs = new URL(req.url, 'http://localhost').searchParams;
-      const base = path.join(
-        path.resolve(_budgetsQs.get('dir') || ctx.projectDir || process.cwd()),
-        '.monomind',
-        'orgs',
-      );
+      const _budgetsRoot = path.resolve(_budgetsQs.get('dir') || ctx.projectDir || process.cwd());
+      const base = path.join(_budgetsRoot, '.monomind', 'orgs');
       // #400: limits are the caps the org runtime enforces, read from the org
       // definition (roles[].budget_usd / budget_tokens, run_config.budget_tokens)
       // — not a side-car <org>-budgets.json that nothing enforces. There is no
@@ -75,8 +72,14 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
       );
       if (!_hasTokenData) {
         try {
-          const _runsDir = path.join(base, orgName, 'runs');
-          if (fs.existsSync(_runsDir)) {
+          // The server writes run files under the git monomind dir in a git
+          // project (server-mastermind-event.mjs), else under .monomind: read both.
+          const _runsDirs = [path.join(base, orgName, 'runs')];
+          const _gitMonoDir = ctx._getGitMonomindDir?.(_budgetsRoot);
+          if (_gitMonoDir && _gitMonoDir !== path.join(_budgetsRoot, '.monomind'))
+            _runsDirs.unshift(path.join(_gitMonoDir, 'orgs', orgName, 'runs'));
+          const _seenRunFiles = new Set();
+          if (_runsDirs.some((d) => fs.existsSync(d))) {
             const _usageByRole = {};
             const _bump = (role, tokensIn, tokensOut, tokensTotal, costUsd) => {
               if (!role) return;
@@ -98,27 +101,31 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
                   (_usageByRole[role].total_cost_usd ?? 0) + Number(costUsd);
               else _usageByRole[role].cost_complete = false;
             };
-            for (const f of fs.readdirSync(_runsDir)) {
-              if (!f.endsWith('.jsonl') || f.startsWith('._')) continue;
-              const lines = fs
-                .readFileSync(path.join(_runsDir, f), 'utf8')
-                .split('\n')
-                .filter(Boolean);
-              for (const l of lines) {
-                try {
-                  const ev = JSON.parse(l);
-                  if (ev.type === 'agent:usage' && ev.role) {
-                    _bump(
-                      ev.role,
-                      Number(ev.tokens_in) || 0,
-                      Number(ev.tokens_out) || 0,
-                      0,
-                      ev.cost_usd ?? null,
-                    );
-                  } else if (ev.type === 'org:usage' && ev.from) {
-                    _bump(ev.from, 0, 0, Number(ev.data?.tokens) || 0, ev.data?.cost_usd ?? null);
-                  }
-                } catch (_) {}
+            for (const _runsDir of _runsDirs) {
+              if (!fs.existsSync(_runsDir)) continue;
+              for (const f of fs.readdirSync(_runsDir)) {
+                if (!f.endsWith('.jsonl') || f.startsWith('._') || _seenRunFiles.has(f)) continue;
+                _seenRunFiles.add(f);
+                const lines = fs
+                  .readFileSync(path.join(_runsDir, f), 'utf8')
+                  .split('\n')
+                  .filter(Boolean);
+                for (const l of lines) {
+                  try {
+                    const ev = JSON.parse(l);
+                    if (ev.type === 'agent:usage' && ev.role) {
+                      _bump(
+                        ev.role,
+                        Number(ev.tokens_in) || 0,
+                        Number(ev.tokens_out) || 0,
+                        0,
+                        ev.cost_usd ?? null,
+                      );
+                    } else if (ev.type === 'org:usage' && ev.from) {
+                      _bump(ev.from, 0, 0, Number(ev.data?.tokens) || 0, ev.data?.cost_usd ?? null);
+                    }
+                  } catch (_) {}
+                }
               }
             }
             if (Object.keys(_usageByRole).length > 0) {
@@ -157,87 +164,6 @@ export async function handleOrgPlanningRoutes(req, res, url, corsOrigin, ctx) {
     } catch (_) {
       res.writeHead(500);
       res.end('{"org_budget":{},"agent_budgets":{},"agents":[]}');
-    }
-    return true;
-  }
-
-  // GET /api/org/:name/threads — conversation threads from threads.jsonl
-  // Returns: { threads: [{id, subject, authorId, authorName, issueId, createdAt, messages:[]}] }
-  if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/threads$/i)) {
-    try {
-      const orgName = decodeURIComponent(url.split('/')[3]);
-      if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
-        res.writeHead(400);
-        res.end('Invalid org name');
-        return true;
-      }
-      const _threadsQs = new URL(req.url, 'http://localhost').searchParams;
-      const _threadsRoot = path.resolve(_threadsQs.get('dir') || ctx.projectDir || process.cwd());
-      const _threadsProjDir = ctx._resolveOrgProjectDir(orgName, _threadsRoot) || _threadsRoot;
-      const threadsFile = path.join(
-        _threadsProjDir,
-        '.monomind',
-        'orgs',
-        `${orgName}-threads.jsonl`,
-      );
-      let threads = [];
-      try {
-        const lines = fs
-          .readFileSync(threadsFile, 'utf8')
-          .split('\n')
-          .filter((l) => l.trim());
-        threads = lines
-          .map((l) => {
-            try {
-              return JSON.parse(l);
-            } catch (_) {
-              return null;
-            }
-          })
-          .filter(Boolean);
-        // Group 'message' entries (from org:comms) by run_id into synthetic thread objects
-        const msgsByRun = {};
-        threads
-          .filter((t) => t.type === 'message')
-          .forEach((m) => {
-            const rid = m.run_id || 'unknown';
-            if (!msgsByRun[rid])
-              msgsByRun[rid] = {
-                id: `thread-${rid}`,
-                type: 'thread',
-                subject: `Run ${rid}`,
-                run_id: rid,
-                createdAt: m.ts,
-                messages: [],
-              };
-            msgsByRun[rid].messages.push({ from: m.from, to: m.to, msg: m.msg, ts: m.ts });
-          });
-        const syntheticThreads = Object.values(msgsByRun).map((t) => ({
-          ...t,
-          messageCount: t.messages.length,
-          author: t.messages[0]?.from || null,
-        }));
-        threads = threads
-          .filter((t) => t.type === 'thread' || !t.type)
-          .map((t) => ({
-            ...t,
-            author: t.author || t.authorName || t.createdBy || t.authorId || null,
-            messageCount:
-              t.messageCount != null
-                ? t.messageCount
-                : Array.isArray(t.messages)
-                  ? t.messages.length
-                  : typeof t.messages === 'number'
-                    ? t.messages
-                    : null,
-          }));
-        threads = [...threads, ...syntheticThreads];
-      } catch (_) {}
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ threads }));
-    } catch (_) {
-      res.writeHead(500);
-      res.end('{"threads":[]}');
     }
     return true;
   }

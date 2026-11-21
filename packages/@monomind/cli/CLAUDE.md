@@ -187,7 +187,7 @@ npx monomind@latest memory search --query "authentication patterns"
 npx monomind@latest doctor --fix
 
 # Security scan
-npx monomind@latest security scan --depth full
+npx monomind@latest security scan --depth deep
 
 # Performance benchmark
 npx monomind@latest performance benchmark --suite all
@@ -331,7 +331,7 @@ Bash("npx monomind@latest hooks post-command --command '[operation]' --success t
 Bash("npx monomind@latest performance benchmark --suite all")
 
 # Analyze bottlenecks when performance degrades
-Bash("npx monomind@latest performance profile --target '[component]'")
+Bash("npx monomind@latest performance bottleneck --component '[component]'")
 ```
 
 ### Session Persistence (Cross-Conversation Context)

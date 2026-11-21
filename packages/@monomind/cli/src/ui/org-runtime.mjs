@@ -276,14 +276,34 @@ export function recordedStatus(runtime) {
   return status;
 }
 
+/** The org's run status by Org Runtime v2's own records: 'running' when a
+ *  daemon hosts it, else runtime.json's recordedStatus ('stopped', 'crashed',
+ *  ...); null when the org has no runtime.json. */
+export function orgRuntimeStatus(root, org) {
+  if (hostingDaemon(root, org)) return 'running';
+  const runtime = readJson(path.join(orgDir(root, org), 'runtime.json'));
+  return runtime ? recordedStatus(runtime) : null;
+}
+
 /** Whether `org` runs for `root` by Org Runtime v2's own records: true when a
  *  daemon hosts it or runtime.json records a run whose pid is alive; false when
  *  runtime.json records anything else (a crashed run included); null when the
  *  org has no runtime.json, so only older state files can tell. */
 export function orgRunningState(root, org) {
-  if (hostingDaemon(root, org)) return true;
+  const status = orgRuntimeStatus(root, org);
+  return status === null ? null : status === 'running';
+}
+
+/** The org's task DAG: the daemon's live list while it hosts the org, else
+ *  the one in runtime.json's last checkpoint. */
+const taskList = (isLive, live, runtime) =>
+  (isLive ? live.tasks : runtime?.checkpoint?.tasks) ?? [];
+
+/** The org's own tasks, read the way runtimeView reads them. */
+export async function orgTasks(root, org) {
+  const live = await liveStatus(root, org);
   const runtime = readJson(path.join(orgDir(root, org), 'runtime.json'));
-  return runtime ? recordedStatus(runtime) === 'running' : null;
+  return taskList(!!(live && !live.unreachable), live, runtime);
 }
 
 /** orgRunningState as a plain yes/no, for refusing a destructive write. */
@@ -387,7 +407,7 @@ export async function runtimeView(root, org) {
     },
     totals,
     roles,
-    tasks: (isLive ? live.tasks : runtime?.checkpoint?.tasks) ?? [],
+    tasks: taskList(isLive, live, runtime),
     audit: digest?.audit ?? [],
     history: readRecentHistory(root, org),
   };

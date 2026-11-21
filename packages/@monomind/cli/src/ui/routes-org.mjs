@@ -10,7 +10,6 @@ import { handleOrgMastermindRoutes } from './routes-org-mastermind.mjs';
 import { handleOrgPlanningRoutes } from './routes-org-planning.mjs';
 import { handleOrgRunRoutes } from './routes-org-runs.mjs';
 import { handleOrgStatusRoutes } from './routes-org-status.mjs';
-import { handleOrgWorkflowRoutes } from './routes-org-workflows.mjs';
 
 export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
   if (await handleOrgConfigRoutes(req, res, url, corsOrigin, ctx)) return true;
@@ -24,7 +23,6 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
   if (await handleOrgMastermindRoutes(req, res, url, corsOrigin, ctx)) return true;
   if (await handleOrgLiveRoutes(req, res, url, corsOrigin, ctx)) return true;
   if (await handleOrgKnowledgeRoutes(req, res, url, corsOrigin, ctx)) return true;
-  if (await handleOrgWorkflowRoutes(req, res, url, corsOrigin, ctx)) return true;
   if (await handleOrgControlRoutes(req, res, url, corsOrigin, ctx)) return true;
   return false;
 }

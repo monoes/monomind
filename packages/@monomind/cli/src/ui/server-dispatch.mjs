@@ -1,3 +1,5 @@
+import { handleDoctorRoutes } from './routes-doctor.mjs';
+import { handleMeshRoutes } from './routes-mesh.mjs';
 import { handleMonoesRoutes } from './routes-monoes.mjs';
 import { handleMonographRoutes } from './routes-monograph.mjs';
 import { handleOrgRoutes } from './routes-org.mjs';
@@ -42,7 +44,6 @@ async function dispatchRequest(req, res, url, corsOrigin, deps) {
     _updateRunState,
     _getKnowledgeBridge,
     SESSION_ID_RE,
-    MASTERMIND_DIAGRAM_HTML,
     buildDocsState,
     looksLikeOurProcess,
   } = deps;
@@ -60,6 +61,8 @@ async function dispatchRequest(req, res, url, corsOrigin, deps) {
   if (await handleRoutesLoops(req, res, url, corsOrigin, ctx)) return true;
   if (await handleRoutesMisc(req, res, url, corsOrigin, ctx)) return true;
   if (await handleMcpCallRoutes(req, res, url, corsOrigin, ctx)) return true;
+  if (await handleDoctorRoutes(req, res, url, corsOrigin, ctx)) return true;
+  if (await handleMeshRoutes(req, res, url, corsOrigin, ctx)) return true;
 
   // ── Monograph routes (extracted to routes-monograph.mjs) ──────────────
   if (
@@ -105,9 +108,6 @@ async function dispatchRequest(req, res, url, corsOrigin, deps) {
       _updateRunState,
       _getKnowledgeBridge,
       SESSION_ID_RE,
-      MASTERMIND_DIAGRAM_HTML,
-      dashboardAuthValue,
-      __dirname,
     })
   )
     return true;

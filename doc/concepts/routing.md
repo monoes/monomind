@@ -48,7 +48,7 @@ flowchart TD
 
 Agents come only from the project's agent registry, `.monomind/registry.json`, built from `.claude/agents/**/*.md` (plus any extra agent roots — `$MONOMIND_EXTRA_AGENT_PATHS` or a sibling `../agency-agents` — which win slug conflicts) and the user's `~/.claude/agents/**` (origin `user`; a project agent of the same name wins) by `registry-builder.ts`. The registry is built for the project root, rebuilt when it is missing or older than the agent files — by `monomind init`, at every session start, by any `monomind` command run in the project, and awaited before `monomind pick` and the `pick` MCP tool rank — written atomically, and never replaced by an empty one. Outside a project, `monomind pick` builds it in memory and writes nothing. The full list of roots and the frontmatter reference are in [Agents & Skills](./agents-and-skills.md#1-where-things-live).
 
-[`jev-catalog.cjs → loadAgentCatalog`](.claude/helpers/jev-catalog.cjs#loadAgentCatalog) turns it into candidates. Each agent's text is its one-line `when_to_use` followed by its description, plus its category, tags, capabilities, task types and vibe. Agents marked `deprecated: true` are left out of ranking but can still be spawned by name. Every agent carries `when_to_use`, `tags` and one `category`: core, architecture, engineering, testing, security, devops, github, marketing, design, coordination, data-ai or specialized.
+[`jev-catalog.cjs → loadAgentCatalog`](.claude/helpers/jev-catalog.cjs#loadAgentCatalog) turns it into candidates. Each agent's text is its one-line `when_to_use` followed by its description, plus its category, tags, capabilities and task types. The `vibe` personality line is not ranked. Agents marked `deprecated: true` are left out of ranking but can still be spawned by name. Every agent carries `when_to_use`, `tags` and one `category`: core, architecture, engineering, testing, security, devops, github, marketing, design, coordination, data-ai or specialized.
 
 A pick always names the agent's frontmatter `name` — the value Claude Code's Task tool accepts as `subagent_type` (for example `coder` or `Security Engineer`). The registry slug is kept as `id`.
 
@@ -109,6 +109,7 @@ The `UserPromptSubmit` hook ([`route-handler.cjs`](.claude/helpers/handlers/rout
 
 - **Agent**: a Jev answer that clears the automatic floor, else the top keyword agent when its relevance score is at least 2 and at least 1.5× the runner-up ([`pick-core.cjs → decide`](.claude/helpers/handlers/pick-core.cjs#decide)).
 - **Skill**: a confident Jev skill answer (including a confident "none fits"), else the top keyword skill when its score is at least 3 and at least 1.25× the runner-up. Keyword skills are ranked by the same `pick-rank.cjs` shortlist over the same skill catalog as the CLI (platform, user and Org-library skills; `pick: low` skills rank below equal matches).
+- If Jev answered but below its floor, nothing is printed for that list: the keyword leader is not used as a fallback ([`pick-core.cjs → decide`](.claude/helpers/handlers/pick-core.cjs#decide)).
 - Ties and weak overlap print nothing: a wrong pick in context costs more than none.
 - The line is printed even under `MONOMIND_HOOK_QUIET=1`. It is the hook's answer, not an advisory banner.
 - Prompts Claude Code submits itself — task notifications, reminder-only turns, slash-command expansions and local-command output — get no pick and no record ([`pick-core.cjs → isSystemPrompt`](.claude/helpers/handlers/pick-core.cjs#isSystemPrompt)).
@@ -116,6 +117,12 @@ The `UserPromptSubmit` hook ([`route-handler.cjs`](.claude/helpers/handlers/rout
 - `router.cjs` and `intelligence.cjs` no longer exist; `init upgrade` retires them from older installs.
 
 The hook waits for Jev up to `MONOMIND_JEV_HOOK_TIMEOUT_MS` (default 1500; larger values are capped at 3000, so a dead endpoint delays a prompt at most 3 s). After a failed or timed-out pick it skips Jev for 5 minutes (`.monomind/jev-breaker.json`).
+
+Unless `MONOMIND_HOOK_QUIET=1` is set, the same hook can print routing advisories next to the pick. They never replace it:
+
+- `[INTELLIGENCE] Embedding suggestion: <agent>` — from the stored post-task embedding patterns (`suggestAgentsFromIntelligence`), shown when its top agent differs from the pick. The module is loaded from `packages/@monomind/cli/dist/`, so in practice this appears only inside the monomind source checkout.
+- `[AGENT_PATTERN] Historical: …` — when the picked agent's success rate over the last 30 days in the monograph database's `agent_interactions` table is below 50 % and another agent's is above 80 % (at least 3 runs each).
+- `[ROUTING] Warning: …` — when the picked agent's routing accuracy in the last 50 lines of `routing-feedback.jsonl` is below 60 % (at least 3 entries).
 
 The generated `CLAUDE.md` tells Claude to use a `[PICK]` line's agent and skill unless clearly wrong, and to call `mcp__monomind__pick` (or `monomind pick`) before choosing a subagent itself. The mastermind skills and commands pick specialists the same way: the `[PICK]` line, then the `pick` MCP tool, then a local `monomind pick` (never through `npx`), then a fallback of agents that exist.
 
@@ -127,7 +134,7 @@ Every user prompt is recorded, with or without a confident pick, by [`pick-core.
 - `.monomind/routes/<sessionId>.json` — the session's latest pick, so concurrent sessions do not read each other's picks;
 - `.monomind/last-route.json` — the latest pick overall, for the statusline.
 
-Appends, outcome joins and rotation of `route-outcomes.jsonl` — by the hook and by `hooks_route` — all hold one lock file (`route-outcomes.jsonl.lock`, broken after 10 s), so concurrent sessions never drop each other's records. A slash-command route names no agent, so it never counts as a recommendation.
+Appends, outcome joins and rotation of `route-outcomes.jsonl` — by the hook and by `hooks_route` — all hold one lock file (`route-outcomes.jsonl.lock`, broken after 10 s once its holder process is gone), so concurrent sessions never drop each other's records. A slash-command route names no agent, so it never counts as a recommendation.
 
 ---
 
@@ -200,7 +207,7 @@ The adherence hook only observes; it never blocks a spawn. Only a real spawn set
 
 ### Ledger commands
 
-[`monomind route stats`](packages/@monomind/cli/src/commands/route-outcome-commands.ts#statsCommand) reports accuracy, adherence and trend from `route-outcomes.jsonl` (`computeRoutingAccuracy()` / `computeAdherence()` in [`route-outcomes.ts`](packages/@monomind/cli/src/monovector/route-outcomes.ts)). `route feedback` appends a reward (−1.0 to 1.0) for a task/agent pair; `route reset` clears the ledger; `route export`/`import` move it to and from a JSON file (50 MB cap, path containment checked).
+[`monomind route stats`](packages/@monomind/cli/src/commands/route-outcome-commands.ts#statsCommand) reports accuracy, adherence and trend from `route-outcomes.jsonl`. Accuracy is the task-success rate of routed prompts: a task's outcome comes from an explicit `--success`, or else from the exit code of the last shell command in the recent window, and it does not check whether the picked agent was the one used (`computeRoutingAccuracy()` / `computeAdherence()` in [`route-outcomes.ts`](packages/@monomind/cli/src/monovector/route-outcomes.ts)). `route feedback` appends a reward (−1.0 to 1.0) for a task/agent pair; `route reset` clears the ledger; `route export`/`import` move it to and from a JSON file (50 MB cap, path containment checked).
 
 ---
 
