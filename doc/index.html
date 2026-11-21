@@ -1028,12 +1028,12 @@ Session N: empty round (zero findings AND zero actions)
     <div class="page-header">
       <span class="page-tag">Reference</span>
       <h1 class="page-title">Dashboard</h1>
-      <p class="page-desc">The Neural Control Room — a local web dashboard served at <code>localhost:4242</code> with live session feeds, memory inspection, swarm monitoring, knowledge graph exploration, and full agent organization management.</p>
+      <p class="page-desc">The Neural Control Room — a local web dashboard served at <code>localhost:4242</code> with live session feeds, memory inspection, knowledge graph exploration, and full agent organization management.</p>
     </div>
 
     <!-- OVERVIEW -->
     <div class="section-title reveal">Overview</div>
-    <p class="reveal" style="margin-bottom:1.2rem">The dashboard is a single-page application with a 196px fixed sidebar and a scrollable main area. URL parameters support deep-linking: <code>?proj=&lt;path&gt;</code> switches project context and <code>&amp;sess=&lt;id&gt;</code> opens a specific session.</p>
+    <p class="reveal" style="margin-bottom:1.2rem">The dashboard is a single-page application with a 196px fixed sidebar and a scrollable main area. URL parameters support deep-linking: <code>?proj=&lt;path&gt;</code> switches project context and <code>&amp;sess=&lt;id&gt;</code> opens a specific session. Below 760px wide, the sidebar becomes a drawer opened with the ☰ button in the topbar, topbar buttons show icons only, and panes stack.</p>
     <div class="table-wrap reveal">
       <table class="doc-table">
         <thead><tr><th>Topbar Element</th><th>Description</th></tr></thead>
@@ -1042,8 +1042,7 @@ Session N: empty round (zero findings AND zero actions)
           <tr><td>Today cost badge</td><td>Cumulative USD spend for the current calendar day</td></tr>
           <tr><td>Session cost ticker</td><td>Running cost of the currently focused session, updates in real time</td></tr>
           <tr><td>Activity chip</td><td>Current agent type and task description from the most recent hook event</td></tr>
-          <tr><td>⬡ Mastermind</td><td>Opens the Mastermind overlay (violet hexagon button)</td></tr>
-          <tr><td>⚑ Budget</td><td>Opens a modal for setting daily and monthly spend limits (USD). Fields: Daily limit, Monthly limit. Once saved, the alerts rail shows a warning when actual spend approaches the limit.</td></tr>
+          <tr><td>⚑ Budget</td><td>Opens a modal for setting daily and monthly spend limits (USD). Fields: Daily limit, Monthly limit. Once saved, the alerts rail warns when spend reaches 80% of either limit and again when it exceeds it, with one desktop notification per level per day.</td></tr>
           <tr><td>⌘K Search</td><td>Opens the command palette for cross-view navigation</td></tr>
           <tr><td>? Help</td><td>Shows keyboard shortcuts reference</td></tr>
           <tr><td>↺ Refresh</td><td>Force-reloads current view data</td></tr>
@@ -1056,13 +1055,13 @@ Session N: empty round (zero findings AND zero actions)
         <thead><tr><th>Chip</th><th>Meaning</th></tr></thead>
         <tbody>
           <tr><td>PATTERNS N</td><td>Number of recorded routing patterns in the pattern store</td></tr>
+          <tr><td>⚙ worker</td><td>One pill per background worker output (codebase-map, security-audit, performance, consolidation, ddd-progress): highlighted when written in the last 12 hours, amber when older, plain when missing</td></tr>
           <tr><td>CHUNKS N</td><td>Number of indexed text chunks available for search</td></tr>
-          <tr><td>SWARM topology</td><td>Active swarm topology name (hierarchical, mesh, adaptive…)</td></tr>
-          <tr><td>LAST ROUTE</td><td>Agent name that the routing hook most recently selected</td></tr>
+          <tr><td>ROUTE agent</td><td>Agent name that the routing hook most recently selected</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="reveal" style="margin:1rem 0">The sidebar footer shows your GitHub username and the absolute path of the current working directory.</p>
+    <p class="reveal" style="margin:1rem 0">The sidebar footer shows your git user name (<code>git config user.name</code>) and the absolute path of the current working directory.</p>
 
     <!-- NOW VIEW -->
     <div class="section-title reveal">Now — Live Feed</div>
@@ -1071,14 +1070,16 @@ Session N: empty round (zero findings AND zero actions)
       <table class="doc-table">
         <thead><tr><th>Feed Control</th><th>Key</th><th>Behavior</th></tr></thead>
         <tbody>
-          <tr><td>Play / Pause</td><td>Space</td><td>Toggle live-tail; pausing freezes the list without disconnecting</td></tr>
-          <tr><td>Clear</td><td>—</td><td>Removes all entries from the visible feed buffer</td></tr>
+          <tr><td>⬤ Tail</td><td>—</td><td>Toggle live-tail (auto-scroll and a 5-second refresh)</td></tr>
           <tr><td>Filter</td><td>/</td><td>Opens inline search — filters entries by text or tool name</td></tr>
           <tr><td>Jump to live</td><td>G</td><td>Scrolls to the newest entry and resumes live-tail</td></tr>
           <tr><td>Ambient mode</td><td>A</td><td>Hides all chrome; only the feed remains</td></tr>
-          <tr><td>Replay</td><td>—</td><td>Re-plays the current session from the beginning at configurable speed</td></tr>
-          <tr><td>Focus</td><td>F</td><td>Expands the feed to full width, hiding metrics pane</td></tr>
-          <tr><td>Export</td><td>—</td><td>Downloads visible feed entries as JSONL</td></tr>
+          <tr><td>Replay</td><td>—</td><td>Re-plays the current session event by event from the beginning</td></tr>
+          <tr><td>Copy</td><td>—</td><td>Copies the session to the clipboard as Markdown</td></tr>
+          <tr><td>Focus</td><td>—</td><td>Shows only user messages and errors, hiding other tool entries</td></tr>
+          <tr><td>Export</td><td>—</td><td>Downloads the session as a Markdown file (<code>session-&lt;id&gt;.md</code>)</td></tr>
+          <tr><td>Density</td><td>—</td><td>Toggles a compact view</td></tr>
+          <tr><td>‹ / ›</td><td>—</td><td>Opens the older or newer session</td></tr>
         </tbody>
       </table>
     </div>
@@ -1096,12 +1097,12 @@ Session N: empty round (zero findings AND zero actions)
     <p class="reveal" style="margin:1rem 0 0.5rem">Additional feed UI elements:</p>
     <ul class="reveal" style="padding-left:1.5rem;line-height:2">
       <li><strong>Session context bar</strong> — pinned at top of feed: session ID, model, start time, current cost</li>
-      <li><strong>Recap card</strong> — collapsible summary of the previous session's key decisions</li>
-      <li><strong>Replay bar</strong> — scrubber, speed selector (0.5×, 1×, 2×, 4×), play/pause when in replay mode</li>
+      <li><strong>Recap card</strong> — stats for the session being viewed: tool calls with the dominant tool category, messages, cost, and errors</li>
+      <li><strong>Replay bar</strong> — play/pause, step back, step forward, a progress bar, an event counter, and exit, when in replay mode</li>
       <li><strong>Timeline bar</strong> — horizontal ruler showing tool-call density over session time</li>
-      <li><strong>Time-range filter</strong> — drag handles on the timeline to zoom into a time window</li>
+      <li><strong>Time-range filter</strong> — All, 1h, 6h and 24h buttons that limit the feed to that window</li>
       <li><strong>Weekly card</strong> — dismissible summary card (stored in localStorage) showing 7-day stats</li>
-      <li><strong>Daily digest card</strong> — dismissible AI-generated digest of today's activity</li>
+      <li><strong>Daily digest card</strong> — dismissible summary of today's activity, computed in the browser from today's sessions (sessions, cost, tool calls, messages, top tags)</li>
       <li><strong>Feed minimap</strong> — 8px-wide column of colored pips on the right scroll edge for quick navigation</li>
     </ul>
     <p class="reveal" style="margin:1rem 0 0.5rem"><strong>Group rows</strong> — when 3 or more consecutive events share the same category, they are collapsed into a single row showing the count and a ▸ expand affordance. Clicking the group row expands all entries in place.</p>
@@ -1113,7 +1114,7 @@ Session N: empty round (zero findings AND zero actions)
         <tbody>
           <tr><td>Today</td><td>Today API cost, call count, and a 7-day activity sparkline</td></tr>
           <tr><td>Active Loops</td><td>Running loop names with live countdown timers</td></tr>
-          <tr><td>Recent Sessions</td><td>Last 5 sessions with cost and duration chips</td></tr>
+          <tr><td>Recent Sessions</td><td>Up to 6 recent sessions, each with its last prompt and relative time</td></tr>
           <tr><td>Tool Usage</td><td>Bar chart of most-called tools in the current session</td></tr>
           <tr><td>Burn Rate</td><td>Three rolling gauge rows — 5 min, 15 min, 60 min — each showing tool-call rate in calls/minute. Color: green &lt; 4 calls/min, amber 4–10, red ≥ 10</td></tr>
           <tr><td>Session Lanes</td><td>Parallel swimlanes showing concurrent agent activity</td></tr>
@@ -1127,7 +1128,7 @@ Session N: empty round (zero findings AND zero actions)
 
     <!-- PROJECTS -->
     <div class="section-title reveal">Projects</div>
-    <p class="reveal" style="margin-bottom:1rem">Projects are discovered from Monomind's config registry. The view renders an auto-fill card grid (min 240px) with a filter input at the top.</p>
+    <p class="reveal" style="margin-bottom:1rem">Projects are the Claude Code project directories under <code>~/.claude/projects</code>. The view renders an auto-fill card grid (min 240px) with a filter input at the top.</p>
     <div class="table-wrap reveal">
       <table class="doc-table">
         <thead><tr><th>Card Element</th><th>Description</th></tr></thead>
@@ -1171,12 +1172,12 @@ Session N: empty round (zero findings AND zero actions)
         <tbody>
           <tr><td>Starred</td><td>Filter to bookmarked sessions only</td></tr>
           <tr><td>Leaderboard</td><td>Sort by cost descending — shows most expensive sessions first</td></tr>
-          <tr><td>Models</td><td>Show model name chip on each row</td></tr>
-          <tr><td>Errors</td><td>Filter to sessions that contain tool errors</td></tr>
-          <tr><td>Tools</td><td>Show tool-call summary chips on each row</td></tr>
-          <tr><td>Projects</td><td>Show project path chip on each row</td></tr>
+          <tr><td>Models</td><td>Opens a model usage breakdown panel</td></tr>
+          <tr><td>Errors</td><td>Opens a tool error rate panel</td></tr>
+          <tr><td>Tools</td><td>Opens a most-used-tools panel across sessions</td></tr>
+          <tr><td>Projects</td><td>Opens a cost-by-project panel</td></tr>
           <tr><td>CSV</td><td>Export current filtered session list as CSV</td></tr>
-          <tr><td>Patterns</td><td>Show recorded routing pattern badges</td></tr>
+          <tr><td>Patterns</td><td>Opens a prompt word-frequency panel across sessions</td></tr>
           <tr><td>Compare</td><td>Enable multi-select mode for session diff (select exactly 2)</td></tr>
           <tr><td>Timeline</td><td>Switch to a Gantt-style timeline visualization</td></tr>
           <tr><td>Donut</td><td>Show a cost-by-model donut chart above the list</td></tr>
@@ -1188,8 +1189,8 @@ Session N: empty round (zero findings AND zero actions)
     <p class="reveal">Session diff: selecting exactly 2 sessions with Compare mode opens a side-by-side panel showing cost delta, duration delta, tool overlap, and unique tool calls per session.</p>
 
     <!-- LOOPS -->
-    <div class="section-title reveal">Loops</div>
-    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Loops are created manually from the dashboard (+New Loop button) or via slash commands:</p>
+    <div class="section-title reveal">Sessions › Loops</div>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Loops are a collapsible section at the bottom of the Sessions view (key <code>4</code> opens the Sessions view; click the Loops header to expand it). Loops are created manually from that section (+New Loop button) or via slash commands:</p>
     <div class="code-block reveal"><span class="comment"># Create a loop from Claude Code</span>
 <span class="cmd">/mastermind:review --tillend</span>                        <span class="comment"># review loop until clean</span>
 <span class="cmd">/mastermind:improve --repeat 3 the auth flow</span>        <span class="comment"># run exactly 3 times</span>
@@ -1243,7 +1244,7 @@ Session N: empty round (zero findings AND zero actions)
 
     <!-- MEMORY -->
     <div class="section-title reveal">Memory</div>
-    <p class="reveal" style="margin-bottom:1rem">The Memory view has two distinct data sources: <strong>Memories</strong> are explicit <code>.md</code> files with YAML frontmatter stored in the <code>.monomind/memories/</code> directory. <strong>Chunks</strong> are indexed text segments extracted from project source files and documentation for semantic search.</p>
+    <p class="reveal" style="margin-bottom:1rem">The Memory view has two distinct data sources: <strong>Memories</strong> are explicit <code>.md</code> files with YAML frontmatter stored in <code>~/.claude/projects/&lt;project&gt;/memory/</code>. <strong>Chunks</strong> are text segments in <code>.monomind/knowledge/chunks.jsonl</code>, written at session start from CLAUDE.md, README.md and the doc/ and docs/ folders, plus the graph's key nodes once Monograph is built.</p>
     <div class="table-wrap reveal">
       <table class="doc-table">
         <thead><tr><th>Memory Type</th><th>Color</th><th>Purpose</th></tr></thead>
@@ -1274,7 +1275,7 @@ Session N: empty round (zero findings AND zero actions)
           <tr><td>Routing</td><td>Routing feedback log — each entry shows agent chosen, confidence %, task description, and timestamp. YAML front matter stub format for new memories:<br><code>---<br>name: my preference<br>description: Short description of this memory<br>type: user<br>---<br><br>Content body here...</code></td></tr>
           <tr><td>Usage</td><td>Period tabs + stat grid (cost, calls, tokens, cache efficiency) + 5 bar charts: Models, Activity by hour, Tools, MCP Servers, Projects</td></tr>
           <tr><td>ADRs</td><td>Architecture Decision Records as filterable cards. Status badges: Accepted, Proposed, Deprecated. Category filters: implementation, guidance</td></tr>
-          <tr><td>Chunks</td><td>Stats bar (chunk count, skill namespaces, total namespaces). Filter by namespace or keyword. Chunk cards show source file, excerpt, and namespace. Edit/Delete per card. Build Docs button triggers indexing with progress polling</td></tr>
+          <tr><td>Chunks</td><td>Stats bar (chunk count, skill namespaces, total namespaces). Filter by namespace or keyword. Chunk cards show source file, excerpt, and namespace. Edit/Delete per card. Build Docs button adds documentation nodes to the Monograph graph, with progress polling</td></tr>
           <tr><td>Docs</td><td>Indexed Second Brain documents with a stats bar and a filter by path</td></tr>
           <tr><td>Store</td><td>Search, list, and add entries in the SQLite memory store, optionally scoped to a namespace</td></tr>
         </tbody>
@@ -1283,11 +1284,7 @@ Session N: empty round (zero findings AND zero actions)
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;margin-bottom:4px;"><strong>Routing tab:</strong> Routing data is collected automatically whenever Claude Code routes a task to an agent. No setup required. Use <code>/hooks:overview</code> to understand the routing hook.</p>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>ADRs tab:</strong> ADRs are created via the slash command or discovered automatically from existing ADR files:</p>
     <div class="code-block reveal"><span class="cmd">/mastermind:adr</span>    <span class="comment"># draft an ADR from accumulated decision markers in the codebase</span></div>
-    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Chunks tab:</strong> Chunks are built by indexing your project's documentation and skill files:</p>
-    <div class="code-block reveal"><span class="comment"># From the dashboard: click "⊕ Build Docs" in the Chunks tab</span>
-
-<span class="comment"># From Claude Code:</span>
-<span class="cmd">/mastermind:understand</span>    <span class="comment"># semantic enrichment — indexes all .md/.txt files</span></div>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Chunks tab:</strong> Chunks are written at session start. Start a new Claude Code session in the project to index them. The tab's "⊕ Build Docs" button does not write chunks: it adds documentation nodes to the Monograph graph (see the Wiki tab).</p>
 
     <!-- ORGS -->
     <div class="section-title reveal">Orgs</div>
@@ -1330,11 +1327,11 @@ Session N: empty round (zero findings AND zero actions)
         <thead><tr><th>Tab</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td>Overview</td><td>Stat cards (total nodes, total edges, average degree, type counts), top 6 nodes by degree, and a type-distribution breakdown</td></tr>
-          <tr><td>Graph</td><td>Interactive force-directed graph in an iframe. WATCH toggle enables file-system watching so the graph auto-rebuilds on file changes. REBUILD button forces a full rebuild immediately</td></tr>
-          <tr><td>Analyze</td><td>Two groups of analyses: 9 client-side (Stats, PageRank, Dead Code, Components, Topological Sort, Hubs, Cycles, Surprises, Communities) and 20 server-side MCP analyses (Health Score, Risk Profile, Hotspots, Maintainability, Complexity, CRAP Score, Instability, Coupling Balance, Circular Dependencies, Unlinked References, Dead Exports, Reachability, Boundary Check, Bridges, Cohesion, Largest Files, Languages, Churn Hotspots, Detect Changes, Authors)</td></tr>
-          <tr><td>Export</td><td>Download the graph in: JSON, SVG, GraphML, or Cypher format</td></tr>
+          <tr><td>Graph</td><td>Interactive force-directed graph in an iframe, with an OPEN IN TAB button. WATCH toggle enables file-system watching so the graph auto-rebuilds on file changes. REBUILD button forces a full rebuild immediately</td></tr>
+          <tr><td>Analyze</td><td>Two groups of analyses: 11 client-side (Stats, PageRank, Betweenness, Dead Code, Similarity, Components, Topological Sort, Hubs, Cycles, Surprises, Communities) and 20 server-side MCP analyses (Health Score, Risk Profile, Hotspots, Maintainability, Complexity, CRAP Score, Instability, Coupling Balance, Circular Dependencies, Unlinked References, Dead Exports, Reachability, Boundary Check, Bridges, Cohesion, Largest Files, Languages, Churn Hotspots, Detect Changes, Authors)</td></tr>
+          <tr><td>Export</td><td>Download the graph in 10 formats: JSON, GraphML, Mermaid, DOT, GEXF, Cypher, CSV nodes, CSV edges, adjacency matrix, or HTML (<code>monograph.html</code>, the interactive graph)</td></tr>
           <tr><td>Report</td><td>Rendered GRAPH_REPORT with summary stats, top nodes by degree, and type distribution</td></tr>
-          <tr><td>Wiki</td><td>Searchable node browser — type filter pills, mode toggle (All / Docs / Code), full-text search. Clicking a node opens a detail panel with Impact, Context, and Explain actions</td></tr>
+          <tr><td>Wiki</td><td>Searchable node browser — type filter pills, mode toggle (All / Docs / Code), full-text search. Clicking a node opens a detail panel with COPY CONTENT (when the node has content), EXPLAIN, and FIND RELATED buttons</td></tr>
         </tbody>
       </table>
     </div>
@@ -1343,24 +1340,24 @@ Session N: empty round (zero findings AND zero actions)
     <!-- GLOBAL FEED -->
     <div class="section-title reveal">Global Feed</div>
     <div class="reveal" style="margin-bottom:24px">
-      <p style="font-size:14px;color:var(--text2);margin-bottom:16px">A unified activity stream across all registered projects, accessible from the sidebar "⊕ Global Feed" item.</p>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">The Global Feed populates automatically as you use Claude Code across multiple projects. No setup required — add more projects via <code>monomind init</code> in each project directory.</p>
+      <p style="font-size:14px;color:var(--text2);margin-bottom:16px">A unified activity stream across up to 8 Claude Code projects (the first 8 that <code>/api/projects</code> lists, most recently active first), accessible from the sidebar "⊕ Global Feed" item.</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">The Global Feed populates automatically as you use Claude Code across multiple projects. No setup required.</p>
       <p style="font-size:14px;color:var(--text2);margin-bottom:16px">Each event entry displays a project tag chip alongside the event data, so you can see which project generated each activity. The feed is assembled by fetching <code>/api/projects</code> and then merging session events from all project paths.</p>
       <p style="font-size:14px;color:var(--text2)">Unlike the Now view (which is scoped to one project), the Global Feed gives a workspace-wide perspective — useful for multi-project workflows and general activity monitoring.</p>
     </div>
 
     <!-- MASTERMIND OVERLAY -->
     <div class="section-title reveal">Mastermind Overlay</div>
-    <p class="reveal" style="margin-bottom:1rem">The Mastermind overlay opens by clicking the violet <strong>⬡ Mastermind</strong> button in the topbar. It has 6 tabs:</p>
+    <p class="reveal" style="margin-bottom:1rem">The Mastermind overlay opens with the <strong>M</strong> key. It has 6 tabs:</p>
     <div class="table-wrap reveal">
       <table class="doc-table">
         <thead><tr><th>Tab</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td>Orgs</td><td>List of all orgs — click to switch the dashboard's active org context</td></tr>
-          <tr><td>Skills</td><td>Searchable catalog of all 35+ slash-command skills. Click any skill to copy the <code>/skill-name</code> command to clipboard</td></tr>
-          <tr><td>Loops</td><td>Running loops with live countdown timers and Stop buttons — mirrors the Loops view in a compact panel. Create loops with <code>/mastermind:review --tillend</code> or the +New Loop button in the Loops view.</td></tr>
-          <tr><td>Create Org</td><td>Form that generates and copies the equivalent <code>/mastermind:createorg</code> CLI command (legacy path — see the <a href="#orgs">Organizations</a> page for the current <code>monomind org run</code> flow)</td></tr>
-          <tr><td>Metrics</td><td>Summary cards for current cost, API calls, routing confidence distribution, and active swarm topology</td></tr>
+          <tr><td>Skills</td><td>Searchable catalog of 26 slash-command skills. Click any skill to copy the <code>/skill-name</code> command to clipboard</td></tr>
+          <tr><td>Loops</td><td>Running loops with live countdown timers and Stop buttons — mirrors the Loops section of the Sessions view in a compact panel. Create loops with <code>/mastermind:review --tillend</code> or the +New Loop button in that section.</td></tr>
+          <tr><td>Create Org</td><td>Form (goal, name, roles, schedule) that generates a <code>/mastermind:createorg</code> command with <code>--name</code>, <code>--roles</code> and <code>--schedule</code>; click it to copy (legacy path — see the <a href="#orgs">Organizations</a> page for the current <code>monomind org run</code> flow)</td></tr>
+          <tr><td>Metrics</td><td>Today's cost, today's API calls, the month's cost, and the last routed agent</td></tr>
           <tr><td>Graph</td><td>Node and edge counts for the Monograph index, list of top god nodes, and an Open Monograph button</td></tr>
         </tbody>
       </table>
@@ -1374,12 +1371,11 @@ Session N: empty round (zero findings AND zero actions)
         <thead><tr><th>Group</th><th>Contents</th></tr></thead>
         <tbody>
           <tr><td>Sessions</td><td>Recent sessions — select to open that session in the Now view</td></tr>
-          <tr><td>Memory</td><td>Memory entries — select to open the memory detail editor</td></tr>
           <tr><td>Projects</td><td>Registered projects — select to switch project context</td></tr>
           <tr><td>Orgs</td><td>Organizations — select to switch to that org's view</td></tr>
           <tr><td>Skills</td><td>Slash-command skills — select to copy the command</td></tr>
           <tr><td>Actions</td><td>Quick actions: Open Monograph, Refresh, Toggle Compact, Open Loops</td></tr>
-          <tr><td>Tabs</td><td>Appears when an org is selected — lists org tabs for direct navigation (the list is out of date: only Chart and Approvals match a current tab)</td></tr>
+          <tr><td>Tabs</td><td>Appears when an org is selected in the Orgs view — lists the org's tabs for direct navigation</td></tr>
         </tbody>
       </table>
     </div>
@@ -1393,31 +1389,31 @@ Session N: empty round (zero findings AND zero actions)
         <tbody>
           <tr><td><code>⌘K</code></td><td>Open command palette</td><td>Global</td></tr>
           <tr><td><code>?</code></td><td>Show keyboard shortcuts help</td><td>Global</td></tr>
-          <tr><td><code>R</code></td><td>Refresh current view</td><td>Global</td></tr>
+          <tr><td><code>M</code></td><td>Open the Mastermind overlay</td><td>Global</td></tr>
+          <tr><td><code>1</code>–<code>9</code></td><td>Switch view: Now, Sessions, Projects, Loops (in Sessions), Tokens, Memory, Orgs, Monograph, Global Feed</td><td>Global</td></tr>
           <tr><td><code>Esc</code></td><td>Close open panels or modals</td><td>Global</td></tr>
           <tr><td><code>J</code></td><td>Navigate down in list</td><td>Now, Sessions</td></tr>
           <tr><td><code>K</code></td><td>Navigate up in list</td><td>Now, Sessions</td></tr>
           <tr><td><code>↵</code></td><td>Open detail panel / jump to session</td><td>Now, Sessions</td></tr>
           <tr><td><code>/</code></td><td>Open feed search</td><td>Now</td></tr>
           <tr><td><code>G</code></td><td>Jump to live session (newest entry)</td><td>Now</td></tr>
+          <tr><td><code>R</code></td><td>Refresh current view</td><td>Now</td></tr>
           <tr><td><code>A</code></td><td>Toggle ambient mode</td><td>Now</td></tr>
-          <tr><td><code>F</code></td><td>Toggle focus mode (full-width feed)</td><td>Now</td></tr>
-          <tr><td><code>Space</code></td><td>Play / pause live tail</td><td>Now</td></tr>
         </tbody>
       </table>
     </div>
 
     <!-- API REFERENCE -->
     <div class="section-title reveal">API Reference</div>
-    <p class="reveal" style="margin-bottom:1rem">All endpoints are served by the local dashboard server at <code>localhost:4242</code>. SSE endpoints stream newline-delimited JSON.</p>
+    <p class="reveal" style="margin-bottom:1rem">All endpoints are served by the local dashboard server at <code>localhost:4242</code>. Every <code>/api/*</code> route except <code>/api/identity</code> and the monoes.me OAuth callback needs the dashboard token in the <code>x-monomind-token</code> header (<code>?token=</code> on GET and HEAD only). Routes that act as the human supervising an org (answering questions, approvals, decision gates, org config, chat, and writing, copying, importing or deleting an org) also need the browser session that <code>monomind dashboard open</code> sets. SSE endpoints send <code>data:</code> frames carrying JSON, some with an <code>event:</code> line.</p>
     <p class="reveal" style="margin-bottom:0.5rem"><strong>Navigation / Init</strong></p>
     <div class="table-wrap reveal">
       <table class="doc-table">
         <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td>GET</td><td><code>/api/git-user</code></td><td>Git username and email</td></tr>
-          <tr><td>GET</td><td><code>/api/projects</code></td><td>All registered projects</td></tr>
-          <tr><td>GET</td><td><code>/api/status</code></td><td>System health: memory, patterns</td></tr>
+          <tr><td>GET</td><td><code>/api/projects</code></td><td>Claude Code projects under <code>~/.claude/projects</code>, each with a <code>hasOrgs</code> flag</td></tr>
+          <tr><td>GET</td><td><code>/api/status</code></td><td>Server snapshot: pid, uptime, project dir, SSE client count, active org runs, last 10 mastermind events</td></tr>
         </tbody>
       </table>
     </div>
@@ -1431,7 +1427,7 @@ Session N: empty round (zero findings AND zero actions)
           <tr><td>GET (SSE)</td><td><code>/api/events-stream</code></td><td>Live tool event stream</td></tr>
           <tr><td>GET</td><td><code>/api/search-sessions</code></td><td>Full-text session search</td></tr>
           <tr><td>GET</td><td><code>/api/session-errors</code></td><td>Session error list</td></tr>
-          <tr><td>GET</td><td><code>/api/tool-errors</code></td><td>Tool error list per session</td></tr>
+          <tr><td>GET</td><td><code>/api/tool-errors</code></td><td>Recent tool errors across sessions</td></tr>
           <tr><td>GET</td><td><code>/api/tool-ranking</code></td><td>Tool call frequency</td></tr>
           <tr><td>GET</td><td><code>/api/project-costs</code></td><td>Per-project cost breakdown</td></tr>
         </tbody>
@@ -1459,7 +1455,7 @@ Session N: empty round (zero findings AND zero actions)
         <tbody>
           <tr><td>GET</td><td><code>/api/loops</code></td><td>Active loops</td></tr>
           <tr><td>POST</td><td><code>/api/loops/create</code></td><td>Create loop</td></tr>
-          <tr><td>GET</td><td><code>/api/loops/stop</code></td><td>Stop a loop</td></tr>
+          <tr><td>POST</td><td><code>/api/loops/stop</code></td><td>Stop a loop</td></tr>
         </tbody>
       </table>
     </div>
@@ -1469,8 +1465,8 @@ Session N: empty round (zero findings AND zero actions)
         <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td>GET</td><td><code>/api/section?name=knowledge</code></td><td>Indexed chunks</td></tr>
-          <tr><td>POST / DELETE</td><td><code>/api/knowledge-chunk</code></td><td>Chunk CRUD</td></tr>
-          <tr><td>POST</td><td><code>/api/monograph-build-docs</code></td><td>Trigger docs indexing</td></tr>
+          <tr><td>PUT / DELETE</td><td><code>/api/knowledge-chunk</code></td><td>Edit or delete a chunk</td></tr>
+          <tr><td>POST</td><td><code>/api/monograph-build-docs</code></td><td>Add documentation nodes to the Monograph graph</td></tr>
           <tr><td>GET</td><td><code>/api/monograph-build-docs-status</code></td><td>Indexing progress</td></tr>
         </tbody>
       </table>
@@ -1485,8 +1481,6 @@ Session N: empty round (zero findings AND zero actions)
           <tr><td>GET</td><td><code>/api/monograph-watch-status</code></td><td>Watch state</td></tr>
           <tr><td>GET</td><td><code>/api/monograph-graph</code></td><td>Graph nodes/edges</td></tr>
           <tr><td>GET</td><td><code>/api/monograph-report</code></td><td>GRAPH_REPORT</td></tr>
-          <tr><td>GET</td><td><code>/api/monograph-query</code></td><td>BM25 node search</td></tr>
-          <tr><td>GET</td><td><code>/api/monograph-path</code></td><td>Shortest path between two nodes</td></tr>
           <tr><td>GET</td><td><code>/api/monograph-explain</code></td><td>Node explanation</td></tr>
           <tr><td>POST</td><td><code>/api/mcp/call</code></td><td>MCP tool proxy</td></tr>
         </tbody>
@@ -1501,17 +1495,30 @@ Session N: empty round (zero findings AND zero actions)
           <tr><td>GET</td><td><code>/api/org/:name</code></td><td>Org detail</td></tr>
           <tr><td>POST</td><td><code>/api/orgs/:name/stop</code></td><td>Stop org</td></tr>
           <tr><td>DELETE</td><td><code>/api/orgs/:name</code></td><td>Delete org and clean up persisted config</td></tr>
-          <tr><td>POST</td><td><code>/api/orgs/:name/copy</code></td><td>Duplicate org under a new name</td></tr>
+          <tr><td>POST</td><td><code>/api/orgs/:name/copy</code></td><td>Copy the org config into another project directory (an absolute <code>destination</code> path)</td></tr>
           <tr><td>GET</td><td><code>/api/orgs/:name</code></td><td>Org config as JSON (the dashboard's Export button downloads it)</td></tr>
           <tr><td>POST</td><td><code>/api/orgs/:name/import</code></td><td>Import an org from a JSON config file</td></tr>
+          <tr><td>POST</td><td><code>/api/orgs</code></td><td>Create or import an org from a JSON body</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/activity</code></td><td>Org activity log</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/health</code></td><td>Org health metrics</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/agents</code></td><td>Org agents</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/budgets</code></td><td>Org budgets</td></tr>
-          <tr><td>GET / POST</td><td><code>/api/org/:name/approvals</code></td><td>Approval queue</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/approvals</code></td><td>Approval queue</td></tr>
+          <tr><td>POST</td><td><code>/api/org/:name/approvals/:id</code></td><td>Approve or reject one request</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/routines</code></td><td>Scheduled routines</td></tr>
-          <tr><td>GET</td><td><code>/api/org/:name/plugins</code></td><td>Installed plugins</td></tr>
-          <tr><td>GET</td><td><code>/api/org/:name/threads</code></td><td>Discussion threads</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/runtime</code></td><td>What the org is doing now (Runtime tab)</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/runs</code></td><td>Run list</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/runs/:id</code></td><td>One run</td></tr>
+          <tr><td>GET (SSE)</td><td><code>/api/orgs/:name/runs/current/stream</code></td><td>Live tail of the current run</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/gates</code></td><td>Decision gates</td></tr>
+          <tr><td>POST</td><td><code>/api/org/:name/gates/:id</code></td><td>Resolve one decision gate</td></tr>
+          <tr><td>POST</td><td><code>/api/org/:name/config</code></td><td>Change the org config</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/files</code></td><td>Org files (Files tab)</td></tr>
+          <tr><td>POST</td><td><code>/api/orgs/:name/chat</code></td><td>Send a chat message to the org</td></tr>
+          <tr><td>POST</td><td><code>/api/orgs/:name/mark-complete</code></td><td>Mark a stale run complete</td></tr>
+          <tr><td>GET</td><td><code>/api/hil</code></td><td>Everything in a project waiting on a human: questions, approvals and decision gates</td></tr>
+          <tr><td>POST</td><td><code>/api/questions/answer</code></td><td>Answer an agent's question</td></tr>
+          <tr><td>POST</td><td><code>/api/questions/dismiss</code></td><td>Dismiss an agent's question</td></tr>
         </tbody>
       </table>
     </div>
@@ -1819,13 +1826,13 @@ You are an API contract reviewer. ...</div>
       <div class="hc-num">02</div>
       <div class="hc-cmd">monomind org run &lt;name&gt;</div>
       <div class="hc-title">Start the daemon</div>
-      <p class="hc-desc">OrgDaemon loads the definition, starts a real Agent SDK session per role, and serves a live dashboard. Every tool call is checked against that role's PolicyEngine gates. The first start asks you to review and sign the org (<code>monomind org sign &lt;name&gt;</code> does it ahead of time for unattended runs).</p>
+      <p class="hc-desc">OrgDaemon loads the definition, starts a real Agent SDK session per role, and streams its events into the :4242 dashboard. Every tool call is checked against that role's PolicyEngine gates. The first start asks you to review and sign the org (<code>monomind org sign &lt;name&gt;</code> does it ahead of time for unattended runs).</p>
     </div>
     <div class="how-cell">
       <div class="hc-num">03</div>
       <div class="hc-cmd">http://localhost:4242</div>
       <div class="hc-title">Watch it run</div>
-      <p class="hc-desc">Live feed of agent chat, inter-agent messages, tool calls with allow/deny decisions, and files written — streamed over server-sent events, no polling.</p>
+      <p class="hc-desc">Live feed of agent chat, inter-agent messages, tool calls with allow/deny decisions, and files written — streamed over server-sent events. The page needs a logged-in browser: <code>monomind dashboard open</code> opens it with a one-time login link.</p>
     </div>
   </div>
 </div>
@@ -1871,7 +1878,7 @@ You are an API contract reviewer. ...</div>
 <div class="orgs-section alt">
   <div class="osec-label">Live dashboard — :4242</div>
   <h2 class="osec-title">Watch the org run, live</h2>
-  <p class="osec-sub">A live server-sent-events stream, not a polling API: agent status, chat and inter-agent messages, and every tool call's policy decision, streamed as they happen.</p>
+  <p class="osec-sub">A live server-sent-events stream: agent status, chat and inter-agent messages, and every tool call's policy decision, streamed as they happen.</p>
   <div class="run-split">
     <div>
       <div style="font-family:var(--ff-d);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;">Agents</div>
