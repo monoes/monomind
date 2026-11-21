@@ -248,7 +248,7 @@ Each category has the current state, the 2026 comparison, and the top items. The
 |---|---|---|---|---|---|
 | mcp-1 | Improve | One stdio handler with spec-shaped results; stdout carries protocol only | S | H | Route `cli/bin/cli.js` and `cli/bin/mcp-server.js` through `handleMCPMessage`; `mcp-client.ts` returns `isError`; add a stdio contract test |
 | mcp-2 | Remove | 70 tools in dead families (browser 28, claims 12, terminal, config, github, performance, guidance, quality, platforms) | M | H | Delete the tool files and their loaders in `cli/src/mcp-client-registry.ts:31-61` |
-| mcp-3 | Improve | Rewrite the 264 `.claude/` references to non-advertised tools; add a check | M | H | Point them at CLI or host tools; `sync:claude-trees:check` fails on a non-advertised `mcp__monomind__*` |
+| mcp-3 | Improve | Rewrite the 264 `.claude/` references to non-advertised tools; add a check | M | H | `P0-19`: point them at CLI or host tools; `sync:claude-trees:check` fails on a non-advertised `mcp__monomind__*` |
 | mcp-4 | Remove | Hide-and-search: a tool is advertised and callable, or it is not an MCP tool | M | H | Move the 60 CLI-backend tools to direct imports; delete `monomind_tool_search`; one profile setting |
 | mcp-5 | Add | `annotations` and `title`; mark read-only tools; mark `knowledge_remove` destructive | S | H | Extend `MCPTool` in `types.ts:34-47`; pass the fields through `tools/list` |
 | mcp-6 | Add | `outputSchema`/`structuredContent`; negotiate `protocolVersion` | M | M | Echo the client's revision; add schemas for `pick`, `monograph_brief`, `knowledge_search` |
@@ -506,7 +506,7 @@ The goal: nothing reports success it did not have, and nothing claims a capabili
 | P0-8 | `org replay` leaves `runtime.json` alone | org-1 | S | H | none | `fix(org): replay writes only its own bus` |
 | P0-9 | Release supply chain: trusted publishing, SHA-pinned actions, per-job permissions | sec-1, pkg (provenance) | S | H | the maintainer configures the npm-side trust (D10) | `ci(release): publish with OIDC trusted publishing` |
 | P0-10 | Security scan supports pnpm and fails loudly without a lockfile | sec-3 | S | M | none | `fix(security): use pnpm audit when pnpm-lock.yaml exists` |
-| P0-11 | **Removal series** (one series, so doc counts and `.claude/` references change once): dead MCP families; `claims_*`/`agent_pool`/`agent_health`; trajectory tools; thin memory tools; references rewritten | mcp-2, mcp-3, co-1, hk-3 (tools), mem-4 (tools) | M | H | P0-1 | `refactor(mcp): rewrite .claude references to non-advertised tools`, then `remove(mcp): browser/claims/terminal/config/github/performance/guidance/quality/platforms families` |
+| P0-11 | **Removal series** (one series, so doc counts change once): dead MCP families; `claims_*`/`agent_pool`/`agent_health`; trajectory tools; thin memory tools | mcp-2, co-1, hk-3 (tools), mem-4 (tools) | M | H | P0-1, P0-19 | `remove(mcp): browser/claims/terminal/config/github/performance/guidance/quality/platforms families` |
 | P0-12 | **Honesty pass on invented numbers**: statusline figures, learning labels and `--train`, `hooks_explain` weights, hook advisories A1–A3, doctor "routing accuracy" renamed, success label | hk-3, rt-1, rt-4, ev-4, hk-6 | S–M | M | none | `remove(hooks): placeholder SONA/EWC/MoE/LoRA/Flash readouts and --train` |
 | P0-13 | Retrieval eval in CI with floors: the evidence for the graph-first decision | ev-1 | S | H | none | `ci(eval): run tests/eval/retrieval with floors` |
 | P0-14 | Dead hook plumbing: `executeHooks`, dead workers, unread settings keys, dead helpers and stores | hk-1, hk-5, mem-4 (stores) | S each | M | none | `remove(hooks): executeHooks bridge calls with an empty registry` |
@@ -514,6 +514,7 @@ The goal: nothing reports success it did not have, and nothing claims a capabili
 | P0-16 | Remove agent definitions for machinery that does not exist; remove bookkeeping mastermind skills (fix or delete the import, backup and env skills first) | co-2, org-4 | S–M | M | `sync:claude-trees` | `remove(agents): swarm-era optimization agents` |
 | P0-17 | Dashboard fixes already in progress | ui-1, ui-3 | M | H | none | dashboard PRs |
 | P0-18 | Two security items are tracked privately (not described here) | n/a | n/a | H | n/a | n/a |
+| P0-19 | **`.claude/` prompts call only tools hosts can reach.** About 88 skill, command and agent files carry 264 references to about 50 non-advertised `mcp__monomind__*` tools (for example `agent_spawn` in `.claude/agents/github/*`). The docs review keeps the file list with its findings. Point each at an advertised tool, a CLI command or a host tool; add a `sync:claude-trees:check` rule that fails on a non-advertised `mcp__monomind__*` | mcp-3 | M | H | `sync:claude-trees`; lands before P0-11 | `fix(claude): point .claude prompts at reachable tools; check rejects non-advertised mcp refs` |
 
 ### Phase 1: make the core correct, reachable and host-aware
 
@@ -566,7 +567,7 @@ The goal: nothing reports success it did not have, and nothing claims a capabili
 ### Sequencing rules
 
 - P0-1 lands before every other MCP change: P0-11, P1-4 and P1-5 touch the same handler.
-- P0-11 rewrites the `.claude/` references in the same release as each tool removal. A `sync:claude-trees:check` rule keeps them from coming back.
+- P0-19 rewrites the `.claude/` references in its own PR before P0-11 removes any tool. Its `sync:claude-trees:check` rule keeps them from coming back, so each removal in P0-11 fails the check until no prompt names the removed tool.
 - P0-13 (the retrieval eval) comes before P2-2 (the graph-first rewrite). P1-15 (the `[PICK]` A/B) comes before demoting `[PICK]` in P2-2 and P2-3.
 - P1-6, P1-7 and P1-20 come before plugin packaging (P2-4).
 - Egress, P0-15/P1-20 strict flags, and the tool removals each use a warning stage first. Breaking removals ship with a CHANGELOG list and one deprecation release.
@@ -628,5 +629,10 @@ Each line names what to delete and why. Removals follow the warning or deprecati
 | D14 | Final advertised MCP roster size, and the advertise-or-drop call on the remaining hidden tools. | **Recommended:** about 21–30 tools, under about 25 KB of schemas. |
 | D15 | The egress default flip date (orgs that rely on open internet will need an allowlist). | **Recommended:** a warning for one minor, then flip. |
 | D16 | Ingest host memory files (Claude Code `MEMORY.md`, Codex memories, `GEMINI.md`) read-only into the Second Brain. | Only as an explicit opt-in, with an updated privacy note. |
-| D17 | The docs review's open questions: the repo-root `opencode.json` and `.kimi-code/mcp.json` float `@latest` and carry unread env vars; the local env block lists unread variables; whether the 264 unreachable tool references are fixed in a docs PR or in P0-11. | **Recommended:** handle the references in P0-11; pin the repo configs once their local edits are settled. |
+| D17 | The repo-root `opencode.json` and `.kimi-code/mcp.json` float `@latest` and carry unread env vars. | **Recommended:** pin the repo configs once their local edits are settled. |
 | D18 | Remove the dashboard board skills (issues, tasks, goals and similar) and the dashboard views that read their side files. | A second task system that the runtime never reads. **Recommended:** remove after ui-2. |
+
+### Already decided
+
+- The 264 unreachable `.claude/` tool references are fixed in their own Phase 0 PR (P0-19), not in a docs PR and not inside the removal series.
+- `CLAUDE.local.md` stays untouched, including its env block that lists variables no code reads. No plan item edits it.
