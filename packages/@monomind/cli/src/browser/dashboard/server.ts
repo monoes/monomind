@@ -66,7 +66,7 @@ const DEFAULT_PORT = 4243;
 const RUNS_FILE = join(homedir(), '.monomind', 'browse-runs.json');
 const MAX_PERSISTED_RUNS = 50;
 
-// Persist recent runs so the main dashboard's /api/workflow-runs endpoint stays live.
+// Persist recent runs to ~/.monomind/browse-runs.json.
 // Atomic: write to a temp file, then rename over the target.
 // Writes are chained: concurrent calls share one temp file, so overlapping writes could
 // interleave or rename a half-written file.
@@ -272,7 +272,7 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
   httpServer.listen(port, bindHost);
 
   // Maintain RunRecords from step events and persist run transitions to
-  // ~/.monomind/browse-runs.json so /api/workflow-runs on the main dashboard is live.
+  // ~/.monomind/browse-runs.json.
   function trackRun(event: StepEvent): void {
     let run = recentRuns.find((r) => r.id === event.runId);
     if (!run) {

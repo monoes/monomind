@@ -1,97 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { resolveAllowedProjectDir } from './server-fileutils.mjs';
 
 const _MAX_BUILD_DOCS_STATE = 500;
-// ua-*.mjs live in the repo's scripts/ dir, resolved from this file, never from process.cwd().
-// Walk up from this module (src/ui or dist/src/ui) to the first scripts/ dir holding ua-import.mjs.
-const _SCRIPTS_DIR = (() => {
-  let dir = path.dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 8; i++) {
-    if (fs.existsSync(path.join(dir, 'scripts', 'ua-import.mjs'))) return path.join(dir, 'scripts');
-    const up = path.dirname(dir);
-    if (up === dir) break;
-    dir = up;
-  }
-  return path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '..',
-    '..',
-    '..',
-    '..',
-    '..',
-    'scripts',
-  );
-})();
 
 // Monograph dashboard routes (extracted from routes-monograph.mjs).
 // Registered, in order, by handleMonographRoutes in routes-monograph.mjs.
 export async function handleMonographBuildRoutes(req, res, url, corsOrigin, ctx) {
-  // -------------------------------------------------- POST /api/ua-enrich
-  // Trigger semantic enrichment on an existing monograph DB.
-  // Imports understand graph.json if present; falls back to structural-only pass.
-  if (req.method === 'POST' && url === '/api/ua-enrich') {
-    try {
-      const qs = new URL(req.url, 'http://localhost').searchParams;
-      const d = resolveAllowedProjectDir(qs.get('dir'), ctx.projectDir);
-      if (!d) {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'dir is not the server project or a known project' }));
-        return true;
-      }
-      const dbFilePath = path.join(d, '.monomind', 'monograph.db');
-
-      // Check for UA graph.json first
-      const uaGraphCandidates = [
-        path.join(d, '.understand-anything', 'knowledge-graph.json'),
-        path.join(d, '.understand-anything', 'graph.json'),
-        path.join(d, '.ua', 'knowledge-graph.json'),
-        path.join(d, '.ua', 'graph.json'),
-      ];
-      const uaGraph = uaGraphCandidates.find((p) => fs.existsSync(p));
-      const importScript = path.join(_SCRIPTS_DIR, 'ua-import.mjs');
-      const enrichScript = path.join(_SCRIPTS_DIR, 'ua-enrich.mjs');
-
-      res.writeHead(202, {
-        'Content-Type': 'application/json',
-        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
-      });
-
-      if (uaGraph && fs.existsSync(importScript)) {
-        res.end(JSON.stringify({ status: 'importing', source: uaGraph }));
-        const { spawn: sp } = await import('node:child_process');
-        const child = sp(process.execPath, [importScript, uaGraph, dbFilePath], {
-          stdio: 'ignore',
-          detached: true,
-          cwd: d,
-        });
-        child.unref();
-      } else if (fs.existsSync(enrichScript)) {
-        res.end(JSON.stringify({ status: 'enriching', mode: 'structural-only' }));
-        const { spawn: sp } = await import('node:child_process');
-        const child = sp(
-          process.execPath,
-          [enrichScript, '--dir', d, '--db', dbFilePath, '--full'],
-          { stdio: 'ignore', detached: true, cwd: d },
-        );
-        child.unref();
-      } else {
-        res.end(
-          JSON.stringify({
-            status: 'skipped',
-            reason:
-              'No understand graph.json found. Run /monomind:understand in Claude Code first.',
-          }),
-        );
-      }
-    } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
-
   // -------------------------------------------------- POST /api/monograph-build
   if (req.method === 'POST' && url === '/api/monograph-build') {
     try {
