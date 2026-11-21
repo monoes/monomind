@@ -1560,6 +1560,10 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <span class="ico">⬡</span><span class="lbl">All Orgs</span>
           <span class="bdg" id="bdg-global-orgs">—</span>
         </div>
+        <div class="nav-item" data-view="health" title="monomind doctor checks for the project this dashboard serves">
+          <span class="ico">✚</span><span class="lbl">Health</span>
+          <span class="bdg" id="bdg-health">—</span>
+        </div>
       </div>
     </div>
   </div>
@@ -2229,6 +2233,20 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       </div>
     </div>
 
+    <div class="view" id="view-health">
+      <div class="vscroll">
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+          <div class="pg-title" style="margin-bottom:0">Health</div>
+          <span class="pg-sub" id="health-sub" style="margin-bottom:0">monomind doctor, read-only and offline</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px">
+          <button class="btn" id="health-run-btn" onclick="runHealthChecks()">Run checks</button>
+          <span id="health-meta" style="font-size:11px;color:var(--text-lo)" aria-live="polite"></span>
+        </div>
+        <div id="health-content" style="margin-top:16px"></div>
+      </div>
+    </div>
+
   </div><!-- /view-wrap -->
 </div><!-- /main -->
 <div id="app-ambient-hint">Press A to exit ambient mode</div>
@@ -2443,7 +2461,7 @@ function toggleNav(open) {
 }
 
 // ── collapsible global nav section ──────────────────────────
-const GLOBAL_VIEWS = ['global', 'global-docs', 'global-tokens', 'global-orgs', 'humaninput'];
+const GLOBAL_VIEWS = ['global', 'global-docs', 'global-tokens', 'global-orgs', 'humaninput', 'health'];
 function setGlobalNavOpen(open) {
   const items = document.getElementById('nav-glob-items');
   const hdr = document.getElementById('nav-glob-hdr');
@@ -2472,10 +2490,10 @@ function switchView(v, { updateHash = true } = {}) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === `view-${v}`));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-docs':'Documents', 'global-tokens':'Global Tokens', 'global-orgs':'All Orgs', humaninput:'Human Input' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-docs':'Documents', 'global-tokens':'Global Tokens', 'global-orgs':'All Orgs', humaninput:'Human Input', health:'Health' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-docs': 'Documents', 'global-tokens': 'Global Tokens', 'global-orgs': 'All Orgs', humaninput: 'Human Input' };
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-docs': 'Documents', 'global-tokens': 'Global Tokens', 'global-orgs': 'All Orgs', humaninput: 'Human Input', health: 'Health' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   if (updateHash) _pushHash();
   // Projects always re-fetches so onclick paths in cards stay current
@@ -2539,6 +2557,7 @@ function renderView(v) {
   if (v === 'global-tokens') renderGlobalTokens();
   if (v === 'global-orgs') renderGlobalOrgs();
   if (v === 'humaninput') renderHumanInputView();
+  if (v === 'health') loadHealthView();
 }
 
 function refreshCurrent() {
@@ -4472,6 +4491,81 @@ function _hiSwitchTab(tab) {
 }
 
 const _HI_KIND_LABEL = { question: 'Question', approval: 'Approval', gate: 'Decision gate' };
+
+// ── Health view: `monomind doctor --json --read-only --offline` ──────────
+// The server runs doctor for its own project (never a dir from the page), one
+// run at a time and only when asked; a run takes tens of seconds, so the page
+// starts it with POST and polls GET /api/doctor until it finishes.
+const HEALTH_ORDER = { fail: 0, warn: 1, info: 2, skipped: 3, pass: 4 };
+const HEALTH_COLOR = { fail: 'var(--red)', warn: 'var(--accent)', info: 'var(--text-lo)', skipped: 'var(--text-xs)', pass: 'var(--green)' };
+let _healthPoll = null;
+
+function healthRows(results) {
+  return [...(results || [])].sort((a, b) => (HEALTH_ORDER[a.status] ?? 5) - (HEALTH_ORDER[b.status] ?? 5));
+}
+
+function healthRowHtml(r) {
+  const color = HEALTH_COLOR[r.status] || 'var(--text-lo)';
+  const fix = r.fix ? `<div style="margin-top:4px;font-size:11px;color:var(--text-lo)">Fix: <code>${esc(r.fix)}</code></div>` : '';
+  return `<tr><td style="white-space:nowrap;vertical-align:top">${_hiPill(r.status, color)}</td>` +
+    `<td style="vertical-align:top;font-weight:500">${esc(r.name)}</td>` +
+    `<td style="vertical-align:top;word-break:break-word">${esc(r.message)}${fix}</td></tr>`;
+}
+
+function renderHealth(d) {
+  const el = document.getElementById('health-content');
+  const meta = document.getElementById('health-meta');
+  const btn = document.getElementById('health-run-btn');
+  const sub = document.getElementById('health-sub');
+  if (sub && d.projectDir) sub.textContent = `monomind doctor for ${d.projectDir}, read-only and offline`;
+  btn.disabled = !!d.running;
+  btn.textContent = d.running ? 'Running…' : 'Run checks';
+  if (d.running) meta.textContent = 'Running the checks; this takes a while.';
+  else if (d.ranAt) {
+    const ago = relTime(Date.parse(d.ranAt));
+    meta.textContent = `Last run ${ago === 'now' ? 'just now' : `${ago} ago`}, took ${Math.round((d.durationMs || 0) / 1000)}s`;
+  }
+  else meta.textContent = 'Not run yet.';
+  if (d.error) { el.innerHTML = `<div class="empty">Failed: ${esc(d.error)}</div>`; return; }
+  const res = d.result;
+  if (!res) { if (!d.running) el.innerHTML = '<div class="empty">Run the checks to see this project\'s health.</div>'; return; }
+  const s = res.summary || {};
+  const badge = document.getElementById('bdg-health');
+  if (badge) badge.textContent = (s.failed || 0) + (s.warnings || 0) || '✓';
+  const rows = healthRows(res.results);
+  const open = rows.filter((r) => r.status !== 'pass');
+  const passed = rows.filter((r) => r.status === 'pass');
+  const table = (list) => `<table class="tbl" style="width:100%;font-size:12px"><thead><tr><th>Status</th><th>Check</th><th>Result</th></tr></thead><tbody>${list.map(healthRowHtml).join('')}</tbody></table>`;
+  el.innerHTML =
+    `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">` +
+    ['failed', 'warnings', 'info', 'skipped', 'passed'].map((k) => `<span class="ss-pill">${esc(k)} ${Number(s[k]) || 0}</span>`).join('') +
+    `</div>` +
+    (open.length ? table(open) : '<div class="empty">Nothing to look at.</div>') +
+    (passed.length ? `<details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px">${passed.length} passed</summary>${table(passed)}</details>` : '');
+}
+
+async function loadHealthView() {
+  clearTimeout(_healthPoll);
+  try {
+    const d = await apiFetch('/api/doctor');
+    renderHealth(d);
+    if (d.running && currentView === 'health') _healthPoll = setTimeout(loadHealthView, 2000);
+  } catch (e) {
+    document.getElementById('health-content').innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`;
+  }
+}
+
+async function _runHealthChecks() {
+  const btn = document.getElementById('health-run-btn');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/doctor/run', { method: 'POST' });
+    if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).error) || `HTTP ${r.status}`);
+  } catch (e) {
+    showToast('Health checks', e.message, 'err');
+  }
+  loadHealthView();
+}
 
 function _hiPill(text, color) {
   return `<span class="ss-pill" style="color:${color};border-color:${color}">${esc(text)}</span>`;
@@ -12787,6 +12881,7 @@ async function mmRenderGraph(body) {
 // src/__tests__/dashboard-handler-resolution.test.ts, which fails if this list is
 // ever incomplete or stale.
 Object.assign(window, {
+  runHealthChecks: _runHealthChecks,
   toggleGlobalNav: _toggleGlobalNav,
   openBudgetModal: _openBudgetModal,
   cmdKey: _cmdKey,
