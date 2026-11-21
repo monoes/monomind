@@ -6,6 +6,7 @@
 import { Command as Commander } from 'commander';
 import { describe, expect, it, vi } from 'vitest';
 import { wrapCommanderCommand } from '../cli/commander-adapter.js';
+import type { CommandContext } from '../cli/types.js';
 
 function factory(run: (...a: unknown[]) => void) {
   return () => {
@@ -19,9 +20,9 @@ function factory(run: (...a: unknown[]) => void) {
   };
 }
 
-const ctx = (args: string[], flags: Record<string, string | boolean> = {}) => ({
+const ctx = (args: string[], flags: Record<string, string | boolean> = {}): CommandContext => ({
   args,
-  flags,
+  flags: { ...flags, _: args },
   cwd: process.cwd(),
   interactive: false,
 });
@@ -33,7 +34,7 @@ describe('wrapCommanderCommand', () => {
     const click = wrapped.subcommands?.find((s) => s.name === 'click');
     expect(click).toBeDefined();
     const result = await click!.action!(ctx(['#go'], { timeout: '500' }));
-    expect(result.success).toBe(true);
+    expect(result?.success).toBe(true);
     expect(run).toHaveBeenCalledWith('#go', { timeout: '500' });
   });
 
