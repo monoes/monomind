@@ -78,11 +78,19 @@ export async function handleOrgLiveRoutes(req, res, url, corsOrigin, ctx) {
       // Org Runtime v2 (#238): the active run's own events live under
       // orgs/<org>/<runId>/bus.jsonl, never the v1 flat orgs/<org>/runs/
       // layout — check that shape (and translate it) before the v1 lookup.
+      // The runtime writes run directories under <root>/.monomind/orgs/<org>;
+      // in a git project the server's own files sit under the git monomind
+      // dir. Look in both, as GET /api/org/:name/runs does.
+      const v2OrgDirs = [path.join(monoDir, 'orgs', orgName)];
+      if (monoDir !== path.join(root, '.monomind'))
+        v2OrgDirs.push(path.join(root, '.monomind', 'orgs', orgName));
       let runFile = null;
       let isV2 = false;
       if (runId) {
-        const v2Candidate = path.join(monoDir, 'orgs', orgName, runId, 'bus.jsonl');
-        if (fs.existsSync(v2Candidate)) {
+        const v2Candidate = v2OrgDirs
+          .map((d) => path.join(d, runId, 'bus.jsonl'))
+          .find((f) => fs.existsSync(f));
+        if (v2Candidate) {
           runFile = v2Candidate;
           isV2 = true;
         } else {
@@ -91,18 +99,20 @@ export async function handleOrgLiveRoutes(req, res, url, corsOrigin, ctx) {
         }
       }
       if (!runFile) {
-        const orgDir = path.join(monoDir, 'orgs', orgName);
-        const runDirs = fs.existsSync(orgDir)
-          ? fs
-              .readdirSync(orgDir)
-              .filter(
-                (d) => d.startsWith('run-') && fs.existsSync(path.join(orgDir, d, 'bus.jsonl')),
-              )
-              .sort()
-              .reverse()
-          : [];
-        if (runDirs.length) {
-          runFile = path.join(orgDir, runDirs[0], 'bus.jsonl');
+        // The newest run-* across both dirs (run ids sort by their timestamp).
+        const busFiles = v2OrgDirs
+          .flatMap((orgDir) =>
+            fs.existsSync(orgDir)
+              ? fs
+                  .readdirSync(orgDir)
+                  .filter((d) => d.startsWith('run-'))
+                  .map((d) => ({ run: d, file: path.join(orgDir, d, 'bus.jsonl') }))
+              : [],
+          )
+          .filter((r) => fs.existsSync(r.file))
+          .sort((a, b) => (a.run < b.run ? 1 : a.run > b.run ? -1 : 0));
+        if (busFiles.length) {
+          runFile = busFiles[0].file;
           isV2 = true;
         }
       }
@@ -155,45 +165,6 @@ export async function handleOrgLiveRoutes(req, res, url, corsOrigin, ctx) {
     return true;
   }
 
-  // GET /api/orgs/:name/history — per-run outcome summaries (history.jsonl, newest first)
-  if (req.method === 'GET' && /^\/api\/orgs\/[^/]+\/history$/.test(url)) {
-    try {
-      const orgName = decodeURIComponent(url.split('/')[3]);
-      const _histQs = new URL(req.url, 'http://localhost').searchParams;
-      const root = path.resolve(_histQs.get('dir') || ctx.projectDir || process.cwd());
-      if (!orgName || orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
-        res.writeHead(400);
-        res.end('{"error":"invalid org name"}');
-        return true;
-      }
-      const monoDir = ctx._getGitMonomindDir(root) || path.join(root, '.monomind');
-      const histFile = path.join(monoDir, 'orgs', orgName, 'history.jsonl');
-      let runs = [];
-      if (fs.existsSync(histFile)) {
-        runs = _readTailLines(histFile)
-          .map((l) => {
-            try {
-              return JSON.parse(l);
-            } catch (_) {
-              return null;
-            }
-          })
-          .filter(Boolean)
-          .reverse()
-          .slice(0, 50);
-      }
-      res.writeHead(200, {
-        'Content-Type': 'application/json',
-        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
-      });
-      res.end(JSON.stringify({ runs }));
-    } catch (err) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
-
   // GET /api/orgs/:name/memory — org knowledge-graph stats + glossary + rules
   if (req.method === 'GET' && /^\/api\/orgs\/[^/]+\/memory$/.test(url)) {
     try {
@@ -205,8 +176,12 @@ export async function handleOrgLiveRoutes(req, res, url, corsOrigin, ctx) {
         res.end('{"error":"invalid org name"}');
         return true;
       }
-      const monoDir = ctx._getGitMonomindDir(root) || path.join(root, '.monomind');
-      const dbPath = path.join(monoDir, 'org-memory');
+      // The store the runtime writes (<root>/.monomind/org-memory), not the
+      // shared-git-dir run-file location; and only this org's part of it — all
+      // orgs under one root share the store.
+      const { orgMemoryDbPath, orgKgScope } = await import('../orgrt/org-memory.js');
+      const dbPath = orgMemoryDbPath(root);
+      const scope = orgKgScope(orgName);
       if (!fs.existsSync(dbPath)) {
         res.writeHead(200, {
           'Content-Type': 'application/json',
@@ -217,9 +192,9 @@ export async function handleOrgLiveRoutes(req, res, url, corsOrigin, ctx) {
       }
       const kg = await import('../memory/memory-kg.js');
       const [stats, glossary, ruleList] = await Promise.all([
-        kg.kgStats({ dbPath }),
-        kg.kgGlossary({ dbPath, limit: 12 }),
-        kg.kgListRules({ dbPath, limit: 10 }),
+        kg.kgStats({ dbPath, scope }),
+        kg.kgGlossary({ dbPath, limit: 12, scope }),
+        kg.kgListRules({ dbPath, limit: 10, scope }),
       ]);
       res.writeHead(200, {
         'Content-Type': 'application/json',

@@ -67,9 +67,10 @@ export function v2Summary(busFile) {
  *  (closedBy), and runtime.json names the current run and whether its pid is
  *  alive. A crashed or killed run is 'stale', not 'running' forever. 'complete'
  *  is only ever org-complete (#206); a run that ended any other way (idle stop,
- *  manual stop) is 'ended', with closedBy as the reason. */
+ *  manual stop) is 'ended', with closedBy as the reason. The bus's plain
+ *  'org stopped' (summary.done) is emitted both by org-complete and by a bare
+ *  manual stop, so it cannot tell them apart: the records decide first. */
 export function v2RunStatus(orgDir, runId, summary) {
-  if (summary.done) return { status: 'complete', closedBy: null };
   let ended;
   try {
     ended = _readTailLines(path.join(orgDir, 'history.jsonl'), 1024 * 1024)
@@ -78,30 +79,36 @@ export function v2RunStatus(orgDir, runId, summary) {
   } catch {
     // no history yet: the run has not ended
   }
+  // Only the daemon's stop path appends to history.jsonl, so a line for the
+  // run means it ended; no closedBy is a bare manual stop (`org stop`).
   if (ended) {
     return {
-      status: ended.closedBy === 'org-complete' ? 'complete' : ended.closedBy ? 'ended' : 'stale',
+      status: ended.closedBy === 'org-complete' ? 'complete' : 'ended',
       closedBy: ended.closedBy ?? null,
     };
   }
+  // The bus says the run stopped but no record names it: it ended.
+  const busEnded = { status: 'ended', closedBy: null };
   let runtime = null;
   try {
     runtime = JSON.parse(fs.readFileSync(path.join(orgDir, 'runtime.json'), 'utf8'));
   } catch {
+    if (summary.done) return busEnded;
     // no runtime record: fall back to how recently the bus changed
     return {
       status: Date.now() - summary.mtimeMs > 30 * 60 * 1000 ? 'stale' : 'running',
       closedBy: null,
     };
   }
-  if (runtime.run !== runId) return { status: 'stale', closedBy: runtime.closedBy ?? null };
+  if (runtime.run !== runId)
+    return summary.done ? busEnded : { status: 'stale', closedBy: runtime.closedBy ?? null };
   const rec = recordedStatus(runtime);
   const status =
     rec === 'running'
       ? 'running'
-      : rec === 'complete'
+      : runtime.closedBy === 'org-complete'
         ? 'complete'
-        : rec === 'ended' || rec === 'stopped'
+        : rec === 'ended' || rec === 'stopped' || summary.done
           ? 'ended'
           : 'stale';
   return {

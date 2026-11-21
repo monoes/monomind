@@ -2012,6 +2012,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <button class="odt-btn secondary" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
             <button class="odt-btn secondary" data-tab="approvals"    onclick="v2SwitchOrgTab('approvals')">Approvals</button>
             <button class="odt-btn secondary" data-tab="decisions"    onclick="v2SwitchOrgTab('decisions')">Decisions</button>
+            <button class="odt-btn secondary" data-tab="roles"        onclick="v2SwitchOrgTab(this.dataset.tab)">Roles</button>
+            <button class="odt-btn secondary" data-tab="activity"     onclick="v2SwitchOrgTab(this.dataset.tab)">Activity</button>
+            <button class="odt-btn secondary" data-tab="health"       onclick="v2SwitchOrgTab(this.dataset.tab)">Health</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
@@ -2021,6 +2024,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-approvals"></div>
             <div class="odt-pane" id="odt-decisions"></div>
+            <div class="odt-pane" id="odt-roles" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-activity" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-health" style="overflow-y:auto"></div>
           </div>
         </div>
           <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.72);z-index:90;align-items:center;justify-content:center">
@@ -5986,7 +5992,10 @@ function v2UpdateOrgHeader(listOrg, data) {
   const _lastEvAt = data ? (data.lastEventAt ?? listOrg.lastEventAt) : listOrg.lastEventAt;
   const badge = document.getElementById('odh-badge');
   const _mcBtn = document.getElementById('org-mark-complete-btn');
-  if (!running) { badge.textContent = 'IDLE'; badge.className = 'odh-badge idle'; if (_mcBtn) _mcBtn.style.display = 'none'; }
+  // runtime.json's record: a run whose daemon died is 'crashed', not idle
+  const _rtStatus = data ? (data.runtimeStatus ?? listOrg.runtimeStatus) : listOrg.runtimeStatus;
+  if (!running && _rtStatus === 'crashed') { badge.textContent = '🔴 CRASHED'; badge.className = 'odh-badge stale'; if (_mcBtn) _mcBtn.style.display = 'none'; }
+  else if (!running) { badge.textContent = 'IDLE'; badge.className = 'odh-badge idle'; if (_mcBtn) _mcBtn.style.display = 'none'; }
   else if (!_lastEvAt) { badge.textContent = '🟡 QUIET'; badge.className = 'odh-badge quiet'; if (_mcBtn) _mcBtn.style.display = 'none'; }
   else { const _a = Date.now() - _lastEvAt; badge.textContent = _a < 1800000 ? '🟢 LIVE' : _a < 7200000 ? '🟡 QUIET' : '🔴 STALE'; badge.className = `odh-badge ${_a < 1800000 ? 'live' : _a < 7200000 ? 'quiet' : 'stale'}`; if (_mcBtn) _mcBtn.style.display = _a >= 7200000 ? '' : 'none'; }
   const roles = data ? (Array.isArray(data.roles) ? data.roles.length : (data.roles || 0)) : (listOrg.roles || 0);
@@ -6040,6 +6049,9 @@ function v2RenderOrgTab(tab) {
   else if (tab === 'chat')         v2RenderOrgChat();
   else if (tab === 'config')       v2RenderOrgConfig();
   else if (tab === 'files')        v2RenderOrgFiles();
+  else if (tab === 'roles')        v2RenderOrgRoles();
+  else if (tab === 'activity')     v2RenderOrgActivity();
+  else if (tab === 'health')       v2RenderOrgHealth();
 }
 
 // ── org chart ───────────────────────────────
@@ -8505,6 +8517,97 @@ function _v2RuntimeNudge(ev) {
   _v2RuntimeReload = setTimeout(v2RenderOrgRuntime, 2000);
 }
 
+// ── ROLES / ACTIVITY / HEALTH ──────────────────────────────
+// From the retired standalone /orgs page. Roles reads the definition already in
+// _v2OrgData; Activity (GET /api/org/:n/activity) and Health (GET /api/org/:n/health
+// plus the org's knowledge graph, GET /api/orgs/:n/memory) fetch for the selected
+// project. Run history is the Runtime tab's RECENT RUNS, so Health does not repeat it.
+function v2RenderOrgRoles() {
+  const el = document.getElementById('odt-roles');
+  if (!el || !_v2SelOrg) return;
+  const roles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+  if (!roles.length) { el.innerHTML = '<div class="empty">No roles defined</div>'; return; }
+  const titleOf = Object.fromEntries(roles.map(r => [r.id, r.title || r.id]));
+  el.innerHTML = `<div style="padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">${roles.map(r => {
+    const boss = r.type === 'boss' || !r.reports_to || r.reports_to === r.id;
+    const kind = r.type || r.agent_type;
+    const resps = Array.isArray(r.responsibilities) ? r.responsibilities : [];
+    const skills = Array.isArray(r.skills) ? r.skills : [];
+    return `<div style="border:1px solid var(--border);border-radius:6px;padding:10px 12px;min-width:0">
+      <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">
+        <span style="color:var(--text-hi);font-size:13px">${esc(r.title || r.name || r.id)}</span>
+        ${kind ? `<span class="ss-pill${boss ? ' on' : ''}">${esc(kind)}</span>` : ''}
+      </div>
+      <div style="font-size:10px;color:var(--text-xs);font-family:var(--mono);margin-top:2px">${esc(r.id)}</div>
+      <div style="font-size:11px;color:var(--text-lo);margin-top:6px">${boss ? 'Leads the org' : `Reports to ${esc(titleOf[r.reports_to] || r.reports_to)}`}</div>
+      ${resps.length ? `<ul style="margin:6px 0 0;padding-left:16px;font-size:12px;color:var(--text-mid);line-height:1.5">${resps.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      ${skills.length ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">${skills.map(x => `<span class="ss-pill">${esc(x)}</span>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// Synthesized rows carry msg; forwarded run events keep their text in a type-specific field.
+function _v2ActivityText(ev) {
+  return ev.msg || ev.question || ev.progress || ev.summary || ev.data?.name || ev.artifact?.label
+    || (ev.tool ? `${ev.tool}${ev.decision ? ` (${ev.decision})` : ''}` : '');
+}
+
+async function v2RenderOrgActivity() {
+  const el = document.getElementById('odt-activity');
+  if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  let events;
+  try {
+    events = await apiFetch(`/api/org/${enc(_rendOrg)}/activity?dir=${enc(DIR)}`);
+  } catch (e) {
+    if (_v2SelOrg === _rendOrg && _v2OrgTab === 'activity') el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`;
+    return;
+  }
+  if (_v2SelOrg !== _rendOrg || _v2OrgTab !== 'activity') return;
+  const rows = (Array.isArray(events) ? events : []).slice(0, 100).map(ev => [
+    `<span style="color:var(--text-xs);white-space:nowrap" title="${esc(new Date(ev.ts).toLocaleString())}">${relTime(ev.ts)}</span>`,
+    `<span class="ss-pill">${esc(ev.type || '—')}</span>`,
+    esc([ev.role || ev.agent || ev.from, _v2ActivityText(ev)].filter(Boolean).join(' — ') || '—'),
+  ]);
+  el.innerHTML = `<div style="padding:0 16px 16px">${_rtTable(`RECENT ACTIVITY (${rows.length})`, ['When', 'Event', 'Detail'], rows, 'No activity recorded')}</div>`;
+}
+
+async function v2RenderOrgHealth() {
+  const el = document.getElementById('odt-health');
+  if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  const q = `?dir=${enc(DIR)}`;
+  let h, m;
+  try {
+    [h, m] = await Promise.all([
+      apiFetch(`/api/org/${enc(_rendOrg)}/health${q}`),
+      apiFetch(`/api/orgs/${enc(_rendOrg)}/memory${q}`).catch(() => null),
+    ]);
+  } catch (e) {
+    if (_v2SelOrg === _rendOrg && _v2OrgTab === 'health') el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`;
+    return;
+  }
+  if (_v2SelOrg !== _rendOrg || _v2OrgTab !== 'health') return;
+  const rate = h.run_success_rate_7d;
+  let html = `<div style="padding:16px"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
+    ${_rtCard('SUCCESS (7 DAYS)', rate == null ? '—' : `<span style="color:${rate >= 80 ? 'var(--green)' : rate >= 50 ? 'var(--amber, #d29922)' : 'var(--red)'}">${Number(rate)}%</span>`, `${Number(h.total_runs_7d) || 0} runs · achieved via org_complete`)}
+    ${_rtCard('AGENTS', String(Number(h.agents_running) || 0), `running · ${Number(h.agents_idle) || 0} idle`)}
+    ${_rtCard('TASKS', String(Number(h.tasks_pending) || 0), `${Number(h.open_issues) || 0} open · ${Number(h.in_progress_issues) || 0} in progress`)}
+  </div>`;
+  html += _rtTable('PROBLEMS', ['Detail'], (h.errors || []).slice(0, 10).map(e => [`<span style="color:var(--red)">${esc(e)}</span>`]), 'None detected');
+  if (m) {
+    const glossary = Array.isArray(m.glossary) ? m.glossary : [];
+    const rules = Array.isArray(m.ruleTexts) ? m.ruleTexts : [];
+    html += `<div style="font-size:9px;letter-spacing:2px;color:var(--text-xs);margin:18px 0 6px">ORG MEMORY — ${Number(m.nodes) || 0} ENTITIES · ${Number(m.edges) || 0} RELATIONS · ${Number(m.rules) || 0} RULES</div>`;
+    if (glossary.length) html += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${glossary.map(g => `<span class="ss-pill">${esc(g)}</span>`).join('')}</div>`;
+    if (rules.length) html += `<ul style="margin:0;padding-left:16px;font-size:12px;color:var(--text-mid);line-height:1.6">${rules.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`;
+    else if (!glossary.length) html += '<div class="empty" style="padding:8px 0">Nothing learned yet</div>';
+  }
+  el.innerHTML = `${html}</div>`;
+}
+
 // ── ORG CONFIG ─────────────────────────────────────────────
 // Edits the Org Runtime v2 definition (goal, schedule, runtime, run_config,
 // default cost tier). Saved through POST /api/org/:n/config, which merges into the file
@@ -9106,7 +9209,7 @@ function _filterOrgList(q) {
                 if (_detInner) _detInner.style.display = 'none';
               } else {
                 const listOrg = _v2Orgs.find(o => o.name === _v2SelOrg) || {};
-                if (_v2OrgData) _v2OrgData.running = listOrg.running;
+                if (_v2OrgData) { _v2OrgData.running = listOrg.running; _v2OrgData.runtimeStatus = listOrg.runtimeStatus; }
                 v2UpdateOrgHeader(listOrg, _v2OrgData);
                 if (_v2OrgTab === 'chat') {
                   // Re-load chat run list after run events so cycleCount/eventCount in dropdown reflect disk state
