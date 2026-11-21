@@ -18,10 +18,11 @@ monomind design fix -t ./src --dry-run   # preview fixes
 monomind design palette --from "my-app"  # deterministic brand seed
 ```
 
-The MCP tools and CLI share the same engine (`@monoes/monodesign`) — detect runs in-process via the engine's `detectHtml` for HTML files/dirs/inline content (so cascade-dependent findings like low contrast and computed sizes are caught) and `detectText`/`walkDir` for everything else, fix spawns the bundled CLI codemod with a 2-minute bound.
+The MCP tools and CLI share the same engine (`@monoes/monodesign`). The MCP `monodesign_detect` runs in-process via the engine's `detectHtml` for HTML files/dirs/inline content (so cascade-dependent findings like low contrast and computed sizes are caught) and `detectText`/`walkDir` for everything else. `monomind design detect` and both `fix` paths spawn the bundled monodesign CLI; the MCP `monodesign_fix` is bounded at 2 minutes.
 
 ## Notes
 
 - The palette library is 129 hand-curated OKLCH seeds with inverse-hue-frequency weighting, so every hue zone is roughly equally likely. `--from` hashes the key (sha256) for a stable pick.
 - Detection honors inline `monodesign-disable*` waivers in the scanned files.
 - There is intentionally **no hex output** in palette results — compose from `oklch()` at runtime if needed.
+- Portions of monodesign are based on Impeccable (Apache-2.0) by Paul Bakaus; see `packages/@monoes/monodesign/NOTICE.md`.

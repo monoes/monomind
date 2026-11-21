@@ -20,7 +20,10 @@ export const HELP_SUMMARIES: Record<
 > = {
   primary: [
     { name: 'init', description: 'Initialize MonoMind in the current directory' },
-    { name: 'start', description: 'Start the MonoMind orchestration system' },
+    {
+      name: 'start',
+      description: 'Print the configured topology (starts no process; use org run to run agents)',
+    },
     { name: 'status', description: 'Show system status' },
     { name: 'ui', description: 'Start the Monomind Neural Control Room (web UI dashboard)' },
     { name: 'agent', description: 'Agent management commands' },
@@ -104,7 +107,7 @@ export const HELP_SUMMARIES: Record<
   ],
   management: [
     { name: 'providers', description: 'Manage AI providers, models, and configurations' },
-    { name: 'update', description: 'Manage @monomind package updates (ADR-025)' },
+    { name: 'update', description: 'Manage monomind package updates (monomind, @monoes/*)' },
     { name: 'cleanup', description: 'Remove project artifacts created by monomind/monomind' },
     {
       name: 'platforms',

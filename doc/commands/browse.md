@@ -7,8 +7,9 @@
 
 ## Command Index
 
-`browse` has 64 subcommands. Every one accepts `--port <port>` and
-`--session <name>` to choose the [session](#sessions) it acts on.
+`browse` has 64 subcommands. Every one except `workflow`, `action` and
+`platform` accepts `--port <port>` and `--session <name>` to choose the
+[session](#sessions) it acts on.
 
 **Session and navigation**
 
@@ -25,7 +26,7 @@
 | `frame` | Switch into an iframe (`frame "#frame-id"`) or back out (`frame main`) |
 | `resize` | `resize <width> <height>` |
 | `set` | `set viewport`, `device`, `geo`, `offline`, `media`, `credentials`, `useragent` |
-| `state` | `state save`, `load`, `list`, `rename`, `clean [name]`; `--older-than <days>` limits `clean` |
+| `state` | `state save`, `load`, `list`, `show`, `rename`, `clear`, `clean`; `clean` deletes saved states in `~/.monomind/browser-sessions` older than `--older-than <days>` (default 7) |
 
 **Reading the page**
 
@@ -38,10 +39,10 @@
 | `find` | Find elements by semantic locator: `find role\|text\|label\|placeholder\|testid\|alttext\|title\|selector <value> [action]`; `--name`, `--exact`, `--nth <n>`, `--last` narrow the match |
 | `highlight` | Highlight an element for 2 seconds |
 | `eval` | Evaluate JavaScript in the page: `eval "document.title"`; `--stdin` reads a multiline script from stdin, `--max-output <n>` truncates the printed result (default 50000 characters, 0 disables), `--timeout <ms>` (default 30000), `--json` |
-| `console` | Captured console messages (`--clear`, `--json`, `--errors-only`) |
-| `errors` | Uncaught page exceptions (`--clear`) |
+| `console` | Captured console messages (`--clear`, `--json`, `--errors-only`). Only messages from the same process show up: run it inside one `browse batch` with the commands that log |
+| `errors` | Uncaught page exceptions (`--clear`). Same-process only, like `console` |
 | `diff` | `diff url <url1> <url2> [--interactive] [--json]` compares two pages |
-| `is`, `isvisible`, `isenabled`, `ischecked` | Element state checks; each takes `@ref` or a CSS selector |
+| `is`, `isvisible`, `isenabled`, `ischecked` | Element state checks. `isvisible`, `isenabled` and `ischecked` take `@ref` or a CSS selector; `is visible\|enabled\|checked @ref` takes a snapshot ref only |
 
 **Input**
 
@@ -57,7 +58,7 @@
 | `tap`, `swipe` | Touch events for mobile testing; `swipe` takes `--distance` (default 300), `--x`, `--y` |
 | `mouse`, `clipboard` | `mouse move\|down\|up\|wheel` (`--button left\|right\|middle`); `clipboard read\|write\|copy\|paste` |
 | `dialog` | `dialog accept\|dismiss\|status` |
-| `batch` | Run several commands in one connection: `batch "open url" "snapshot -i" "click @e1"`; `--bail` stops at the first error, `--json` reads the commands from JSON on stdin |
+| `batch` | Run several commands in one connection: `batch "open url" "snapshot -i" "click @e1"`; `--bail` stops at the first error. `--json` is declared but has no effect: commands are read only from the arguments |
 | `addinitscript`, `removeinitscript` | Add or remove a script that runs before each navigation |
 
 **Network, storage and diagnostics**
@@ -73,6 +74,11 @@
 | `har` | `har start\|stop\|status [path]` (`--bodies` captures response bodies) |
 | `vitals` | Core Web Vitals (`--wait <ms>`, default 2000) |
 | [`report`](#report) | One-command page test with an HTML report and sibling JSON |
+
+`record`, `trace`, `profiler`, `har` and `network capture` keep their state in
+memory in the process that started them. Each `browse` command is its own
+process and drops its connection when it ends, so `start` and `stop` (or
+`capture` and `requests`) only work inside one `browse batch` invocation.
 
 **Automation built on `browse`**
 
@@ -135,9 +141,9 @@ The rules a command follows:
 - **`open --port N` / `connect --port N` attach to the browser on port N**, or
   launch one there — the behaviour to use when you want a known, fixed port.
 - **Any later command with no `--port` or `--session` acts on the newest
-  unnamed session started in this directory whose browser still answers —
-  unless exactly one other live session exists, named or not, in which case it
-  acts on that one.** Dead sessions are dropped as it looks (so a browser you
+  unnamed session started in this directory whose browser still answers. When
+  no unnamed session answers and exactly one named session is live, it acts on
+  that one.** Dead sessions are dropped as it looks (so a browser you
   killed, or one that crashed, never wedges the next command), and with none
   left the command starts a session of its own, exactly as `open` would.
 - **Any later command with `--port N` acts on the session on port N.** This is
@@ -415,6 +421,11 @@ monomind browse platform disconnect <session-id>
 ```
 
 - `list` is also `ls` for all three.
+- `workflow stop` does not stop a run: it ignores the run id and prints that
+  a run is stopped from the dashboard or with Ctrl-C in its terminal.
+- `action run` reads only `.monomind/actions/<action-id>.json`, so the built-in
+  ids that `action list` prints are reported as not found. It attaches to a
+  browser already listening on the CDP port and does not launch one.
 - `workflow run --port` is the dashboard port (default `4243`), not a CDP port.
   `--no-dashboard` skips opening the dashboard.
 - `workflow create` names are 1-64 characters of letters, digits, `-` and `_`.

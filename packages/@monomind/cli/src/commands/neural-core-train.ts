@@ -168,7 +168,12 @@ export const trainCommand: Command = {
 
       if (stored === 0) {
         output.writeln();
-        output.writeln(output.dim('No data found to ingest. Patterns are stored as you work:'));
+        output.writeln(
+          output.dim(
+            'No data found to ingest. train reads two files that no hook writes, so it stores',
+          ),
+        );
+        output.writeln(output.dim('nothing unless you create them yourself:'));
         output.writeln(output.dim('  - Outcomes: .monomind/data/intelligence-outcomes.jsonl'));
         output.writeln(output.dim('  - Edits:    .monomind/data/recent-edits.jsonl'));
       }

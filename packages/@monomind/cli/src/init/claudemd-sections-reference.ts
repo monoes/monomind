@@ -35,7 +35,7 @@ export function cliCommandsTable(): string {
 | \`memory\` | ${subcommandCount(memoryCommand)} | SQLite memory with ANN search |
 | \`task\` | ${subcommandCount(taskCommand)} | Task creation and lifecycle |
 | \`session\` | ${subcommandCount(sessionCommand)} | Session state management |
-| \`hooks\` | ${subcommandCount(hooksCommand)} | Edit/outcome logging, agent routing + ${workerCountLabel(avail.hooks)}background workers${unavailNote(avail.hooks)} |
+| \`hooks\` | ${subcommandCount(hooksCommand)} | Edit/outcome logging, agent routing, ${workerCountLabel(avail.hooks)}on-demand workers${unavailNote(avail.hooks)} |
 
 > Note: there is no \`neural\` CLI command. Its pattern commands live under
 > \`hooks intelligence\` — a local pattern store (SQLite \`patterns.db\`, JSON fallback); no model is trained.
@@ -93,7 +93,7 @@ export function hooksSystem(): string {
 | \`pre-edit\` / \`post-edit\` | File editing with pattern logging |
 | \`session-restore\` / \`session-end\` | Session state persistence |
 | \`route\` | Route task to optimal agent |
-| \`intelligence\` | Local pattern/trajectory store (JSON files; no model is trained) |
+| \`intelligence\` | Local pattern/trajectory store (SQLite \`patterns.db\`, JSON fallback; no model is trained) |
 | \`worker\` | Background worker management |
 
 ### Background Workers (@monoes/hooks, run in-process)${unavailNote(avail.hooks)}
@@ -102,7 +102,7 @@ export function hooksSystem(): string {
 |--------|----------|-------------|
 ${workerTableRows(WORKER_ROWS)}
 
-Metrics-producing workers refresh at session start when output is >6h old.
+In a user project, \`init\` seeds the map and audit metrics once; session-start hooks cannot load @monoes/hooks, so workers refresh only when you run \`monomind hooks worker run <name>\`.
 ${avail.hooks ? '' : '\n> \\@monoes/hooks is not resolvable in this install — background workers will fail to load (see `hooks worker list`). This is an install/publish gap, not a project misconfiguration.\n'}
 \`\`\`bash
 npx monomind hooks pre-task --description "[task]"
@@ -181,14 +181,14 @@ export function securitySection(): string {
 
 ### Security Scanning
 \`\`\`bash
-npx monomind security scan --depth full
-npx monomind security audit --report
-npx monomind security cve --check
+npx monomind security scan --depth deep
+npx monomind security audit --action list
+npx monomind security cve --list
 \`\`\`
 
 ### Security Agents
 - \`Security Engineer\` — threat modeling, secure code and architecture review
-- Use agent routing code 9 (hierarchical/specialized) for security tasks`;
+- For security tasks, pair \`Security Engineer\` with \`coordinator\` and \`reviewer\``;
 }
 
 export function performanceSection(): string {
@@ -203,21 +203,21 @@ export function performanceSection(): string {
 ### Performance Tooling
 \`\`\`bash
 npx monomind performance benchmark --suite all
-npx monomind performance profile --target "[component]"
-npx monomind performance metrics --format table
+npx monomind performance bottleneck --component "[component]"
+npx monomind performance metrics --format text
 \`\`\`
 
 ### Performance Agents
 - \`Performance Benchmarker\` — bottleneck detection, benchmarking, analysis
-- Use agent routing code 7 (hierarchical/specialized) for performance tasks`;
+- For performance tasks, pair \`Performance Benchmarker\` with \`coordinator\` and \`coder\``;
 }
 
 export function intelligenceSystem(): string {
   return `## Intelligence System
 
-- **Keyword routing**: The picker routes prompts to agents and skills by keyword match
+- **Keyword routing**: The picker routes prompts to agents and skills by keyword match (or the Jev decision model, when one is configured)
 - **Pick stats**: Pick adherence and subagent outcomes (\`.monomind/pick-stats.json\`) act as a bounded ranking prior on later picks
-- **Outcome logging**: Hooks log edits, outcomes and trajectories to a local pattern store (SQLite, JSON fallback); route outcomes are scored to measure routing accuracy
+- **Outcome logging**: Hooks log routing outcomes and edits to JSONL/JSON files under \`.monomind/\`; the SQLite pattern store is filled only by explicit \`hooks intelligence\` and MCP pattern calls, and no hook records trajectories. Route outcomes are scored as a task-success rate of routed prompts
 - **Pattern search**: SQLite-backed ANN vector search for finding similar past patterns
 
 No model is trained — everything runs in JS on local files.`;
@@ -247,7 +247,7 @@ export function setupAndBoundary(options: InitOptions): string {
   return `## Quick Setup
 
 \`\`\`bash
-# Add MCP server — includes monograph, memory, hooks and more
+# Add MCP server — code graph (monograph), pick, knowledge base and memory tools
 ${mcpAddHint(options.mcp?.pin)}
 
 # Verify everything works

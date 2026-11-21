@@ -188,7 +188,7 @@ export const flowSubcommand: Command = {
 export const replaySubcommand: Command = {
   name: 'replay',
   description:
-    'Time-travel debugging: replay a run\'s bus events (does not resume live execution — use "org run --resume" for that)',
+    'Copy a run\'s bus events into a new replay-* run for inspection. It runs nothing, every event gets the same timestamp, and it currently rewrites the org\'s runtime.json as running (use "org run --resume" to resume a run)',
   examples: [
     {
       command: 'monomind org replay growth run-20250130120000-abc',
