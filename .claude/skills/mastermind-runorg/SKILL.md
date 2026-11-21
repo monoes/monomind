@@ -53,7 +53,8 @@ no curl emissions, no delivery gaps.
    - Scheduled (`schedule` set): ensure the daemon host is up:
      `monomind org serve` (background) — it picks up every scheduled org.
 7. **Confirm liveness.** Within ~15 s: `monomind org status <name>` shows
-   `running`. Surface the dashboard link (`<CTRL_URL>/orgs`) and
+   `running`. Surface the dashboard link (`<CTRL_URL>/#orgs/<name>`; a browser that is not
+   logged in needs `monomind dashboard open` first) and
    `monomind org logs <name> --follow` as the tail command.
 8. **Never** spawn a boss Task agent, create monotask boards, or emit
    dashboard events manually. The org daemon is the only way an org runs.

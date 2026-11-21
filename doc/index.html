@@ -1288,7 +1288,7 @@ Session N: empty round (zero findings AND zero actions)
 
     <!-- ORGS -->
     <div class="section-title reveal">Orgs</div>
-    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Run agent organizations via the org runtime daemon (the live view is the Orgs page of this same :4242 dashboard):</p>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Run agent organizations via the org runtime daemon (the live view is the Orgs view of this same :4242 dashboard; <code>http://localhost:4242/#orgs/&lt;name&gt;</code> opens one org directly):</p>
     <div class="code-block reveal"><span class="cmd">monomind org run &lt;name&gt;</span>    <span class="comment"># start an org — real Claude Agent SDK sessions per role</span>
 <span class="cmd">monomind org status / list / stop</span>    <span class="comment"># check, list, or stop</span>
 
@@ -1296,7 +1296,7 @@ Session N: empty round (zero findings AND zero actions)
 <span class="cmd">/mastermind:createorg</span>    <span class="comment"># define a new org config</span>
 <span class="cmd">/mastermind:runorg</span>       <span class="comment"># validate and start a saved org via the daemon</span></div>
     <p class="reveal" style="margin-bottom:1rem;margin-top:1rem">Organizations are multi-agent structures with roles, goals, routines, and approval workflows. Each org card shows: a running dot (live indicator), name, goal description, topology/role chips, and an avatar stack of active agents.</p>
-    <p class="reveal" style="margin-bottom:0.5rem">Each org has 7 tabs (Chart, Chat and Runtime first; the rest are secondary):</p>
+    <p class="reveal" style="margin-bottom:0.5rem">Each org has 10 tabs (Chart, Chat and Runtime first; the rest are secondary). The org header shows LIVE, QUIET or STALE while a run is going, IDLE when none is, and CRASHED when the recorded run's process died:</p>
     <div class="table-wrap reveal">
       <table class="doc-table">
         <thead><tr><th>Tab</th><th>What it shows</th></tr></thead>
@@ -1305,9 +1305,12 @@ Session N: empty round (zero findings AND zero actions)
           <tr><td>Chat</td><td>Agent chat and org event feed, with Summary, Detailed, and Raw modes</td></tr>
           <tr><td>Runtime</td><td>Live runtime state of the running org</td></tr>
           <tr><td>Config</td><td>The org's configuration</td></tr>
-          <tr><td>Files</td><td>Files related to the org, grouped by type (agent definitions and others)</td></tr>
+          <tr><td>Files</td><td>Files related to the org, grouped by type (the definition, its state files including <code>&lt;org&gt;-threads.jsonl</code>, agent definitions and others)</td></tr>
           <tr><td>Approvals</td><td>Approve/reject queue for sensitive tool and action requests from roles</td></tr>
           <tr><td>Decisions</td><td>Decision gates waiting for a human to approve or reject</td></tr>
+          <tr><td>Roles</td><td>One card per role from the org definition: title, type, who it reports to, responsibilities and skills</td></tr>
+          <tr><td>Activity</td><td>The org's 100 most recent activity events, with time, event type and detail</td></tr>
+          <tr><td>Health</td><td>7-day run success rate, running and idle agents, pending tasks and open issues, detected problems, and the org's memory (entities, relations, rules)</td></tr>
         </tbody>
       </table>
     </div>
@@ -1491,23 +1494,23 @@ Session N: empty round (zero findings AND zero actions)
       <table class="doc-table">
         <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>GET</td><td><code>/api/orgs</code></td><td>Org list</td></tr>
-          <tr><td>GET</td><td><code>/api/org/:name</code></td><td>Org detail</td></tr>
+          <tr><td>GET</td><td><code>/api/orgs</code></td><td>Org list; each org has <code>running</code> and <code>runtimeStatus</code> (the Org Runtime's record: <code>running</code>, <code>stopped</code>, <code>crashed</code>, …, or <code>null</code> when the org has no <code>runtime.json</code>)</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name</code></td><td>Org detail, with <code>runtimeStatus</code> and <code>tasks</code>: the org's own task list grouped into <code>todo</code>, <code>doing</code> and <code>done</code></td></tr>
           <tr><td>POST</td><td><code>/api/orgs/:name/stop</code></td><td>Stop org</td></tr>
           <tr><td>DELETE</td><td><code>/api/orgs/:name</code></td><td>Delete org and clean up persisted config</td></tr>
           <tr><td>POST</td><td><code>/api/orgs/:name/copy</code></td><td>Copy the org config into another project directory (an absolute <code>destination</code> path)</td></tr>
           <tr><td>GET</td><td><code>/api/orgs/:name</code></td><td>Org config as JSON (the dashboard's Export button downloads it)</td></tr>
           <tr><td>POST</td><td><code>/api/orgs/:name/import</code></td><td>Import an org from a JSON config file</td></tr>
           <tr><td>POST</td><td><code>/api/orgs</code></td><td>Create or import an org from a JSON body</td></tr>
-          <tr><td>GET</td><td><code>/api/org/:name/activity</code></td><td>Org activity log</td></tr>
-          <tr><td>GET</td><td><code>/api/org/:name/health</code></td><td>Org health metrics</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/activity</code></td><td>Org activity log (Activity tab)</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/health</code></td><td>Org health metrics (Health tab)</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/agents</code></td><td>Org agents</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/budgets</code></td><td>Org budgets</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/approvals</code></td><td>Approval queue</td></tr>
           <tr><td>POST</td><td><code>/api/org/:name/approvals/:id</code></td><td>Approve or reject one request</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/routines</code></td><td>Scheduled routines</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/runtime</code></td><td>What the org is doing now (Runtime tab)</td></tr>
-          <tr><td>GET</td><td><code>/api/org/:name/runs</code></td><td>Run list</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/runs</code></td><td>Run list; a run's status is <code>running</code>, <code>complete</code> (ended by <code>org_complete</code>), <code>ended</code> (stopped any other way, manual stop included) or <code>stale</code></td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/runs/:id</code></td><td>One run</td></tr>
           <tr><td>GET (SSE)</td><td><code>/api/orgs/:name/runs/current/stream</code></td><td>Live tail of the current run</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/gates</code></td><td>Decision gates</td></tr>
@@ -1832,7 +1835,7 @@ You are an API contract reviewer. ...</div>
       <div class="hc-num">03</div>
       <div class="hc-cmd">http://localhost:4242</div>
       <div class="hc-title">Watch it run</div>
-      <p class="hc-desc">Live feed of agent chat, inter-agent messages, tool calls with allow/deny decisions, and files written — streamed over server-sent events. The page needs a logged-in browser: <code>monomind dashboard open</code> opens it with a one-time login link.</p>
+      <p class="hc-desc">Live feed of agent chat, inter-agent messages, tool calls with allow/deny decisions, and files written — streamed over server-sent events. Select the org in the dashboard's Orgs view, or open <code>http://localhost:4242/#orgs/&lt;name&gt;</code>. The page needs a logged-in browser: <code>monomind dashboard open</code> opens it with a one-time login link.</p>
     </div>
   </div>
 </div>
@@ -1961,7 +1964,7 @@ You are an API contract reviewer. ...</div>
 <!-- Dashboard tabs -->
 <div class="orgs-section alt">
   <div class="osec-label">Per-org dashboard</div>
-  <h2 class="osec-title">Every org gets 7 tabs</h2>
+  <h2 class="osec-title">Every org gets 10 tabs</h2>
   <p class="osec-sub">Selecting an org in the dashboard opens its own detail view. The tabs below are the ones you'll reach for most — the full tab reference lives on the <a href="#dashboard" style="color:var(--accent)">Dashboard</a> page.</p>
   <div class="table-wrap reveal" style="margin-top:32px">
     <table class="doc-table">
