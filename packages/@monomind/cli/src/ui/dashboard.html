@@ -9152,7 +9152,7 @@ function _filterOrgList(q) {
                 if (_detInner) _detInner.style.display = 'none';
               } else {
                 const listOrg = _v2Orgs.find(o => o.name === _v2SelOrg) || {};
-                if (_v2OrgData) _v2OrgData.running = listOrg.running;
+                if (_v2OrgData) { _v2OrgData.running = listOrg.running; _v2OrgData.runtimeStatus = listOrg.runtimeStatus; }
                 v2UpdateOrgHeader(listOrg, _v2OrgData);
                 if (_v2OrgTab === 'chat') {
                   // Re-load chat run list after run events so cycleCount/eventCount in dropdown reflect disk state
