@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { collectAll } from './collector.mjs';
 import { _sjCalcCost, _sjHasPricing } from './server.mjs';
 import { _readHeadText, _readTailLines } from './server-fileutils.mjs';
 import { parseSessionLines } from './server-session-utils.mjs';
@@ -11,25 +10,6 @@ import { pathToSlug } from './server-slug.mjs';
 // Registered, in order, by startServer's request dispatcher in server.mjs.
 export async function handleRoutesData(req, res, url, corsOrigin, ctx) {
   const { projectDir } = ctx;
-  // --------------------------------------------------------- GET /api/data
-  if (req.method === 'GET' && url === '/api/data') {
-    try {
-      const qs = new URL(req.url, 'http://localhost').searchParams;
-      const dir = qs.get('dir') || projectDir || process.cwd();
-      const snapshot = await collectAll(dir);
-      res.writeHead(200, {
-        'Content-Type': 'application/json',
-        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
-        'Cache-Control': 'no-cache',
-      });
-      res.end(JSON.stringify(snapshot));
-    } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
-
   // ------------------------------------------------------ GET /api/session
   if (req.method === 'GET' && url === '/api/session') {
     const qs = new URL(req.url, 'http://localhost').searchParams;

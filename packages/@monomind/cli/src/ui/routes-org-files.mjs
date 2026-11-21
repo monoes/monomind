@@ -33,19 +33,20 @@ export async function handleOrgFileRoutes(req, res, url, corsOrigin, ctx) {
         } catch (_) {}
       };
       addFile(path.join(orgsDir, `${orgName}.json`), 'config');
+      // Threads are appended line by line (server-mastermind-event.mjs): .jsonl.
       for (const s of [
-        '-state',
-        '-approvals',
-        '-goals',
-        '-routines',
-        '-projects',
-        '-members',
-        '-issues',
-        '-threads',
-        '-budgets',
+        '-state.json',
+        '-approvals.json',
+        '-goals.json',
+        '-routines.json',
+        '-projects.json',
+        '-members.json',
+        '-issues.json',
+        '-threads.jsonl',
+        '-budgets.json',
       ]) {
-        const fp = path.join(orgsDir, `${orgName + s}.json`);
-        if (fs.existsSync(fp)) addFile(fp, s.slice(1));
+        const fp = path.join(orgsDir, orgName + s);
+        if (fs.existsSync(fp)) addFile(fp, s.slice(1, s.indexOf('.')));
       }
       const walkDir = (dir, depth) => {
         if (depth > 3) return;

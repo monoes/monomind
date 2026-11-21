@@ -16,7 +16,7 @@
  * even while the org was actively running with real events on disk.
  *
  * Reading the right file is necessary but not sufficient: v2's raw BusEvent
- * types (chat/status/tool/...) aren't the vocabulary orgs.html renders
+ * types (chat/status/tool/...) aren't the vocabulary the dashboard renders
  * (org:comms/session:start/...) — that translation currently only happens
  * live, in forwarder.ts's translate()/companionEvents(). These tests assert
  * on the translated shape, proving playback of a v2 run matches what would
