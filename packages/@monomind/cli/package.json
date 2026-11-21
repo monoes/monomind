@@ -135,7 +135,7 @@
     "@ai-sdk/openai": "^4.0.111",
     "@ai-sdk/perplexity": "^5.0.28",
     "@ai-sdk/togetherai": "^3.0.88",
-    "@ai-sdk/xai": "^4.0.0",
+    "@ai-sdk/xai": "^5.0.46",
     "@openrouter/ai-sdk-provider": "^3.1.0",
     "ai": "^7.0.166",
     "ollama-ai-provider-v2": "^4.1.0",
