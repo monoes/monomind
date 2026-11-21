@@ -22,11 +22,11 @@ Open the project in opencode. The monomind MCP server (knowledge graph, memory, 
 
 | Capability | How it shows up in opencode |
 |---|---|
-| **MCP server + tools** (Monograph graph, memory) | `opencode.json` → `mcp.monomind`. <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> tools by default (<!-- doc-count:mcp-tools-full -->204<!-- /doc-count:mcp-tools-full --> with `MONOMIND_MCP_FULL=1`) as the `monomind` server (`monograph_query`, `memory_pattern-search`, …). |
-| **Agents** | `.opencode/agent/*.md` — your agent roster (coder, reviewer, planner, …) as opencode subagents (`mode: subagent`). |
-| **Commands** | `.opencode/command/*.md` — the `mastermind-*` workflows as opencode slash commands (flat namespace, e.g. `/mastermind-plan`). |
+| **MCP server + tools** (Monograph graph, memory) | `opencode.json` → `mcp.monomind`. <!-- doc-count:mcp-tools-default -->21<!-- /doc-count:mcp-tools-default --> tools by default (<!-- doc-count:mcp-tools-full -->204<!-- /doc-count:mcp-tools-full --> with `MONOMIND_MCP_FULL=1`) as the `monomind` server (`monograph_query`, `memory_kg_search`, …). |
+| **Agents** | `.opencode/agent/*.md` — your agent roster (coder, reviewer, planner, …) as opencode subagents (`mode: subagent`). Converted from the `.claude/agents` the same run writes, so present only when Claude Code is initialized too. |
+| **Commands** | `.opencode/command/*.md` — the project's `.claude/commands` as opencode slash commands, the group folded into the name (flat namespace, e.g. `/mastermind-plan`). Present only when Claude Code is initialized in the same run (`/monomind-status` is always written). |
 | **Skills** | `.opencode/skills/*/SKILL.md` — same SKILL.md shape Claude Code uses. |
-| **Security gates** | `.opencode/plugins/monomind-hooks.ts` — a plugin that runs monomind's existing pre-bash / pre-write gate handlers (destructive-op blocking, secret detection) inside opencode's `tool.execute.before`. |
+| **Security gates** | `.opencode/plugins/monomind-hooks.ts` — a plugin that runs monomind's existing pre-bash / pre-write gate handlers (destructive-op blocking, secret detection) inside opencode's `tool.execute.before`. The gate handlers are `.claude/helpers/` scripts, which `init` writes when Claude Code is initialized in the same run. |
 | **Statusline data** | `/monomind-status` command — runs the monomind statusline and reports version, git, swarm, security, hooks, token cost. |
 | **Instructions** | `AGENTS.md` (opencode's `CLAUDE.md` equivalent) + the shared `.agents/shared_instructions.md`, both auto-loaded. |
 
@@ -50,7 +50,7 @@ It executes `node .claude/helpers/statusline.cjs --compact` (with an `npx monomi
 
 ## Requirements
 
-- **Node 22+**. The memory backend uses `better-sqlite3` v12 (mandatory since `@monoes/memory@1.0.14`), which ships prebuilt bindings for Node 22, 24, and 26 on darwin/linux/win (x64 + arm64). Older installs pinned Node 22 because better-sqlite3 v11 could not build on Node 26 — that constraint is gone. See [Memory > Troubleshooting](./memory.md).
+- **Node 22.22+**. The memory backend uses `better-sqlite3` v12 (mandatory since `@monoes/memory@1.0.14`), which ships prebuilt bindings for Node 22, 24, and 26 on darwin/linux/win (x64 + arm64). Older installs pinned Node 22 because better-sqlite3 v11 could not build on Node 26 — that constraint is gone. See [Memory > Troubleshooting](./memory.md).
 
 ---
 
@@ -67,7 +67,7 @@ It executes `node .claude/helpers/statusline.cjs --compact` (with an `npx monomi
 OpenCode artifacts are additive and isolated from the other platform configs:
 
 - `monomind init` emits OpenCode when OpenCode is detected; use `--target opencode` when only OpenCode should be initialized.
-- opencode reads `opencode.json` and `.opencode/`; Claude Code reads `.claude/`; Antigravity reads `.gemini/`. They never touch each other's files.
+- opencode reads `opencode.json` and `.opencode/`; Claude Code reads `.claude/`; Antigravity reads `.gemini/`. Each target also gets `.claude/skills/`, which the `.opencode/skills` copies are converted from.
 - The hook-shim plugin only **spawns** monomind's existing `.claude/helpers/*.cjs` gate handlers unchanged — it never edits them, so Claude Code's own hook path is unaffected.
 
 The internal architecture, isolation guarantees, and `AgentRunner` seam follow the same pattern as the other adapters in this family.

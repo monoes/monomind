@@ -17,7 +17,8 @@ Plain `monomind init` sets up the coding systems it finds installed (`codex` on 
 
 | File | Purpose |
 |---|---|
-| `.codex/config.toml` | Project-scoped MCP configuration for `monomind mcp start`, pinned to the version that ran `init` (`--pin latest` floats) |
+| `.codex/config.toml` | Project-scoped MCP configuration for `monomind mcp start`, pinned to the version that ran `init` (`--pin latest` floats), plus a `[tui] status_line` and monomind's native hooks block (`[features] hooks = true`) |
+| `.codex/hooks/monomind-hook.cjs` | The hook script those native hooks run |
 | `AGENTS.md` | Codex instructions covering graph-first navigation, memory, security, and org runtime |
 | `.agents/skills/` | Shared Monomind skills available to Codex and other compatible systems |
 
