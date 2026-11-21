@@ -90,7 +90,7 @@ const knowledgeIngest: MCPTool = {
 const knowledgeSearch: MCPTool = {
   name: 'knowledge_search',
   description:
-    'Search the Second Brain. A rule-based router picks the retrieval surfaces per query — document excerpts, memory knowledge-graph entities and relations, distilled rules, past memories — and fuses them by reciprocal rank. Does NOT search the Monograph code graph: for "what calls/imports X", use monograph_query / monograph_impact. Every response reports which surfaces were requested, executed, failed or unsupported, and the retrieval method each actually used. Excerpt ids can be rated via memory_feedback.',
+    'Search the Second Brain. A rule-based router picks the retrieval surfaces per query — document excerpts, memory knowledge-graph entities and relations, distilled rules, patterns-namespace memories — and fuses them by reciprocal rank. Does NOT search the Monograph code graph: for "what calls/imports X", use monograph_query / monograph_impact. Every response reports which surfaces were requested, executed, failed or unsupported, and the retrieval method each actually used. Excerpt ids can be rated via memory_feedback.',
   category: 'knowledge',
   tags: ['documents', 'search', 'second-brain', 'rag'],
   inputSchema: {

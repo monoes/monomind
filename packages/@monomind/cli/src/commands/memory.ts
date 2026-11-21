@@ -20,7 +20,7 @@ import { exportCommand, importCommand } from './memory-transfer.js';
 const initMemoryCommand: Command = {
   name: 'init',
   description:
-    'Initialize memory database with sql.js (WASM SQLite) - includes vector embeddings, pattern learning, temporal decay',
+    'Create the legacy fallback database (.swarm/memory.db), used only when @monoes/memory cannot load. The normal memory store needs no init',
   options: [
     {
       name: 'backend',
@@ -62,7 +62,7 @@ const initMemoryCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind memory init', description: 'Initialize hybrid backend with all features' },
+    { command: 'monomind memory init', description: 'Create the legacy fallback database' },
     {
       command: 'monomind memory init -b lancedb',
       description: 'Initialize memory backend (legacy "lancedb" alias, now SQLite-backed)',
@@ -141,7 +141,7 @@ const initMemoryCommand: Command = {
         `Schema Version:    ${result.schemaVersion}`,
         `Database Path:     ${result.dbPath}`,
         '',
-        output.bold('Features:'),
+        output.bold('Legacy fallback schema features (used only when @monoes/memory cannot load):'),
         `  Vector Embeddings: ${result.features.vectorEmbeddings ? output.success('✓ Enabled') : output.dim('✗ Disabled')}`,
         `  Pattern Learning:  ${result.features.patternLearning ? output.success('✓ Enabled') : output.dim('✗ Disabled')}`,
         `  Temporal Decay:    ${result.features.temporalDecay ? output.success('✓ Enabled') : output.dim('✗ Disabled')}`,

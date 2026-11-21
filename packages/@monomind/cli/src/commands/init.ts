@@ -99,7 +99,7 @@ export const initCommand: Command = {
     {
       name: 'dry-run',
       description:
-        'List every file init would create, modify or skip (path + action) and write nothing',
+        'List the files the init generators would create, modify or skip (path + action) and write no project files. Files from the later init steps (runtime databases, worker metrics, the sample org) are not listed',
       type: 'boolean',
       default: false,
     },

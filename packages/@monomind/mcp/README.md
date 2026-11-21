@@ -6,9 +6,9 @@
 
 [![npm version](https://img.shields.io/npm/v/@monoes/mcp.svg?style=flat-square)](https://www.npmjs.com/package/@monoes/mcp)
 [![license](https://img.shields.io/npm/l/@monoes/mcp.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D22.12-blue?style=flat-square)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.22-blue?style=flat-square)](https://nodejs.org)
 
-**Standalone MCP server engine** — Version `2.24.1`. Supports stdio, HTTP, and WebSocket transports with tool registry, resources, prompts, sessions, rate limiting, and connection pooling. Zero `@monomind/*` dependencies.
+**Standalone MCP server engine** — Version `2.24.4`. Supports stdio, HTTP, and WebSocket transports with tool registry, resources, prompts, sessions, rate limiting, and connection pooling. Zero `@monomind/*` dependencies.
 
 > Part of the [Monomind](https://github.com/monoes/monomind) ecosystem.
 
@@ -18,11 +18,11 @@
 
 The Monomind MCP Subsystem is split across two core packages:
 
-1. **`@monoes/mcp` (`v2.24.1`)** (*This package*): Standalone MCP protocol engine powering stdio, HTTP (Express/Cors/Helmet), and WebSocket (`ws`) transports, connection pooling, prompt/resource registries, rate limiting, and session lifecycle management.
-2. **`@monoes/monomindcli` (`v2.29.1`)**: Implements CLI integration, binary entry points (`monomind-mcp`), MCP server manager, MCP client loader, and 30+ domain tool modules (`src/mcp-tools/`).
+1. **`@monoes/mcp` (`v2.24.4`)** (*This package*): Standalone MCP protocol engine powering stdio, HTTP (Express/Cors/Helmet), and WebSocket (`ws`) transports, connection pooling, prompt/resource registries, rate limiting, and session lifecycle management.
+2. **`@monoes/monomindcli` (`v2.29.4`)**: Implements CLI integration, binary entry points (`monomind-mcp`), MCP server manager, MCP client loader, and 30+ domain tool modules (`src/mcp-tools/`).
 
-- **Protocol Version**: The CLI's `initialize` response returns `protocolVersion: '2024-11-05'` ([`packages/@monomind/cli/src/mcp-server.ts`](../cli/src/mcp-server.ts)). This package's `MCPServer` reports MCP `2025-11-25` ([`packages/@monomind/mcp/src/server-core.ts`](src/server-core.ts)).
-- **Server Identity Version Drift**: The CLI's `initialize` response hardcodes server identity `serverInfo: { name: 'monomind', version: '3.0.0' }` ([`packages/@monomind/cli/src/mcp-server.ts`](../cli/src/mcp-server.ts)), and this package exports `VERSION = '3.0.0'`; both are decoupled from package versioning (`v2.29.1` / `v2.24.1`).
+- **Protocol Version**: The CLI's `initialize` response returns `protocolVersion: '2024-11-05'` ([`packages/@monomind/cli/src/mcp-stdio-handler.ts`](../cli/src/mcp-stdio-handler.ts) and [`packages/@monomind/cli/bin/mcp-server.js`](../cli/bin/mcp-server.js)). This package's `MCPServer` reports MCP `2025-11-25` ([`packages/@monomind/mcp/src/server-core.ts`](src/server-core.ts)).
+- **Server Identity Version Drift**: The CLI's `initialize` response hardcodes server identity `serverInfo: { name: 'monomind', version: '3.0.0' }` ([`packages/@monomind/cli/src/mcp-stdio-handler.ts`](../cli/src/mcp-stdio-handler.ts)), and this package exports `VERSION = '3.0.0'`; both are decoupled from package versioning (`v2.29.4` / `v2.24.4`).
 
 ---
 

@@ -5,7 +5,7 @@
  * Command modules are lazy-loaded on demand (mirrors mcp-client.ts's
  * CATEGORY_LOADERS pattern) so a single-command invocation — or `--version`,
  * which needs no command at all — only pays for that command's transitive
- * imports (e.g. the Claude Agent SDK pulled in by org.ts), not all 32.
+ * imports (e.g. the Claude Agent SDK pulled in by org.ts), not all 39.
  */
 
 import type { Command } from '../types.js';

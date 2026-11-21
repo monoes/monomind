@@ -47,7 +47,7 @@ describe('checkMonoesIntegration (Routing Learning)', () => {
     expect(r.status).toBe('info');
     expect(r.message).toContain('insufficient data');
     expect(r.message).toContain('13');
-    expect(r.message).not.toMatch(/accuracy \d+%/);
+    expect(r.message).not.toMatch(/(accuracy|success rate) \d+%/);
   });
 
   it('reports the PICK follow rate and its sample size', async () => {
@@ -63,7 +63,7 @@ describe('checkMonoesIntegration (Routing Learning)', () => {
     writeOutcomes(Array.from({ length: 40 }, () => ({ success: true })));
     const r = await checkMonoesIntegration();
     expect(r.status).toBe('warn');
-    expect(r.message).not.toMatch(/accuracy \d+%/);
+    expect(r.message).not.toMatch(/(accuracy|success rate) \d+%/);
     expect(r.message).toContain('no contrasting signal');
   });
 
@@ -71,7 +71,7 @@ describe('checkMonoesIntegration (Routing Learning)', () => {
     writeOutcomes(Array.from({ length: 40 }, (_, i) => ({ success: i % 4 !== 0 })));
     const r = await checkMonoesIntegration();
     expect(r.status).toBe('pass');
-    expect(r.message).toContain('routing accuracy 75% (n=40)');
+    expect(r.message).toContain('routed-task success rate 75% (n=40)');
   });
 
   it('says insufficient data for a small routing-feedback fallback log', async () => {

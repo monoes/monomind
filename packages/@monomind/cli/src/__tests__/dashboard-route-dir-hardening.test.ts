@@ -205,13 +205,6 @@ describe('?dir= outside the server project and known projects is refused', () =>
     });
     expect(byBody.status).toBe(403);
   }, 30_000);
-
-  it('GET /api/monograph-benchmark', async () => {
-    mkdirSync(join(other, '.monomind', 'graph'), { recursive: true });
-    writeFileSync(join(other, '.monomind', 'graph', 'graph.json'), '{}');
-    const r = await send('GET', `/api/monograph-benchmark?dir=${encodeURIComponent(other)}`);
-    expect(r.status).toBe(403);
-  }, 30_000);
 });
 
 describe('?dir= naming a known project is honored', () => {

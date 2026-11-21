@@ -6,7 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@monoes/memory?style=flat-square)](https://www.npmjs.com/package/@monoes/memory)
 [![license](https://img.shields.io/npm/l/@monoes/memory.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D22.12-blue?style=flat-square)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.22-blue?style=flat-square)](https://nodejs.org)
 
 **Persistent memory backends for Monomind agents** — SQLite in WAL journal mode (`PRAGMA journal_mode = WAL`, schema v3.0.0) key-value storage with dense ONNX ModernBERT 768d + Okapi BM25 RRF hybrid search, surface query routing, Open Knowledge Format (OKF) transfer, Cognee-style knowledge graph triplets, and EWC pattern consolidation.
 
@@ -38,7 +38,7 @@ Retrieval uses a dual-arm hybrid search architecture combined with Reciprocal Ra
 
 1. **Dense Vector Search**:
    - Model: `Alibaba-NLP/gte-modernbert-base` (768 dimensions).
-   - Embedding Pipeline: `@xenova/transformers` ONNX feature extraction.
+   - Embedding Pipeline: `@huggingface/transformers` ONNX feature extraction.
    - Acceleration: Standalone pure-JS `HNSWIndex` (set `dimensions: 768` for this model; defaults are `dimensions=1536`, `M=16`, `efConstruction=200`, `metric='cosine'`).
 2. **Lexical Arm (In-Process Okapi BM25)**:
    - Parameters: $k_1 = 1.2$, $b = 0.75$.

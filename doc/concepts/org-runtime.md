@@ -46,18 +46,18 @@ interface AgentRunner {
 }
 ```
 
-Eighteen runtime ids are registered (`RUNNER_SPECS` in [`orgrt/runner-specs.ts`](packages/@monomind/cli/src/orgrt/runner-specs.ts)): `claude`, `codex`, `kimicode`, `opencode`, `vercel`, `antigravity`, `grok`, `qwen`, `qwen-rpc`, `crush`, `copilot`, `pi`, `pi-rpc`, `hermes`, `cline`, `aider`, `dsh`, and `kilo`. `kilo` runs only with explicit full access (see [Coder Mode Security](./coder-mode-security.md)). The sections below describe the runners in detail one by one; the rest follow the same `AgentRunner` interface and are specified in [Agent Exec Protocol](../agent-exec-protocol.md) §6.
+Eighteen runtime ids are registered (`RUNNER_SPECS` in [`orgrt/runner-registry.ts`](packages/@monomind/cli/src/orgrt/runner-registry.ts), built from `BASE_SPECS` in [`orgrt/runner-specs.ts`](packages/@monomind/cli/src/orgrt/runner-specs.ts)): `claude`, `codex`, `kimicode`, `opencode`, `vercel`, `antigravity`, `grok`, `qwen`, `qwen-rpc`, `crush`, `copilot`, `pi`, `pi-rpc`, `hermes`, `cline`, `aider`, `dsh`, and `kilo`. `kilo` runs only with explicit full access (see [Coder Mode Security](./coder-mode-security.md)). The sections below describe the runners in detail one by one; the rest follow the same `AgentRunner` interface and are specified in [Agent Exec Protocol](../agent-exec-protocol.md) §6.
 
 The first three are described first:
 
 ### 2.1 ClaudeAgentRunner (Default)
 
-- **Source:** [`orgrt/agent-runner.ts → ClaudeAgentRunner`](packages/@monomind/cli/src/orgrt/agent-runner.ts#ClaudeAgentRunner)
+- **Source:** [`orgrt/agent-runner-claude.ts → ClaudeAgentRunner`](packages/@monomind/cli/src/orgrt/agent-runner-claude.ts#ClaudeAgentRunner)
 - **SDK:** `@anthropic-ai/claude-agent-sdk` — wraps `query`, `tool`, `createSdkMcpServer`. Not a dependency of the published package: it is installed on first use into `~/.monomind/deps` ([#428](https://github.com/monoes/monomind/issues/428), `utils/optional-deps.ts`).
 - **Activation:** Default when `MONOMIND_RUNTIME` is unset. Also the fallback inside `runOneSession()`.
-- **Singleton:** `defaultClaudeRunner` (line 132) — stateless, reused across sessions.
+- **Singleton:** `defaultClaudeRunner` (`agent-runner-claude.ts`) — stateless, reused across sessions.
 - **Which `claude` binary:** the SDK runs an installed Claude Code instead of its own 300 MB copy when it can find a usable one. The order is `--claude-path <absolute-file|bundled>`, then `MONOMIND_CLAUDE_PATH`, then `monomind config set claude.path`; `bundled` turns detection off. With no operator choice it looks for `claude` on `PATH`, `~/.local/bin/claude` and `~/.claude/local/claude`, and accepts a binary found that way only if it is a system install (owned by root, not group- or world-writable, not under `$HOME`, a temp dir or the cwd), because the org daemons run it outside every role sandbox. An explicit path may point anywhere the operator owns; org roles get it read-only. `agent scan --json` and `doctor -c claude-runtime` report the choice. Source: [`orgrt/claude-sdk.ts`](packages/@monomind/cli/src/orgrt/claude-sdk.ts).
-- **Provider auth:** `subscription` kind deletes all `ANTHROPIC_*` env vars so the session
+- **Provider auth:** `subscription` kind deletes `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` so the session
   uses the `claude login` credential already in the keychain — **no API key needed**.
 
 ### 2.2 OpencodeAgentRunner
@@ -94,8 +94,8 @@ The first three are described first:
   silent-session watchdog; the earlier buffer-until-exit design starved it.
 - **Tool delivery:** Fence Protocol (same as opencode runner).
 - **Usage tracking:** Reads `wire.jsonl` from `$KIMI_CODE_HOME/sessions/<wd>/<sessionId>/agents/main/`.
-- **Arg order is critical:** `-p <prompt>` must be first; `--agent-file` only on first turn;
-  `--session <id>` on subsequent turns.
+- **Invocation:** `kimi --print --output-format stream-json [--skills-dir D] (--session <id> | --agent-file F) [--model M]`,
+  prompt on stdin (not `-p`); `--agent-file` and `--model` on the first turn only, `--session <id>` on later turns.
 - **Fatal error detection:** `classifyStderr()` tags auth/quota errors as non-retryable
   (`err.fatal=true`) so the crash-restart budget is not consumed.
 
@@ -108,7 +108,7 @@ The first three are described first:
 - **Source:** [`orgrt/vercel-runner.ts`](packages/@monomind/cli/src/orgrt/vercel-runner.ts)
 - **Backend:** In-process Vercel AI SDK (`ai` + per-vendor `@ai-sdk/*` package). Not a subprocess.
 - **Activation:** `runtime: 'vercel'` (per-role or org-level) **or** auto-resolved from `provider.kind: 'vercel-api-key'`.
-- **Vendor registry:** 15 providers + `openai-compatible` escape hatch — see [`orgrt/vercel-providers.ts`](packages/@monomind/cli/src/orgrt/vercel-providers.ts). GLM uses the z.ai international endpoint (`https://api.z.ai/api/paas/v4`) via `@ai-sdk/openai` with custom `baseURL`.
+- **Vendor registry:** 15 providers + `openai-compatible` escape hatch — see [`orgrt/vercel-providers.ts`](packages/@monomind/cli/src/orgrt/vercel-providers.ts). GLM uses z.ai's Anthropic-compatible endpoint (`https://api.z.ai/api/anthropic/v1`) via `@ai-sdk/anthropic` (`ZHIPU_API_KEY`).
 - **Primitive:** `streamText({ model, system, messages, tools, stopWhen: isStepCount(N) })` — Vercel v7.
 - **Tool delivery:** Native Vercel `tool()` calling — no fence protocol. Every `execute()` wraps `canUseTool` for policy gating (bypassing it would defeat the per-role policy engine).
 - **Session resume:** `VercelSessionStore` persists message history to `<org>/sessions/<role>-<uuid>.json` (Vercel SDK is stateless server-side; we maintain history on disk).
@@ -121,8 +121,8 @@ The first three are described first:
 - **Backend:** Spawns the `codex` binary as a subprocess (same pattern as KimiCodeAgentRunner — no SDK dependency).
 - **Activation:** `runtime: 'codex'` **or** auto-resolved from `provider.kind: 'codex'`.
 - **Auth:** Inherits `~/.codex/auth.json` from `codex login` (ChatGPT Plus/Pro/Team/Enterprise). No env vars needed.
-- **Subprocess protocol:** `codex exec --experimental-json --sandbox danger-full-access --skip-git-repo-check [--model X] [--cd Y] [resume <thread_id>] "<prompt>"`. JSONL events on stdout: `thread.started` (carries `thread_id`), `item.completed` with `item.type === 'agent_message'` (assistant text), `turn.completed` (usage), `turn.failed`/`error` (failures). No per-token streaming — whole items only.
-- **Resume:** `codex exec resume <thread_id> "<followup>"` (positional subcommand, not a flag).
+- **Subprocess protocol:** `codex exec --json [--model X] … --cd Y --skip-git-repo-check <sandbox flags> [resume <thread_id>] [--image F]… -- -`, prompt on stdin. Below `policy.git: 'push'` the sandbox flags are `--sandbox workspace-write -c sandbox_workspace_write.network_access=true`; only a `push` role gets `--sandbox danger-full-access` (layer 1b below; [`codex-runner-stream.ts → codexExecArgs`](packages/@monomind/cli/src/orgrt/codex-runner-stream.ts#codexExecArgs)). JSONL events on stdout: `thread.started` (carries `thread_id`), `item.completed` with `item.type === 'agent_message'` (assistant text), `turn.completed` (usage), `turn.failed`/`error` (failures). No per-token streaming — whole items only.
+- **Resume:** `codex exec … resume <thread_id> -- -` (positional subcommand, not a flag; the follow-up goes on stdin).
 - **Tool delivery:** Fence Protocol (same as kimi/opencode) — `executeToolCall` now accepts `canUseTool` for policy gating.
 - **Turn timeout:** 2 hours.
 - **Fatal error detection:** `turn.failed` events surface the provider error message; crash-restart budget is not consumed on auth/quota failures.
@@ -156,7 +156,7 @@ Configured per role via the `provider` key in the org JSON. Resolved by
 | `base-url` | Sets `ANTHROPIC_BASE_URL`, optionally `ANTHROPIC_AUTH_TOKEN` |
 | `bedrock` | Sets `CLAUDE_CODE_USE_BEDROCK=1` |
 | `vertex` | Sets `CLAUDE_CODE_USE_VERTEX=1` |
-| `gemini` | **Deprecated.** Sets `GEMINI_API_KEY` from `cfg.apiKeyEnv ?? 'GEMINI_API_KEY'` and nothing else — no runtime reads it, so the role silently runs on the default `ClaudeAgentRunner`. `startOrg` warns at start ([`org-start-steps.ts → prepareOrgStart`](packages/@monomind/cli/src/orgrt/org-start-steps.ts#prepareOrgStart)). Use `vercel-api-key` + `vendor: 'google'` instead. |
+| `gemini` | **Deprecated.** Sets `GEMINI_API_KEY` from `cfg.apiKeyEnv ?? 'GEMINI_API_KEY'` and strips `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_BASE_URL`, nothing more — no runtime reads it, so the role silently runs on the default `ClaudeAgentRunner`. `startOrg` warns at start ([`org-start-steps.ts → prepareOrgStart`](packages/@monomind/cli/src/orgrt/org-start-steps.ts#prepareOrgStart)). Use `vercel-api-key` + `vendor: 'google'` instead. |
 | `openai` | **Deprecated.** Same shape as `gemini` — sets `OPENAI_API_KEY` from `cfg.apiKeyEnv ?? 'OPENAI_API_KEY'`, routes nothing, and falls through to Claude. Use `vercel-api-key` + `vendor: 'openai'` instead. |
 | `vercel-api-key` | Surfaces the named `apiKeyEnv` for the Vercel runner to read; **auto-resolves runtime to `'vercel'`**. Pair with `vendor` to pick the provider. |
 | `codex` | No env setup — Codex CLI reads `~/.codex/auth.json` from `codex login`; **auto-resolves runtime to `'codex'`** |
@@ -167,7 +167,7 @@ Configured per role via the `provider` key in the org JSON. Resolved by
 ## 4. OrgDaemon Lifecycle
 
 **Class:** `OrgDaemon` — [`orgrt/daemon.ts → OrgDaemon`](packages/@monomind/cli/src/orgrt/daemon.ts#OrgDaemon)
-**Constructor:** `constructor(private root: string, private opts: DaemonOpts = {})`
+**Constructor:** `constructor(public root: string, public opts: DaemonOpts = {})` (both `@internal`)
 
 ### 4.1 `startOrg(name, taskOverride?)`
 
@@ -182,19 +182,20 @@ Source: [org-start.ts → startOrg](packages/@monomind/cli/src/orgrt/org-start.t
 4. Raises `maxSdkProcesses` to at least `def.roles.length` (prevents SDK throttle).
 5. Creates `OrgBus` (in-memory event tail capped at 1000 events + JSONL disk flush).
 6. Selects boss: `roles.find(r => r.type === 'boss' || r.reports_to === null) ?? roles[0]`.
-7. Resolves runner per role (`resolveRoleRunner()` in daemon.ts):
+7. Resolves runner per role (`resolveRoleRunner()` in `runner-resolve.ts`, called from `role-session-opts.ts`):
    ```
    opts.runner
-     ?? resolveRoleRunner(role.runtime, def.runtime)
+     ?? resolveRoleRunner(role.runtime, def.runtime, role.provider?.kind, …)
    // precedence: role `runtime` field
    //   > org def `runtime` field
-   //   > MONOMIND_RUNTIME env ('opencode' → OpencodeAgentRunner,
-   //     'kimicode' → KimiCodeAgentRunner)
-   //   > undefined          // session.ts falls back to ClaudeAgentRunner
+   //   > runtime implied by provider.kind ('vercel-api-key' → vercel,
+   //     'codex' → codex, 'antigravity' → antigravity)
+   //   > MONOMIND_RUNTIME env (any runtime id)
+   //   > undefined          // session-run.ts falls back to ClaudeAgentRunner
    ```
    An org def may set a top-level `"runtime"` — one of `"claude"`, `"kimicode"`, `"opencode"`,
    `"vercel"`, `"codex"`, `"antigravity"`, `"grok"`, `"qwen"`, `"crush"`, `"copilot"`, `"pi"`,
-   `"pi-rpc"`, `"qwen-rpc"`, `"hermes"`, `"cline"`, `"aider"`, `"dsh"`, `"kilo"` (the `RuntimeKind` union in [`daemon.ts`](packages/@monomind/cli/src/orgrt/daemon.ts), dispatched by `resolveRunner()`) —
+   `"pi-rpc"`, `"qwen-rpc"`, `"hermes"`, `"cline"`, `"aider"`, `"dsh"`, `"kilo"` (the `RuntimeKind` union in [`runner-resolve.ts`](packages/@monomind/cli/src/orgrt/runner-resolve.ts), dispatched by `resolveRunner()`) —
    to pin its own runtime regardless of the env var (`"claude"` forces the default
    Claude path even when `MONOMIND_RUNTIME` selects another runner). Each role may
    additionally set its own `runtime` field, which overrides the org-level value
@@ -216,7 +217,7 @@ Source: [org-stop.ts → stopOrg](packages/@monomind/cli/src/orgrt/org-stop.ts#s
 - Clears watchdog, BrokerLease, all agent mailboxes.
 - Waits for sessions with bounded drain (default `stopWaitMs=15s`; planned completion uses `COMPLETE_DRAIN_MS=5min`).
 - Flushes `OrgBus` to disk, appends to `<org>/history.jsonl`, stores cross-run memory.
-- Calls `persistState(name, 'stopped', ...)` → writes `<org>/<name>/runtime.json`.
+- Calls `persistState(name, 'stopped', ...)` → writes `.monomind/orgs/<name>/runtime.json`.
 - Removes git worktree if applicable.
 
 ### 4.3 `deliver()`
@@ -231,14 +232,15 @@ Routes `org_send` tool calls:
 
 ### 4.4 Boss Crash Recovery
 
-`scheduleBossRestart()` ([daemon.ts → scheduleBossRestart](packages/@monomind/cli/src/orgrt/daemon.ts#scheduleBossRestart) — now a 1-line delegate to `scheduler.ts`):
+`scheduleBossRestart()` ([daemon.ts → scheduleBossRestart](packages/@monomind/cli/src/orgrt/daemon.ts#scheduleBossRestart) — now a 1-line delegate to `scheduler-integration.ts`):
 - Bounded restarts: `MAX_BOSS_RESTARTS = 2` with backoffs `[10_000ms, 30_000ms]`.
-- Beyond limit, org transitions to `crashed` state.
+- Beyond the limit it emits a `boss-restart-exhausted` audit event and stops the org (`closedBy: 'boss-restart-exhausted'`).
 
 ### 4.5 Resume
 
 `resumeOrg()` ([daemon.ts → resumeOrg](packages/@monomind/cli/src/orgrt/daemon.ts#resumeOrg)):
-- Restores full `OrgCheckpoint` (role mailbox queues, session IDs, token budgets).
+- Restores the `OrgCheckpoint` stored in `runtime.json` (role mailbox queues, session IDs, token budgets, task DAG).
+- That checkpoint is written only at org start, role respawn, a deferred spawn, stop, and by the in-process crash handler (and `org replay` currently overwrites it with an empty one, see [`org replay`](../commands/org.md#replay)); nothing writes it periodically. After a hard kill (SIGKILL, OOM, power loss) `--resume` restores the state of the last of those writes, usually an empty or stale task DAG, so task progress since then is lost.
 - Validates TTL (24h) and checksum before applying.
 
 ---
@@ -246,7 +248,7 @@ Routes `org_send` tool calls:
 ### 4.6 Concurrency, liveness and workspace hygiene
 
 - **Deferred roles.** When more roles want to run than `max_concurrent_agents` allows, the extra role is deferred, not dropped. It stays a known assignee, its tasks wait `ready` with one `concurrency-limit` audit each (`resource-pressure` when the host is short of resources), and a freed slot goes to the role deferred first. If no slot frees in time, the tasks waiting on the role are failed with the reason and the coordinator is told. When the org-wide token ceiling runs out, pending deferrals are cancelled (`deferred-spawn-cancelled`) and their tasks held with the budget reason.
-- **Dead runs are detected.** `runtime.json` records the process's start identity (`pidStart`), so a pid reused by another process is not mistaken for the run. `org status`, `org run` and `org serve` rewrite a `running` record whose run is dead as `crashed` (`closedBy: "liveness-check"`, appended to `liveness.jsonl`) and keep the checkpoint, so `org run --resume` still works. `org run` refuses to start an org whose recorded run is still alive in another process ("already running (pid N)").
+- **Dead runs are detected.** `runtime.json` records the process's start identity (`pidStart`), so a pid reused by another process is not mistaken for the run. `org status`, `org run` and `org serve` rewrite a `running` record whose run is dead as `crashed` (`closedBy: "liveness-check"`, appended to `liveness.jsonl`) and keep the checkpoint, so `org run --resume` still works (from the last checkpoint written, see §4.5). `org run` refuses to start an org whose recorded run is still alive in another process ("already running (pid N)").
 - **Sandbox stubs stay out of the repository's change list.** A role in a repo checkout holds empty stub files in the repo root for the whole run (`.bashrc`, `.gitconfig`, `.claude/hooks`, …). While they exist the runtime lists them in a marked block of the repo's `info/exclude` (linked worktrees included), and removes the block when they are gone. A real file of the same name with content is never listed.
 - **The Claude SDK is installed on the host, not by the role.** `~/.monomind/deps` is read-only to roles, so before it starts a role whose effective runtime is `claude` the runtime installs the pinned SDK through the hash-pinned installer (`role-deps-installed` audit; `role-deps-missing` when it fails, retried after 10 minutes). Roles on other runtimes trigger no download. The install prints one line to stderr first (what, size, from the npm registry, and how to refuse). `MONOMIND_NO_AUTO_INSTALL=1` turns the host install off (it refuses the download; the same variable governs every automatic install), and `monomind deps install` installs into the cache regardless. That command refuses to run inside an org role.
 
@@ -552,9 +554,8 @@ design:**
 1. **Grant it**: `monomind org role set-access <org> <role> full` (interactive confirm, or
    `--yes-i-understand` for scripts). This is the ONLY place in monomind that writes
    `policy.access: 'full'` together with a matching, SIGNED `access_ack`. It refuses a role whose
-   resolved runtime doesn't advertise `full_access: true` (`agent scan --json`; claude, codex,
-   opencode, antigravity, kimicode, grok, qwen, copilot, crush and pi — not vercel, hermes,
-   qwen-rpc or pi-rpc). `monomind org role set-access <org> <role> scoped` (a revoke) needs no signature and
+   resolved runtime doesn't advertise `full_access: true` (`agent scan --json`; every runtime except vercel,
+   hermes and qwen-rpc). `monomind org role set-access <org> <role> scoped` (a revoke) needs no signature and
    stays allowed everywhere.
 2. **The grant is refused outright when it looks agent-invoked.** Scoped chats/orgs already let an
    agent run `monomind org …` through an allowed Bash prefix, so before doing anything else,
@@ -594,6 +595,8 @@ design:**
    `resolveRoleAccess()` is the single function every session start calls, and it is the only
    thing that turns a declared `'full'` into actual unrestricted behavior. It never throws — any
    failure below just means the role runs scoped this session:
+   - the role's resolved runtime does not support full access → **scoped**, `'suspended'`;
+   - the org runs as root (uid 0) → **scoped**, `'suspended'`;
    - no `access_ack`, or `access_ack.by !== 'human'` → **scoped**, `'suspended'` ("no human
      acknowledgement");
    - `access_ack.sig` is missing → **scoped**, `'suspended'` ("unsigned");
@@ -676,7 +679,7 @@ Roles can declare `tool_providers[]` — stdio MCP servers whose tools are expos
 ```
 
 **Fields:**
-- `name`: Unique identifier (alphanumeric + `-_`)
+- `name`: Unique identifier (lowercase letters, digits, `-` and `_`; starts with a letter or digit)
 - `command`, `args`: Spawn command for the MCP server
 - `env`: Literal environment variables (never expanded from secrets)
 - `allow`: Optional tool name allowlist; absent = all tools from the server
@@ -843,7 +846,7 @@ Every daemon-side resolution emits an audit event with reason `decision-resolved
 
 **Source:** [`orgrt/skill-library.ts`](packages/@monomind/cli/src/orgrt/skill-library.ts), [`orgrt/skill-import.ts`](packages/@monomind/cli/src/orgrt/skill-import.ts)
 
-A skill is a directory `<name>/SKILL.md` (frontmatter + markdown) with optional `.md` reference files. Four roots are searched, first match wins: `<project>/.monomind/org-skills/`, `~/.monomind/org-skills/`, then the <!-- doc-count:org-skills -->560<!-- /doc-count:org-skills --> curated skills shipped in `@monoes/monomindcli` (`org-skills/`, provenance in `org-skills/SOURCES.md`), then active catalog skills. How to write one (frontmatter, tags from `org-skills/TAGS.md`) and the `org skills` commands are on [Agents & Skills](./agents-and-skills.md#4-adding-an-org-skill).
+A skill is a directory `<name>/SKILL.md` (frontmatter + markdown) with optional `.md` reference files. Four roots are searched, first match wins: `<project>/.monomind/org-skills/`, `~/.monomind/org-skills/`, then the <!-- doc-count:org-skills -->560<!-- /doc-count:org-skills --> curated skills shipped in `@monoes/monomindcli` (`org-skills/`, provenance in `org-skills/SOURCES.md`), then active catalog skills (an active catalog skill approved with `replacesLegacy` comes before the three roots instead). How to write one (frontmatter, tags from `org-skills/TAGS.md`) and the `org skills` commands are on [Agents & Skills](./agents-and-skills.md#4-adding-an-org-skill).
 
 - **`skills`** are pinned into the role's system prompt and never change mid-run, so the prompt stays a stable cache prefix.
 - **`skill_pool`** skills appear only as one-line descriptions; the role loads the full text (or one of its reference files) with `org_skill_load`, which serves only that role's own skills.
@@ -872,12 +875,12 @@ single-writer document policy, lead rights and loop/rework rounds. Sections cann
 other directly: **docs are the only cross-section channel** (one cross-section predicate; a role
 in no section is never treated as a cross-section case).
 
-**Isolation registry** (`orgrt/runtime-isolation.ts`): every runtime kind has one strategy —
+**Isolation registry** (`orgrt/documents/runtime-isolation.ts`): every runtime kind has one strategy —
 `mask-bind`, `in-process`, `config-env`, `private-home` or `refused` — with its credential files,
-native directories, probe state and verification status. `codex`, `pi`, `antigravity`, `opencode`
-and `crush` run with a private, masked home (`CODEX_HOME`, `PI_CODING_AGENT_HOME`, etc.); `claude`
-runs in-process with a per-role private copy of its native transcripts (the copy-inventory entry
-below). `kilo` is `refused` in a sections org and reports why:
+native directories, probe state and verification status. `codex` and `pi`
+get a private config directory through their own variable (`CODEX_HOME`, `PI_CODING_AGENT_DIR`);
+`antigravity`, `opencode` and `crush` run with a private home; `claude` is `mask-bind`, with a
+per-role private directory bound over its native directories (the copy-inventory entry below). `kilo` is `refused` in a sections org and reports why:
 
 | Runtime | Sections support | Reason |
 |---|---|---|
@@ -935,7 +938,7 @@ auto-restart during a scheduled run no longer leaves the restarted run outside t
 
 ### OrgBus (`bus.ts`)
 
-- Append-only JSONL event log at `<org>/bus.jsonl` + in-process fan-out.
+- Append-only JSONL event log at `<org>/<run>/bus.jsonl` + in-process fan-out.
 - `emit()` queues disk writes serially (never blocks callers), fans out synchronously.
 - `flush()` awaits all pending disk writes.
 - 13 event types: `message | xorg | tool | tool_result | asset | chat | status | audit | usage | question | gate | trace | tool_activity`
@@ -964,8 +967,8 @@ loop at [`session-run.ts → runOneSession`](packages/@monomind/cli/src/orgrt/se
   (error/traceback → `error`; waiting on approval/gate/human input → `blocked`;
   calling/running a tool → `tool-call`; completed/finished/done → `completed`; otherwise
   `working`).
-- `checkIdle()` — separately flags `working`/`tool-call` as stale back to `idle` after 30s
-  (`idleThresholdMs`) of no activity.
+- `checkIdle()` — flags `working`/`tool-call` as stale back to `idle` after 30s
+  (`idleThresholdMs`) of no activity. Nothing calls it yet, so in a running org that flip does not happen.
 - Every state transition emits a `status` BusEvent with `reason: 'state-change'` and
   `data: { from, to }`.
 
@@ -1006,7 +1009,7 @@ Cross-process org registry using the filesystem:
 
 ### Fence Protocol (`tool-fence.ts`)
 
-Used by OpenCode and KimiCode runners to deliver org tools through the LLM text stream:
+Used by the non-Claude CLI runners (OpenCode, KimiCode, Codex, Antigravity, Grok, Qwen, Crush, Copilot, pi, Cline, Aider, Hermes, dsh and others) to deliver org tools through the LLM text stream:
 
 - `TOOL_CALL_RE = /\`\`\`tool_call\s*\n([\s\S]*?)\`\`\`/g`
 - `MAX_TOOL_ROUNDS = 10`: the default tool-call round cap per mailbox message. `run_config.max_tool_rounds`, or a role's own `max_tool_rounds`, changes it for a role. When a round reaches the cap, its calls don't run. Each gets a tool result saying the round cap was reached, so the role knows why. It then gets one wrap-up round whose calls do run, to report its progress and ask to be continued (e.g. `org_send` to whoever gave it the work). Calls after the wrap-up round are dropped with a `[monomind] tool-call round cap … dropping` note on the bus ([`tool-fence.ts → runToolRound`](packages/@monomind/cli/src/orgrt/tool-fence.ts#runToolRound)).
@@ -1017,8 +1020,8 @@ Used by OpenCode and KimiCode runners to deliver org tools through the LLM text 
 
 Resume state persistence:
 
-- `OrgCheckpoint` includes: `status`, `run`, `pid`, `updated`, `roleState`, `pendingRoles`,
-  `abandonedRoles`, `checksum`.
+- `OrgCheckpoint` includes: `version`, `status`, `run`, `pid`, `updated`, `roleState`, `pendingRoles`,
+  `tasks` (the task DAG snapshot), `checksum`. `abandonedRoles` is kept beside it in `runtime.json`.
 - `RoleCheckpoint` includes: `mailboxQueue`, `mailboxClosed`, `tokensUsed`, `costUsd`,
   `lastMessageId`, `sessionId`, `status`, `error`, `scrollback?: string[]` (last N lines of
   terminal output, [`checkpoint.ts → RoleCheckpoint`](packages/@monomind/cli/src/orgrt/checkpoint.ts#RoleCheckpoint) — backed by the bounded ring-buffer `ScrollbackBuffer`
@@ -1059,6 +1062,7 @@ Constructs system prompt containing:
 | `knowledge_search` | All roles (if enabled) | Semantic search over Second Brain |
 | `org_gate` | All roles | Create a decision gate — a hard-blocking human-approval checkpoint for irreversible actions ([`org-tools.ts → buildOrgTools`](packages/@monomind/cli/src/orgrt/org-tools.ts#buildOrgTools)) |
 | `org_task` / `org_task_done` / `org_tasks` | All roles | Create, complete, and list tasks in a dependency DAG — deps must already exist, ready tasks auto-dispatch to their assignee ([`org-tools.ts → buildOrgTools`](packages/@monomind/cli/src/orgrt/org-tools.ts#buildOrgTools), backed by the `TaskDag` class, [`task-dag.ts → TaskDag`](packages/@monomind/cli/src/orgrt/task-dag.ts#TaskDag)). `assignee: "auto"` resolves to a live role instead of a fixed id (Jev-or-keyword, see below). `org_task_done` refuses (tool error, task left as-is) when any of the task's own deps are not yet `done`/`cancelled` — completing early used to promote dependents before their prerequisite work existed (#246) — and when the task has already reached a terminal status, naming the caller's own open tasks instead (#319, see below). `org_tasks` takes an optional `taskId` and then returns only that task's row — status, result and latest evidence — instead of the whole DAG, which on a long run is large enough to be spilled to a file ([`decisions.ts → dagListTasks`](packages/@monomind/cli/src/orgrt/decisions.ts#dagListTasks)). |
+| `org_task_split` / `org_task_merge` / `org_task_cancel` / `org_task_block` / `org_plan_graph` | All roles | Split a task into parallel children, merge one task into another, cancel a task, hold a task until a time, or propose a whole work graph in one call ([`org-tools.ts → buildOrgTools`](packages/@monomind/cli/src/orgrt/org-tools.ts#buildOrgTools)) |
 | `org_skill_load` | Roles with `skills`/`skill_pool` | Load the full text of one of the role's own skills, or one of its reference files (§6.6) |
 | `org_skill_search` | Roles with `skills`/`skill_pool` | Search the whole skill library by name and description; loading stays limited to the role's own skills (§6.6) |
 | `org_complete` | Boss only | Signal that the org's goal is achieved |
@@ -1094,7 +1098,7 @@ model session is keyed per task, so a dispatch resumes that task's session
 picks the role with [`task-match.ts → pickTaskRole`](packages/@monomind/cli/src/orgrt/task-match.ts#pickTaskRole)
 from the task's title and the first 600 characters of its brief. Candidates are the agent roles
 other than the caller — an endpoint role or the role creating the task is never picked. The Jev
-decision model decides when configured (`MONOMIND_JEV_URL` / `TYPESAFE_API_KEY`, see
+decision model decides when configured (`MONOMIND_JEV_URL`, or `TYPESAFE_API_KEY` with `MONOMIND_JEV_HOSTED=1`, see
 [Routing](./routing.md)) and its answer clears the confidence floor; otherwise (Jev unset, a failed
 call, low confidence) a deterministic keyword match over each role's id, title and
 responsibilities does. It drops stopwords, weighs each word by how few candidates mention it (a
@@ -1159,8 +1163,10 @@ every `run_config.block_recheck_minutes` (default 5), or the block's own `rechec
 assignee gets `[task:<id>] still blocked (reason: …; until …) — re-check now …` and a
 `task-block-recheck` status event is emitted. The role closes the task (`org_task_done` works on a
 blocked task), re-blocks it, or reports. Re-checks repeat until the deadline or the close. The next
-re-check time (`recheckAt`) and the interval are on the task row, so they ride the checkpoint: after
-a resume, a re-check that fell due while the daemon was down fires on the first tick. A block
+re-check time (`recheckAt`) and the interval are on the task row, so they ride the checkpoint (as of its last write, see §4.5): after
+a resume, a re-check that fell due while the daemon was down fires on the first tick. A new run,
+scheduled ticks included, starts with an empty task DAG, so a blocked task does not carry into it;
+only the previous run's outcome summary does. A block
 restored from a checkpoint written before this existed is scheduled on the first tick. Roles should
 run waits in the foreground rather than block on a command they started.
 
@@ -1396,7 +1402,7 @@ coordinator gets one message (`channel-fault-exhausted`).
 
 #### The idea
 
-Every business function needs a team. Define the org once as a JSON file — goal, roles, who reports to whom, per-role tool/file/budget policy — then run it as a real background daemon backed by the Claude Agent SDK. It persists across sessions, streams live into the dashboard (`monomind org run` starts it unless `MONOMIND_DASHBOARD_AUTOSTART=0`), and can discover and message other Monomind orgs running on the same machine. The operator signs each definition before it runs, so editing an org file never grants a role new authority on its own.
+Every business function needs a team. Define the org once as a JSON file — goal, roles, who reports to whom, per-role tool/file/budget policy — then run it as a real background daemon backed by the Claude Agent SDK. It persists across sessions, streams live into the dashboard (`monomind org run` starts it; `MONOMIND_DASHBOARD_AUTOSTART=0` skips that start step, but the event forwarder still starts a dashboard when none is live unless `MONOMIND_CONTROL_NO_SPAWN=1`), and can discover and message other Monomind orgs running on the same machine. The operator signs each definition before it runs, so editing an org file never grants a role new authority on its own.
 
 ```mermaid
 flowchart TD
@@ -1465,7 +1471,7 @@ Orgs carry context between runs: the coordinator records every run's outcome (`o
 |---|---|
 | **OrgDaemon** | Hosts one or more orgs in a single process; real Claude Agent SDK sessions per role, not simulated |
 | **PolicyEngine** | Per-role gates on tool access, file read/write scope, web access, token budget — enforced, with a full audit trail. Opt-in sandbox settings add `denyRead`, `denyExec` and `homeWriteAllow` for a role's whole process tree |
-| **Dashboard** | `org run` forwards every event to the control server on `:4242` (found via `.monomind/control.json`). Start it by hand with `monomind ui`; the session-start hook starts it only if you ran `monomind init --dashboard` or set `MONOMIND_DASHBOARD_AUTOSTART=1`. The dashboard needs a login: `monomind dashboard open` prints a one-time link. There's no separate per-org dashboard process |
+| **Dashboard** | `org run` forwards every event to the control server on `:4242` (found via `.monomind/control.json`), and starts one when none is live. Start it by hand with `monomind ui`; the session-start hook starts it only if you ran `monomind init --dashboard` or set `MONOMIND_DASHBOARD_AUTOSTART=1`. The dashboard needs a login: `monomind dashboard open` prints a one-time link. There's no separate per-org dashboard process |
 | **Cross-process comms** | `--cross-process` (default on) lets orgs on different `monomind` processes/projects discover and message each other |
 | **Scheduling** | `monomind org serve` hosts orgs whose definition has a `schedule` field, running them on interval |
 

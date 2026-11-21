@@ -45,7 +45,7 @@ export function generatePostCommitHook(pin?: string): string {
   const npx = monomindNpxArgs(pin).join(' ');
   return `#!/bin/bash
 # Monomind Post-Commit Hook
-# Records commit metrics and trains patterns
+# Sends a commit notification (hooks notify)
 
 COMMIT_HASH=$(git rev-parse HEAD)
 COMMIT_MSG=$(git log -1 --pretty=%B)

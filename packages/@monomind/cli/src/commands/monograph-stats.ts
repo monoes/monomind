@@ -145,7 +145,7 @@ export async function printStats(root: string, topN = 10, detailed = false): Pro
 
     output.writeln();
     output.writeln(
-      output.dim(`  CO_OCCURS edges: ${coOccurCount}   Inferred (LLM) edges: ${llmCount}`),
+      output.dim(`  CO_OCCURS edges: ${coOccurCount}   Inferred (heuristic) edges: ${llmCount}`),
     );
     output.writeln(output.dim(`  Database: ${getDbPath(root)}`));
   } finally {

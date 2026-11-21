@@ -197,54 +197,6 @@ export async function handleRoutesDocs(req, res, url, corsOrigin, ctx) {
     return true;
   }
 
-  // ------------------------------------------------------- GET /api/palace
-  if (req.method === 'GET' && url === '/api/palace') {
-    try {
-      const qs = new URL(req.url, 'http://localhost').searchParams;
-      const dir = qs.get('dir') || projectDir || process.cwd();
-      const d = path.resolve(dir || process.cwd());
-      const palaceDir = path.join(d, '.monomind', 'palace');
-
-      let drawers = [];
-      try {
-        const raw = fs.readFileSync(path.join(palaceDir, 'drawers.jsonl'), 'utf8');
-        drawers = raw
-          .split('\n')
-          .filter(Boolean)
-          .map((l) => {
-            try {
-              return JSON.parse(l);
-            } catch {
-              return null;
-            }
-          })
-          .filter(Boolean);
-      } catch {}
-
-      let identity = null;
-      try {
-        identity = fs.readFileSync(path.join(palaceDir, 'identity.md'), 'utf8');
-      } catch {}
-
-      let kg = [];
-      try {
-        const raw = fs.readFileSync(path.join(palaceDir, 'kg.json'), 'utf8');
-        kg = JSON.parse(raw);
-      } catch {}
-
-      res.writeHead(200, {
-        'Content-Type': 'application/json',
-        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
-        'Cache-Control': 'no-cache',
-      });
-      res.end(JSON.stringify({ drawers, identity, kg }));
-    } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
-
   // ------------------------------------------------------- GET /api/adrs
   if (req.method === 'GET' && url.startsWith('/api/adrs')) {
     try {

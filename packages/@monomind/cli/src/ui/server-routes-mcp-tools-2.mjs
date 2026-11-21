@@ -95,55 +95,6 @@ async function handleMcpToolsPart2(mcpCtx) {
     } catch {
       ok('Author analytics requires git. Ensure this directory is a git repository.');
     }
-  } else if (tool === 'monograph_reachability') {
-    // Files with no inbound edges (nothing imports them)
-    const allNodes = db2
-      .prepare(`SELECT id, name, file_path FROM nodes WHERE label IN ('File','Module') LIMIT 5000`)
-      .all();
-    const inboundSet = new Set(
-      db2
-        .prepare(`SELECT DISTINCT target_id FROM edges`)
-        .all()
-        .map((r) => r.target_id),
-    );
-    const unreachable = allNodes.filter((n) => !inboundSet.has(n.id)).slice(0, 40);
-    const outdeg = db2.prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`);
-    const degMap = {};
-    for (const r of outdeg.all()) degMap[r.source_id] = r.c;
-    if (!unreachable.length) {
-      ok('All files have at least one inbound reference.');
-    } else
-      ok(
-        `Unreachable Files (${unreachable.length} of ${allNodes.length} total):\n${'─'.repeat(50)}\n${unreachable
-          .slice(0, 30)
-          .map(
-            (n) =>
-              `  ${n.name || n.id.split('/').pop()} (imports ${degMap[n.id] || 0} others)\n    ${n.file_path || ''}`,
-          )
-          .join('\n\n')}`,
-      );
-  } else if (tool === 'monograph_vital_signs_snapshot') {
-    // Same as health_score — kept for backward compatibility
-    const n = db2.prepare('SELECT COUNT(*) as c FROM nodes').get().c;
-    const e = db2.prepare('SELECT COUNT(*) as c FROM edges').get().c;
-    const dead = db2
-      .prepare(
-        `SELECT COUNT(*) as c FROM nodes n WHERE NOT EXISTS (SELECT 1 FROM edges WHERE source_id=n.id OR target_id=n.id)`,
-      )
-      .get().c;
-    const hubs = db2
-      .prepare(
-        `SELECT COUNT(*) as c FROM (SELECT source_id FROM edges GROUP BY source_id HAVING COUNT(*)>20)`,
-      )
-      .get().c;
-    const density = n > 1 ? (e / (n * (n - 1))).toFixed(6) : '0';
-    const score = Math.max(
-      0,
-      Math.min(100, Math.round(100 - (dead / Math.max(n, 1)) * 30 - (hubs / Math.max(n, 1)) * 500)),
-    );
-    ok(
-      `Vital Signs — ${new Date().toISOString()}\n${'─'.repeat(50)}\n  Health Score:  ${score}/100  ${score >= 80 ? '✓ OK' : score >= 60 ? '⚠ Warning' : '✗ Critical'}\n  Nodes:         ${n}\n  Edges:         ${e}\n  Density:       ${density}\n  Dead symbols:  ${dead} (${((dead / Math.max(n, 1)) * 100).toFixed(1)}%)\n  Hub nodes:     ${hubs} nodes with >20 edges`,
-    );
   } else if (tool === 'monograph_circular_deps') {
     // Find import cycles using iterative DFS
     const limit = Math.min(parseInt(input.limit || '10', 10) || 10, 20);

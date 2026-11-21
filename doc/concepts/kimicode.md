@@ -30,12 +30,12 @@ For slash commands and security gates, install the generated plugin once:
 | Capability | How it shows up in Kimi Code |
 |---|---|
 | **MCP server + tools** (Monograph graph, memory) | `.kimi-code/mcp.json` → `mcpServers.monomind`. Tools as `mcp__monomind__*` (`monograph_query`, `memory_kg_search`, …). Merged into an existing mcp.json — your other servers are never clobbered, even with `--force`. |
-| **Agents** | `.kimi-code/agents/*.md` — your agent roster (coder, reviewer, planner, …) as kimi sub-agents. Names are slugified to kebab-case, which kimi hard-requires. |
+| **Agents** | `.kimi-code/agents/*.md` — your agent roster (coder, reviewer, planner, …) as kimi sub-agents. Names are slugified to kebab-case, which kimi hard-requires. Converted from the `.claude/agents` the same run writes, so present only when Claude Code is initialized too. |
 | **Skills** | `.kimi-code/skills/*/SKILL.md` — same SKILL.md shape Claude Code uses. |
-| **Commands** | Two forms: (a) `.kimi-code/skills/<cat>-<name>/` as `type: flow` skills — invocable project-level via `/skill:<cat>-<name>` with zero install; (b) `.kimi-code/plugin/commands/*.md` — real `/monomind:*` slash commands once the plugin is installed. |
-| **Security gates** | `.kimi-code/plugin/hooks/monomind-gate.mjs` — a bridge that runs monomind's existing pre-bash / pre-write gate handlers (destructive-op blocking, secret detection) through kimi's `PreToolUse` hook event. Active while the plugin is enabled; disabling the plugin disables enforcement. |
+| **Commands** | Two forms: (a) `.kimi-code/skills/<cat>-<name>/` as `type: flow` skills — invocable project-level via `/skill:<cat>-<name>` with zero install; (b) `.kimi-code/plugin/commands/*.md` — real `/monomind:*` slash commands once the plugin is installed. Both are converted from the `.claude/commands` the same run writes, so they are present only when Claude Code is initialized too. |
+| **Security gates** | `.kimi-code/plugin/hooks/monomind-gate.mjs` — a bridge that runs monomind's existing pre-bash / pre-write gate handlers (destructive-op blocking, secret detection) through kimi's `PreToolUse` hook event. Active while the plugin is enabled; disabling the plugin disables enforcement. The gate handlers are `.claude/helpers/` scripts, which `init` writes when Claude Code is initialized in the same run. |
 | **Instructions** | `AGENTS.md` (kimi's `CLAUDE.md` equivalent) + the shared `.agents/shared_instructions.md`, both auto-loaded. Kimi's text is its own managed block (`<!-- monomind-block:agents-md:kimi -->`) beside the codex and opencode blocks when those targets are selected too, always in the same order; an existing AGENTS.md is only changed under `--force`, and then only inside monomind's blocks. |
-| **Status bar** | `~/.kimi-code/statusline.sh` + `[status_line].command` merged into `~/.kimi-code/tui.toml` (only when `~/.kimi-code/` already exists, i.e. you actually run kimi; your own `command` setting is never clobbered). Shows the monomind statusline under the chatbox — version, routing, git, swarm state — driven by the project's `.claude/helpers/statusline.cjs`. |
+| **Status bar** | Not written. Kimi's status line is user-scoped (`~/.kimi-code/tui.toml`), and `init` does not touch it, even when `~/.kimi-code/` exists. |
 
 ---
 
@@ -50,7 +50,7 @@ Two commands can also collide with each other: flow-skill names and plugin-comma
 ## Requirements
 
 - **Kimi Code CLI** 0.29+ (`kimi --version`), logged in (`/login`).
-- **Node 22+**. The memory backend uses `better-sqlite3` v12, which ships prebuilt bindings for Node 22, 24, and 26 on darwin/linux/win (x64 + arm64). Older monomind installs pinned Node 22 because better-sqlite3 v11 could not build on Node 26 — that constraint is gone as of `@monoes/memory@1.0.14`.
+- **Node 22.22+**. The memory backend uses `better-sqlite3` v12, which ships prebuilt bindings for Node 22, 24, and 26 on darwin/linux/win (x64 + arm64). Older monomind installs pinned Node 22 because better-sqlite3 v11 could not build on Node 26 — that constraint is gone as of `@monoes/memory@1.0.14`.
 - **Org runtime only:** the runner sets `KIMI_CODE_EXPERIMENTAL_FLAG=1` itself (kimi's `--agent-file` requires the v2 engine). You don't need to set it for `monomind org run`, but you do for your own `kimi --agent-file` usage.
 
 ---
@@ -63,7 +63,7 @@ Two commands can also collide with each other: flow-skill names and plugin-comma
 MONOMIND_RUNTIME=kimicode monomind org run <name> --task "..."
 ```
 
-> **How it works:** kimi has no embeddable SDK, so the runner drives the `kimi` CLI as a subprocess (`kimi -p … --output-format stream-json`), one invocation per turn, resuming the same session with `--session <id>`. Stdout is parsed **incrementally, line by line** — assistant text and tool-progress events stream to the session layer while the turn is still running (a liveness message is yielded at spawn), so multi-minute turns never trip the 4-minute silent-session watchdog. Org tools (`org_send`, `knowledge_search`, …) travel over a **fence protocol**: the tools are rendered into the role's system prompt, the model emits ` ```tool_call ` JSON blocks, the runner executes the real handlers in-process and feeds results back into the same session. Token usage is read from the session's `wire.jsonl` (`usage.record` entries) since kimi's stream-json reports none. The Claude path is the default and is unchanged.
+> **How it works:** kimi has no embeddable SDK, so the runner drives the `kimi` CLI as a subprocess (`kimi --print --output-format stream-json`, prompt on stdin), one invocation per turn, resuming the same session with `--session <id>`. Stdout is parsed **incrementally, line by line** — assistant text and tool-progress events stream to the session layer while the turn is still running (a liveness message is yielded at spawn), so multi-minute turns never trip the 4-minute silent-session watchdog. Org tools (`org_send`, `knowledge_search`, …) travel over a **fence protocol**: the tools are rendered into the role's system prompt, the model emits ` ```tool_call ` JSON blocks, the runner executes the real handlers in-process and feeds results back into the same session. Token usage is read from the session's `wire.jsonl` (`usage.record` entries) since kimi's stream-json reports none. The Claude path is the default and is unchanged.
 
 ---
 
@@ -72,8 +72,8 @@ MONOMIND_RUNTIME=kimicode monomind org run <name> --task "..."
 Kimi Code artifacts are additive and isolated from the other platform configs:
 
 - `monomind init` emits Kimi Code when Kimi Code is detected; use `--target kimicode` when only Kimi Code should be initialized.
-- Kimi reads `.kimi-code/` and `AGENTS.md`; Claude Code reads `.claude/`; Antigravity reads `.gemini/`; opencode reads `opencode.json` + `.opencode/`. They never touch each other's files.
+- Kimi reads `.kimi-code/` and `AGENTS.md`; Claude Code reads `.claude/`; Antigravity reads `.gemini/`; opencode reads `opencode.json` + `.opencode/`. Each target also gets `.claude/skills/`, which the `.kimi-code/skills` copies are converted from, and the gate bridge runs `.claude/helpers/` scripts.
 - The gate bridge only **spawns** monomind's existing `.claude/helpers/hook-handler.cjs` unchanged — it never edits it, so Claude Code's own hook path is unaffected. When the handler is absent, the bridge fails open (allows), matching both platforms' "hook errors never block" policy.
-- The org runner is only constructed when `MONOMIND_RUNTIME=kimicode` is set; there is no new package dependency (it shells out to the `kimi` binary).
+- The org runner is only constructed for a role that resolves to the `kimicode` runtime (`"runtime": "kimicode"` on the role or org, or `MONOMIND_RUNTIME=kimicode`); there is no new package dependency (it shells out to the `kimi` binary).
 
 The internal architecture, isolation guarantees, and `AgentRunner` seam follow the same pattern as the other adapters in this family.
