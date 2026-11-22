@@ -6,6 +6,7 @@ import {
   redactRoleConfig,
   validateRespawnInput,
 } from '../../src/orgrt/role-slot.js';
+import { BASE_SPECS } from '../../src/orgrt/runner-specs.js';
 import { OrgDefSchema } from '../../src/orgrt/types.js';
 
 function role(overrides: Record<string, unknown> = {}) {
@@ -130,6 +131,12 @@ describe('validateRespawnInput', () => {
   it('rejects an unknown runtime value', () => {
     const result = validateRespawnInput({ ...valid, runtime: 'not-a-real-runtime' });
     expect(result.ok).toBe(false);
+  });
+
+  it('accepts every runtime the runner specs define, kilo included', () => {
+    for (const runtime of BASE_SPECS.map((s) => s.id)) {
+      expect(validateRespawnInput({ ...valid, runtime }).ok, runtime).toBe(true);
+    }
   });
 
   it('accepts a known runtime value', () => {
