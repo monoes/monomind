@@ -13,6 +13,10 @@
  * own fixture. A runtime without a copy-inventory entry, or whose entry is
  * `refused`, is refused the same way; one whose entry is `unverified` runs with
  * a warning (runtime-isolation.ts).
+ *
+ * #768: `run_config.host_isolation: "best-effort"` is the operator's opt-in for a
+ * host that cannot provide the mask or the sandbox. The mask and sandbox gaps
+ * become warnings, as in eval mode; copy-inventory refusals stay refusals.
  */
 import { authorityMaskAvailability } from '../authority-mask.js';
 import { sandboxAvailability } from '../role-sandbox-restrictions.js';
@@ -100,17 +104,33 @@ export function hostPreflight(
         `on macOS the Seatbelt mask cannot give each role a private native runner copy directory for the ${unbound.join(', ')} runtime (it has no bind mounts and the CLI cannot be pointed at another directory), so those transcripts are shared between its roles`,
       ]
     : [];
+  const bestEffort =
+    (def.run_config as { host_isolation?: string } | undefined)?.host_isolation === 'best-effort';
   const inventory = copyInventoryFindings(def);
-  const refusals = evalMode ? [] : [...gaps, ...inventory.errors];
+  const strictGaps = evalMode || bestEffort ? [] : gaps;
+  const refusals = evalMode
+    ? []
+    : [...strictGaps, ...inventory.errors, ...(strictGaps.length ? [OPT_IN_HINT] : [])];
+  const hostWarnings = evalMode
+    ? gaps
+    : bestEffort
+      ? gaps.map((g) => `run_config.host_isolation is "best-effort": ${g}`)
+      : [];
   return {
     ok: refusals.length === 0,
     refusals,
-    warnings: [...(evalMode ? gaps : []), ...macNote, ...inventory.warnings],
+    warnings: [...hostWarnings, ...macNote, ...inventory.warnings],
   };
 }
 
-/** Throws when `hostPreflight` refuses; `what` names the action ("start", "replace role x"). */
-export function assertHostPreflight(def: OrgDef, org: string, what: string): void {
+/** The last line of a refusal that includes a host gap: the opt-in that lets it start. */
+const OPT_IN_HINT =
+  'if this host cannot provide them, set run_config.host_isolation to "best-effort" in the org definition (and sign it again) to start with these protected by file-tool rules alone';
+
+/** Throws when `hostPreflight` refuses; `what` names the action ("start", "replace role x").
+ *  Returns the warnings of a start it lets through. */
+export function assertHostPreflight(def: OrgDef, org: string, what: string): string[] {
   const r = hostPreflight(def);
   if (!r.ok) throw new Error(`org "${org}" cannot ${what} on this host: ${r.refusals.join('; ')}`);
+  return r.warnings;
 }

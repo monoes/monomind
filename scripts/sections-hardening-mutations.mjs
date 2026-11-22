@@ -114,7 +114,7 @@ export const MUTATIONS = [
     row: 'R6',
     name: 'an unprotected host is never refused',
     file: 'documents/preflight.ts',
-    find: 'const refusals = evalMode ? [] : [...gaps, ...inventory.errors];',
-    replace: 'const refusals: string[] = [];',
+    find: 'const strictGaps = evalMode || bestEffort ? [] : gaps;',
+    replace: 'const strictGaps: string[] = [];',
   },
 ];

@@ -905,7 +905,11 @@ refused in a non-eval sections org. `agent scan` and `doctor -c agent-runtimes` 
 - **R5 — per-role private native copies:** each role gets its own copy of runtime-native state
   (e.g. Claude's transcripts) instead of sharing one.
 - **R6 — host preflight:** authority mask, SDK sandbox and copy-inventory checks run on every
-  start, resume and role replacement.
+  start, resume and role replacement. A host without the mask or the sandbox is refused, unless the
+  definition sets `run_config.host_isolation: "best-effort"`: then those gaps are warnings and mail
+  digests, the envelope key and native runner copies are protected by file-tool rules alone. Use
+  it where the mask cannot run (native Windows, a macOS shell already inside a sandbox); it is shown
+  in the `org sign` review. Runtimes the copy inventory refuses stay refused (#768).
 - **R7 — adversarial probe suite:** a mutation check exercises the above under fault injection.
 
 **Scheduled sections orgs:** `org validate` no longer refuses `schedule` for a sections org (an
