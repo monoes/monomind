@@ -65,7 +65,7 @@
   },
   "dependencies": {
     "commander": "^15.1.0",
-    "ws": "^8.22.2"
+    "ws": "^8.23.0"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
