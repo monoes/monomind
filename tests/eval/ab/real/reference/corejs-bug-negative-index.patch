@@ -1,0 +1,10 @@
+diff -ruN a/packages/core-js/internals/to-absolute-index.js b/packages/core-js/internals/to-absolute-index.js
+--- a/packages/core-js/internals/to-absolute-index.js	2026-11-22 18:12:44.640221197 +0100
++++ b/packages/core-js/internals/to-absolute-index.js	2026-11-22 18:12:44.697503812 +0100
+@@ -9,5 +9,5 @@
+ // If integer < 0, let result be max((length + integer), 0); else let result be min(integer, length).
+ module.exports = function (index, length) {
+   var integer = toIntegerOrInfinity(index);
+-  return integer < 0 ? max(integer + length, 1) : min(integer, length);
++  return integer < 0 ? max(integer + length, 0) : min(integer, length);
+ };

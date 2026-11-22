@@ -1,0 +1,14 @@
+{
+  "id": "lodash-rename-overargs",
+  "title": "lodash: rename overArgs to transformArgs across every build",
+  "tags": ["refactor", "rename", "callers-impact", "multi-file", "lodash"],
+  "fixture": "slice:lodash-4.17.21",
+  "prompt": "This is a copy of the lodash 4.17.21 npm distribution (the single-file build, the per-method modules, the category modules and the immutable `fp` variant, plain CommonJS). Rename the public method `_.overArgs` to `_.transformArgs` in every readable source file: the method itself, its per-method module file, the category module that lists it, the single-file build (definition, export list and the chain wrapper), the `fp` variant including the tables that map method names to arities and aliases, and every comment that names it. `fp.useWith` must keep working as an alias of the renamed method. The generated minified bundles are build output: leave them alone. The old name must not remain anywhere else, and behaviour must not change.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/lodash-rename-overargs",
+    "timeoutS": 60
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

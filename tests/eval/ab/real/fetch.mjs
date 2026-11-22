@@ -13,9 +13,10 @@
 //   node tests/eval/ab/real/fetch.mjs --update-hashes # (re)write treeSha256 into the manifest
 //   node tests/eval/ab/real/fetch.mjs --force         # refetch even if cached
 //
+// A source may carry `exclude: [suffix, ...]` (file-name suffixes dropped after extraction).
 // Cache dir: $MONOMIND_AB_CACHE or tests/eval/ab/.cache. Needs network and git only.
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +34,14 @@ if (only) for (const o of only) if (!manifest.slices[o]) throw new Error(`unknow
 
 const git = (cwd, ...a) => execFileSync('git', a, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
 
+function dropSuffixes(dir, suffixes) {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) dropSuffixes(p, suffixes);
+    else if (suffixes.some((s) => e.name.endsWith(s))) rmSync(p);
+  }
+}
+
 function fetchSource(src, dest) {
   if (!/^[0-9a-f]{40}$/.test(src.sha)) throw new Error(`${src.repo}: sha must be a full 40-hex commit`);
   const tmp = mkdtempSync(join(tmpdir(), 'mm-ab-fetch-'));
@@ -48,6 +57,9 @@ function fetchSource(src, dest) {
       maxBuffer: 1 << 28,
     });
     execFileSync('tar', ['-x', '-C', dest], { input: tar });
+    // Optional `exclude`: file-name suffixes (e.g. ".min.js") removed after extraction, so a slice can
+    // drop generated or minified copies that would only add noise.
+    if (src.exclude?.length) dropSuffixes(dest, src.exclude);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

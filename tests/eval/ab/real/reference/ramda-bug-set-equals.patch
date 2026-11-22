@@ -1,0 +1,12 @@
+diff -ruN a/source/internal/_includesWith.js b/source/internal/_includesWith.js
+--- a/source/internal/_includesWith.js	2026-11-22 18:10:21.874998808 +0100
++++ b/source/internal/_includesWith.js	2026-11-22 18:10:21.898430497 +0100
+@@ -2,7 +2,7 @@
+   var idx = 0;
+   var len = list.length;
+ 
+-  while (idx < len - 1) {
++  while (idx < len) {
+     if (pred(x, list[idx])) {
+       return true;
+     }

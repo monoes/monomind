@@ -1,0 +1,14 @@
+{
+  "id": "ramda-feature-map-set",
+  "title": "Ramda: make Map and Set work with clone, length and includes",
+  "tags": ["feature", "registry", "multi-file", "ramda"],
+  "fixture": "slice:ramda-0.31.3",
+  "prompt": "This is a copy of Ramda 0.31.3 (the ES-module sources under source/, with its internal helpers). Native Map and Set values are only half supported. Add the missing support: (1) `R.clone` must return a new, independent deep copy of a Map or Set (keys and values are cloned too, circular and shared references inside them are preserved, as it already does for plain objects and arrays); today it hands back the very same object. (2) `R.length` must return the `size` of a Map or Set instead of NaN; everything it handles today stays as it is. (3) `R.includes` must look through the members of a Set, or the values (not the keys) of a Map, using the same equality as for arrays. Arrays, strings and all other behaviour must not change.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/ramda-feature-map-set",
+    "timeoutS": 60
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

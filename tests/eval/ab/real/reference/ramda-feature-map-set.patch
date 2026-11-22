@@ -1,0 +1,67 @@
+diff -ruN a/source/internal/_clone.js b/source/internal/_clone.js
+--- a/source/internal/_clone.js	2026-11-22 18:11:20.915004804 +0100
++++ b/source/internal/_clone.js	2026-11-22 18:11:20.941220690 +0100
+@@ -41,6 +41,25 @@
+     case 'Object':  return copy(Object.create(Object.getPrototypeOf(value)));
+     case 'Array':   return copy(Array(value.length));
+     case 'Date':    return new Date(value.valueOf());
++    case 'Map':
++    case 'Set': {
++      var cachedCollection = map.get(value);
++      if (cachedCollection) {
++        return cachedCollection;
++      }
++      var isMap = type(value) === 'Map';
++      var collection = isMap ? new Map() : new Set();
++      map.set(value, collection);
++      value.forEach(function(item, key) {
++        var k = deep ? _clone(key, true, map) : key;
++        if (isMap) {
++          collection.set(k, deep ? _clone(item, true, map) : item);
++        } else {
++          collection.add(k);
++        }
++      });
++      return collection;
++    }
+     case 'RegExp':  return _cloneRegExp(value);
+     case 'Int8Array':
+     case 'Uint8Array':
+diff -ruN a/source/internal/_includes.js b/source/internal/_includes.js
+--- a/source/internal/_includes.js	2026-11-22 18:11:20.915301065 +0100
++++ b/source/internal/_includes.js	2026-11-22 18:11:20.941220690 +0100
+@@ -1,6 +1,12 @@
++import _arrayFromIterator from './_arrayFromIterator.js';
+ import _indexOf from './_indexOf.js';
++import type from '../type.js';
+ 
+ 
+ export default function _includes(a, list) {
++  var t = type(list);
++  if (t === 'Set' || t === 'Map') {
++    list = _arrayFromIterator(list.values());
++  }
+   return _indexOf(list, a, 0) >= 0;
+ }
+diff -ruN a/source/length.js b/source/length.js
+--- a/source/length.js	2026-11-22 18:11:20.916126089 +0100
++++ b/source/length.js	2026-11-22 18:11:20.941220690 +0100
+@@ -1,5 +1,6 @@
+ import _curry1 from './internal/_curry1.js';
+ import _isNumber from './internal/_isNumber.js';
++import type from './type.js';
+ 
+ 
+ /**
+@@ -18,6 +19,10 @@
+  *      R.length([1, 2, 3]); //=> 3
+  */
+ var length = _curry1(function length(list) {
+-  return list != null && _isNumber(list.length) ? list.length : NaN;
++  if (list != null && _isNumber(list.length)) {
++    return list.length;
++  }
++  var t = type(list);
++  return t === 'Map' || t === 'Set' ? list.size : NaN;
+ });
+ export default length;

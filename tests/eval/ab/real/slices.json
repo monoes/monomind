@@ -303,6 +303,153 @@
         }
       ],
       "treeSha256": "109fdf5b0ebb154306375869ae6455163cc399a8766b04a9ff07809d6f9f2ab5"
+    },
+    "lodash-4.17.21": {
+      "license": "MIT",
+      "sources": [
+        {
+          "repo": "lodash/lodash",
+          "sha": "c6e281b878b315c7a10d90f9c2af4cdb112d9625",
+          "paths": [
+            "."
+          ]
+        }
+      ],
+      "treeSha256": "6a04ee75c55b9b6b7f855161413c6c9cceb25a7b8d342e7ac4af583aab49ab47"
+    },
+    "ramda-0.31.3": {
+      "license": "MIT",
+      "sources": [
+        {
+          "repo": "ramda/ramda",
+          "sha": "7ee3d7a3b0f646a9d91c583c93734740fb4c8933",
+          "paths": [
+            "source",
+            "package.json",
+            "LICENSE.txt"
+          ]
+        }
+      ],
+      "files": {
+        "source/package.json": "{\"type\":\"module\"}\n"
+      },
+      "treeSha256": "131f41de9526c0c01a6b31360e606e2f656ddf3011062723c5c1eb76d5209922"
+    },
+    "core-js-3.50.0": {
+      "license": "MIT",
+      "sources": [
+        {
+          "repo": "zloirock/core-js",
+          "sha": "486e8d62611aa2f5f2321329b0c168135bf22861",
+          "paths": [
+            "packages/core-js",
+            "LICENSE"
+          ]
+        }
+      ],
+      "treeSha256": "b996dc287ef9e50c914a705ac7fd982ad83812edb9aa3083618afa8e2c01b7b1"
+    },
+    "prismjs-1.30.0": {
+      "license": "MIT",
+      "sources": [
+        {
+          "repo": "PrismJS/prism",
+          "sha": "76dde18a575831c91491895193f56081ac08b0c5",
+          "paths": [
+            "components",
+            "components.json",
+            "components.js",
+            "dependencies.js",
+            "prism.js",
+            "package.json",
+            "LICENSE"
+          ],
+          "exclude": [
+            ".min.js"
+          ]
+        }
+      ],
+      "treeSha256": "a5125a75053cc554304e6510b28a7e16ea0a36b7d5c860e3353a33b3b1d86801"
+    },
+    "prismjs-1.30.0-bug-extend": {
+      "license": "MIT",
+      "base": "prismjs-1.30.0",
+      "patches": [
+        {
+          "path": "prism.js",
+          "find": "var lang = _.util.clone(_.languages[id]);",
+          "replace": "var lang = _.languages[id];"
+        },
+        {
+          "path": "components/prism-core.js",
+          "find": "var lang = _.util.clone(_.languages[id]);",
+          "replace": "var lang = _.languages[id];"
+        }
+      ],
+      "treeSha256": "7970c066ea3688d4a925e701c932a04e4b319ae998972de37390ba06b5611bae"
+    },
+    "lodash-4.17.21-bug-sorted-last": {
+      "license": "MIT",
+      "base": "lodash-4.17.21",
+      "patches": [
+        {
+          "path": "_baseSortedIndex.js",
+          "find": "(retHighest ? (computed <= value) : (computed < value))",
+          "replace": "(computed < value)"
+        },
+        {
+          "path": "_baseSortedIndexBy.js",
+          "find": "setLow = retHighest ? (computed <= value) : (computed < value);",
+          "replace": "setLow = computed < value;"
+        },
+        {
+          "path": "lodash.js",
+          "find": "(retHighest ? (computed <= value) : (computed < value))) {",
+          "replace": "(computed < value)) {"
+        },
+        {
+          "path": "lodash.js",
+          "find": "setLow = retHighest ? (computed <= value) : (computed < value);",
+          "replace": "setLow = computed < value;"
+        }
+      ],
+      "treeSha256": "2c2f02e70f20c365057c9a7ecd8db74f230db3653a6a31b4127d508b097d641d"
+    },
+    "lodash-4.17.21-bug-fp-clone": {
+      "license": "MIT",
+      "base": "lodash-4.17.21",
+      "patches": [
+        {
+          "path": "fp/_baseConvert.js",
+          "find": "nested[key] = clone(index == lastIndex ? value : Object(value));",
+          "replace": "nested[key] = value;"
+        }
+      ],
+      "treeSha256": "d65c0fb0433c863da7c8c1611af72418070a049a287d042c8b9b26d7f76516e1"
+    },
+    "ramda-0.31.3-bug-includes-with": {
+      "license": "MIT",
+      "base": "ramda-0.31.3",
+      "patches": [
+        {
+          "path": "source/internal/_includesWith.js",
+          "find": "while (idx < len) {",
+          "replace": "while (idx < len - 1) {"
+        }
+      ],
+      "treeSha256": "cbf76a830c523ebf3aaf0893840fa54cca62bcb3e7165669490e596730b558af"
+    },
+    "core-js-3.50.0-bug-abs-index": {
+      "license": "MIT",
+      "base": "core-js-3.50.0",
+      "patches": [
+        {
+          "path": "packages/core-js/internals/to-absolute-index.js",
+          "find": "max(integer + length, 0)",
+          "replace": "max(integer + length, 1)"
+        }
+      ],
+      "treeSha256": "5f859e57591bf34f432eac80207eef40e6a3c8fe02bdf28ba7064d1856f8ae6b"
     }
   }
 }

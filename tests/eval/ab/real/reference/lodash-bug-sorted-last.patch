@@ -1,0 +1,45 @@
+diff -ruN a/_baseSortedIndexBy.js b/_baseSortedIndexBy.js
+--- a/_baseSortedIndexBy.js	2026-11-22 18:06:53.642189055 +0100
++++ b/_baseSortedIndexBy.js	2026-11-22 18:06:53.679692959 +0100
+@@ -53,7 +53,7 @@
+     } else if (othIsNull || othIsSymbol) {
+       setLow = false;
+     } else {
+-      setLow = computed < value;
++      setLow = retHighest ? (computed <= value) : (computed < value);
+     }
+     if (setLow) {
+       low = mid + 1;
+diff -ruN a/_baseSortedIndex.js b/_baseSortedIndex.js
+--- a/_baseSortedIndex.js	2026-11-22 18:06:53.642180135 +0100
++++ b/_baseSortedIndex.js	2026-11-22 18:06:53.679692959 +0100
+@@ -28,7 +28,7 @@
+           computed = array[mid];
+ 
+       if (computed !== null && !isSymbol(computed) &&
+-          (computed < value)) {
++          (retHighest ? (computed <= value) : (computed < value))) {
+         low = mid + 1;
+       } else {
+         high = mid;
+diff -ruN a/lodash.js b/lodash.js
+--- a/lodash.js	2026-11-22 18:06:53.649796476 +0100
++++ b/lodash.js	2026-11-22 18:06:53.684692857 +0100
+@@ -4163,7 +4163,7 @@
+               computed = array[mid];
+ 
+           if (computed !== null && !isSymbol(computed) &&
+-              (computed < value)) {
++              (retHighest ? (computed <= value) : (computed < value))) {
+             low = mid + 1;
+           } else {
+             high = mid;
+@@ -4219,7 +4219,7 @@
+         } else if (othIsNull || othIsSymbol) {
+           setLow = false;
+         } else {
+-          setLow = computed < value;
++          setLow = retHighest ? (computed <= value) : (computed < value);
+         }
+         if (setLow) {
+           low = mid + 1;

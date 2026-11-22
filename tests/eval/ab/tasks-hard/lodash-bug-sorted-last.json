@@ -1,0 +1,14 @@
+{
+  "id": "lodash-bug-sorted-last",
+  "title": "lodash: sorted insertion lookups return the wrong index for repeated values",
+  "tags": ["bug-localisation", "no-file-hint", "lodash"],
+  "fixture": "slice:lodash-4.17.21-bug-sorted-last",
+  "prompt": "This is a copy of the lodash 4.17.21 npm distribution (the single-file build and the per-method modules, plain CommonJS). There is a regression in the binary-search helpers: looking up where a value belongs in an already-sorted array goes wrong when the array holds several equal values. For example `_.sortedLastIndex([4, 5, 5, 5, 6], 5)` should be 4 but returns a smaller index, and the same happens for the by-iteratee variant and the lookup that returns the last matching index. Both the single-file build and the per-method modules (for instance loading the sortedLastIndex method on its own) are affected. Find the cause and fix it in every place where the logic is defined. Do not change the public methods themselves.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/lodash-bug-sorted-last",
+    "timeoutS": 60
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

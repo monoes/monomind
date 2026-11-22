@@ -1,0 +1,14 @@
+{
+  "id": "corejs-bug-negative-index",
+  "title": "core-js: negative start indexes that reach before the array start are off by one",
+  "tags": ["bug-localisation", "no-file-hint", "core-js"],
+  "fixture": "slice:core-js-3.50.0-bug-abs-index",
+  "prompt": "This is a copy of the core-js 3.50.0 package (the polyfill modules, their shared internal helpers and the entry points; plain CommonJS). There is a regression in the polyfill internals: whenever a relative index goes further back than the start of the array, it no longer clamps to the first element but to the second. For example the polyfilled Array indexOf/includes with a fromIndex of -10 on a 3-element array skip the first element, and the same off-by-one shows up in the other methods that accept negative start/end positions (fill, copyWithin, slice, splice, subarray). Find the shared cause and fix it at its source, not in each method.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/corejs-bug-negative-index",
+    "timeoutS": 60
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

@@ -1,0 +1,14 @@
+{
+  "id": "lodash-bug-fp-mutation",
+  "title": "lodash/fp: setting a nested path changes the original object",
+  "tags": ["bug-localisation", "no-file-hint", "lodash"],
+  "fixture": "slice:lodash-4.17.21-bug-fp-clone",
+  "prompt": "This is a copy of the lodash 4.17.21 npm distribution (the single-file build, the per-method modules and the immutable `fp` variant, plain CommonJS). The `fp` methods are supposed to be immutable, but there is a regression: calling a path-based one on a nested path, for example `fp.set('a.b.c', 9, obj)` or `fp.update('a.b.c', fn, obj)`, now changes the object that was passed in, not only the returned copy. Shallow paths still behave. Find the cause and fix it. The result must still share the untouched branches of the input with the copy, as before.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/lodash-bug-fp-mutation",
+    "timeoutS": 60
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

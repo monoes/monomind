@@ -28,6 +28,11 @@ const tasks = readdirSync(join(AB, 'tasks-real'))
   .sort()
   .map((f) => JSON.parse(readFileSync(join(AB, 'tasks-real', f), 'utf8')));
 
+const hardTasks = readdirSync(join(AB, 'tasks-hard'))
+  .filter((f) => f.endsWith('.json'))
+  .sort()
+  .map((f) => JSON.parse(readFileSync(join(AB, 'tasks-hard', f), 'utf8')));
+
 describe('real task set', () => {
   it('has exactly 30 uniquely named tasks in the shared task schema', () => {
     expect(tasks).toHaveLength(30);
@@ -88,8 +93,8 @@ describe('slices manifest', () => {
     }
   });
 
-  it('uses every slice in at least one task', () => {
-    const used = new Set(tasks.map((t) => sliceId(t.fixture)));
+  it('uses every slice in at least one task of either set', () => {
+    const used = new Set([...tasks, ...hardTasks].map((t) => sliceId(t.fixture)));
     const bases = new Set(Object.values(manifest.slices).map((s) => s.base));
     for (const id of Object.keys(manifest.slices)) expect(used.has(id) || bases.has(id), id).toBe(true);
   });
@@ -116,5 +121,83 @@ describe('slice helpers', () => {
     expect(treeHash(a)).toBe(treeHash(b));
     writeFileSync(join(b, 'y.js'), 'changed');
     expect(treeHash(a)).not.toBe(treeHash(b));
+  });
+});
+
+describe('hard task set (tasks-hard)', () => {
+  const arms = JSON.parse(readFileSync(join(AB, 'arms.json'), 'utf8')).arms as Record<
+    string,
+    { settings: string; setup: string[][]; assume: { inputTokens: number; outputTokens: number } }
+  >;
+
+  it('has 15 tasks with ids distinct from the real set, in the shared task schema', () => {
+    expect(hardTasks).toHaveLength(15);
+    expect(new Set([...hardTasks, ...tasks].map((t) => t.id)).size).toBe(45);
+    for (const t of hardTasks) {
+      expect(Object.keys(t).sort()).toEqual(
+        ['check', 'fixture', 'id', 'maxTurns', 'prompt', 'tags', 'timeoutS', 'title'].sort(),
+      );
+      expect(Array.isArray(t.check.command)).toBe(true);
+      expect(t.prompt.length).toBeGreaterThan(300);
+    }
+  });
+
+  it('mixes rename, feature, bug-localisation and callers-impact tasks', () => {
+    const count = (tag: string) => hardTasks.filter((t) => t.tags.includes(tag)).length;
+    expect(count('rename')).toBeGreaterThanOrEqual(4);
+    expect(count('feature')).toBeGreaterThanOrEqual(4);
+    expect(count('bug-localisation')).toBeGreaterThanOrEqual(4);
+    expect(count('callers-impact')).toBeGreaterThanOrEqual(4);
+  });
+
+  it('gives every task a slice, a hidden check and a reference patch, and never names files in the prompt', () => {
+    for (const t of hardTasks) {
+      const id = sliceId(t.fixture);
+      expect(manifest.slices[id], `${t.id}: slice ${id}`).toBeDefined();
+      expect(t.check.overlay, t.id).toBe(`real/hidden/${t.id}`);
+      expect(readdirSync(join(AB, t.check.overlay)), t.id).toContain('check.mjs');
+      expect(readdirSync(join(AB, 'real/reference')), t.id).toContain(`${t.id}.patch`);
+      expect(t.prompt, t.id).not.toMatch(/check\.mjs|hidden check|overlay/i);
+      // no file names: strip API names such as Prism.languages.mjs first
+      const prose = t.prompt.replace(/\b[A-Z]\w*(?:\.\w+)+/g, '');
+      expect(prose, t.id).not.toMatch(/[\w-]+\.(?:m?js|cjs|json|ts|patch)\b/);
+    }
+  });
+
+  it('draws on pinned slices of permissively licensed code from four code bases', () => {
+    const slices = new Set(hardTasks.map((t) => sliceId(t.fixture)));
+    for (const id of slices) {
+      const s = manifest.slices[id];
+      expect(s.license, id).toMatch(/^(MIT|ISC|BSD-[23]-Clause)$/);
+      expect(s.treeSha256, id).toMatch(/^[0-9a-f]{64}$/);
+    }
+    const repos = new Set([...slices].map((id) => id.replace(/-\d.*$/, '')));
+    expect([...repos].sort()).toEqual(['core-js', 'lodash', 'prismjs', 'ramda']);
+  });
+
+  it('keeps the slices large when they are fetched (hundreds of files)', () => {
+    for (const id of new Set(hardTasks.map((t) => sliceId(t.fixture)))) {
+      let dir: string;
+      try {
+        dir = fixtureDir(`slice:${id}`, AB);
+      } catch {
+        continue; // not fetched in this environment
+      }
+      const count = (d: string): number =>
+        readdirSync(d, { withFileTypes: true }).reduce(
+          (n, e) => n + (e.isDirectory() ? count(join(d, e.name)) : 1),
+          0,
+        );
+      expect(count(dir), id).toBeGreaterThanOrEqual(300);
+    }
+  });
+
+  it('adds a lean-graph arm that is lean plus a monograph build, next to the unchanged arms', () => {
+    expect(Object.keys(arms)).toEqual(['off', 'lean', 'lean-graph', 'full']);
+    expect(arms['lean-graph'].settings).toBe(arms.lean.settings);
+    expect(arms['lean-graph'].setup).toEqual([...arms.lean.setup, ['monograph', 'build']]);
+    expect(arms['lean-graph'].assume).toEqual(arms.lean.assume);
+    expect(arms.off.setup).toEqual([]);
+    expect(arms.full.setup).toEqual([['init', '--full', '--yes'], ['monograph', 'build']]);
   });
 });

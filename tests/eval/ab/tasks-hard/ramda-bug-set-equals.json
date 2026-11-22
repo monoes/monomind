@@ -1,0 +1,14 @@
+{
+  "id": "ramda-bug-set-equals",
+  "title": "Ramda: equal sets and maps compare unequal, and some list helpers miss matches",
+  "tags": ["bug-localisation", "no-file-hint", "ramda"],
+  "fixture": "slice:ramda-0.31.3-bug-includes-with",
+  "prompt": "This is a copy of Ramda 0.31.3 (the ES-module sources under source/, with its internal helpers). There is a regression: `R.equals` reports two Sets (or Maps) with the same contents as different when the matching member happens to be the last one it looks at, for example `R.equals(new Set([1, 2, 3]), new Set([3, 2, 1]))`, and Sets of objects, come out wrong. Related list helpers that take a custom equality predicate (uniqWith, differenceWith, innerJoin) also miss matches against the last element they compare with. Find the shared cause and fix it at its source, not in each public function.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/ramda-bug-set-equals",
+    "timeoutS": 60
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

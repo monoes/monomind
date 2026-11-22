@@ -1,0 +1,14 @@
+{
+  "id": "corejs-feature-math-lerp",
+  "title": "core-js: add Math.lerp as part of the math extensions proposal",
+  "tags": ["feature", "registry", "multi-file", "core-js"],
+  "fixture": "slice:core-js-3.50.0",
+  "prompt": "This is a copy of the core-js 3.50.0 package (the polyfill modules, their shared internal helpers and the entry points; plain CommonJS). Add the proposal-stage static method `Math.lerp(a, b, t)` (linear interpolation, a + (b - a) * t, arguments coerced to numbers, NaN if any of them is NaN) to the same proposal that already ships `Math.scale`, `Math.clamp`, `Math.degrees` and friends. Ship it exactly the way those neighbouring Math extensions are shipped: the implementation helper, the module that installs it (always installed, like the other Math extensions), its own standalone entry point exporting the function, the aggregate Math entry point of the full bundle, and the proposal entry that groups the math extensions. It must not leak into the `es` or `stable` entry points.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/corejs-feature-math-lerp",
+    "timeoutS": 120
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

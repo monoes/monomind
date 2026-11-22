@@ -1,0 +1,14 @@
+{
+  "id": "ramda-rename-converge",
+  "title": "Ramda: rename converge to fanIn",
+  "tags": ["refactor", "rename", "callers-impact", "multi-file", "ramda"],
+  "fixture": "slice:ramda-0.31.3",
+  "prompt": "This is a copy of Ramda 0.31.3 (the ES-module sources under source/, with its internal helpers). Rename the public function `R.converge` to `R.fanIn`: its module file, its export from the package entry, every other function that imports or calls it, and every comment, doc example and cross-reference that names it. The old name must not remain anywhere under source/. Behaviour, arity and currying must not change, and the functions built on top of it must keep working.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/ramda-rename-converge",
+    "timeoutS": 60
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

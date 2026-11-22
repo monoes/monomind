@@ -1,0 +1,59 @@
+diff -ruN a/packages/core-js/full/math/index.js b/packages/core-js/full/math/index.js
+--- a/packages/core-js/full/math/index.js	2026-11-22 18:13:58.680353079 +0100
++++ b/packages/core-js/full/math/index.js	2026-11-22 18:13:58.749985268 +0100
+@@ -5,6 +5,7 @@
+ require('../../modules/esnext.math.deg-per-rad');
+ require('../../modules/esnext.math.degrees');
+ require('../../modules/esnext.math.fscale');
++require('../../modules/esnext.math.lerp');
+ require('../../modules/esnext.math.rad-per-deg');
+ require('../../modules/esnext.math.radians');
+ require('../../modules/esnext.math.scale');
+diff -ruN a/packages/core-js/full/math/lerp.js b/packages/core-js/full/math/lerp.js
+--- a/packages/core-js/full/math/lerp.js	1970-01-01 01:00:00.000000000 +0100
++++ b/packages/core-js/full/math/lerp.js	2026-11-22 18:13:58.749985268 +0100
+@@ -0,0 +1,5 @@
++'use strict';
++require('../../modules/esnext.math.lerp');
++var path = require('../../internals/path');
++
++module.exports = path.Math.lerp;
+diff -ruN a/packages/core-js/internals/math-lerp.js b/packages/core-js/internals/math-lerp.js
+--- a/packages/core-js/internals/math-lerp.js	1970-01-01 01:00:00.000000000 +0100
++++ b/packages/core-js/internals/math-lerp.js	2026-11-22 18:13:58.748985288 +0100
+@@ -0,0 +1,11 @@
++'use strict';
++// `Math.lerp` method implementation
++// https://rwaldron.github.io/proposal-math-extensions/
++module.exports = function lerp(a, b, t) {
++  var na = +a;
++  var nb = +b;
++  var nt = +t;
++  // eslint-disable-next-line no-self-compare -- NaN check
++  if (na !== na || nb !== nb || nt !== nt) return NaN;
++  return na + (nb - na) * nt;
++};
+diff -ruN a/packages/core-js/modules/esnext.math.lerp.js b/packages/core-js/modules/esnext.math.lerp.js
+--- a/packages/core-js/modules/esnext.math.lerp.js	1970-01-01 01:00:00.000000000 +0100
++++ b/packages/core-js/modules/esnext.math.lerp.js	2026-11-22 18:13:58.749985268 +0100
+@@ -0,0 +1,9 @@
++'use strict';
++var $ = require('../internals/export');
++var lerp = require('../internals/math-lerp');
++
++// `Math.lerp` method
++// https://rwaldron.github.io/proposal-math-extensions/
++$({ target: 'Math', stat: true, forced: true }, {
++  lerp: lerp
++});
+diff -ruN a/packages/core-js/proposals/math-extensions.js b/packages/core-js/proposals/math-extensions.js
+--- a/packages/core-js/proposals/math-extensions.js	2026-11-22 18:13:58.694166644 +0100
++++ b/packages/core-js/proposals/math-extensions.js	2026-11-22 18:13:58.749985268 +0100
+@@ -4,6 +4,7 @@
+ require('../modules/esnext.math.deg-per-rad');
+ require('../modules/esnext.math.degrees');
+ require('../modules/esnext.math.fscale');
++require('../modules/esnext.math.lerp');
+ require('../modules/esnext.math.rad-per-deg');
+ require('../modules/esnext.math.radians');
+ require('../modules/esnext.math.scale');

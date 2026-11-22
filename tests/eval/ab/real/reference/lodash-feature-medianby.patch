@@ -1,0 +1,114 @@
+diff -ruN a/fp/_mapping.js b/fp/_mapping.js
+--- a/fp/_mapping.js	2026-11-22 18:08:08.072308784 +0100
++++ b/fp/_mapping.js	2026-11-22 18:08:08.114170017 +0100
+@@ -90,7 +90,7 @@
+     'groupBy', 'gt', 'gte', 'has', 'hasIn', 'includes', 'indexOf', 'intersection',
+     'invertBy', 'invoke', 'invokeMap', 'isEqual', 'isMatch', 'join', 'keyBy',
+     'lastIndexOf', 'lt', 'lte', 'map', 'mapKeys', 'mapValues', 'matchesProperty',
+-    'maxBy', 'meanBy', 'merge', 'mergeAllWith', 'minBy', 'multiply', 'nth', 'omit',
++    'maxBy', 'meanBy', 'medianBy', 'merge', 'mergeAllWith', 'minBy', 'multiply', 'nth', 'omit',
+     'omitBy', 'overArgs', 'pad', 'padEnd', 'padStart', 'parseInt', 'partial',
+     'partialRight', 'partition', 'pick', 'pickBy', 'propertyOf', 'pull', 'pullAll',
+     'pullAt', 'random', 'range', 'rangeRight', 'rearg', 'reject', 'remove',
+diff -ruN a/fp/medianBy.js b/fp/medianBy.js
+--- a/fp/medianBy.js	1970-01-01 01:00:00.000000000 +0100
++++ b/fp/medianBy.js	2026-11-22 18:08:08.114170017 +0100
+@@ -0,0 +1,5 @@
++var convert = require('./convert'),
++    func = convert('medianBy', require('../medianBy'));
++
++func.placeholder = require('./placeholder');
++module.exports = func;
+diff -ruN a/lodash.js b/lodash.js
+--- a/lodash.js	2026-11-22 18:08:08.077154182 +0100
++++ b/lodash.js	2026-11-22 18:08:08.120169894 +0100
+@@ -16454,6 +16454,34 @@
+     }
+ 
+     /**
++     * This method is like `_.mean` except that it returns the median of the
++     * values produced by `iteratee`. For an even number of elements the median
++     * is the mean of the two middle values; for an empty array it is `NaN`.
++     *
++     * @static
++     * @memberOf _
++     * @since 4.18.0
++     * @category Math
++     * @param {Array} array The array to iterate over.
++     * @param {Function} [iteratee=_.identity] The iteratee invoked per element.
++     * @returns {number} Returns the median.
++     * @example
++     *
++     * _.medianBy([{ 'n': 4 }, { 'n': 2 }, { 'n': 9 }], 'n');
++     * // => 4
++     */
++    function medianBy(array, iteratee) {
++      var values = arrayMap(array == null ? [] : array, getIteratee(iteratee, 2))
++        .sort(function(a, b) { return a - b; });
++      var length = values.length;
++      if (!length) {
++        return NaN;
++      }
++      var mid = length >> 1;
++      return length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
++    }
++
++    /**
+      * Computes the minimum value of `array`. If `array` is empty or falsey,
+      * `undefined` is returned.
+      *
+@@ -16873,6 +16901,7 @@
+     lodash.maxBy = maxBy;
+     lodash.mean = mean;
+     lodash.meanBy = meanBy;
++    lodash.medianBy = medianBy;
+     lodash.min = min;
+     lodash.minBy = minBy;
+     lodash.stubArray = stubArray;
+diff -ruN a/math.js b/math.js
+--- a/math.js	2026-11-22 18:08:08.077411394 +0100
++++ b/math.js	2026-11-22 18:08:08.114170017 +0100
+@@ -7,6 +7,7 @@
+   'maxBy': require('./maxBy'),
+   'mean': require('./mean'),
+   'meanBy': require('./meanBy'),
++  'medianBy': require('./medianBy'),
+   'min': require('./min'),
+   'minBy': require('./minBy'),
+   'multiply': require('./multiply'),
+diff -ruN a/medianBy.js b/medianBy.js
+--- a/medianBy.js	1970-01-01 01:00:00.000000000 +0100
++++ b/medianBy.js	2026-11-22 18:08:08.114170017 +0100
+@@ -0,0 +1,32 @@
++var arrayMap = require('./_arrayMap'),
++    baseIteratee = require('./_baseIteratee');
++
++/**
++ * This method is like `_.mean` except that it returns the median of the
++ * values produced by `iteratee`. For an even number of elements the median
++ * is the mean of the two middle values; for an empty array it is `NaN`.
++ *
++ * @static
++ * @memberOf _
++ * @since 4.18.0
++ * @category Math
++ * @param {Array} array The array to iterate over.
++ * @param {Function} [iteratee=_.identity] The iteratee invoked per element.
++ * @returns {number} Returns the median.
++ * @example
++ *
++ * _.medianBy([{ 'n': 4 }, { 'n': 2 }, { 'n': 9 }], 'n');
++ * // => 4
++ */
++function medianBy(array, iteratee) {
++  var values = arrayMap(array == null ? [] : array, baseIteratee(iteratee, 2))
++    .sort(function(a, b) { return a - b; });
++  var length = values.length;
++  if (!length) {
++    return NaN;
++  }
++  var mid = length >> 1;
++  return length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
++}
++
++module.exports = medianBy;

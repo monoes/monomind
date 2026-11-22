@@ -1,0 +1,1449 @@
+diff -ruN a/packages/core-js/es/date/to-primitive.js b/packages/core-js/es/date/to-primitive.js
+--- a/packages/core-js/es/date/to-primitive.js	2026-11-22 18:13:30.116787687 +0100
++++ b/packages/core-js/es/date/to-primitive.js	2026-11-22 18:13:30.199570791 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ require('../../modules/es.date.to-primitive');
+-var uncurryThis = require('../../internals/function-uncurry-this');
++var uncurryThis = require('../../internals/function-uncurry-receiver');
+ var toPrimitive = require('../../internals/date-to-primitive');
+ 
+ module.exports = uncurryThis(toPrimitive);
+diff -ruN a/packages/core-js/es/date/to-string.js b/packages/core-js/es/date/to-string.js
+--- a/packages/core-js/es/date/to-string.js	2026-11-22 18:13:30.116797157 +0100
++++ b/packages/core-js/es/date/to-string.js	2026-11-22 18:13:30.199570791 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+ require('../../modules/es.date.to-string');
+-var uncurryThis = require('../../internals/function-uncurry-this');
++var uncurryThis = require('../../internals/function-uncurry-receiver');
+ 
+ module.exports = uncurryThis(Date.prototype.toString);
+diff -ruN a/packages/core-js/es/regexp/test.js b/packages/core-js/es/regexp/test.js
+--- a/packages/core-js/es/regexp/test.js	2026-11-22 18:13:30.119057706 +0100
++++ b/packages/core-js/es/regexp/test.js	2026-11-22 18:13:30.200570770 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ require('../../modules/es.regexp.exec');
+ require('../../modules/es.regexp.test');
+-var uncurryThis = require('../../internals/function-uncurry-this');
++var uncurryThis = require('../../internals/function-uncurry-receiver');
+ 
+ module.exports = uncurryThis(/./.test);
+diff -ruN a/packages/core-js/es/regexp/to-string.js b/packages/core-js/es/regexp/to-string.js
+--- a/packages/core-js/es/regexp/to-string.js	2026-11-22 18:13:30.119068965 +0100
++++ b/packages/core-js/es/regexp/to-string.js	2026-11-22 18:13:30.200570770 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+ require('../../modules/es.regexp.to-string');
+-var uncurryThis = require('../../internals/function-uncurry-this');
++var uncurryThis = require('../../internals/function-uncurry-receiver');
+ 
+ module.exports = uncurryThis(/./.toString);
+diff -ruN a/packages/core-js/es/string/iterator.js b/packages/core-js/es/string/iterator.js
+--- a/packages/core-js/es/string/iterator.js	2026-11-22 18:13:30.119357586 +0100
++++ b/packages/core-js/es/string/iterator.js	2026-11-22 18:13:30.200570770 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ require('../../modules/es.object.to-string');
+ require('../../modules/es.string.iterator');
+-var uncurryThis = require('../../internals/function-uncurry-this');
++var uncurryThis = require('../../internals/function-uncurry-receiver');
+ var Iterators = require('../../internals/iterators');
+ 
+ module.exports = uncurryThis(Iterators.String);
+diff -ruN a/packages/core-js/internals/add-disposable-resource.js b/packages/core-js/internals/add-disposable-resource.js
+--- a/packages/core-js/internals/add-disposable-resource.js	2026-11-22 18:13:30.128331243 +0100
++++ b/packages/core-js/internals/add-disposable-resource.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var getBuiltIn = require('../internals/get-built-in');
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var bind = require('../internals/function-bind-context');
+ var anObject = require('../internals/an-object');
+ var aCallable = require('../internals/a-callable');
+diff -ruN a/packages/core-js/internals/array-buffer.js b/packages/core-js/internals/array-buffer.js
+--- a/packages/core-js/internals/array-buffer.js	2026-11-22 18:13:30.128497248 +0100
++++ b/packages/core-js/internals/array-buffer.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var globalThis = require('../internals/global-this');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var DESCRIPTORS = require('../internals/descriptors');
+ var NATIVE_ARRAY_BUFFER = require('../internals/array-buffer-basic-detection');
+ var FunctionName = require('../internals/function-name');
+diff -ruN a/packages/core-js/internals/array-buffer-transfer.js b/packages/core-js/internals/array-buffer-transfer.js
+--- a/packages/core-js/internals/array-buffer-transfer.js	2026-11-22 18:13:30.128472209 +0100
++++ b/packages/core-js/internals/array-buffer-transfer.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var globalThis = require('../internals/global-this');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var uncurryThisAccessor = require('../internals/function-uncurry-this-accessor');
+ var toIndex = require('../internals/to-index');
+ var notDetached = require('../internals/array-buffer-not-detached');
+diff -ruN a/packages/core-js/internals/array-from-async.js b/packages/core-js/internals/array-from-async.js
+--- a/packages/core-js/internals/array-from-async.js	2026-11-22 18:13:30.128546867 +0100
++++ b/packages/core-js/internals/array-from-async.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var bind = require('../internals/function-bind-context');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var isConstructor = require('../internals/is-constructor');
+ var getAsyncIterator = require('../internals/get-async-iterator');
+ var getIterator = require('../internals/get-iterator-internal');
+diff -ruN a/packages/core-js/internals/array-group.js b/packages/core-js/internals/array-group.js
+--- a/packages/core-js/internals/array-group.js	2026-11-22 18:13:30.128586915 +0100
++++ b/packages/core-js/internals/array-group.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var bind = require('../internals/function-bind-context');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var IndexedObject = require('../internals/indexed-object');
+ var toObject = require('../internals/to-object');
+ var toPropertyKey = require('../internals/to-property-key');
+diff -ruN a/packages/core-js/internals/array-group-to-map.js b/packages/core-js/internals/array-group-to-map.js
+--- a/packages/core-js/internals/array-group-to-map.js	2026-11-22 18:13:30.128577716 +0100
++++ b/packages/core-js/internals/array-group-to-map.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var bind = require('../internals/function-bind-context');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var IndexedObject = require('../internals/indexed-object');
+ var toObject = require('../internals/to-object');
+ var lengthOfArrayLike = require('../internals/length-of-array-like');
+diff -ruN a/packages/core-js/internals/array-slice.js b/packages/core-js/internals/array-slice.js
+--- a/packages/core-js/internals/array-slice.js	2026-11-22 18:13:30.128680802 +0100
++++ b/packages/core-js/internals/array-slice.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,4 +1,4 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ module.exports = uncurryThis([].slice);
+diff -ruN a/packages/core-js/internals/classof-raw.js b/packages/core-js/internals/classof-raw.js
+--- a/packages/core-js/internals/classof-raw.js	2026-11-22 18:13:30.128862787 +0100
++++ b/packages/core-js/internals/classof-raw.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var toString = uncurryThis({}.toString);
+ var stringSlice = uncurryThis(''.slice);
+diff -ruN a/packages/core-js/internals/collection.js b/packages/core-js/internals/collection.js
+--- a/packages/core-js/internals/collection.js	2026-11-22 18:13:30.128929794 +0100
++++ b/packages/core-js/internals/collection.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var $ = require('../internals/export');
+ var globalThis = require('../internals/global-this');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var isForced = require('../internals/is-forced');
+ var defineBuiltIn = require('../internals/define-built-in');
+ var InternalMetadataModule = require('../internals/internal-metadata');
+diff -ruN a/packages/core-js/internals/collection-weak.js b/packages/core-js/internals/collection-weak.js
+--- a/packages/core-js/internals/collection-weak.js	2026-11-22 18:13:30.128917895 +0100
++++ b/packages/core-js/internals/collection-weak.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var defineBuiltIns = require('../internals/define-built-ins');
+ var getWeakData = require('../internals/internal-metadata').getWeakData;
+ var anInstance = require('../internals/an-instance');
+diff -ruN a/packages/core-js/internals/create-html.js b/packages/core-js/internals/create-html.js
+--- a/packages/core-js/internals/create-html.js	2026-11-22 18:13:30.129040031 +0100
++++ b/packages/core-js/internals/create-html.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var requireObjectCoercible = require('../internals/require-object-coercible');
+ var toString = require('../internals/to-string');
+ 
+diff -ruN a/packages/core-js/internals/date-to-iso-string.js b/packages/core-js/internals/date-to-iso-string.js
+--- a/packages/core-js/internals/date-to-iso-string.js	2026-11-22 18:13:30.129092589 +0100
++++ b/packages/core-js/internals/date-to-iso-string.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var fails = require('../internals/fails');
+ var padStart = require('../internals/string-pad').start;
+ 
+diff -ruN a/packages/core-js/internals/entry-unbind.js b/packages/core-js/internals/entry-unbind.js
+--- a/packages/core-js/internals/entry-unbind.js	2026-11-22 18:13:30.129250554 +0100
++++ b/packages/core-js/internals/entry-unbind.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var globalThis = require('../internals/global-this');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ module.exports = function (CONSTRUCTOR, METHOD) {
+   return uncurryThis(globalThis[CONSTRUCTOR].prototype[METHOD]);
+diff -ruN a/packages/core-js/internals/error-stack-clear.js b/packages/core-js/internals/error-stack-clear.js
+--- a/packages/core-js/internals/error-stack-clear.js	2026-11-22 18:13:30.129388260 +0100
++++ b/packages/core-js/internals/error-stack-clear.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var $Error = Error;
+ var replace = uncurryThis(''.replace);
+diff -ruN a/packages/core-js/internals/function-bind.js b/packages/core-js/internals/function-bind.js
+--- a/packages/core-js/internals/function-bind.js	2026-11-22 18:13:30.129514566 +0100
++++ b/packages/core-js/internals/function-bind.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var aCallable = require('../internals/a-callable');
+ var isObject = require('../internals/is-object');
+ var hasOwn = require('../internals/has-own-property');
+diff -ruN a/packages/core-js/internals/function-demethodize.js b/packages/core-js/internals/function-demethodize.js
+--- a/packages/core-js/internals/function-demethodize.js	2026-11-22 18:13:30.129534435 +0100
++++ b/packages/core-js/internals/function-demethodize.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var aCallable = require('../internals/a-callable');
+ 
+ module.exports = function demethodize() {
+diff -ruN a/packages/core-js/internals/function-uncurry-receiver.js b/packages/core-js/internals/function-uncurry-receiver.js
+--- a/packages/core-js/internals/function-uncurry-receiver.js	1970-01-01 01:00:00.000000000 +0100
++++ b/packages/core-js/internals/function-uncurry-receiver.js	2026-11-22 18:13:30.160100812 +0100
+@@ -0,0 +1,13 @@
++'use strict';
++var NATIVE_BIND = require('../internals/function-bind-native');
++
++var FunctionPrototype = Function.prototype;
++var call = FunctionPrototype.call;
++// eslint-disable-next-line es/no-function-prototype-bind -- safe
++var uncurryThisWithBind = NATIVE_BIND && FunctionPrototype.bind.bind(call, call);
++
++module.exports = NATIVE_BIND ? uncurryThisWithBind : function (fn) {
++  return function () {
++    return call.apply(fn, arguments);
++  };
++};
+diff -ruN a/packages/core-js/internals/function-uncurry-this-accessor.js b/packages/core-js/internals/function-uncurry-this-accessor.js
+--- a/packages/core-js/internals/function-uncurry-this-accessor.js	2026-11-22 18:13:30.129554825 +0100
++++ b/packages/core-js/internals/function-uncurry-this-accessor.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var aCallable = require('../internals/a-callable');
+ 
+ module.exports = function (object, key, method) {
+diff -ruN a/packages/core-js/internals/function-uncurry-this-clause.js b/packages/core-js/internals/function-uncurry-this-clause.js
+--- a/packages/core-js/internals/function-uncurry-this-clause.js	2026-11-22 18:13:30.129565124 +0100
++++ b/packages/core-js/internals/function-uncurry-this-clause.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var classofRaw = require('../internals/classof-raw');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ module.exports = function (fn) {
+   // Nashorn bug:
+diff -ruN a/packages/core-js/internals/function-uncurry-this.js b/packages/core-js/internals/function-uncurry-this.js
+--- a/packages/core-js/internals/function-uncurry-this.js	2026-11-22 18:13:30.129575524 +0100
++++ b/packages/core-js/internals/function-uncurry-this.js	1970-01-01 01:00:00.000000000 +0100
+@@ -1,13 +0,0 @@
+-'use strict';
+-var NATIVE_BIND = require('../internals/function-bind-native');
+-
+-var FunctionPrototype = Function.prototype;
+-var call = FunctionPrototype.call;
+-// eslint-disable-next-line es/no-function-prototype-bind -- safe
+-var uncurryThisWithBind = NATIVE_BIND && FunctionPrototype.bind.bind(call, call);
+-
+-module.exports = NATIVE_BIND ? uncurryThisWithBind : function (fn) {
+-  return function () {
+-    return call.apply(fn, arguments);
+-  };
+-};
+diff -ruN a/packages/core-js/internals/get-substitution.js b/packages/core-js/internals/get-substitution.js
+--- a/packages/core-js/internals/get-substitution.js	2026-11-22 18:13:30.129757938 +0100
++++ b/packages/core-js/internals/get-substitution.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toObject = require('../internals/to-object');
+ 
+ var floor = Math.floor;
+diff -ruN a/packages/core-js/internals/has-own-property.js b/packages/core-js/internals/has-own-property.js
+--- a/packages/core-js/internals/has-own-property.js	2026-11-22 18:13:30.129778058 +0100
++++ b/packages/core-js/internals/has-own-property.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toObject = require('../internals/to-object');
+ 
+ var hasOwnProperty = uncurryThis({}.hasOwnProperty);
+diff -ruN a/packages/core-js/internals/indexed-object.js b/packages/core-js/internals/indexed-object.js
+--- a/packages/core-js/internals/indexed-object.js	2026-11-22 18:13:30.129850606 +0100
++++ b/packages/core-js/internals/indexed-object.js	2026-11-22 18:13:30.201570750 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var fails = require('../internals/fails');
+ var classof = require('../internals/classof-raw');
+ 
+diff -ruN a/packages/core-js/internals/inspect-source.js b/packages/core-js/internals/inspect-source.js
+--- a/packages/core-js/internals/inspect-source.js	2026-11-22 18:13:30.129872155 +0100
++++ b/packages/core-js/internals/inspect-source.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var isCallable = require('../internals/is-callable');
+ var store = require('../internals/shared-store');
+ 
+diff -ruN a/packages/core-js/internals/internal-metadata.js b/packages/core-js/internals/internal-metadata.js
+--- a/packages/core-js/internals/internal-metadata.js	2026-11-22 18:13:30.129892164 +0100
++++ b/packages/core-js/internals/internal-metadata.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var hiddenKeys = require('../internals/hidden-keys');
+ var isObject = require('../internals/is-object');
+ var hasOwn = require('../internals/has-own-property');
+diff -ruN a/packages/core-js/internals/is-constructor.js b/packages/core-js/internals/is-constructor.js
+--- a/packages/core-js/internals/is-constructor.js	2026-11-22 18:13:30.129956462 +0100
++++ b/packages/core-js/internals/is-constructor.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var fails = require('../internals/fails');
+ var isCallable = require('../internals/is-callable');
+ var classof = require('../internals/classof');
+diff -ruN a/packages/core-js/internals/iterator-window.js b/packages/core-js/internals/iterator-window.js
+--- a/packages/core-js/internals/iterator-window.js	2026-11-22 18:13:30.130231504 +0100
++++ b/packages/core-js/internals/iterator-window.js	2026-11-22 18:13:30.202570729 +0100
+@@ -6,7 +6,7 @@
+ var getIteratorDirect = require('../internals/get-iterator-direct');
+ var iteratorClose = require('../internals/iterator-close');
+ var chunkSizeValidation = require('../internals/iterator-chunk-size-validation');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var $TypeError = TypeError;
+ var push = uncurryThis([].push);
+diff -ruN a/packages/core-js/internals/iterator-zip.js b/packages/core-js/internals/iterator-zip.js
+--- a/packages/core-js/internals/iterator-zip.js	2026-11-22 18:13:30.130241963 +0100
++++ b/packages/core-js/internals/iterator-zip.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var anObject = require('../internals/an-object');
+ var createIteratorProxy = require('../internals/iterator-create-proxy');
+ var iteratorCloseAll = require('../internals/iterator-close-all');
+diff -ruN a/packages/core-js/internals/make-built-in.js b/packages/core-js/internals/make-built-in.js
+--- a/packages/core-js/internals/make-built-in.js	2026-11-22 18:13:30.130280302 +0100
++++ b/packages/core-js/internals/make-built-in.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var fails = require('../internals/fails');
+ var isCallable = require('../internals/is-callable');
+ var hasOwn = require('../internals/has-own-property');
+diff -ruN a/packages/core-js/internals/map-helpers.js b/packages/core-js/internals/map-helpers.js
+--- a/packages/core-js/internals/map-helpers.js	2026-11-22 18:13:30.130289472 +0100
++++ b/packages/core-js/internals/map-helpers.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ // eslint-disable-next-line es/no-map -- safe
+ var MapPrototype = Map.prototype;
+diff -ruN a/packages/core-js/internals/map-iterate.js b/packages/core-js/internals/map-iterate.js
+--- a/packages/core-js/internals/map-iterate.js	2026-11-22 18:13:30.130302741 +0100
++++ b/packages/core-js/internals/map-iterate.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var iterateSimple = require('../internals/iterate-simple');
+ var MapHelpers = require('../internals/map-helpers');
+ 
+diff -ruN a/packages/core-js/internals/number-parse-float.js b/packages/core-js/internals/number-parse-float.js
+--- a/packages/core-js/internals/number-parse-float.js	2026-11-22 18:13:30.130520424 +0100
++++ b/packages/core-js/internals/number-parse-float.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var globalThis = require('../internals/global-this');
+ var fails = require('../internals/fails');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toString = require('../internals/to-string');
+ var trim = require('../internals/string-trim').trim;
+ var whitespaces = require('../internals/whitespaces');
+diff -ruN a/packages/core-js/internals/number-parse-int.js b/packages/core-js/internals/number-parse-int.js
+--- a/packages/core-js/internals/number-parse-int.js	2026-11-22 18:13:30.130531094 +0100
++++ b/packages/core-js/internals/number-parse-int.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var globalThis = require('../internals/global-this');
+ var fails = require('../internals/fails');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toString = require('../internals/to-string');
+ var trim = require('../internals/string-trim').trim;
+ var whitespaces = require('../internals/whitespaces');
+diff -ruN a/packages/core-js/internals/object-assign.js b/packages/core-js/internals/object-assign.js
+--- a/packages/core-js/internals/object-assign.js	2026-11-22 18:13:30.130550753 +0100
++++ b/packages/core-js/internals/object-assign.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var DESCRIPTORS = require('../internals/descriptors');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var call = require('../internals/function-call');
+ var fails = require('../internals/fails');
+ var objectKeys = require('../internals/object-keys');
+diff -ruN a/packages/core-js/internals/object-is-prototype-of.js b/packages/core-js/internals/object-is-prototype-of.js
+--- a/packages/core-js/internals/object-is-prototype-of.js	2026-11-22 18:13:30.130660450 +0100
++++ b/packages/core-js/internals/object-is-prototype-of.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,4 +1,4 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ module.exports = uncurryThis({}.isPrototypeOf);
+diff -ruN a/packages/core-js/internals/object-keys-internal.js b/packages/core-js/internals/object-keys-internal.js
+--- a/packages/core-js/internals/object-keys-internal.js	2026-11-22 18:13:30.130684719 +0100
++++ b/packages/core-js/internals/object-keys-internal.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var hasOwn = require('../internals/has-own-property');
+ var toIndexedObject = require('../internals/to-indexed-object');
+ var indexOf = require('../internals/array-includes').indexOf;
+diff -ruN a/packages/core-js/internals/object-to-array.js b/packages/core-js/internals/object-to-array.js
+--- a/packages/core-js/internals/object-to-array.js	2026-11-22 18:13:30.130739848 +0100
++++ b/packages/core-js/internals/object-to-array.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var DESCRIPTORS = require('../internals/descriptors');
+ var fails = require('../internals/fails');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var objectGetPrototypeOf = require('../internals/object-get-prototype-of');
+ var objectKeys = require('../internals/object-keys');
+ var toIndexedObject = require('../internals/to-indexed-object');
+diff -ruN a/packages/core-js/internals/own-keys.js b/packages/core-js/internals/own-keys.js
+--- a/packages/core-js/internals/own-keys.js	2026-11-22 18:13:30.130769327 +0100
++++ b/packages/core-js/internals/own-keys.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var getBuiltIn = require('../internals/get-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var getOwnPropertyNamesModule = require('../internals/object-get-own-property-names');
+ var getOwnPropertySymbolsModule = require('../internals/object-get-own-property-symbols');
+ var anObject = require('../internals/an-object');
+diff -ruN a/packages/core-js/internals/parse-json-string.js b/packages/core-js/internals/parse-json-string.js
+--- a/packages/core-js/internals/parse-json-string.js	2026-11-22 18:13:30.130779816 +0100
++++ b/packages/core-js/internals/parse-json-string.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var hasOwn = require('../internals/has-own-property');
+ 
+ var $SyntaxError = SyntaxError;
+diff -ruN a/packages/core-js/internals/reflect-metadata.js b/packages/core-js/internals/reflect-metadata.js
+--- a/packages/core-js/internals/reflect-metadata.js	2026-11-22 18:13:30.130879743 +0100
++++ b/packages/core-js/internals/reflect-metadata.js	2026-11-22 18:13:30.202570729 +0100
+@@ -3,7 +3,7 @@
+ require('../modules/es.map');
+ require('../modules/es.weak-map');
+ var getBuiltIn = require('../internals/get-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var shared = require('../internals/shared');
+ 
+ var Map = getBuiltIn('Map');
+diff -ruN a/packages/core-js/internals/regexp-exec.js b/packages/core-js/internals/regexp-exec.js
+--- a/packages/core-js/internals/regexp-exec.js	2026-11-22 18:13:30.130901402 +0100
++++ b/packages/core-js/internals/regexp-exec.js	2026-11-22 18:13:30.202570729 +0100
+@@ -2,7 +2,7 @@
+ /* eslint-disable regexp/no-empty-capturing-group, regexp/no-empty-group, regexp/no-lazy-ends -- testing */
+ /* eslint-disable regexp/no-useless-quantifier -- testing */
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toString = require('../internals/to-string');
+ var regexpFlags = require('../internals/regexp-flags');
+ var stickyHelpers = require('../internals/regexp-sticky-helpers');
+diff -ruN a/packages/core-js/internals/set-helpers.js b/packages/core-js/internals/set-helpers.js
+--- a/packages/core-js/internals/set-helpers.js	2026-11-22 18:13:30.131061847 +0100
++++ b/packages/core-js/internals/set-helpers.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ // eslint-disable-next-line es/no-set -- safe
+ var SetPrototype = Set.prototype;
+diff -ruN a/packages/core-js/internals/set-iterate.js b/packages/core-js/internals/set-iterate.js
+--- a/packages/core-js/internals/set-iterate.js	2026-11-22 18:13:30.131108326 +0100
++++ b/packages/core-js/internals/set-iterate.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var iterateSimple = require('../internals/iterate-simple');
+ var SetHelpers = require('../internals/set-helpers');
+ 
+diff -ruN a/packages/core-js/internals/string-cooked.js b/packages/core-js/internals/string-cooked.js
+--- a/packages/core-js/internals/string-cooked.js	2026-11-22 18:13:30.131251371 +0100
++++ b/packages/core-js/internals/string-cooked.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toIndexedObject = require('../internals/to-indexed-object');
+ var toString = require('../internals/to-string');
+ var lengthOfArrayLike = require('../internals/length-of-array-like');
+diff -ruN a/packages/core-js/internals/string-multibyte.js b/packages/core-js/internals/string-multibyte.js
+--- a/packages/core-js/internals/string-multibyte.js	2026-11-22 18:13:30.131272681 +0100
++++ b/packages/core-js/internals/string-multibyte.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toIntegerOrInfinity = require('../internals/to-integer-or-infinity');
+ var toString = require('../internals/to-string');
+ var requireObjectCoercible = require('../internals/require-object-coercible');
+diff -ruN a/packages/core-js/internals/string-pad.js b/packages/core-js/internals/string-pad.js
+--- a/packages/core-js/internals/string-pad.js	2026-11-22 18:13:30.131292570 +0100
++++ b/packages/core-js/internals/string-pad.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toLength = require('../internals/to-length');
+ var toString = require('../internals/to-string');
+ var $repeat = require('../internals/string-repeat');
+diff -ruN a/packages/core-js/internals/string-parse.js b/packages/core-js/internals/string-parse.js
+--- a/packages/core-js/internals/string-parse.js	2026-11-22 18:13:30.131302270 +0100
++++ b/packages/core-js/internals/string-parse.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ // adapted from https://github.com/jridgewell/string-dedent
+ var getBuiltIn = require('../internals/get-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var fromCharCode = String.fromCharCode;
+ var fromCodePoint = getBuiltIn('String', 'fromCodePoint');
+diff -ruN a/packages/core-js/internals/string-punycode-to-ascii.js b/packages/core-js/internals/string-punycode-to-ascii.js
+--- a/packages/core-js/internals/string-punycode-to-ascii.js	2026-11-22 18:13:30.131312809 +0100
++++ b/packages/core-js/internals/string-punycode-to-ascii.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ // based on https://github.com/bestiejs/punycode.js/blob/master/punycode.js
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var maxInt = 2147483647; // aka. 0x7FFFFFFF or 2^31-1
+ var base = 36;
+diff -ruN a/packages/core-js/internals/string-trim.js b/packages/core-js/internals/string-trim.js
+--- a/packages/core-js/internals/string-trim.js	2026-11-22 18:13:30.131370248 +0100
++++ b/packages/core-js/internals/string-trim.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var requireObjectCoercible = require('../internals/require-object-coercible');
+ var toString = require('../internals/to-string');
+ var whitespaces = require('../internals/whitespaces');
+diff -ruN a/packages/core-js/internals/symbol-is-registered.js b/packages/core-js/internals/symbol-is-registered.js
+--- a/packages/core-js/internals/symbol-is-registered.js	2026-11-22 18:13:30.131413566 +0100
++++ b/packages/core-js/internals/symbol-is-registered.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var getBuiltIn = require('../internals/get-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var Symbol = getBuiltIn('Symbol');
+ var keyFor = Symbol.keyFor;
+diff -ruN a/packages/core-js/internals/symbol-is-well-known.js b/packages/core-js/internals/symbol-is-well-known.js
+--- a/packages/core-js/internals/symbol-is-well-known.js	2026-11-22 18:13:30.131422926 +0100
++++ b/packages/core-js/internals/symbol-is-well-known.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var shared = require('../internals/shared');
+ var getBuiltIn = require('../internals/get-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var isSymbol = require('../internals/is-symbol');
+ var wellKnownSymbol = require('../internals/well-known-symbol');
+ 
+diff -ruN a/packages/core-js/internals/this-number-value.js b/packages/core-js/internals/this-number-value.js
+--- a/packages/core-js/internals/this-number-value.js	2026-11-22 18:13:30.131456585 +0100
++++ b/packages/core-js/internals/this-number-value.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ // `thisNumberValue` abstract operation
+ // https://tc39.es/ecma262/#sec-thisnumbervalue
+diff -ruN a/packages/core-js/internals/uid.js b/packages/core-js/internals/uid.js
+--- a/packages/core-js/internals/uid.js	2026-11-22 18:13:30.131678678 +0100
++++ b/packages/core-js/internals/uid.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var id = 0;
+ var postfix = Math.random();
+diff -ruN a/packages/core-js/internals/uint8-from-base64.js b/packages/core-js/internals/uint8-from-base64.js
+--- a/packages/core-js/internals/uint8-from-base64.js	2026-11-22 18:13:30.131689648 +0100
++++ b/packages/core-js/internals/uint8-from-base64.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var globalThis = require('../internals/global-this');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var anObjectOrUndefined = require('../internals/an-object-or-undefined');
+ var aString = require('../internals/a-string');
+ var hasOwn = require('../internals/has-own-property');
+diff -ruN a/packages/core-js/internals/uint8-from-hex.js b/packages/core-js/internals/uint8-from-hex.js
+--- a/packages/core-js/internals/uint8-from-hex.js	2026-11-22 18:13:30.131699607 +0100
++++ b/packages/core-js/internals/uint8-from-hex.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var globalThis = require('../internals/global-this');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var Uint8Array = globalThis.Uint8Array;
+ var SyntaxError = globalThis.SyntaxError;
+diff -ruN a/packages/core-js/internals/url-percent-coding.js b/packages/core-js/internals/url-percent-coding.js
+--- a/packages/core-js/internals/url-percent-coding.js	2026-11-22 18:13:30.131719807 +0100
++++ b/packages/core-js/internals/url-percent-coding.js	2026-11-22 18:13:30.202570729 +0100
+@@ -2,7 +2,7 @@
+ // TODO: in core-js@4, move /modules/ dependencies to public entries for better optimization by tools like `preset-env`
+ require('../modules/es.string.from-code-point');
+ var getBuiltIn = require('../internals/get-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var fromCharCode = String.fromCharCode;
+ var fromCodePoint = getBuiltIn('String', 'fromCodePoint');
+diff -ruN a/packages/core-js/internals/weak-map-helpers.js b/packages/core-js/internals/weak-map-helpers.js
+--- a/packages/core-js/internals/weak-map-helpers.js	2026-11-22 18:13:30.131773925 +0100
++++ b/packages/core-js/internals/weak-map-helpers.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ // eslint-disable-next-line es/no-weak-map -- safe
+ var WeakMapPrototype = WeakMap.prototype;
+diff -ruN a/packages/core-js/internals/weak-set-helpers.js b/packages/core-js/internals/weak-set-helpers.js
+--- a/packages/core-js/internals/weak-set-helpers.js	2026-11-22 18:13:30.131783395 +0100
++++ b/packages/core-js/internals/weak-set-helpers.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ // eslint-disable-next-line es/no-weak-set -- safe
+ var WeakSetPrototype = WeakSet.prototype;
+diff -ruN a/packages/core-js/modules/es.array.join.js b/packages/core-js/modules/es.array.join.js
+--- a/packages/core-js/modules/es.array.join.js	2026-11-22 18:13:30.132301718 +0100
++++ b/packages/core-js/modules/es.array.join.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var IndexedObject = require('../internals/indexed-object');
+ var toIndexedObject = require('../internals/to-indexed-object');
+ var arrayMethodIsStrict = require('../internals/array-method-is-strict');
+diff -ruN a/packages/core-js/modules/es.array.reverse.js b/packages/core-js/modules/es.array.reverse.js
+--- a/packages/core-js/modules/es.array.reverse.js	2026-11-22 18:13:30.132372586 +0100
++++ b/packages/core-js/modules/es.array.reverse.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var isArray = require('../internals/is-array');
+ 
+ var nativeReverse = uncurryThis([].reverse);
+diff -ruN a/packages/core-js/modules/es.array.sort.js b/packages/core-js/modules/es.array.sort.js
+--- a/packages/core-js/modules/es.array.sort.js	2026-11-22 18:13:30.132401985 +0100
++++ b/packages/core-js/modules/es.array.sort.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var aCallable = require('../internals/a-callable');
+ var toObject = require('../internals/to-object');
+ var lengthOfArrayLike = require('../internals/length-of-array-like');
+diff -ruN a/packages/core-js/modules/es.array.to-sorted.js b/packages/core-js/modules/es.array.to-sorted.js
+--- a/packages/core-js/modules/es.array.to-sorted.js	2026-11-22 18:13:30.132444424 +0100
++++ b/packages/core-js/modules/es.array.to-sorted.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var aCallable = require('../internals/a-callable');
+ var toIndexedObject = require('../internals/to-indexed-object');
+ var arrayFromConstructorAndList = require('../internals/array-from-constructor-and-list');
+diff -ruN a/packages/core-js/modules/es.data-view.get-float16.js b/packages/core-js/modules/es.data-view.get-float16.js
+--- a/packages/core-js/modules/es.data-view.get-float16.js	2026-11-22 18:13:30.132544721 +0100
++++ b/packages/core-js/modules/es.data-view.get-float16.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var pow = Math.pow;
+ 
+diff -ruN a/packages/core-js/modules/es.data-view.set-float16.js b/packages/core-js/modules/es.data-view.set-float16.js
+--- a/packages/core-js/modules/es.data-view.set-float16.js	2026-11-22 18:13:30.132567110 +0100
++++ b/packages/core-js/modules/es.data-view.set-float16.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var aDataView = require('../internals/a-data-view');
+ var toIndex = require('../internals/to-index');
+ // TODO: Replace with module dependency in `core-js@4`
+diff -ruN a/packages/core-js/modules/es.date.get-year.js b/packages/core-js/modules/es.date.get-year.js
+--- a/packages/core-js/modules/es.date.get-year.js	2026-11-22 18:13:30.132580920 +0100
++++ b/packages/core-js/modules/es.date.get-year.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var fails = require('../internals/fails');
+ 
+ // IE8- non-standard case
+diff -ruN a/packages/core-js/modules/es.date.now.js b/packages/core-js/modules/es.date.now.js
+--- a/packages/core-js/modules/es.date.now.js	2026-11-22 18:13:30.132590319 +0100
++++ b/packages/core-js/modules/es.date.now.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ // TODO: Remove from `core-js@4`
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var $Date = Date;
+ var thisTimeValue = uncurryThis($Date.prototype.getTime);
+diff -ruN a/packages/core-js/modules/es.date.set-year.js b/packages/core-js/modules/es.date.set-year.js
+--- a/packages/core-js/modules/es.date.set-year.js	2026-11-22 18:13:30.132600289 +0100
++++ b/packages/core-js/modules/es.date.set-year.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toIntegerOrInfinity = require('../internals/to-integer-or-infinity');
+ 
+ var DatePrototype = Date.prototype;
+diff -ruN a/packages/core-js/modules/es.date.to-string.js b/packages/core-js/modules/es.date.to-string.js
+--- a/packages/core-js/modules/es.date.to-string.js	2026-11-22 18:13:30.132652157 +0100
++++ b/packages/core-js/modules/es.date.to-string.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ // TODO: Remove from `core-js@4`
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var defineBuiltIn = require('../internals/define-built-in');
+ 
+ var DatePrototype = Date.prototype;
+diff -ruN a/packages/core-js/modules/es.escape.js b/packages/core-js/modules/es.escape.js
+--- a/packages/core-js/modules/es.escape.js	2026-11-22 18:13:30.132703976 +0100
++++ b/packages/core-js/modules/es.escape.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toString = require('../internals/to-string');
+ 
+ var charAt = uncurryThis(''.charAt);
+diff -ruN a/packages/core-js/modules/es.function.name.js b/packages/core-js/modules/es.function.name.js
+--- a/packages/core-js/modules/es.function.name.js	2026-11-22 18:13:30.132737105 +0100
++++ b/packages/core-js/modules/es.function.name.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var DESCRIPTORS = require('../internals/descriptors');
+ var FUNCTION_NAME_EXISTS = require('../internals/function-name').EXISTS;
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var defineBuiltInAccessor = require('../internals/define-built-in-accessor');
+ 
+ var FunctionPrototype = Function.prototype;
+diff -ruN a/packages/core-js/modules/es.iterator.zip.js b/packages/core-js/modules/es.iterator.zip.js
+--- a/packages/core-js/modules/es.iterator.zip.js	2026-11-22 18:13:30.132929408 +0100
++++ b/packages/core-js/modules/es.iterator.zip.js	2026-11-22 18:13:30.202570729 +0100
+@@ -3,7 +3,7 @@
+ var anObject = require('../internals/an-object');
+ var anObjectOrUndefined = require('../internals/an-object-or-undefined');
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var getIteratorRecord = require('../internals/get-iterator-record');
+ var getIteratorFlattenable = require('../internals/get-iterator-flattenable');
+ var getModeOption = require('../internals/get-mode-option');
+diff -ruN a/packages/core-js/modules/es.iterator.zip-keyed.js b/packages/core-js/modules/es.iterator.zip-keyed.js
+--- a/packages/core-js/modules/es.iterator.zip-keyed.js	2026-11-22 18:13:30.132920699 +0100
++++ b/packages/core-js/modules/es.iterator.zip-keyed.js	2026-11-22 18:13:30.202570729 +0100
+@@ -4,7 +4,7 @@
+ var anObjectOrUndefined = require('../internals/an-object-or-undefined');
+ var createProperty = require('../internals/create-property');
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var getBuiltIn = require('../internals/get-built-in');
+ var propertyIsEnumerableModule = require('../internals/object-property-is-enumerable');
+ var getIteratorFlattenable = require('../internals/get-iterator-flattenable');
+diff -ruN a/packages/core-js/modules/es.json.parse.js b/packages/core-js/modules/es.json.parse.js
+--- a/packages/core-js/modules/es.json.parse.js	2026-11-22 18:13:30.132952618 +0100
++++ b/packages/core-js/modules/es.json.parse.js	2026-11-22 18:13:30.202570729 +0100
+@@ -3,7 +3,7 @@
+ var DESCRIPTORS = require('../internals/descriptors');
+ var globalThis = require('../internals/global-this');
+ var getBuiltIn = require('../internals/get-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var call = require('../internals/function-call');
+ var isCallable = require('../internals/is-callable');
+ var isObject = require('../internals/is-object');
+diff -ruN a/packages/core-js/modules/es.json.raw-json.js b/packages/core-js/modules/es.json.raw-json.js
+--- a/packages/core-js/modules/es.json.raw-json.js	2026-11-22 18:13:30.132966967 +0100
++++ b/packages/core-js/modules/es.json.raw-json.js	2026-11-22 18:13:30.202570729 +0100
+@@ -3,7 +3,7 @@
+ var FREEZING = require('../internals/freezing');
+ var NATIVE_RAW_JSON = require('../internals/native-raw-json');
+ var getBuiltIn = require('../internals/get-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toString = require('../internals/to-string');
+ var createProperty = require('../internals/create-property');
+ var setInternalState = require('../internals/internal-state').set;
+diff -ruN a/packages/core-js/modules/es.json.stringify.js b/packages/core-js/modules/es.json.stringify.js
+--- a/packages/core-js/modules/es.json.stringify.js	2026-11-22 18:13:30.132989557 +0100
++++ b/packages/core-js/modules/es.json.stringify.js	2026-11-22 18:13:30.202570729 +0100
+@@ -2,7 +2,7 @@
+ var $ = require('../internals/export');
+ var getBuiltIn = require('../internals/get-built-in');
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var fails = require('../internals/fails');
+ var isArray = require('../internals/is-array');
+ var isCallable = require('../internals/is-callable');
+diff -ruN a/packages/core-js/modules/es.map.group-by.js b/packages/core-js/modules/es.map.group-by.js
+--- a/packages/core-js/modules/es.map.group-by.js	2026-11-22 18:13:30.133038205 +0100
++++ b/packages/core-js/modules/es.map.group-by.js	2026-11-22 18:13:30.202570729 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var aCallable = require('../internals/a-callable');
+ var requireObjectCoercible = require('../internals/require-object-coercible');
+ var iterate = require('../internals/iterate');
+diff -ruN a/packages/core-js/modules/es.math.sum-precise.js b/packages/core-js/modules/es.math.sum-precise.js
+--- a/packages/core-js/modules/es.math.sum-precise.js	2026-11-22 18:13:30.133236839 +0100
++++ b/packages/core-js/modules/es.math.sum-precise.js	2026-11-22 18:13:30.203570709 +0100
+@@ -2,7 +2,7 @@
+ // based on Shewchuk's algorithm for exactly floating point addition
+ // adapted from https://github.com/tc39/proposal-math-sum/blob/3513d58323a1ae25560e8700aa5294500c6c9287/polyfill/polyfill.mjs
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var iterate = require('../internals/iterate');
+ 
+ var $RangeError = RangeError;
+diff -ruN a/packages/core-js/modules/esnext.data-view.get-uint8-clamped.js b/packages/core-js/modules/esnext.data-view.get-uint8-clamped.js
+--- a/packages/core-js/modules/esnext.data-view.get-uint8-clamped.js	2026-11-22 18:13:30.135948743 +0100
++++ b/packages/core-js/modules/esnext.data-view.get-uint8-clamped.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ // eslint-disable-next-line es/no-typed-arrays -- safe
+ var getUint8 = uncurryThis(DataView.prototype.getUint8);
+diff -ruN a/packages/core-js/modules/esnext.data-view.set-uint8-clamped.js b/packages/core-js/modules/esnext.data-view.set-uint8-clamped.js
+--- a/packages/core-js/modules/esnext.data-view.set-uint8-clamped.js	2026-11-22 18:13:30.135988782 +0100
++++ b/packages/core-js/modules/esnext.data-view.set-uint8-clamped.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var aDataView = require('../internals/a-data-view');
+ var toIndex = require('../internals/to-index');
+ var toUint8Clamped = require('../internals/to-uint8-clamped');
+diff -ruN a/packages/core-js/modules/esnext.function.is-callable.js b/packages/core-js/modules/esnext.function.is-callable.js
+--- a/packages/core-js/modules/esnext.function.is-callable.js	2026-11-22 18:13:30.136028431 +0100
++++ b/packages/core-js/modules/esnext.function.is-callable.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var $isCallable = require('../internals/is-callable');
+ var inspectSource = require('../internals/inspect-source');
+ var hasOwn = require('../internals/has-own-property');
+diff -ruN a/packages/core-js/modules/esnext.iterator.chunks.js b/packages/core-js/modules/esnext.iterator.chunks.js
+--- a/packages/core-js/modules/esnext.iterator.chunks.js	2026-11-22 18:13:30.136093409 +0100
++++ b/packages/core-js/modules/esnext.iterator.chunks.js	2026-11-22 18:13:30.203570709 +0100
+@@ -5,7 +5,7 @@
+ var createIteratorProxy = require('../internals/iterator-create-proxy');
+ var getIteratorDirect = require('../internals/get-iterator-direct');
+ var chunkSizeValidation = require('../internals/iterator-chunk-size-validation');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var IS_PURE = require('../internals/is-pure');
+ 
+ var push = uncurryThis([].push);
+diff -ruN a/packages/core-js/modules/esnext.iterator.join.js b/packages/core-js/modules/esnext.iterator.join.js
+--- a/packages/core-js/modules/esnext.iterator.join.js	2026-11-22 18:13:30.136227645 +0100
++++ b/packages/core-js/modules/esnext.iterator.join.js	2026-11-22 18:13:30.203570709 +0100
+@@ -5,7 +5,7 @@
+ var isNullOrUndefined = require('../internals/is-null-or-undefined');
+ var iterate = require('../internals/iterate');
+ var iteratorClose = require('../internals/iterator-close');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var IS_PURE = require('../internals/is-pure');
+ 
+ var $join = uncurryThis([].join);
+diff -ruN a/packages/core-js/modules/esnext.number.from-string.js b/packages/core-js/modules/esnext.number.from-string.js
+--- a/packages/core-js/modules/esnext.number.from-string.js	2026-11-22 18:13:30.136795587 +0100
++++ b/packages/core-js/modules/esnext.number.from-string.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toIntegerOrInfinity = require('../internals/to-integer-or-infinity');
+ 
+ var INVALID_NUMBER_REPRESENTATION = 'Invalid number representation';
+diff -ruN a/packages/core-js/modules/esnext.reflect.get-metadata-keys.js b/packages/core-js/modules/esnext.reflect.get-metadata-keys.js
+--- a/packages/core-js/modules/esnext.reflect.get-metadata-keys.js	2026-11-22 18:13:30.137094927 +0100
++++ b/packages/core-js/modules/esnext.reflect.get-metadata-keys.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ // TODO: Remove from `core-js@4`
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var ReflectMetadataModule = require('../internals/reflect-metadata');
+ var anObject = require('../internals/an-object');
+ var getPrototypeOf = require('../internals/object-get-prototype-of');
+diff -ruN a/packages/core-js/modules/esnext.set.join.js b/packages/core-js/modules/esnext.set.join.js
+--- a/packages/core-js/modules/esnext.set.join.js	2026-11-22 18:13:30.137450316 +0100
++++ b/packages/core-js/modules/esnext.set.join.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var aSet = require('../internals/a-set');
+ var iterate = require('../internals/set-iterate');
+ var toString = require('../internals/to-string');
+diff -ruN a/packages/core-js/modules/esnext.string.dedent.js b/packages/core-js/modules/esnext.string.dedent.js
+--- a/packages/core-js/modules/esnext.string.dedent.js	2026-11-22 18:13:30.137555573 +0100
++++ b/packages/core-js/modules/esnext.string.dedent.js	2026-11-22 18:13:30.204570688 +0100
+@@ -2,7 +2,7 @@
+ var FREEZING = require('../internals/freezing');
+ var $ = require('../internals/export');
+ var makeBuiltIn = require('../internals/make-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var apply = require('../internals/function-apply');
+ var anObject = require('../internals/an-object');
+ var toObject = require('../internals/to-object');
+diff -ruN a/packages/core-js/modules/esnext.typed-array.unique-by.js b/packages/core-js/modules/esnext.typed-array.unique-by.js
+--- a/packages/core-js/modules/esnext.typed-array.unique-by.js	2026-11-22 18:13:30.137993669 +0100
++++ b/packages/core-js/modules/esnext.typed-array.unique-by.js	2026-11-22 18:13:30.204570688 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var ArrayBufferViewCore = require('../internals/array-buffer-view-core');
+ var arrayFromConstructorAndList = require('../internals/array-from-constructor-and-list');
+ var $arrayUniqueBy = require('../internals/array-unique-by');
+diff -ruN a/packages/core-js/modules/es.number.constructor.js b/packages/core-js/modules/es.number.constructor.js
+--- a/packages/core-js/modules/es.number.constructor.js	2026-11-22 18:13:30.133280447 +0100
++++ b/packages/core-js/modules/es.number.constructor.js	2026-11-22 18:13:30.203570709 +0100
+@@ -4,7 +4,7 @@
+ var DESCRIPTORS = require('../internals/descriptors');
+ var globalThis = require('../internals/global-this');
+ var path = require('../internals/path');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var isForced = require('../internals/is-forced');
+ var hasOwn = require('../internals/has-own-property');
+ var inheritIfRequired = require('../internals/inherit-if-required');
+diff -ruN a/packages/core-js/modules/es.number.to-exponential.js b/packages/core-js/modules/es.number.to-exponential.js
+--- a/packages/core-js/modules/es.number.to-exponential.js	2026-11-22 18:13:30.133386844 +0100
++++ b/packages/core-js/modules/es.number.to-exponential.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toIntegerOrInfinity = require('../internals/to-integer-or-infinity');
+ var thisNumberValue = require('../internals/this-number-value');
+ var $repeat = require('../internals/string-repeat');
+diff -ruN a/packages/core-js/modules/es.number.to-fixed.js b/packages/core-js/modules/es.number.to-fixed.js
+--- a/packages/core-js/modules/es.number.to-fixed.js	2026-11-22 18:13:30.133398384 +0100
++++ b/packages/core-js/modules/es.number.to-fixed.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toIntegerOrInfinity = require('../internals/to-integer-or-infinity');
+ var thisNumberValue = require('../internals/this-number-value');
+ var $repeat = require('../internals/string-repeat');
+diff -ruN a/packages/core-js/modules/es.number.to-precision.js b/packages/core-js/modules/es.number.to-precision.js
+--- a/packages/core-js/modules/es.number.to-precision.js	2026-11-22 18:13:30.133408963 +0100
++++ b/packages/core-js/modules/es.number.to-precision.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var fails = require('../internals/fails');
+ var thisNumberValue = require('../internals/this-number-value');
+ 
+diff -ruN a/packages/core-js/modules/es.object.group-by.js b/packages/core-js/modules/es.object.group-by.js
+--- a/packages/core-js/modules/es.object.group-by.js	2026-11-22 18:13:30.133569838 +0100
++++ b/packages/core-js/modules/es.object.group-by.js	2026-11-22 18:13:30.203570709 +0100
+@@ -2,7 +2,7 @@
+ var $ = require('../internals/export');
+ var createProperty = require('../internals/create-property');
+ var getBuiltIn = require('../internals/get-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var aCallable = require('../internals/a-callable');
+ var requireObjectCoercible = require('../internals/require-object-coercible');
+ var toPropertyKey = require('../internals/to-property-key');
+diff -ruN a/packages/core-js/modules/es.regexp.constructor.js b/packages/core-js/modules/es.regexp.constructor.js
+--- a/packages/core-js/modules/es.regexp.constructor.js	2026-11-22 18:13:30.134051843 +0100
++++ b/packages/core-js/modules/es.regexp.constructor.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var DESCRIPTORS = require('../internals/descriptors');
+ var globalThis = require('../internals/global-this');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var isForced = require('../internals/is-forced');
+ var inheritIfRequired = require('../internals/inherit-if-required');
+ var createNonEnumerableProperty = require('../internals/create-non-enumerable-property');
+diff -ruN a/packages/core-js/modules/es.regexp.escape.js b/packages/core-js/modules/es.regexp.escape.js
+--- a/packages/core-js/modules/es.regexp.escape.js	2026-11-22 18:13:30.134074522 +0100
++++ b/packages/core-js/modules/es.regexp.escape.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var aString = require('../internals/a-string');
+ var hasOwn = require('../internals/has-own-property');
+ var padStart = require('../internals/string-pad').start;
+diff -ruN a/packages/core-js/modules/es.string.at-alternative.js b/packages/core-js/modules/es.string.at-alternative.js
+--- a/packages/core-js/modules/es.string.at-alternative.js	2026-11-22 18:13:30.134245477 +0100
++++ b/packages/core-js/modules/es.string.at-alternative.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var requireObjectCoercible = require('../internals/require-object-coercible');
+ var toIntegerOrInfinity = require('../internals/to-integer-or-infinity');
+ var toString = require('../internals/to-string');
+diff -ruN a/packages/core-js/modules/es.string.from-code-point.js b/packages/core-js/modules/es.string.from-code-point.js
+--- a/packages/core-js/modules/es.string.from-code-point.js	2026-11-22 18:13:30.134338564 +0100
++++ b/packages/core-js/modules/es.string.from-code-point.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toAbsoluteIndex = require('../internals/to-absolute-index');
+ 
+ var $RangeError = RangeError;
+diff -ruN a/packages/core-js/modules/es.string.includes.js b/packages/core-js/modules/es.string.includes.js
+--- a/packages/core-js/modules/es.string.includes.js	2026-11-22 18:13:30.134347534 +0100
++++ b/packages/core-js/modules/es.string.includes.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var notARegExp = require('../internals/not-a-regexp');
+ var requireObjectCoercible = require('../internals/require-object-coercible');
+ var toString = require('../internals/to-string');
+diff -ruN a/packages/core-js/modules/es.string.is-well-formed.js b/packages/core-js/modules/es.string.is-well-formed.js
+--- a/packages/core-js/modules/es.string.is-well-formed.js	2026-11-22 18:13:30.134358224 +0100
++++ b/packages/core-js/modules/es.string.is-well-formed.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var requireObjectCoercible = require('../internals/require-object-coercible');
+ var toString = require('../internals/to-string');
+ 
+diff -ruN a/packages/core-js/modules/es.string.match.js b/packages/core-js/modules/es.string.match.js
+--- a/packages/core-js/modules/es.string.match.js	2026-11-22 18:13:30.134418472 +0100
++++ b/packages/core-js/modules/es.string.match.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var fixRegExpWellKnownSymbolLogic = require('../internals/fix-regexp-well-known-symbol-logic');
+ var anObject = require('../internals/an-object');
+ var isObject = require('../internals/is-object');
+diff -ruN a/packages/core-js/modules/es.string.raw.js b/packages/core-js/modules/es.string.raw.js
+--- a/packages/core-js/modules/es.string.raw.js	2026-11-22 18:13:30.134448721 +0100
++++ b/packages/core-js/modules/es.string.raw.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toIndexedObject = require('../internals/to-indexed-object');
+ var toObject = require('../internals/to-object');
+ var toString = require('../internals/to-string');
+diff -ruN a/packages/core-js/modules/es.string.replace-all.js b/packages/core-js/modules/es.string.replace-all.js
+--- a/packages/core-js/modules/es.string.replace-all.js	2026-11-22 18:13:30.134469970 +0100
++++ b/packages/core-js/modules/es.string.replace-all.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var $ = require('../internals/export');
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var requireObjectCoercible = require('../internals/require-object-coercible');
+ var isCallable = require('../internals/is-callable');
+ var isObject = require('../internals/is-object');
+diff -ruN a/packages/core-js/modules/es.string.replace.js b/packages/core-js/modules/es.string.replace.js
+--- a/packages/core-js/modules/es.string.replace.js	2026-11-22 18:13:30.134488919 +0100
++++ b/packages/core-js/modules/es.string.replace.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var apply = require('../internals/function-apply');
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var fixRegExpWellKnownSymbolLogic = require('../internals/fix-regexp-well-known-symbol-logic');
+ var fails = require('../internals/fails');
+ var anObject = require('../internals/an-object');
+diff -ruN a/packages/core-js/modules/es.string.split.js b/packages/core-js/modules/es.string.split.js
+--- a/packages/core-js/modules/es.string.split.js	2026-11-22 18:13:30.134522798 +0100
++++ b/packages/core-js/modules/es.string.split.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var fixRegExpWellKnownSymbolLogic = require('../internals/fix-regexp-well-known-symbol-logic');
+ var anObject = require('../internals/an-object');
+ var isObject = require('../internals/is-object');
+diff -ruN a/packages/core-js/modules/es.string.substr.js b/packages/core-js/modules/es.string.substr.js
+--- a/packages/core-js/modules/es.string.substr.js	2026-11-22 18:13:30.134563457 +0100
++++ b/packages/core-js/modules/es.string.substr.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var requireObjectCoercible = require('../internals/require-object-coercible');
+ var toIntegerOrInfinity = require('../internals/to-integer-or-infinity');
+ var toString = require('../internals/to-string');
+diff -ruN a/packages/core-js/modules/es.string.to-well-formed.js b/packages/core-js/modules/es.string.to-well-formed.js
+--- a/packages/core-js/modules/es.string.to-well-formed.js	2026-11-22 18:13:30.134587476 +0100
++++ b/packages/core-js/modules/es.string.to-well-formed.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var $ = require('../internals/export');
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var requireObjectCoercible = require('../internals/require-object-coercible');
+ var toString = require('../internals/to-string');
+ var fails = require('../internals/fails');
+diff -ruN a/packages/core-js/modules/es.symbol.constructor.js b/packages/core-js/modules/es.symbol.constructor.js
+--- a/packages/core-js/modules/es.symbol.constructor.js	2026-11-22 18:13:30.134687393 +0100
++++ b/packages/core-js/modules/es.symbol.constructor.js	2026-11-22 18:13:30.203570709 +0100
+@@ -2,7 +2,7 @@
+ var $ = require('../internals/export');
+ var globalThis = require('../internals/global-this');
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var IS_PURE = require('../internals/is-pure');
+ var DESCRIPTORS = require('../internals/descriptors');
+ var NATIVE_SYMBOL = require('../internals/symbol-constructor-detection');
+diff -ruN a/packages/core-js/modules/es.symbol.description.js b/packages/core-js/modules/es.symbol.description.js
+--- a/packages/core-js/modules/es.symbol.description.js	2026-11-22 18:13:30.134703193 +0100
++++ b/packages/core-js/modules/es.symbol.description.js	2026-11-22 18:13:30.203570709 +0100
+@@ -5,7 +5,7 @@
+ var DESCRIPTORS = require('../internals/descriptors');
+ var globalThis = require('../internals/global-this');
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var hasOwn = require('../internals/has-own-property');
+ var isCallable = require('../internals/is-callable');
+ var isPrototypeOf = require('../internals/object-is-prototype-of');
+diff -ruN a/packages/core-js/modules/es.typed-array.copy-within.js b/packages/core-js/modules/es.typed-array.copy-within.js
+--- a/packages/core-js/modules/es.typed-array.copy-within.js	2026-11-22 18:13:30.134900816 +0100
++++ b/packages/core-js/modules/es.typed-array.copy-within.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,5 +1,5 @@
+ 'use strict';
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var ArrayBufferViewCore = require('../internals/array-buffer-view-core');
+ var $ArrayCopyWithin = require('../internals/array-copy-within');
+ 
+diff -ruN a/packages/core-js/modules/es.typed-array.fill.js b/packages/core-js/modules/es.typed-array.fill.js
+--- a/packages/core-js/modules/es.typed-array.fill.js	2026-11-22 18:13:30.134921936 +0100
++++ b/packages/core-js/modules/es.typed-array.fill.js	2026-11-22 18:13:30.203570709 +0100
+@@ -4,7 +4,7 @@
+ var toBigInt = require('../internals/to-big-int');
+ var classof = require('../internals/classof');
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var fails = require('../internals/fails');
+ 
+ var aTypedArray = ArrayBufferViewCore.aTypedArray;
+diff -ruN a/packages/core-js/modules/es.typed-array.iterator.js b/packages/core-js/modules/es.typed-array.iterator.js
+--- a/packages/core-js/modules/es.typed-array.iterator.js	2026-11-22 18:13:30.135097370 +0100
++++ b/packages/core-js/modules/es.typed-array.iterator.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var globalThis = require('../internals/global-this');
+ var fails = require('../internals/fails');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var ArrayBufferViewCore = require('../internals/array-buffer-view-core');
+ var ArrayIterators = require('../modules/es.array.iterator');
+ var wellKnownSymbol = require('../internals/well-known-symbol');
+diff -ruN a/packages/core-js/modules/es.typed-array.join.js b/packages/core-js/modules/es.typed-array.join.js
+--- a/packages/core-js/modules/es.typed-array.join.js	2026-11-22 18:13:30.135108300 +0100
++++ b/packages/core-js/modules/es.typed-array.join.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var ArrayBufferViewCore = require('../internals/array-buffer-view-core');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var aTypedArray = ArrayBufferViewCore.aTypedArray;
+ var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
+diff -ruN a/packages/core-js/modules/es.typed-array.to-sorted.js b/packages/core-js/modules/es.typed-array.to-sorted.js
+--- a/packages/core-js/modules/es.typed-array.to-sorted.js	2026-11-22 18:13:30.135257485 +0100
++++ b/packages/core-js/modules/es.typed-array.to-sorted.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var ArrayBufferViewCore = require('../internals/array-buffer-view-core');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var aCallable = require('../internals/a-callable');
+ var arrayFromConstructorAndList = require('../internals/array-from-constructor-and-list');
+ 
+diff -ruN a/packages/core-js/modules/es.typed-array.to-string.js b/packages/core-js/modules/es.typed-array.to-string.js
+--- a/packages/core-js/modules/es.typed-array.to-string.js	2026-11-22 18:13:30.135268215 +0100
++++ b/packages/core-js/modules/es.typed-array.to-string.js	2026-11-22 18:13:30.203570709 +0100
+@@ -2,7 +2,7 @@
+ var exportTypedArrayMethod = require('../internals/array-buffer-view-core').exportTypedArrayMethod;
+ var fails = require('../internals/fails');
+ var globalThis = require('../internals/global-this');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ 
+ var Uint8Array = globalThis.Uint8Array;
+ var Uint8ArrayPrototype = Uint8Array && Uint8Array.prototype || {};
+diff -ruN a/packages/core-js/modules/es.uint8-array.to-base64.js b/packages/core-js/modules/es.uint8-array.to-base64.js
+--- a/packages/core-js/modules/es.uint8-array.to-base64.js	2026-11-22 18:13:30.135381101 +0100
++++ b/packages/core-js/modules/es.uint8-array.to-base64.js	2026-11-22 18:13:30.203570709 +0100
+@@ -2,7 +2,7 @@
+ /* eslint-disable no-useless-assignment -- false positive for [index++] syntax */
+ var $ = require('../internals/export');
+ var globalThis = require('../internals/global-this');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var anObjectOrUndefined = require('../internals/an-object-or-undefined');
+ var anUint8Array = require('../internals/an-uint8-array');
+ var notDetached = require('../internals/array-buffer-not-detached');
+diff -ruN a/packages/core-js/modules/es.uint8-array.to-hex.js b/packages/core-js/modules/es.uint8-array.to-hex.js
+--- a/packages/core-js/modules/es.uint8-array.to-hex.js	2026-11-22 18:13:30.135391691 +0100
++++ b/packages/core-js/modules/es.uint8-array.to-hex.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var $ = require('../internals/export');
+ var globalThis = require('../internals/global-this');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var anUint8Array = require('../internals/an-uint8-array');
+ var notDetached = require('../internals/array-buffer-not-detached');
+ 
+diff -ruN a/packages/core-js/modules/es.unescape.js b/packages/core-js/modules/es.unescape.js
+--- a/packages/core-js/modules/es.unescape.js	2026-11-22 18:13:30.135403411 +0100
++++ b/packages/core-js/modules/es.unescape.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var $ = require('../internals/export');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toString = require('../internals/to-string');
+ 
+ var fromCharCode = String.fromCharCode;
+diff -ruN a/packages/core-js/modules/es.weak-map.constructor.js b/packages/core-js/modules/es.weak-map.constructor.js
+--- a/packages/core-js/modules/es.weak-map.constructor.js	2026-11-22 18:13:30.135415420 +0100
++++ b/packages/core-js/modules/es.weak-map.constructor.js	2026-11-22 18:13:30.203570709 +0100
+@@ -1,7 +1,7 @@
+ 'use strict';
+ var FREEZING = require('../internals/freezing');
+ var globalThis = require('../internals/global-this');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var defineBuiltIns = require('../internals/define-built-ins');
+ var InternalMetadataModule = require('../internals/internal-metadata');
+ var collection = require('../internals/collection');
+diff -ruN a/packages/core-js/modules/web.atob.js b/packages/core-js/modules/web.atob.js
+--- a/packages/core-js/modules/web.atob.js	2026-11-22 18:13:30.138301209 +0100
++++ b/packages/core-js/modules/web.atob.js	2026-11-22 18:13:30.204570688 +0100
+@@ -2,7 +2,7 @@
+ var $ = require('../internals/export');
+ var globalThis = require('../internals/global-this');
+ var getBuiltIn = require('../internals/get-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var call = require('../internals/function-call');
+ var fails = require('../internals/fails');
+ var toString = require('../internals/to-string');
+diff -ruN a/packages/core-js/modules/web.btoa.js b/packages/core-js/modules/web.btoa.js
+--- a/packages/core-js/modules/web.btoa.js	2026-11-22 18:13:30.138316029 +0100
++++ b/packages/core-js/modules/web.btoa.js	2026-11-22 18:13:30.204570688 +0100
+@@ -2,7 +2,7 @@
+ var $ = require('../internals/export');
+ var globalThis = require('../internals/global-this');
+ var getBuiltIn = require('../internals/get-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var call = require('../internals/function-call');
+ var fails = require('../internals/fails');
+ var toString = require('../internals/to-string');
+diff -ruN a/packages/core-js/modules/web.structured-clone.js b/packages/core-js/modules/web.structured-clone.js
+--- a/packages/core-js/modules/web.structured-clone.js	2026-11-22 18:13:30.138524712 +0100
++++ b/packages/core-js/modules/web.structured-clone.js	2026-11-22 18:13:30.204570688 +0100
+@@ -3,7 +3,7 @@
+ var $ = require('../internals/export');
+ var globalThis = require('../internals/global-this');
+ var getBuiltIn = require('../internals/get-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var fails = require('../internals/fails');
+ var uid = require('../internals/uid');
+ var isCallable = require('../internals/is-callable');
+diff -ruN a/packages/core-js/modules/web.url.constructor.js b/packages/core-js/modules/web.url.constructor.js
+--- a/packages/core-js/modules/web.url.constructor.js	2026-11-22 18:13:30.138680377 +0100
++++ b/packages/core-js/modules/web.url.constructor.js	2026-11-22 18:13:30.204570688 +0100
+@@ -6,7 +6,7 @@
+ var USE_NATIVE_URL = require('../internals/url-constructor-detection');
+ var globalThis = require('../internals/global-this');
+ var bind = require('../internals/function-bind-context');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var defineBuiltIn = require('../internals/define-built-in');
+ var defineBuiltInAccessor = require('../internals/define-built-in-accessor');
+ var anInstance = require('../internals/an-instance');
+diff -ruN a/packages/core-js/modules/web.url-search-params.constructor.js b/packages/core-js/modules/web.url-search-params.constructor.js
+--- a/packages/core-js/modules/web.url-search-params.constructor.js	2026-11-22 18:13:30.138567041 +0100
++++ b/packages/core-js/modules/web.url-search-params.constructor.js	2026-11-22 18:13:30.204570688 +0100
+@@ -5,7 +5,7 @@
+ var globalThis = require('../internals/global-this');
+ var safeGetBuiltIn = require('../internals/safe-get-built-in');
+ var call = require('../internals/function-call');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var DESCRIPTORS = require('../internals/descriptors');
+ var USE_NATIVE_URL = require('../internals/url-constructor-detection');
+ var percentCoding = require('../internals/url-percent-coding');
+diff -ruN a/packages/core-js/modules/web.url-search-params.delete.js b/packages/core-js/modules/web.url-search-params.delete.js
+--- a/packages/core-js/modules/web.url-search-params.delete.js	2026-11-22 18:13:30.138584580 +0100
++++ b/packages/core-js/modules/web.url-search-params.delete.js	2026-11-22 18:13:30.204570688 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var defineBuiltIn = require('../internals/define-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toString = require('../internals/to-string');
+ var validateArgumentsLength = require('../internals/validate-arguments-length');
+ 
+diff -ruN a/packages/core-js/modules/web.url-search-params.has.js b/packages/core-js/modules/web.url-search-params.has.js
+--- a/packages/core-js/modules/web.url-search-params.has.js	2026-11-22 18:13:30.138604980 +0100
++++ b/packages/core-js/modules/web.url-search-params.has.js	2026-11-22 18:13:30.204570688 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var defineBuiltIn = require('../internals/define-built-in');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var toString = require('../internals/to-string');
+ var validateArgumentsLength = require('../internals/validate-arguments-length');
+ 
+diff -ruN a/packages/core-js/modules/web.url-search-params.size.js b/packages/core-js/modules/web.url-search-params.size.js
+--- a/packages/core-js/modules/web.url-search-params.size.js	2026-11-22 18:13:30.138635899 +0100
++++ b/packages/core-js/modules/web.url-search-params.size.js	2026-11-22 18:13:30.204570688 +0100
+@@ -1,6 +1,6 @@
+ 'use strict';
+ var DESCRIPTORS = require('../internals/descriptors');
+-var uncurryThis = require('../internals/function-uncurry-this');
++var uncurryThis = require('../internals/function-uncurry-receiver');
+ var defineBuiltInAccessor = require('../internals/define-built-in-accessor');
+ 
+ var URLSearchParamsPrototype = URLSearchParams.prototype;

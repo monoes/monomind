@@ -1,0 +1,14 @@
+{
+  "id": "prism-rename-insert-before",
+  "title": "Prism: rename the grammar helper insertBefore to insertTokensBefore",
+  "tags": ["refactor", "rename", "callers-impact", "multi-file", "prism"],
+  "fixture": "slice:prismjs-1.30.0",
+  "prompt": "This is a copy of Prism 1.30.0 (the single-file bundle plus the per-language components). The helper on `Prism.languages` that inserts tokens into an existing grammar before a given key is called `insertBefore`, which reads like the DOM method of the same name. Rename it to `insertTokensBefore` everywhere: its definition and every place that calls or mentions it, in whichever files they live. The old name must not appear anywhere in the copy afterwards (comments included), `Prism.languages.insertBefore` must no longer exist, and every language must still load and highlight exactly as before.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/prism-rename-insert-before",
+    "timeoutS": 120
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

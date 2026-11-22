@@ -1,0 +1,24 @@
+diff -ruN a/components/prism-core.js b/components/prism-core.js
+--- a/components/prism-core.js	2026-11-22 18:05:24.037570638 +0100
++++ b/components/prism-core.js	2026-11-22 18:05:24.065525028 +0100
+@@ -334,7 +334,7 @@
+ 			 * });
+ 			 */
+ 			extend: function (id, redef) {
+-				var lang = _.languages[id];
++				var lang = _.util.clone(_.languages[id]);
+ 
+ 				for (var key in redef) {
+ 					lang[key] = redef[key];
+diff -ruN a/prism.js b/prism.js
+--- a/prism.js	2026-11-22 18:05:24.039430980 +0100
++++ b/prism.js	2026-11-22 18:05:24.065525028 +0100
+@@ -339,7 +339,7 @@
+ 			 * });
+ 			 */
+ 			extend: function (id, redef) {
+-				var lang = _.languages[id];
++				var lang = _.util.clone(_.languages[id]);
+ 
+ 				for (var key in redef) {
+ 					lang[key] = redef[key];

@@ -1,0 +1,14 @@
+{
+  "id": "prism-feature-dotenv",
+  "title": "Prism: add a dotenv language",
+  "tags": ["feature", "registry", "multi-file", "prism"],
+  "fixture": "slice:prismjs-1.30.0",
+  "prompt": "This is a copy of Prism 1.30.0 (the single-file bundle, the per-language components, the loadLanguages helper and the language metadata). Add support for `.env` files as a new language called `dotenv`, also reachable as `env`, so it can be loaded like any other language with the loadLanguages helper and is listed in the language metadata the way other languages are (title `dotenv`, alias `env`). Its grammar uses these top-level token types: `comment` (a `#` comment on its own line, optionally indented), `keyword` (a leading `export` before a variable name), `key` (the variable name, aliased `attr-name`), `punctuation` (the `=`), and `value` (everything after the `=` up to the end of the line, quotes included, aliased `attr-value`). A key may contain dots. Optional whitespace around `=` is allowed and not part of any token.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/prism-feature-dotenv",
+    "timeoutS": 60
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

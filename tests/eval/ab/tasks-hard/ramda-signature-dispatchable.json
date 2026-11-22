@@ -1,0 +1,14 @@
+{
+  "id": "ramda-signature-dispatchable",
+  "title": "Ramda: reorder the arguments of the internal dispatch helper",
+  "tags": ["refactor", "signature-change", "callers-impact", "multi-file", "ramda"],
+  "fixture": "slice:ramda-0.31.3",
+  "prompt": "This is a copy of Ramda 0.31.3 (the ES-module sources under source/, with its internal helpers). The internal helper that lets a function dispatch to a method of the list-like argument, or to a transducer, takes its arguments as (method names, transducer factory, default implementation). Change its signature so the default implementation comes first: (default implementation, method names, transducer factory). Update the helper and every one of its callers, including the ones inside other internal helpers. Public behaviour of every Ramda function must stay exactly the same, for plain arrays, for objects that provide the method, and for transducers.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/ramda-signature-dispatchable",
+    "timeoutS": 60
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

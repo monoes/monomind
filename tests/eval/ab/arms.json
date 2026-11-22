@@ -11,6 +11,11 @@
       "setup": [["init", "--minimal", "--yes"]],
       "assume": { "inputTokens": 95000, "outputTokens": 2500 }
     },
+    "lean-graph": {
+      "settings": "project",
+      "setup": [["init", "--minimal", "--yes"], ["monograph", "build"]],
+      "assume": { "inputTokens": 95000, "outputTokens": 2500 }
+    },
     "full": {
       "settings": "project",
       "setup": [["init", "--full", "--yes"], ["monograph", "build"]],

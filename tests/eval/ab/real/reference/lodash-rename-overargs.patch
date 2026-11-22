@@ -1,0 +1,259 @@
+diff -ruN a/core.js b/core.js
+--- a/core.js	2026-11-22 18:07:32.066777748 +0100
++++ b/core.js	2026-11-22 18:07:32.107906837 +0100
+@@ -285,7 +285,7 @@
+    * `intersectionWith`, `invert`, `invertBy`, `invokeMap`, `iteratee`, `keyBy`,
+    * `keys`, `keysIn`, `map`, `mapKeys`, `mapValues`, `matches`, `matchesProperty`,
+    * `memoize`, `merge`, `mergeWith`, `method`, `methodOf`, `mixin`, `negate`,
+-   * `nthArg`, `omit`, `omitBy`, `once`, `orderBy`, `over`, `overArgs`,
++   * `nthArg`, `omit`, `omitBy`, `once`, `orderBy`, `over`, `transformArgs`,
+    * `overEvery`, `overSome`, `partial`, `partialRight`, `partition`, `pick`,
+    * `pickBy`, `plant`, `property`, `propertyOf`, `pull`, `pullAll`, `pullAllBy`,
+    * `pullAllWith`, `pullAt`, `push`, `range`, `rangeRight`, `rearg`, `reject`,
+diff -ruN a/fp/_mapping.js b/fp/_mapping.js
+--- a/fp/_mapping.js	2026-11-22 18:07:32.067351230 +0100
++++ b/fp/_mapping.js	2026-11-22 18:07:32.107906837 +0100
+@@ -62,7 +62,7 @@
+   'takeLastWhile': 'takeRightWhile',
+   'unapply': 'rest',
+   'unnest': 'flatten',
+-  'useWith': 'overArgs',
++  'useWith': 'transformArgs',
+   'where': 'conformsTo',
+   'whereEq': 'isMatch',
+   'zipObj': 'zipObject'
+@@ -91,7 +91,7 @@
+     'invertBy', 'invoke', 'invokeMap', 'isEqual', 'isMatch', 'join', 'keyBy',
+     'lastIndexOf', 'lt', 'lte', 'map', 'mapKeys', 'mapValues', 'matchesProperty',
+     'maxBy', 'meanBy', 'merge', 'mergeAllWith', 'minBy', 'multiply', 'nth', 'omit',
+-    'omitBy', 'overArgs', 'pad', 'padEnd', 'padStart', 'parseInt', 'partial',
++    'omitBy', 'transformArgs', 'pad', 'padEnd', 'padStart', 'parseInt', 'partial',
+     'partialRight', 'partition', 'pick', 'pickBy', 'propertyOf', 'pull', 'pullAll',
+     'pullAt', 'random', 'range', 'rangeRight', 'rearg', 'reject', 'remove',
+     'repeat', 'restFrom', 'result', 'sampleSize', 'some', 'sortBy', 'sortedIndex',
+@@ -344,7 +344,7 @@
+   'matchesProperty': true,
+   'merge': true,
+   'multiply': true,
+-  'overArgs': true,
++  'transformArgs': true,
+   'partial': true,
+   'partialRight': true,
+   'propertyOf': true,
+diff -ruN a/fp/overArgs.js b/fp/overArgs.js
+--- a/fp/overArgs.js	2026-11-22 18:07:32.069105555 +0100
++++ b/fp/overArgs.js	1970-01-01 01:00:00.000000000 +0100
+@@ -1,5 +0,0 @@
+-var convert = require('./convert'),
+-    func = convert('overArgs', require('../overArgs'));
+-
+-func.placeholder = require('./placeholder');
+-module.exports = func;
+diff -ruN a/fp/transformArgs.js b/fp/transformArgs.js
+--- a/fp/transformArgs.js	1970-01-01 01:00:00.000000000 +0100
++++ b/fp/transformArgs.js	2026-11-22 18:07:32.108906817 +0100
+@@ -0,0 +1,5 @@
++var convert = require('./convert'),
++    func = convert('transformArgs', require('../transformArgs'));
++
++func.placeholder = require('./placeholder');
++module.exports = func;
+diff -ruN a/fp/useWith.js b/fp/useWith.js
+--- a/fp/useWith.js	2026-11-22 18:07:32.070113293 +0100
++++ b/fp/useWith.js	2026-11-22 18:07:32.108906817 +0100
+@@ -1 +1 @@
+-module.exports = require('./overArgs');
++module.exports = require('./transformArgs');
+diff -ruN a/function.js b/function.js
+--- a/function.js	2026-11-22 18:07:32.070294157 +0100
++++ b/function.js	2026-11-22 18:07:32.108906817 +0100
+@@ -13,7 +13,7 @@
+   'memoize': require('./memoize'),
+   'negate': require('./negate'),
+   'once': require('./once'),
+-  'overArgs': require('./overArgs'),
++  'transformArgs': require('./transformArgs'),
+   'partial': require('./partial'),
+   'partialRight': require('./partialRight'),
+   'rearg': require('./rearg'),
+diff -ruN a/lodash.js b/lodash.js
+--- a/lodash.js	2026-11-22 18:07:32.070833340 +0100
++++ b/lodash.js	2026-11-22 18:07:32.109906796 +0100
+@@ -1621,7 +1621,7 @@
+      * `intersectionWith`, `invert`, `invertBy`, `invokeMap`, `iteratee`, `keyBy`,
+      * `keys`, `keysIn`, `map`, `mapKeys`, `mapValues`, `matches`, `matchesProperty`,
+      * `memoize`, `merge`, `mergeWith`, `method`, `methodOf`, `mixin`, `negate`,
+-     * `nthArg`, `omit`, `omitBy`, `once`, `orderBy`, `over`, `overArgs`,
++     * `nthArg`, `omit`, `omitBy`, `once`, `orderBy`, `over`, `transformArgs`,
+      * `overEvery`, `overSome`, `partial`, `partialRight`, `partition`, `pick`,
+      * `pickBy`, `plant`, `property`, `propertyOf`, `pull`, `pullAll`, `pullAllBy`,
+      * `pullAllWith`, `pullAt`, `push`, `range`, `rangeRight`, `rearg`, `reject`,
+@@ -10707,7 +10707,7 @@
+      *   return n * n;
+      * }
+      *
+-     * var func = _.overArgs(function(x, y) {
++     * var func = _.transformArgs(function(x, y) {
+      *   return [x, y];
+      * }, [square, doubled]);
+      *
+@@ -10717,7 +10717,7 @@
+      * func(10, 5);
+      * // => [100, 10]
+      */
+-    var overArgs = castRest(function(func, transforms) {
++    var transformArgs = castRest(function(func, transforms) {
+       transforms = (transforms.length == 1 && isArray(transforms[0]))
+         ? arrayMap(transforms[0], baseUnary(getIteratee()))
+         : arrayMap(baseFlatten(transforms, 1), baseUnary(getIteratee()));
+@@ -16698,7 +16698,7 @@
+     lodash.once = once;
+     lodash.orderBy = orderBy;
+     lodash.over = over;
+-    lodash.overArgs = overArgs;
++    lodash.transformArgs = transformArgs;
+     lodash.overEvery = overEvery;
+     lodash.overSome = overSome;
+     lodash.partial = partial;
+diff -ruN a/overArgs.js b/overArgs.js
+--- a/overArgs.js	2026-11-22 18:07:32.071228088 +0100
++++ b/overArgs.js	1970-01-01 01:00:00.000000000 +0100
+@@ -1,61 +0,0 @@
+-var apply = require('./_apply'),
+-    arrayMap = require('./_arrayMap'),
+-    baseFlatten = require('./_baseFlatten'),
+-    baseIteratee = require('./_baseIteratee'),
+-    baseRest = require('./_baseRest'),
+-    baseUnary = require('./_baseUnary'),
+-    castRest = require('./_castRest'),
+-    isArray = require('./isArray');
+-
+-/* Built-in method references for those with the same name as other `lodash` methods. */
+-var nativeMin = Math.min;
+-
+-/**
+- * Creates a function that invokes `func` with its arguments transformed.
+- *
+- * @static
+- * @since 4.0.0
+- * @memberOf _
+- * @category Function
+- * @param {Function} func The function to wrap.
+- * @param {...(Function|Function[])} [transforms=[_.identity]]
+- *  The argument transforms.
+- * @returns {Function} Returns the new function.
+- * @example
+- *
+- * function doubled(n) {
+- *   return n * 2;
+- * }
+- *
+- * function square(n) {
+- *   return n * n;
+- * }
+- *
+- * var func = _.overArgs(function(x, y) {
+- *   return [x, y];
+- * }, [square, doubled]);
+- *
+- * func(9, 3);
+- * // => [81, 6]
+- *
+- * func(10, 5);
+- * // => [100, 10]
+- */
+-var overArgs = castRest(function(func, transforms) {
+-  transforms = (transforms.length == 1 && isArray(transforms[0]))
+-    ? arrayMap(transforms[0], baseUnary(baseIteratee))
+-    : arrayMap(baseFlatten(transforms, 1), baseUnary(baseIteratee));
+-
+-  var funcsLength = transforms.length;
+-  return baseRest(function(args) {
+-    var index = -1,
+-        length = nativeMin(args.length, funcsLength);
+-
+-    while (++index < length) {
+-      args[index] = transforms[index].call(this, args[index]);
+-    }
+-    return apply(func, this, args);
+-  });
+-});
+-
+-module.exports = overArgs;
+diff -ruN a/transformArgs.js b/transformArgs.js
+--- a/transformArgs.js	1970-01-01 01:00:00.000000000 +0100
++++ b/transformArgs.js	2026-11-22 18:07:32.109906796 +0100
+@@ -0,0 +1,61 @@
++var apply = require('./_apply'),
++    arrayMap = require('./_arrayMap'),
++    baseFlatten = require('./_baseFlatten'),
++    baseIteratee = require('./_baseIteratee'),
++    baseRest = require('./_baseRest'),
++    baseUnary = require('./_baseUnary'),
++    castRest = require('./_castRest'),
++    isArray = require('./isArray');
++
++/* Built-in method references for those with the same name as other `lodash` methods. */
++var nativeMin = Math.min;
++
++/**
++ * Creates a function that invokes `func` with its arguments transformed.
++ *
++ * @static
++ * @since 4.0.0
++ * @memberOf _
++ * @category Function
++ * @param {Function} func The function to wrap.
++ * @param {...(Function|Function[])} [transforms=[_.identity]]
++ *  The argument transforms.
++ * @returns {Function} Returns the new function.
++ * @example
++ *
++ * function doubled(n) {
++ *   return n * 2;
++ * }
++ *
++ * function square(n) {
++ *   return n * n;
++ * }
++ *
++ * var func = _.transformArgs(function(x, y) {
++ *   return [x, y];
++ * }, [square, doubled]);
++ *
++ * func(9, 3);
++ * // => [81, 6]
++ *
++ * func(10, 5);
++ * // => [100, 10]
++ */
++var transformArgs = castRest(function(func, transforms) {
++  transforms = (transforms.length == 1 && isArray(transforms[0]))
++    ? arrayMap(transforms[0], baseUnary(baseIteratee))
++    : arrayMap(baseFlatten(transforms, 1), baseUnary(baseIteratee));
++
++  var funcsLength = transforms.length;
++  return baseRest(function(args) {
++    var index = -1,
++        length = nativeMin(args.length, funcsLength);
++
++    while (++index < length) {
++      args[index] = transforms[index].call(this, args[index]);
++    }
++    return apply(func, this, args);
++  });
++});
++
++module.exports = transformArgs;
+diff -ruN a/wrapperLodash.js b/wrapperLodash.js
+--- a/wrapperLodash.js	2026-11-22 18:07:32.072092961 +0100
++++ b/wrapperLodash.js	2026-11-22 18:07:32.110906776 +0100
+@@ -62,7 +62,7 @@
+  * `intersectionWith`, `invert`, `invertBy`, `invokeMap`, `iteratee`, `keyBy`,
+  * `keys`, `keysIn`, `map`, `mapKeys`, `mapValues`, `matches`, `matchesProperty`,
+  * `memoize`, `merge`, `mergeWith`, `method`, `methodOf`, `mixin`, `negate`,
+- * `nthArg`, `omit`, `omitBy`, `once`, `orderBy`, `over`, `overArgs`,
++ * `nthArg`, `omit`, `omitBy`, `once`, `orderBy`, `over`, `transformArgs`,
+  * `overEvery`, `overSome`, `partial`, `partialRight`, `partition`, `pick`,
+  * `pickBy`, `plant`, `property`, `propertyOf`, `pull`, `pullAll`, `pullAllBy`,
+  * `pullAllWith`, `pullAt`, `push`, `range`, `rangeRight`, `rearg`, `reject`,

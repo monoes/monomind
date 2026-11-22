@@ -1,0 +1,14 @@
+{
+  "id": "prism-feature-mjs-alias",
+  "title": "Prism: add mjs as a JavaScript alias",
+  "tags": ["feature", "registry", "multi-file", "prism"],
+  "fixture": "slice:prismjs-1.30.0",
+  "prompt": "This is a copy of Prism 1.30.0 (the single-file bundle, the per-language components, and the language metadata). JavaScript is already reachable under the short name `js`. Make `mjs` an additional name for JavaScript that behaves exactly like `js` everywhere `js` is registered or declared: `Prism.languages.mjs` must be the JavaScript grammar both when the bundle is loaded and after the JavaScript component is loaded on its own with the loadLanguages helper, and the language metadata that lists each language's aliases must list `mjs` next to `js`. Do not change any other language's aliases.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/prism-feature-mjs-alias",
+    "timeoutS": 60
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

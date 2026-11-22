@@ -1,0 +1,699 @@
+diff -rN -U0 a/components/prism-actionscript.js b/components/prism-actionscript.js
+--- a/components/prism-actionscript.js	2026-11-22 18:04:44.990328920 +0100
++++ b/components/prism-actionscript.js	2026-11-22 18:04:45.020322700 +0100
+@@ -12 +12 @@
+-	Prism.languages.insertBefore('actionscript', 'string', {
++	Prism.languages.insertTokensBefore('actionscript', 'string', {
+diff -rN -U0 a/components/prism-aspnet.js b/components/prism-aspnet.js
+--- a/components/prism-aspnet.js	2026-11-22 18:04:44.990508015 +0100
++++ b/components/prism-aspnet.js	2026-11-22 18:04:45.020322700 +0100
+@@ -29 +29 @@
+-Prism.languages.insertBefore('inside', 'punctuation', {
++Prism.languages.insertTokensBefore('inside', 'punctuation', {
+@@ -33 +33 @@
+-Prism.languages.insertBefore('aspnet', 'comment', {
++Prism.languages.insertTokensBefore('aspnet', 'comment', {
+@@ -41 +41 @@
+-Prism.languages.insertBefore('aspnet', Prism.languages.javascript ? 'script' : 'tag', {
++Prism.languages.insertTokensBefore('aspnet', Prism.languages.javascript ? 'script' : 'tag', {
+diff -rN -U0 a/components/prism-birb.js b/components/prism-birb.js
+--- a/components/prism-birb.js	2026-11-22 18:04:44.990635941 +0100
++++ b/components/prism-birb.js	2026-11-22 18:04:45.020322700 +0100
+@@ -17 +17 @@
+-Prism.languages.insertBefore('birb', 'function', {
++Prism.languages.insertTokensBefore('birb', 'function', {
+diff -rN -U0 a/components/prism-bison.js b/components/prism-bison.js
+--- a/components/prism-bison.js	2026-11-22 18:04:44.990646200 +0100
++++ b/components/prism-bison.js	2026-11-22 18:04:45.020322700 +0100
+@@ -3 +3 @@
+-Prism.languages.insertBefore('bison', 'comment', {
++Prism.languages.insertTokensBefore('bison', 'comment', {
+diff -rN -U0 a/components/prism-cfscript.js b/components/prism-cfscript.js
+--- a/components/prism-cfscript.js	2026-11-22 18:04:44.990726178 +0100
++++ b/components/prism-cfscript.js	2026-11-22 18:04:45.020322700 +0100
+@@ -35 +35 @@
+-Prism.languages.insertBefore('cfscript', 'keyword', {
++Prism.languages.insertTokensBefore('cfscript', 'keyword', {
+diff -rN -U0 a/components/prism-chaiscript.js b/components/prism-chaiscript.js
+--- a/components/prism-chaiscript.js	2026-11-22 18:04:44.990746057 +0100
++++ b/components/prism-chaiscript.js	2026-11-22 18:04:45.020322700 +0100
+@@ -27 +27 @@
+-Prism.languages.insertBefore('chaiscript', 'operator', {
++Prism.languages.insertTokensBefore('chaiscript', 'operator', {
+@@ -36 +36 @@
+-Prism.languages.insertBefore('chaiscript', 'string', {
++Prism.languages.insertTokensBefore('chaiscript', 'string', {
+diff -rN -U0 a/components/prism-cilkc.js b/components/prism-cilkc.js
+--- a/components/prism-cilkc.js	2026-11-22 18:04:44.990766707 +0100
++++ b/components/prism-cilkc.js	2026-11-22 18:04:45.020322700 +0100
+@@ -1 +1 @@
+-Prism.languages.cilkc = Prism.languages.insertBefore('c', 'function', {
++Prism.languages.cilkc = Prism.languages.insertTokensBefore('c', 'function', {
+diff -rN -U0 a/components/prism-cilkcpp.js b/components/prism-cilkcpp.js
+--- a/components/prism-cilkcpp.js	2026-11-22 18:04:44.990778076 +0100
++++ b/components/prism-cilkcpp.js	2026-11-22 18:04:45.020322700 +0100
+@@ -1 +1 @@
+-Prism.languages.cilkcpp = Prism.languages.insertBefore('cpp', 'function', {
++Prism.languages.cilkcpp = Prism.languages.insertTokensBefore('cpp', 'function', {
+diff -rN -U0 a/components/prism-c.js b/components/prism-c.js
+--- a/components/prism-c.js	2026-11-22 18:04:44.990716808 +0100
++++ b/components/prism-c.js	2026-11-22 18:04:45.020322700 +0100
+@@ -21 +21 @@
+-Prism.languages.insertBefore('c', 'string', {
++Prism.languages.insertTokensBefore('c', 'string', {
+@@ -29 +29 @@
+-Prism.languages.insertBefore('c', 'string', {
++Prism.languages.insertTokensBefore('c', 'string', {
+@@ -75 +75 @@
+-Prism.languages.insertBefore('c', 'function', {
++Prism.languages.insertTokensBefore('c', 'function', {
+diff -rN -U0 a/components/prism-coffeescript.js b/components/prism-coffeescript.js
+--- a/components/prism-coffeescript.js	2026-11-22 18:04:44.990829615 +0100
++++ b/components/prism-coffeescript.js	2026-11-22 18:04:45.020322700 +0100
+@@ -36 +36 @@
+-	Prism.languages.insertBefore('coffeescript', 'comment', {
++	Prism.languages.insertTokensBefore('coffeescript', 'comment', {
+@@ -53 +53 @@
+-	Prism.languages.insertBefore('coffeescript', 'string', {
++	Prism.languages.insertTokensBefore('coffeescript', 'string', {
+@@ -88 +88 @@
+-	Prism.languages.insertBefore('coffeescript', 'keyword', {
++	Prism.languages.insertTokensBefore('coffeescript', 'keyword', {
+diff -rN -U0 a/components/prism-concurnas.js b/components/prism-concurnas.js
+--- a/components/prism-concurnas.js	2026-11-22 18:04:44.990839714 +0100
++++ b/components/prism-concurnas.js	2026-11-22 18:04:45.020322700 +0100
+@@ -34 +34 @@
+-Prism.languages.insertBefore('concurnas', 'langext', {
++Prism.languages.insertTokensBefore('concurnas', 'langext', {
+diff -rN -U0 a/components/prism-core.js b/components/prism-core.js
+--- a/components/prism-core.js	2026-11-22 18:04:44.990878733 +0100
++++ b/components/prism-core.js	2026-11-22 18:04:45.021322679 +0100
+@@ -363 +363 @@
+-			 * then the `style` token will be added (and processed) at the end. `insertBefore` allows you to insert tokens
++			 * then the `style` token will be added (and processed) at the end. `insertTokensBefore` allows you to insert tokens
+@@ -367 +367 @@
+-			 * Prism.languages.insertBefore('markup', 'cdata', {
++			 * Prism.languages.insertTokensBefore('markup', 'cdata', {
+@@ -382 +382 @@
+-			 * Prism.languages.insertBefore('markup', 'comment', {
++			 * Prism.languages.insertTokensBefore('markup', 'comment', {
+@@ -390 +390 @@
+-			 * The main problem `insertBefore` has to solve is iteration order. Since ES2015, the iteration order for object
++			 * The main problem `insertTokensBefore` has to solve is iteration order. Since ES2015, the iteration order for object
+@@ -392 +392 @@
+-			 * differently when keys are deleted and re-inserted. So `insertBefore` can't be implemented by temporarily
++			 * differently when keys are deleted and re-inserted. So `insertTokensBefore` can't be implemented by temporarily
+@@ -395 +395 @@
+-			 * To solve this problem, `insertBefore` doesn't actually insert the given tokens into the target object.
++			 * To solve this problem, `insertTokensBefore` doesn't actually insert the given tokens into the target object.
+@@ -404 +404 @@
+-			 * var newMarkup = Prism.languages.insertBefore('markup', 'comment', { ... });
++			 * var newMarkup = Prism.languages.insertTokensBefore('markup', 'comment', { ... });
+@@ -421 +421 @@
+-			insertBefore: function (inside, before, insert, root) {
++			insertTokensBefore: function (inside, before, insert, root) {
+diff -rN -U0 a/components/prism-cpp.js b/components/prism-cpp.js
+--- a/components/prism-cpp.js	2026-11-22 18:04:44.990893513 +0100
++++ b/components/prism-cpp.js	2026-11-22 18:04:45.021322679 +0100
+@@ -34 +34 @@
+-	Prism.languages.insertBefore('cpp', 'string', {
++	Prism.languages.insertTokensBefore('cpp', 'string', {
+@@ -62 +62 @@
+-	Prism.languages.insertBefore('cpp', 'keyword', {
++	Prism.languages.insertTokensBefore('cpp', 'keyword', {
+@@ -76 +76 @@
+-	Prism.languages.insertBefore('cpp', 'operator', {
++	Prism.languages.insertTokensBefore('cpp', 'operator', {
+@@ -83 +83 @@
+-	Prism.languages.insertBefore('cpp', 'class-name', {
++	Prism.languages.insertTokensBefore('cpp', 'class-name', {
+@@ -94 +94 @@
+-	Prism.languages.insertBefore('inside', 'double-colon', {
++	Prism.languages.insertTokensBefore('inside', 'double-colon', {
+diff -rN -U0 a/components/prism-crystal.js b/components/prism-crystal.js
+--- a/components/prism-crystal.js	2026-11-22 18:04:44.990903292 +0100
++++ b/components/prism-crystal.js	2026-11-22 18:04:45.021322679 +0100
+@@ -18 +18 @@
+-	Prism.languages.insertBefore('crystal', 'string-literal', {
++	Prism.languages.insertTokensBefore('crystal', 'string-literal', {
+diff -rN -U0 a/components/prism-csharp.js b/components/prism-csharp.js
+--- a/components/prism-csharp.js	2026-11-22 18:04:44.990918582 +0100
++++ b/components/prism-csharp.js	2026-11-22 18:04:45.021322679 +0100
+@@ -167 +167 @@
+-	Prism.languages.insertBefore('csharp', 'number', {
++	Prism.languages.insertTokensBefore('csharp', 'number', {
+@@ -174 +174 @@
+-	Prism.languages.insertBefore('csharp', 'punctuation', {
++	Prism.languages.insertTokensBefore('csharp', 'punctuation', {
+@@ -182 +182 @@
+-	Prism.languages.insertBefore('csharp', 'class-name', {
++	Prism.languages.insertTokensBefore('csharp', 'class-name', {
+@@ -281 +281 @@
+-	Prism.languages.insertBefore('csharp', 'class-name', {
++	Prism.languages.insertTokensBefore('csharp', 'class-name', {
+@@ -343 +343 @@
+-	Prism.languages.insertBefore('csharp', 'string', {
++	Prism.languages.insertTokensBefore('csharp', 'string', {
+diff -rN -U0 a/components/prism-cshtml.js b/components/prism-cshtml.js
+--- a/components/prism-cshtml.js	2026-11-22 18:04:44.990930951 +0100
++++ b/components/prism-cshtml.js	2026-11-22 18:04:45.021322679 +0100
+@@ -112 +112 @@
+-	var csharpWithHtml = Prism.languages.insertBefore('csharp', 'string', {
++	var csharpWithHtml = Prism.languages.insertTokensBefore('csharp', 'string', {
+@@ -139 +139 @@
+-	Prism.languages.insertBefore('inside', 'punctuation', { 'value': inlineValue }, Prism.languages.cshtml.tag.inside['attr-value']);
++	Prism.languages.insertTokensBefore('inside', 'punctuation', { 'value': inlineValue }, Prism.languages.cshtml.tag.inside['attr-value']);
+@@ -141 +141 @@
+-	Prism.languages.insertBefore('cshtml', 'prolog', {
++	Prism.languages.insertTokensBefore('cshtml', 'prolog', {
+diff -rN -U0 a/components/prism-css-extras.js b/components/prism-css-extras.js
+--- a/components/prism-css-extras.js	2026-11-22 18:04:44.990952431 +0100
++++ b/components/prism-css-extras.js	2026-11-22 18:04:45.021322679 +0100
+@@ -71 +71 @@
+-	Prism.languages.insertBefore('css', 'property', {
++	Prism.languages.insertTokensBefore('css', 'property', {
+@@ -88 +88 @@
+-	Prism.languages.insertBefore('css', 'function', {
++	Prism.languages.insertTokensBefore('css', 'function', {
+diff -rN -U0 a/components/prism-dart.js b/components/prism-dart.js
+--- a/components/prism-dart.js	2026-11-22 18:04:44.991020539 +0100
++++ b/components/prism-dart.js	2026-11-22 18:04:45.021322679 +0100
+@@ -39 +39 @@
+-	Prism.languages.insertBefore('dart', 'string', {
++	Prism.languages.insertTokensBefore('dart', 'string', {
+@@ -61 +61 @@
+-	Prism.languages.insertBefore('dart', 'class-name', {
++	Prism.languages.insertTokensBefore('dart', 'class-name', {
+@@ -68 +68 @@
+-	Prism.languages.insertBefore('dart', 'class-name', {
++	Prism.languages.insertTokensBefore('dart', 'class-name', {
+diff -rN -U0 a/components/prism-d.js b/components/prism-d.js
+--- a/components/prism-d.js	2026-11-22 18:04:44.991011039 +0100
++++ b/components/prism-d.js	2026-11-22 18:04:45.021322679 +0100
+@@ -68 +68 @@
+-Prism.languages.insertBefore('d', 'string', {
++Prism.languages.insertTokensBefore('d', 'string', {
+@@ -74 +74 @@
+-Prism.languages.insertBefore('d', 'keyword', {
++Prism.languages.insertTokensBefore('d', 'keyword', {
+@@ -78 +78 @@
+-Prism.languages.insertBefore('d', 'function', {
++Prism.languages.insertTokensBefore('d', 'function', {
+diff -rN -U0 a/components/prism-firestore-security-rules.js b/components/prism-firestore-security-rules.js
+--- a/components/prism-firestore-security-rules.js	2026-11-22 18:04:44.991239812 +0100
++++ b/components/prism-firestore-security-rules.js	2026-11-22 18:04:45.021322679 +0100
+@@ -9 +9 @@
+-Prism.languages.insertBefore('firestore-security-rules', 'keyword', {
++Prism.languages.insertTokensBefore('firestore-security-rules', 'keyword', {
+diff -rN -U0 a/components/prism-flow.js b/components/prism-flow.js
+--- a/components/prism-flow.js	2026-11-22 18:04:44.991249041 +0100
++++ b/components/prism-flow.js	2026-11-22 18:04:45.021322679 +0100
+@@ -4 +4 @@
+-	Prism.languages.insertBefore('flow', 'keyword', {
++	Prism.languages.insertTokensBefore('flow', 'keyword', {
+@@ -15 +15 @@
+-	Prism.languages.insertBefore('flow', 'operator', {
++	Prism.languages.insertTokensBefore('flow', 'operator', {
+diff -rN -U0 a/components/prism-fsharp.js b/components/prism-fsharp.js
+--- a/components/prism-fsharp.js	2026-11-22 18:04:44.991268331 +0100
++++ b/components/prism-fsharp.js	2026-11-22 18:04:45.021322679 +0100
+@@ -35 +35 @@
+-Prism.languages.insertBefore('fsharp', 'keyword', {
++Prism.languages.insertTokensBefore('fsharp', 'keyword', {
+@@ -49 +49 @@
+-Prism.languages.insertBefore('fsharp', 'punctuation', {
++Prism.languages.insertTokensBefore('fsharp', 'punctuation', {
+@@ -55 +55 @@
+-Prism.languages.insertBefore('fsharp', 'string', {
++Prism.languages.insertTokensBefore('fsharp', 'string', {
+diff -rN -U0 a/components/prism-go.js b/components/prism-go.js
+--- a/components/prism-go.js	2026-11-22 18:04:44.991405296 +0100
++++ b/components/prism-go.js	2026-11-22 18:04:45.021322679 +0100
+@@ -21 +21 @@
+-Prism.languages.insertBefore('go', 'string', {
++Prism.languages.insertTokensBefore('go', 'string', {
+diff -rN -U0 a/components/prism-gradle.js b/components/prism-gradle.js
+--- a/components/prism-gradle.js	2026-11-22 18:04:44.991417716 +0100
++++ b/components/prism-gradle.js	2026-11-22 18:04:45.021322679 +0100
+@@ -33 +33 @@
+-	Prism.languages.insertBefore('gradle', 'string', {
++	Prism.languages.insertTokensBefore('gradle', 'string', {
+@@ -50 +50 @@
+-	Prism.languages.insertBefore('gradle', 'punctuation', {
++	Prism.languages.insertTokensBefore('gradle', 'punctuation', {
+@@ -54 +54 @@
+-	Prism.languages.insertBefore('gradle', 'function', {
++	Prism.languages.insertTokensBefore('gradle', 'function', {
+diff -rN -U0 a/components/prism-groovy.js b/components/prism-groovy.js
+--- a/components/prism-groovy.js	2026-11-22 18:04:44.991438355 +0100
++++ b/components/prism-groovy.js	2026-11-22 18:04:45.021322679 +0100
+@@ -33 +33 @@
+-	Prism.languages.insertBefore('groovy', 'string', {
++	Prism.languages.insertTokensBefore('groovy', 'string', {
+@@ -51 +51 @@
+-	Prism.languages.insertBefore('groovy', 'punctuation', {
++	Prism.languages.insertTokensBefore('groovy', 'punctuation', {
+@@ -55 +55 @@
+-	Prism.languages.insertBefore('groovy', 'function', {
++	Prism.languages.insertTokensBefore('groovy', 'function', {
+diff -rN -U0 a/components/prism-haml.js b/components/prism-haml.js
+--- a/components/prism-haml.js	2026-11-22 18:04:44.991448075 +0100
++++ b/components/prism-haml.js	2026-11-22 18:04:45.021322679 +0100
+@@ -147 +147 @@
+-	Prism.languages.insertBefore('haml', 'filter', all_filters);
++	Prism.languages.insertTokensBefore('haml', 'filter', all_filters);
+diff -rN -U0 a/components/prism-haxe.js b/components/prism-haxe.js
+--- a/components/prism-haxe.js	2026-11-22 18:04:44.991477254 +0100
++++ b/components/prism-haxe.js	2026-11-22 18:04:45.021322679 +0100
+@@ -24 +24 @@
+-Prism.languages.insertBefore('haxe', 'string', {
++Prism.languages.insertTokensBefore('haxe', 'string', {
+@@ -48 +48 @@
+-Prism.languages.insertBefore('haxe', 'class-name', {
++Prism.languages.insertTokensBefore('haxe', 'class-name', {
+@@ -65 +65 @@
+-Prism.languages.insertBefore('haxe', 'keyword', {
++Prism.languages.insertTokensBefore('haxe', 'keyword', {
+diff -rN -U0 a/components/prism-http.js b/components/prism-http.js
+--- a/components/prism-http.js	2026-11-22 18:04:44.991533892 +0100
++++ b/components/prism-http.js	2026-11-22 18:04:45.021322679 +0100
+@@ -148 +148 @@
+-		Prism.languages.insertBefore('http', 'header', options);
++		Prism.languages.insertTokensBefore('http', 'header', options);
+diff -rN -U0 a/components/prism-idris.js b/components/prism-idris.js
+--- a/components/prism-idris.js	2026-11-22 18:04:44.991576491 +0100
++++ b/components/prism-idris.js	2026-11-22 18:04:45.021322679 +0100
+@@ -9 +9 @@
+-Prism.languages.insertBefore('idris', 'keyword', {
++Prism.languages.insertTokensBefore('idris', 'keyword', {
+diff -rN -U0 a/components/prism-javadoc.js b/components/prism-javadoc.js
+--- a/components/prism-javadoc.js	2026-11-22 18:04:44.991652279 +0100
++++ b/components/prism-javadoc.js	2026-11-22 18:04:45.021322679 +0100
+@@ -9 +9 @@
+-	Prism.languages.insertBefore('javadoc', 'keyword', {
++	Prism.languages.insertTokensBefore('javadoc', 'keyword', {
+diff -rN -U0 a/components/prism-javadoclike.js b/components/prism-javadoclike.js
+--- a/components/prism-javadoclike.js	2026-11-22 18:04:44.991662328 +0100
++++ b/components/prism-javadoclike.js	2026-11-22 18:04:45.021322679 +0100
+@@ -42 +42 @@
+-			grammar = Prism.languages.insertBefore(lang, 'comment', definition);
++			grammar = Prism.languages.insertTokensBefore(lang, 'comment', definition);
+diff -rN -U0 a/components/prism-java.js b/components/prism-java.js
+--- a/components/prism-java.js	2026-11-22 18:04:44.991641679 +0100
++++ b/components/prism-java.js	2026-11-22 18:04:45.021322679 +0100
+@@ -62 +62 @@
+-	Prism.languages.insertBefore('java', 'string', {
++	Prism.languages.insertTokensBefore('java', 'string', {
+@@ -75 +75 @@
+-	Prism.languages.insertBefore('java', 'class-name', {
++	Prism.languages.insertTokensBefore('java', 'class-name', {
+diff -rN -U0 a/components/prism-javascript.js b/components/prism-javascript.js
+--- a/components/prism-javascript.js	2026-11-22 18:04:44.991674358 +0100
++++ b/components/prism-javascript.js	2026-11-22 18:04:45.021322679 +0100
+@@ -54 +54 @@
+-Prism.languages.insertBefore('javascript', 'keyword', {
++Prism.languages.insertTokensBefore('javascript', 'keyword', {
+@@ -117 +117 @@
+-Prism.languages.insertBefore('javascript', 'string', {
++Prism.languages.insertTokensBefore('javascript', 'string', {
+@@ -153 +153 @@
+-Prism.languages.insertBefore('javascript', 'operator', {
++Prism.languages.insertTokensBefore('javascript', 'operator', {
+diff -rN -U0 a/components/prism-jolie.js b/components/prism-jolie.js
+--- a/components/prism-jolie.js	2026-11-22 18:04:44.991704647 +0100
++++ b/components/prism-jolie.js	2026-11-22 18:04:45.021322679 +0100
+@@ -19 +19 @@
+-Prism.languages.insertBefore('jolie', 'keyword', {
++Prism.languages.insertTokensBefore('jolie', 'keyword', {
+diff -rN -U0 a/components/prism-jsdoc.js b/components/prism-jsdoc.js
+--- a/components/prism-jsdoc.js	2026-11-22 18:04:44.991753076 +0100
++++ b/components/prism-jsdoc.js	2026-11-22 18:04:45.021322679 +0100
+@@ -19 +19 @@
+-	Prism.languages.insertBefore('jsdoc', 'keyword', {
++	Prism.languages.insertTokensBefore('jsdoc', 'keyword', {
+diff -rN -U0 a/components/prism-js-extras.js b/components/prism-js-extras.js
+--- a/components/prism-js-extras.js	2026-11-22 18:04:44.991723596 +0100
++++ b/components/prism-js-extras.js	2026-11-22 18:04:45.021322679 +0100
+@@ -3 +3 @@
+-	Prism.languages.insertBefore('javascript', 'function-variable', {
++	Prism.languages.insertTokensBefore('javascript', 'function-variable', {
+@@ -11 +11 @@
+-	Prism.languages.insertBefore('javascript', 'function', {
++	Prism.languages.insertTokensBefore('javascript', 'function', {
+@@ -19 +19 @@
+-	Prism.languages.insertBefore('javascript', 'constant', {
++	Prism.languages.insertTokensBefore('javascript', 'constant', {
+@@ -47 +47 @@
+-	Prism.languages.insertBefore('javascript', 'keyword', {
++	Prism.languages.insertTokensBefore('javascript', 'keyword', {
+@@ -81 +81 @@
+-	Prism.languages.insertBefore('javascript', 'operator', {
++	Prism.languages.insertTokensBefore('javascript', 'operator', {
+@@ -92 +92 @@
+-	Prism.languages.insertBefore('javascript', 'punctuation', {
++	Prism.languages.insertTokensBefore('javascript', 'punctuation', {
+diff -rN -U0 a/components/prism-jsonp.js b/components/prism-jsonp.js
+--- a/components/prism-jsonp.js	2026-11-22 18:04:44.991781325 +0100
++++ b/components/prism-jsonp.js	2026-11-22 18:04:45.021322679 +0100
+@@ -5 +5 @@
+-Prism.languages.insertBefore('jsonp', 'punctuation', {
++Prism.languages.insertTokensBefore('jsonp', 'punctuation', {
+diff -rN -U0 a/components/prism-jsx.js b/components/prism-jsx.js
+--- a/components/prism-jsx.js	2026-11-22 18:04:44.991801164 +0100
++++ b/components/prism-jsx.js	2026-11-22 18:04:45.021322679 +0100
+@@ -34 +34 @@
+-	Prism.languages.insertBefore('inside', 'attr-name', {
++	Prism.languages.insertTokensBefore('inside', 'attr-name', {
+@@ -41 +41 @@
+-	Prism.languages.insertBefore('inside', 'special-attr', {
++	Prism.languages.insertTokensBefore('inside', 'special-attr', {
+diff -rN -U0 a/components/prism-kotlin.js b/components/prism-kotlin.js
+--- a/components/prism-kotlin.js	2026-11-22 18:04:44.991844263 +0100
++++ b/components/prism-kotlin.js	2026-11-22 18:04:45.022322659 +0100
+@@ -36 +36 @@
+-	Prism.languages.insertBefore('kotlin', 'string', {
++	Prism.languages.insertTokensBefore('kotlin', 'string', {
+@@ -72 +72 @@
+-	Prism.languages.insertBefore('kotlin', 'keyword', {
++	Prism.languages.insertTokensBefore('kotlin', 'keyword', {
+@@ -79 +79 @@
+-	Prism.languages.insertBefore('kotlin', 'function', {
++	Prism.languages.insertTokensBefore('kotlin', 'function', {
+diff -rN -U0 a/components/prism-latte.js b/components/prism-latte.js
+--- a/components/prism-latte.js	2026-11-22 18:04:44.991885071 +0100
++++ b/components/prism-latte.js	2026-11-22 18:04:45.022322659 +0100
+@@ -22 +22 @@
+-	Prism.languages.insertBefore('inside', 'attr-value', {
++	Prism.languages.insertTokensBefore('inside', 'attr-value', {
+diff -rN -U0 a/components/prism-less.js b/components/prism-less.js
+--- a/components/prism-less.js	2026-11-22 18:04:44.991893861 +0100
++++ b/components/prism-less.js	2026-11-22 18:04:45.022322659 +0100
+@@ -36 +36 @@
+-Prism.languages.insertBefore('less', 'property', {
++Prism.languages.insertTokensBefore('less', 'property', {
+diff -rN -U0 a/components/prism-markdown.js b/components/prism-markdown.js
+--- a/components/prism-markdown.js	2026-11-22 18:04:44.992025097 +0100
++++ b/components/prism-markdown.js	2026-11-22 18:04:45.022322659 +0100
+@@ -28 +28 @@
+-	Prism.languages.insertBefore('markdown', 'prolog', {
++	Prism.languages.insertTokensBefore('markdown', 'prolog', {
+diff -rN -U0 a/components/prism-markup.js b/components/prism-markup.js
+--- a/components/prism-markup.js	2026-11-22 18:04:44.992049596 +0100
++++ b/components/prism-markup.js	2026-11-22 18:04:45.022322659 +0100
+@@ -132 +132 @@
+-		Prism.languages.insertBefore('markup', 'cdata', def);
++		Prism.languages.insertTokensBefore('markup', 'cdata', def);
+diff -rN -U0 a/components/prism-mongodb.js b/components/prism-mongodb.js
+--- a/components/prism-mongodb.js	2026-11-22 18:04:44.992130054 +0100
++++ b/components/prism-mongodb.js	2026-11-22 18:04:45.022322659 +0100
+@@ -67 +67 @@
+-	Prism.languages.insertBefore('mongodb', 'string', {
++	Prism.languages.insertTokensBefore('mongodb', 'string', {
+@@ -90 +90 @@
+-	Prism.languages.insertBefore('mongodb', 'constant', {
++	Prism.languages.insertTokensBefore('mongodb', 'constant', {
+diff -rN -U0 a/components/prism-n4js.js b/components/prism-n4js.js
+--- a/components/prism-n4js.js	2026-11-22 18:04:44.992171702 +0100
++++ b/components/prism-n4js.js	2026-11-22 18:04:45.022322659 +0100
+@@ -6 +6 @@
+-Prism.languages.insertBefore('n4js', 'constant', {
++Prism.languages.insertTokensBefore('n4js', 'constant', {
+diff -rN -U0 a/components/prism-opencl.js b/components/prism-opencl.js
+--- a/components/prism-opencl.js	2026-11-22 18:04:44.992296569 +0100
++++ b/components/prism-opencl.js	2026-11-22 18:04:45.022322659 +0100
+@@ -17 +17 @@
+-	Prism.languages.insertBefore('opencl', 'class-name', {
++	Prism.languages.insertTokensBefore('opencl', 'class-name', {
+@@ -49 +49 @@
+-	Prism.languages.insertBefore('c', 'keyword', attributes);
++	Prism.languages.insertTokensBefore('c', 'keyword', attributes);
+@@ -59 +59 @@
+-		Prism.languages.insertBefore('cpp', 'keyword', attributes);
++		Prism.languages.insertTokensBefore('cpp', 'keyword', attributes);
+diff -rN -U0 a/components/prism-parser.js b/components/prism-parser.js
+--- a/components/prism-parser.js	2026-11-22 18:04:44.992347717 +0100
++++ b/components/prism-parser.js	2026-11-22 18:04:45.022322659 +0100
+@@ -33 +33 @@
+-	parser = Prism.languages.insertBefore('parser', 'keyword', {
++	parser = Prism.languages.insertTokensBefore('parser', 'keyword', {
+@@ -61 +61 @@
+-	Prism.languages.insertBefore('inside', 'punctuation', {
++	Prism.languages.insertTokensBefore('inside', 'punctuation', {
+diff -rN -U0 a/components/prism-phpdoc.js b/components/prism-phpdoc.js
+--- a/components/prism-phpdoc.js	2026-11-22 18:04:44.992424565 +0100
++++ b/components/prism-phpdoc.js	2026-11-22 18:04:45.022322659 +0100
+@@ -12 +12 @@
+-	Prism.languages.insertBefore('phpdoc', 'keyword', {
++	Prism.languages.insertTokensBefore('phpdoc', 'keyword', {
+diff -rN -U0 a/components/prism-php-extras.js b/components/prism-php-extras.js
+--- a/components/prism-php-extras.js	2026-11-22 18:04:44.992401785 +0100
++++ b/components/prism-php-extras.js	2026-11-22 18:04:45.022322659 +0100
+@@ -1 +1 @@
+-Prism.languages.insertBefore('php', 'variable', {
++Prism.languages.insertTokensBefore('php', 'variable', {
+diff -rN -U0 a/components/prism-php.js b/components/prism-php.js
+--- a/components/prism-php.js	2026-11-22 18:04:44.992413595 +0100
++++ b/components/prism-php.js	2026-11-22 18:04:45.022322659 +0100
+@@ -282 +282 @@
+-	Prism.languages.insertBefore('php', 'variable', {
++	Prism.languages.insertTokensBefore('php', 'variable', {
+diff -rN -U0 a/components/prism-plsql.js b/components/prism-plsql.js
+--- a/components/prism-plsql.js	2026-11-22 18:04:44.992447274 +0100
++++ b/components/prism-plsql.js	2026-11-22 18:04:45.022322659 +0100
+@@ -12 +12 @@
+-Prism.languages.insertBefore('plsql', 'operator', {
++Prism.languages.insertTokensBefore('plsql', 'operator', {
+diff -rN -U0 a/components/prism-processing.js b/components/prism-processing.js
+--- a/components/prism-processing.js	2026-11-22 18:04:44.992475253 +0100
++++ b/components/prism-processing.js	2026-11-22 18:04:45.022322659 +0100
+@@ -8 +8 @@
+-Prism.languages.insertBefore('processing', 'number', {
++Prism.languages.insertTokensBefore('processing', 'number', {
+diff -rN -U0 a/components/prism-protobuf.js b/components/prism-protobuf.js
+--- a/components/prism-protobuf.js	2026-11-22 18:04:44.992517782 +0100
++++ b/components/prism-protobuf.js	2026-11-22 18:04:45.022322659 +0100
+@@ -20 +20 @@
+-	Prism.languages.insertBefore('protobuf', 'operator', {
++	Prism.languages.insertTokensBefore('protobuf', 'operator', {
+diff -rN -U0 a/components/prism-pug.js b/components/prism-pug.js
+--- a/components/prism-pug.js	2026-11-22 18:04:44.992538081 +0100
++++ b/components/prism-pug.js	2026-11-22 18:04:45.022322659 +0100
+@@ -186 +186 @@
+-	Prism.languages.insertBefore('pug', 'filter', all_filters);
++	Prism.languages.insertTokensBefore('pug', 'filter', all_filters);
+diff -rN -U0 a/components/prism-purebasic.js b/components/prism-purebasic.js
+--- a/components/prism-purebasic.js	2026-11-22 18:04:44.992567320 +0100
++++ b/components/prism-purebasic.js	2026-11-22 18:04:45.022322659 +0100
+@@ -18 +18 @@
+-Prism.languages.insertBefore('purebasic', 'keyword', {
++Prism.languages.insertTokensBefore('purebasic', 'keyword', {
+diff -rN -U0 a/components/prism-pure.js b/components/prism-pure.js
+--- a/components/prism-pure.js	2026-11-22 18:04:44.992557830 +0100
++++ b/components/prism-pure.js	2026-11-22 18:04:45.022322659 +0100
+@@ -73 +73 @@
+-			Prism.languages.insertBefore('pure', 'inline-lang', o);
++			Prism.languages.insertTokensBefore('pure', 'inline-lang', o);
+diff -rN -U0 a/components/prism-qsharp.js b/components/prism-qsharp.js
+--- a/components/prism-qsharp.js	2026-11-22 18:04:44.992629648 +0100
++++ b/components/prism-qsharp.js	2026-11-22 18:04:45.022322659 +0100
+@@ -98 +98 @@
+-	Prism.languages.insertBefore('qsharp', 'number', {
++	Prism.languages.insertTokensBefore('qsharp', 'number', {
+@@ -108 +108 @@
+-	Prism.languages.insertBefore('qsharp', 'string', {
++	Prism.languages.insertTokensBefore('qsharp', 'string', {
+diff -rN -U0 a/components/prism-racket.js b/components/prism-racket.js
+--- a/components/prism-racket.js	2026-11-22 18:04:44.992649387 +0100
++++ b/components/prism-racket.js	2026-11-22 18:04:45.022322659 +0100
+@@ -10 +10 @@
+-Prism.languages.insertBefore('racket', 'string', {
++Prism.languages.insertTokensBefore('racket', 'string', {
+diff -rN -U0 a/components/prism-reason.js b/components/prism-reason.js
+--- a/components/prism-reason.js	2026-11-22 18:04:44.992658357 +0100
++++ b/components/prism-reason.js	2026-11-22 18:04:45.022322659 +0100
+@@ -11 +11 @@
+-Prism.languages.insertBefore('reason', 'class-name', {
++Prism.languages.insertTokensBefore('reason', 'class-name', {
+diff -rN -U0 a/components/prism-rescript.js b/components/prism-rescript.js
+--- a/components/prism-rescript.js	2026-11-22 18:04:44.992697646 +0100
++++ b/components/prism-rescript.js	2026-11-22 18:04:45.022322659 +0100
+@@ -35 +35 @@
+-Prism.languages.insertBefore('rescript', 'string', {
++Prism.languages.insertTokensBefore('rescript', 'string', {
+diff -rN -U0 a/components/prism-ruby.js b/components/prism-ruby.js
+--- a/components/prism-ruby.js	2026-11-22 18:04:44.992750694 +0100
++++ b/components/prism-ruby.js	2026-11-22 18:04:45.022322659 +0100
+@@ -25 +25 @@
+-	Prism.languages.insertBefore('ruby', 'operator', {
++	Prism.languages.insertTokensBefore('ruby', 'operator', {
+@@ -60 +60 @@
+-	Prism.languages.insertBefore('ruby', 'keyword', {
++	Prism.languages.insertTokensBefore('ruby', 'keyword', {
+@@ -105 +105 @@
+-	Prism.languages.insertBefore('ruby', 'string', {
++	Prism.languages.insertTokensBefore('ruby', 'string', {
+@@ -183 +183 @@
+-	Prism.languages.insertBefore('ruby', 'number', {
++	Prism.languages.insertTokensBefore('ruby', 'number', {
+diff -rN -U0 a/components/prism-sass.js b/components/prism-sass.js
+--- a/components/prism-sass.js	2026-11-22 18:04:44.992781853 +0100
++++ b/components/prism-sass.js	2026-11-22 18:04:45.022322659 +0100
+@@ -11 +11 @@
+-	Prism.languages.insertBefore('sass', 'atrule', {
++	Prism.languages.insertTokensBefore('sass', 'atrule', {
+@@ -34 +34 @@
+-	Prism.languages.insertBefore('sass', 'property', {
++	Prism.languages.insertTokensBefore('sass', 'property', {
+@@ -69 +69 @@
+-	Prism.languages.insertBefore('sass', 'punctuation', {
++	Prism.languages.insertTokensBefore('sass', 'punctuation', {
+diff -rN -U0 a/components/prism-scala.js b/components/prism-scala.js
+--- a/components/prism-scala.js	2026-11-22 18:04:44.992797433 +0100
++++ b/components/prism-scala.js	2026-11-22 18:04:45.022322659 +0100
+@@ -17 +17 @@
+-Prism.languages.insertBefore('scala', 'triple-quoted-string', {
++Prism.languages.insertTokensBefore('scala', 'triple-quoted-string', {
+diff -rN -U0 a/components/prism-scss.js b/components/prism-scss.js
+--- a/components/prism-scss.js	2026-11-22 18:04:44.992821672 +0100
++++ b/components/prism-scss.js	2026-11-22 18:04:45.022322659 +0100
+@@ -42 +42 @@
+-Prism.languages.insertBefore('scss', 'atrule', {
++Prism.languages.insertTokensBefore('scss', 'atrule', {
+@@ -52 +52 @@
+-Prism.languages.insertBefore('scss', 'important', {
++Prism.languages.insertTokensBefore('scss', 'important', {
+@@ -57 +57 @@
+-Prism.languages.insertBefore('scss', 'function', {
++Prism.languages.insertTokensBefore('scss', 'function', {
+diff -rN -U0 a/components/prism-solidity.js b/components/prism-solidity.js
+--- a/components/prism-solidity.js	2026-11-22 18:04:44.992879330 +0100
++++ b/components/prism-solidity.js	2026-11-22 18:04:45.022322659 +0100
+@@ -10 +10 @@
+-Prism.languages.insertBefore('solidity', 'keyword', {
++Prism.languages.insertTokensBefore('solidity', 'keyword', {
+@@ -14 +14 @@
+-Prism.languages.insertBefore('solidity', 'number', {
++Prism.languages.insertTokensBefore('solidity', 'number', {
+diff -rN -U0 a/components/prism-sparql.js b/components/prism-sparql.js
+--- a/components/prism-sparql.js	2026-11-22 18:04:44.992909469 +0100
++++ b/components/prism-sparql.js	2026-11-22 18:04:45.022322659 +0100
+@@ -10 +10 @@
+-Prism.languages.insertBefore('sparql', 'punctuation', {
++Prism.languages.insertTokensBefore('sparql', 'punctuation', {
+diff -rN -U0 a/components/prism-sqf.js b/components/prism-sqf.js
+--- a/components/prism-sqf.js	2026-11-22 18:04:44.992934499 +0100
++++ b/components/prism-sqf.js	2026-11-22 18:04:45.022322659 +0100
+@@ -18 +18 @@
+-Prism.languages.insertBefore('sqf', 'string', {
++Prism.languages.insertTokensBefore('sqf', 'string', {
+diff -rN -U0 a/components/prism-squirrel.js b/components/prism-squirrel.js
+--- a/components/prism-squirrel.js	2026-11-22 18:04:44.992963568 +0100
++++ b/components/prism-squirrel.js	2026-11-22 18:04:45.022322659 +0100
+@@ -30 +30 @@
+-Prism.languages.insertBefore('squirrel', 'string', {
++Prism.languages.insertTokensBefore('squirrel', 'string', {
+@@ -38 +38 @@
+-Prism.languages.insertBefore('squirrel', 'operator', {
++Prism.languages.insertTokensBefore('squirrel', 'operator', {
+diff -rN -U0 a/components/prism-tt2.js b/components/prism-tt2.js
+--- a/components/prism-tt2.js	2026-11-22 18:04:44.993132052 +0100
++++ b/components/prism-tt2.js	2026-11-22 18:04:45.023322639 +0100
+@@ -9 +9 @@
+-	Prism.languages.insertBefore('tt2', 'number', {
++	Prism.languages.insertTokensBefore('tt2', 'number', {
+@@ -16 +16 @@
+-	Prism.languages.insertBefore('tt2', 'keyword', {
++	Prism.languages.insertTokensBefore('tt2', 'keyword', {
+@@ -23 +23 @@
+-	Prism.languages.insertBefore('tt2', 'string', {
++	Prism.languages.insertTokensBefore('tt2', 'string', {
+diff -rN -U0 a/components/prism-typescript.js b/components/prism-typescript.js
+--- a/components/prism-typescript.js	2026-11-22 18:04:44.993165501 +0100
++++ b/components/prism-typescript.js	2026-11-22 18:04:45.023322639 +0100
+@@ -32 +32 @@
+-	Prism.languages.insertBefore('typescript', 'function', {
++	Prism.languages.insertTokensBefore('typescript', 'function', {
+diff -rN -U0 a/components/prism-vala.js b/components/prism-vala.js
+--- a/components/prism-vala.js	2026-11-22 18:04:44.993226889 +0100
++++ b/components/prism-vala.js	2026-11-22 18:04:45.023322639 +0100
+@@ -44 +44 @@
+-Prism.languages.insertBefore('vala', 'string', {
++Prism.languages.insertTokensBefore('vala', 'string', {
+@@ -69 +69 @@
+-Prism.languages.insertBefore('vala', 'keyword', {
++Prism.languages.insertTokensBefore('vala', 'keyword', {
+diff -rN -U0 a/components/prism-velocity.js b/components/prism-velocity.js
+--- a/components/prism-velocity.js	2026-11-22 18:04:44.993245939 +0100
++++ b/components/prism-velocity.js	2026-11-22 18:04:45.023322639 +0100
+@@ -31 +31 @@
+-	Prism.languages.insertBefore('velocity', 'comment', {
++	Prism.languages.insertTokensBefore('velocity', 'comment', {
+diff -rN -U0 a/components/prism-v.js b/components/prism-v.js
+--- a/components/prism-v.js	2026-11-22 18:04:44.993214710 +0100
++++ b/components/prism-v.js	2026-11-22 18:04:45.023322639 +0100
+@@ -42 +42 @@
+-	Prism.languages.insertBefore('v', 'string', {
++	Prism.languages.insertTokensBefore('v', 'string', {
+@@ -49 +49 @@
+-	Prism.languages.insertBefore('v', 'operator', {
++	Prism.languages.insertTokensBefore('v', 'operator', {
+@@ -68 +68 @@
+-	Prism.languages.insertBefore('v', 'function', {
++	Prism.languages.insertTokensBefore('v', 'function', {
+diff -rN -U0 a/components/prism-wiki.js b/components/prism-wiki.js
+--- a/components/prism-wiki.js	2026-11-22 18:04:44.993344466 +0100
++++ b/components/prism-wiki.js	2026-11-22 18:04:45.023322639 +0100
+@@ -71 +71 @@
+-Prism.languages.insertBefore('wiki', 'tag', {
++Prism.languages.insertTokensBefore('wiki', 'tag', {
+diff -rN -U0 a/components/prism-xeora.js b/components/prism-xeora.js
+--- a/components/prism-xeora.js	2026-11-22 18:04:44.993373095 +0100
++++ b/components/prism-xeora.js	2026-11-22 18:04:45.023322639 +0100
+@@ -108 +108 @@
+-	Prism.languages.insertBefore('inside', 'punctuation', {
++	Prism.languages.insertTokensBefore('inside', 'punctuation', {
+diff -rN -U0 a/components/prism-xml-doc.js b/components/prism-xml-doc.js
+--- a/components/prism-xml-doc.js	2026-11-22 18:04:44.993384784 +0100
++++ b/components/prism-xml-doc.js	2026-11-22 18:04:45.023322639 +0100
+@@ -11 +11 @@
+-			Prism.languages.insertBefore(lang, 'comment', {
++			Prism.languages.insertTokensBefore(lang, 'comment', {
+diff -rN -U0 a/prism.js b/prism.js
+--- a/prism.js	2026-11-22 18:04:44.993481611 +0100
++++ b/prism.js	2026-11-22 18:04:45.020322700 +0100
+@@ -368 +368 @@
+-			 * then the `style` token will be added (and processed) at the end. `insertBefore` allows you to insert tokens
++			 * then the `style` token will be added (and processed) at the end. `insertTokensBefore` allows you to insert tokens
+@@ -372 +372 @@
+-			 * Prism.languages.insertBefore('markup', 'cdata', {
++			 * Prism.languages.insertTokensBefore('markup', 'cdata', {
+@@ -387 +387 @@
+-			 * Prism.languages.insertBefore('markup', 'comment', {
++			 * Prism.languages.insertTokensBefore('markup', 'comment', {
+@@ -395 +395 @@
+-			 * The main problem `insertBefore` has to solve is iteration order. Since ES2015, the iteration order for object
++			 * The main problem `insertTokensBefore` has to solve is iteration order. Since ES2015, the iteration order for object
+@@ -397 +397 @@
+-			 * differently when keys are deleted and re-inserted. So `insertBefore` can't be implemented by temporarily
++			 * differently when keys are deleted and re-inserted. So `insertTokensBefore` can't be implemented by temporarily
+@@ -400 +400 @@
+-			 * To solve this problem, `insertBefore` doesn't actually insert the given tokens into the target object.
++			 * To solve this problem, `insertTokensBefore` doesn't actually insert the given tokens into the target object.
+@@ -409 +409 @@
+-			 * var newMarkup = Prism.languages.insertBefore('markup', 'comment', { ... });
++			 * var newMarkup = Prism.languages.insertTokensBefore('markup', 'comment', { ... });
+@@ -426 +426 @@
+-			insertBefore: function (inside, before, insert, root) {
++			insertTokensBefore: function (inside, before, insert, root) {
+@@ -1406 +1406 @@
+-		Prism.languages.insertBefore('markup', 'cdata', def);
++		Prism.languages.insertTokensBefore('markup', 'cdata', def);
+@@ -1627 +1627 @@
+-Prism.languages.insertBefore('javascript', 'keyword', {
++Prism.languages.insertTokensBefore('javascript', 'keyword', {
+@@ -1690 +1690 @@
+-Prism.languages.insertBefore('javascript', 'string', {
++Prism.languages.insertTokensBefore('javascript', 'string', {
+@@ -1726 +1726 @@
+-Prism.languages.insertBefore('javascript', 'operator', {
++Prism.languages.insertTokensBefore('javascript', 'operator', {

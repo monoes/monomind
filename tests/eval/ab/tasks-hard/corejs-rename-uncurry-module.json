@@ -1,0 +1,14 @@
+{
+  "id": "corejs-rename-uncurry-module",
+  "title": "core-js: rename the function-uncurry-this internal module",
+  "tags": ["refactor", "rename", "callers-impact", "multi-file", "core-js"],
+  "fixture": "slice:core-js-3.50.0",
+  "prompt": "This is a copy of the core-js 3.50.0 package (the polyfill modules, their shared internal helpers and the entry points; plain CommonJS). Rename the internal helper module `function-uncurry-this` to `function-uncurry-receiver`: move the file and update every require of it, wherever it is required from (internals, modules and the entry-point directories). The two neighbouring modules whose names merely start the same way, `function-uncurry-this-accessor` and `function-uncurry-this-clause`, are different modules and must keep their names and keep working. Local variable names are out of scope. Every module and entry point must still load.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/corejs-rename-uncurry-module",
+    "timeoutS": 180
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

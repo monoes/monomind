@@ -4,7 +4,7 @@
 //   2. with the reference solution (real/reference/<task-id>.patch, `patch -p1`) applied it must PASS.
 // Spawns no agent and spends nothing. Needs the slices fetched (fetch.mjs).
 //
-//   node tests/eval/ab/real/verify.mjs [--tasks DIR] [--only id,id]
+//   node tests/eval/ab/real/verify.mjs [--tasks DIR] [--only id,id]   (default: tasks-real + tasks-hard)
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,13 +16,19 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const AB = resolve(HERE, '..');
 const argv = process.argv.slice(2);
 const opt = (n, d) => (argv.includes(n) ? argv[argv.indexOf(n) + 1] : d);
-const tasksDir = resolve(opt('--tasks', join(AB, 'tasks-real')));
+// Default: every pinned-slice task set (tasks-real and tasks-hard); --tasks narrows it to one dir.
+const tasksDirs = argv.includes('--tasks')
+  ? [resolve(opt('--tasks'))]
+  : [join(AB, 'tasks-real'), join(AB, 'tasks-hard')].filter((d) => existsSync(d));
 const only = opt('--only')?.split(',');
 
-const tasks = readdirSync(tasksDir)
-  .filter((f) => f.endsWith('.json'))
-  .sort()
-  .map((f) => JSON.parse(readFileSync(join(tasksDir, f), 'utf8')))
+const tasks = tasksDirs
+  .flatMap((dir) =>
+    readdirSync(dir)
+      .filter((f) => f.endsWith('.json'))
+      .sort()
+      .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8'))),
+  )
   .filter((t) => !only || only.includes(t.id));
 
 function runCheck(task, patchFile) {

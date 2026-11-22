@@ -1,0 +1,14 @@
+{
+  "id": "lodash-feature-medianby",
+  "title": "lodash: add _.medianBy next to the other Math methods",
+  "tags": ["feature", "registry", "multi-file", "lodash"],
+  "fixture": "slice:lodash-4.17.21",
+  "prompt": "This is a copy of the lodash 4.17.21 npm distribution (the single-file build, the per-method modules, the category modules and the immutable `fp` variant, plain CommonJS). Add a new Math method `_.medianBy(array, [iteratee=_.identity])`: it maps each element through the iteratee (same shorthands as `_.meanBy`), sorts the resulting numbers ascending without touching the input array, and returns the middle value, or the mean of the two middle values when there is an even count. An empty or nullish array gives `NaN`. Ship it everywhere the existing `_.meanBy` is shipped: as its own per-method module, in the Math category module, in the single-file build (including chaining, where like `_.meanBy` it returns the plain number rather than a wrapper) and in the `fp` variant, where it takes the iteratee first and is curried. Do not change `_.meanBy`.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/lodash-feature-medianby",
+    "timeoutS": 60
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

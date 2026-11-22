@@ -1,0 +1,14 @@
+{
+  "id": "prism-bug-extend-shared",
+  "title": "Prism: loading one language changes how another highlights",
+  "tags": ["bug-localisation", "no-file-hint", "prism"],
+  "fixture": "slice:prismjs-1.30.0-bug-extend",
+  "prompt": "This is a copy of Prism 1.30.0 (the single-file bundle plus the per-language components). There is a regression: highlighting plain JavaScript gives different output after some other languages have been loaded with the loadLanguages helper. For example, load coffeescript, typescript or jsx first and the same JavaScript snippet (comments, strings, template literals, regexes, classes) is then highlighted differently from before. Find the cause and fix it at its source, in every place in the copy where that logic is defined. Do not special-case JavaScript.",
+  "check": {
+    "command": ["node", "--test", "check.mjs"],
+    "overlay": "real/hidden/prism-bug-extend-shared",
+    "timeoutS": 60
+  },
+  "maxTurns": 40,
+  "timeoutS": 900
+}

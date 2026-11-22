@@ -1,0 +1,12 @@
+diff -ruN a/fp/_baseConvert.js b/fp/_baseConvert.js
+--- a/fp/_baseConvert.js	2026-11-22 18:07:08.976054469 +0100
++++ b/fp/_baseConvert.js	2026-11-22 18:07:09.015379272 +0100
+@@ -360,7 +360,7 @@
+ 
+       if (value != null &&
+           !(isFunction(value) || isError(value) || isWeakMap(value))) {
+-        nested[key] = value;
++        nested[key] = clone(index == lastIndex ? value : Object(value));
+       }
+       nested = nested[key];
+     }
