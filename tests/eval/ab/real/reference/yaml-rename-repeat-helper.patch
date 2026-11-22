@@ -1,0 +1,141 @@
+diff -ruN a/lib/common.js b/lib/common.js
+--- a/lib/common.js	2026-11-22 08:02:27.867840645 +0100
++++ b/lib/common.js	2026-11-22 08:02:27.870265823 +0100
+@@ -35,7 +35,7 @@
+ }
+ 
+ 
+-function repeat(string, count) {
++function repeatString(string, count) {
+   var result = '', cycle;
+ 
+   for (cycle = 0; cycle < count; cycle += 1) {
+@@ -54,6 +54,6 @@
+ module.exports.isNothing      = isNothing;
+ module.exports.isObject       = isObject;
+ module.exports.toArray        = toArray;
+-module.exports.repeat         = repeat;
++module.exports.repeatString   = repeatString;
+ module.exports.isNegativeZero = isNegativeZero;
+ module.exports.extend         = extend;
+diff -ruN a/lib/dumper.js b/lib/dumper.js
+--- a/lib/dumper.js	2026-11-22 08:02:27.867840645 +0100
++++ b/lib/dumper.js	2026-11-22 08:02:27.870085349 +0100
+@@ -105,7 +105,7 @@
+     throw new YAMLException('code point within a string may not be greater than 0xFFFFFFFF');
+   }
+ 
+-  return '\\' + handle + common.repeat('0', length - string.length) + string;
++  return '\\' + handle + common.repeatString('0', length - string.length) + string;
+ }
+ 
+ 
+@@ -140,7 +140,7 @@
+ 
+ // Indents every line in a string. Empty lines (\n only) are not indented.
+ function indentString(string, spaces) {
+-  var ind = common.repeat(' ', spaces),
++  var ind = common.repeatString(' ', spaces),
+       position = 0,
+       next = -1,
+       result = '',
+@@ -166,7 +166,7 @@
+ }
+ 
+ function generateNextLine(state, level) {
+-  return '\n' + common.repeat(' ', state.indent * level);
++  return '\n' + common.repeatString(' ', state.indent * level);
+ }
+ 
+ function testImplicitResolving(state, str) {
+diff -ruN a/lib/loader.js b/lib/loader.js
+--- a/lib/loader.js	2026-11-22 08:02:27.867840645 +0100
++++ b/lib/loader.js	2026-11-22 08:02:27.869963373 +0100
+@@ -465,7 +465,7 @@
+   if (count === 1) {
+     state.result += ' ';
+   } else if (count > 1) {
+-    state.result += common.repeat('\n', count - 1);
++    state.result += common.repeatString('\n', count - 1);
+   }
+ }
+ 
+@@ -901,7 +901,7 @@
+ 
+       // Perform the chomping.
+       if (chomping === CHOMPING_KEEP) {
+-        state.result += common.repeat('\n', didReadContent ? 1 + emptyLines : emptyLines);
++        state.result += common.repeatString('\n', didReadContent ? 1 + emptyLines : emptyLines);
+       } else if (chomping === CHOMPING_CLIP) {
+         if (didReadContent) { // i.e. only if the scalar is not empty.
+           state.result += '\n';
+@@ -919,12 +919,12 @@
+       if (is_WHITE_SPACE(ch)) {
+         atMoreIndented = true;
+         // except for the first content line (cf. Example 8.1)
+-        state.result += common.repeat('\n', didReadContent ? 1 + emptyLines : emptyLines);
++        state.result += common.repeatString('\n', didReadContent ? 1 + emptyLines : emptyLines);
+ 
+       // End of more-indented block.
+       } else if (atMoreIndented) {
+         atMoreIndented = false;
+-        state.result += common.repeat('\n', emptyLines + 1);
++        state.result += common.repeatString('\n', emptyLines + 1);
+ 
+       // Just one line break - perceive as the same line.
+       } else if (emptyLines === 0) {
+@@ -934,13 +934,13 @@
+ 
+       // Several line breaks - perceive as different lines.
+       } else {
+-        state.result += common.repeat('\n', emptyLines);
++        state.result += common.repeatString('\n', emptyLines);
+       }
+ 
+     // Literal style: just add exact number of line breaks between content lines.
+     } else {
+       // Keep all line breaks except the header line break.
+-      state.result += common.repeat('\n', didReadContent ? 1 + emptyLines : emptyLines);
++      state.result += common.repeatString('\n', didReadContent ? 1 + emptyLines : emptyLines);
+     }
+ 
+     didReadContent = true;
+diff -ruN a/lib/snippet.js b/lib/snippet.js
+--- a/lib/snippet.js	2026-11-22 08:02:27.867840645 +0100
++++ b/lib/snippet.js	2026-11-22 08:02:27.869892085 +0100
+@@ -28,7 +28,7 @@
+ 
+ 
+ function padStart(string, max) {
+-  return common.repeat(' ', max - string.length) + string;
++  return common.repeatString(' ', max - string.length) + string;
+ }
+ 
+ 
+@@ -72,14 +72,14 @@
+       mark.position - (lineStarts[foundLineNo] - lineStarts[foundLineNo - i]),
+       maxLineLength
+     );
+-    result = common.repeat(' ', options.indent) + padStart((mark.line - i + 1).toString(), lineNoLength) +
++    result = common.repeatString(' ', options.indent) + padStart((mark.line - i + 1).toString(), lineNoLength) +
+       ' | ' + line.str + '\n' + result;
+   }
+ 
+   line = getLine(mark.buffer, lineStarts[foundLineNo], lineEnds[foundLineNo], mark.position, maxLineLength);
+-  result += common.repeat(' ', options.indent) + padStart((mark.line + 1).toString(), lineNoLength) +
++  result += common.repeatString(' ', options.indent) + padStart((mark.line + 1).toString(), lineNoLength) +
+     ' | ' + line.str + '\n';
+-  result += common.repeat('-', options.indent + lineNoLength + 3 + line.pos) + '^' + '\n';
++  result += common.repeatString('-', options.indent + lineNoLength + 3 + line.pos) + '^' + '\n';
+ 
+   for (i = 1; i <= options.linesAfter; i++) {
+     if (foundLineNo + i >= lineEnds.length) break;
+@@ -90,7 +90,7 @@
+       mark.position - (lineStarts[foundLineNo] - lineStarts[foundLineNo + i]),
+       maxLineLength
+     );
+-    result += common.repeat(' ', options.indent) + padStart((mark.line + i + 1).toString(), lineNoLength) +
++    result += common.repeatString(' ', options.indent) + padStart((mark.line + i + 1).toString(), lineNoLength) +
+       ' | ' + line.str + '\n';
+   }
+ 

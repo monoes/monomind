@@ -1,0 +1,16 @@
+diff -ruN a/packages/braces/lib/expand.js b/packages/braces/lib/expand.js
+--- a/packages/braces/lib/expand.js	2026-11-22 08:13:25.656393320 +0100
++++ b/packages/braces/lib/expand.js	2026-11-22 08:13:25.659067063 +0100
+@@ -107,7 +107,11 @@
+     return queue;
+   };
+ 
+-  return utils.flatten(walk(ast));
++  const result = utils.flatten(walk(ast));
++  if (options.maxItems != null && result.length > options.maxItems) {
++    throw new RangeError(`brace expansion produced ${result.length} items, more than options.maxItems (${options.maxItems})`);
++  }
++  return result;
+ };
+ 
+ module.exports = expand;

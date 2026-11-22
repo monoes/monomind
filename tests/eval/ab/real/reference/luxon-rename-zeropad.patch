@@ -1,0 +1,146 @@
+diff -ruN a/src/datetime.js b/src/datetime.js
+--- a/src/datetime.js	2026-11-22 08:09:30.955444898 +0100
++++ b/src/datetime.js	2026-11-22 08:09:30.960510202 +0100
+@@ -18,7 +18,7 @@
+   normalizeObject,
+   roundTo,
+   objToLocalTS,
+-  padStart,
++  zeroPad,
+ } from "./impl/util.js";
+ import { normalizeZone } from "./impl/zoneUtil.js";
+ import diff from "./impl/diff.js";
+@@ -218,16 +218,16 @@
+   const longFormat = o.c.year > 9999 || o.c.year < 0;
+   let c = "";
+   if (longFormat && o.c.year >= 0) c += "+";
+-  c += padStart(o.c.year, longFormat ? 6 : 4);
++  c += zeroPad(o.c.year, longFormat ? 6 : 4);
+ 
+   if (extended) {
+     c += "-";
+-    c += padStart(o.c.month);
++    c += zeroPad(o.c.month);
+     c += "-";
+-    c += padStart(o.c.day);
++    c += zeroPad(o.c.day);
+   } else {
+-    c += padStart(o.c.month);
+-    c += padStart(o.c.day);
++    c += zeroPad(o.c.month);
++    c += zeroPad(o.c.day);
+   }
+   return c;
+ }
+@@ -240,23 +240,23 @@
+   includeOffset,
+   extendedZone
+ ) {
+-  let c = padStart(o.c.hour);
++  let c = zeroPad(o.c.hour);
+   if (extended) {
+     c += ":";
+-    c += padStart(o.c.minute);
++    c += zeroPad(o.c.minute);
+     if (o.c.millisecond !== 0 || o.c.second !== 0 || !suppressSeconds) {
+       c += ":";
+     }
+   } else {
+-    c += padStart(o.c.minute);
++    c += zeroPad(o.c.minute);
+   }
+ 
+   if (o.c.millisecond !== 0 || o.c.second !== 0 || !suppressSeconds) {
+-    c += padStart(o.c.second);
++    c += zeroPad(o.c.second);
+ 
+     if (o.c.millisecond !== 0 || !suppressMilliseconds) {
+       c += ".";
+-      c += padStart(o.c.millisecond, 3);
++      c += zeroPad(o.c.millisecond, 3);
+     }
+   }
+ 
+@@ -265,14 +265,14 @@
+       c += "Z";
+     } else if (o.o < 0) {
+       c += "-";
+-      c += padStart(Math.trunc(-o.o / 60));
++      c += zeroPad(Math.trunc(-o.o / 60));
+       c += ":";
+-      c += padStart(Math.trunc(-o.o % 60));
++      c += zeroPad(Math.trunc(-o.o % 60));
+     } else {
+       c += "+";
+-      c += padStart(Math.trunc(o.o / 60));
++      c += zeroPad(Math.trunc(o.o / 60));
+       c += ":";
+-      c += padStart(Math.trunc(o.o % 60));
++      c += zeroPad(Math.trunc(o.o % 60));
+     }
+   }
+ 
+diff -ruN a/src/impl/formatter.js b/src/impl/formatter.js
+--- a/src/impl/formatter.js	2026-11-22 08:09:30.955444898 +0100
++++ b/src/impl/formatter.js	2026-11-22 08:09:30.958755259 +0100
+@@ -1,6 +1,6 @@
+ import * as English from "./english.js";
+ import * as Formats from "./formats.js";
+-import { padStart } from "./util.js";
++import { zeroPad } from "./util.js";
+ 
+ function stringifyTokens(splits, tokenToString) {
+   let s = "";
+@@ -125,7 +125,7 @@
+   num(n, p = 0) {
+     // we get some perf out of doing this here, annoyingly
+     if (this.opts.forceSimple) {
+-      return padStart(n, p);
++      return zeroPad(n, p);
+     }
+ 
+     const opts = { ...this.opts };
+diff -ruN a/src/impl/locale.js b/src/impl/locale.js
+--- a/src/impl/locale.js	2026-11-22 08:09:30.955444898 +0100
++++ b/src/impl/locale.js	2026-11-22 08:09:30.959314401 +0100
+@@ -1,4 +1,4 @@
+-import { hasLocaleWeekInfo, hasRelative, padStart, roundTo, validateWeekSettings } from "./util.js";
++import { hasLocaleWeekInfo, hasRelative, zeroPad, roundTo, validateWeekSettings } from "./util.js";
+ import * as English from "./english.js";
+ import Settings from "../settings.js";
+ import DateTime from "../datetime.js";
+@@ -197,7 +197,7 @@
+     } else {
+       // to match the browser's numberformatter defaults
+       const fixed = this.floor ? Math.floor(i) : roundTo(i, 3);
+-      return padStart(fixed, this.padTo);
++      return zeroPad(fixed, this.padTo);
+     }
+   }
+ }
+diff -ruN a/src/impl/util.js b/src/impl/util.js
+--- a/src/impl/util.js	2026-11-22 08:09:30.955444898 +0100
++++ b/src/impl/util.js	2026-11-22 08:09:30.958088961 +0100
+@@ -122,7 +122,7 @@
+   return x - n * Math.floor(x / n);
+ }
+ 
+-export function padStart(input, n = 2) {
++export function zeroPad(input, n = 2) {
+   const isNeg = input < 0;
+   let padded;
+   if (isNeg) {
+@@ -301,11 +301,11 @@
+ 
+   switch (format) {
+     case "short":
+-      return `${sign}${padStart(hours, 2)}:${padStart(minutes, 2)}`;
++      return `${sign}${zeroPad(hours, 2)}:${zeroPad(minutes, 2)}`;
+     case "narrow":
+       return `${sign}${hours}${minutes > 0 ? `:${minutes}` : ""}`;
+     case "techie":
+-      return `${sign}${padStart(hours, 2)}${padStart(minutes, 2)}`;
++      return `${sign}${zeroPad(hours, 2)}${zeroPad(minutes, 2)}`;
+     default:
+       throw new RangeError(`Value format ${format} is out of range for property format`);
+   }

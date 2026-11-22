@@ -1,0 +1,23 @@
+{
+  "id": "underscore-group-options",
+  "title": "underscore: change the internal group() helper to an options object",
+  "tags": [
+    "refactor",
+    "callers-impact",
+    "multi-file",
+    "underscore"
+  ],
+  "fixture": "slice:underscore-1.13.7",
+  "prompt": "This is a copy of Underscore 1.13.7 (modules/, ES modules). The internal helper `modules/_group.js` takes a bare boolean second parameter, `group(behavior, partition)`, which makes call sites such as `}, true);` unreadable. Change it to `group(behavior, { partition } = {})` and update every caller so that the one that wants the two-bucket mode passes `{ partition: true }` and the others pass nothing. A bare boolean must no longer switch the mode. groupBy, countBy, indexBy and partition must behave exactly as before.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/underscore-group-options",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

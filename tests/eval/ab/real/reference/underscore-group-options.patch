@@ -1,0 +1,21 @@
+diff -ruN a/modules/_group.js b/modules/_group.js
+--- a/modules/_group.js	2026-11-22 08:11:12.911585060 +0100
++++ b/modules/_group.js	2026-11-22 08:11:12.915139073 +0100
+@@ -2,7 +2,7 @@
+ import each from './each.js';
+ 
+ // An internal function used for aggregate "group by" operations.
+-export default function group(behavior, partition) {
++export default function group(behavior, { partition } = {}) {
+   return function(obj, iteratee, context) {
+     var result = partition ? [[], []] : {};
+     iteratee = cb(iteratee, context);
+diff -ruN a/modules/partition.js b/modules/partition.js
+--- a/modules/partition.js	2026-11-22 08:11:12.911585060 +0100
++++ b/modules/partition.js	2026-11-22 08:11:12.915169652 +0100
+@@ -4,4 +4,4 @@
+ // truth test, and one whose elements all do not pass the truth test.
+ export default group(function(result, value, pass) {
+   result[pass ? 0 : 1].push(value);
+-}, true);
++}, { partition: true });

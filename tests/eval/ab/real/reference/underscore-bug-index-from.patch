@@ -1,0 +1,12 @@
+diff -ruN a/modules/_createIndexFinder.js b/modules/_createIndexFinder.js
+--- a/modules/_createIndexFinder.js	2026-11-22 08:11:12.813710970 +0100
++++ b/modules/_createIndexFinder.js	2026-11-22 08:11:12.817430548 +0100
+@@ -8,7 +8,7 @@
+     var i = 0, length = getLength(array);
+     if (typeof idx == 'number') {
+       if (dir > 0) {
+-        i = idx >= 0 ? idx : Math.min(idx + length, i);
++        i = idx >= 0 ? idx : Math.max(idx + length, i);
+       } else {
+         length = idx >= 0 ? Math.min(idx + 1, length) : idx + length + 1;
+       }

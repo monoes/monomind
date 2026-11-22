@@ -1,0 +1,36 @@
+diff -ruN a/src/impl/util.js b/src/impl/util.js
+--- a/src/impl/util.js	2026-11-22 08:09:31.072675184 +0100
++++ b/src/impl/util.js	2026-11-22 08:09:31.074505554 +0100
+@@ -229,7 +229,7 @@
+ 
+ // PARSING
+ 
+-export function parseZoneInfo(ts, offsetFormat, locale, timeZone = null) {
++export function parseZoneInfo(ts, { offsetFormat, locale, timeZone = null }) {
+   const date = new Date(ts),
+     intlOpts = {
+       hourCycle: "h23",
+diff -ruN a/src/zones/IANAZone.js b/src/zones/IANAZone.js
+--- a/src/zones/IANAZone.js	2026-11-22 08:09:31.072675184 +0100
++++ b/src/zones/IANAZone.js	2026-11-22 08:09:31.074543173 +0100
+@@ -156,7 +156,7 @@
+    * @return {string}
+    */
+   offsetName(ts, { format, locale }) {
+-    return parseZoneInfo(ts, format, locale, this.name);
++    return parseZoneInfo(ts, { offsetFormat: format, locale, timeZone: this.name });
+   }
+ 
+   /**
+diff -ruN a/src/zones/systemZone.js b/src/zones/systemZone.js
+--- a/src/zones/systemZone.js	2026-11-22 08:09:31.072675184 +0100
++++ b/src/zones/systemZone.js	2026-11-22 08:09:31.074563902 +0100
+@@ -36,7 +36,7 @@
+ 
+   /** @override **/
+   offsetName(ts, { format, locale }) {
+-    return parseZoneInfo(ts, format, locale);
++    return parseZoneInfo(ts, { offsetFormat: format, locale });
+   }
+ 
+   /** @override **/

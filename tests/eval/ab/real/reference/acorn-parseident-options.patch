@@ -1,0 +1,110 @@
+diff -ruN a/acorn/src/expression.js b/acorn/src/expression.js
+--- a/acorn/src/expression.js	2026-11-22 08:05:03.221791547 +0100
++++ b/acorn/src/expression.js	2026-11-22 08:05:03.224542465 +0100
+@@ -354,7 +354,7 @@
+     } else if (this.type === tt.privateId && base.type !== "Super") {
+       node.property = this.parsePrivateIdent()
+     } else {
+-      node.property = this.parseIdent(this.options.allowReserved !== "never")
++      node.property = this.parseIdent({liberal: this.options.allowReserved !== "never"})
+     }
+     node.computed = !!computed
+     if (optionalSupported) {
+@@ -436,7 +436,7 @@
+ 
+   case tt.name:
+     let startPos = this.start, startLoc = this.startLoc, containsEsc = this.containsEsc
+-    let id = this.parseIdent(false)
++    let id = this.parseIdent({liberal: false})
+     if (this.options.ecmaVersion >= 8 && !containsEsc && id.name === "async" && !this.canInsertSemicolon() && this.eat(tt._function)) {
+       this.overrideContext(tokenCtxTypes.f_expr)
+       return this.parseFunction(this.startNodeAt(startPos, startLoc), 0, false, true, forInit)
+@@ -446,7 +446,7 @@
+         return this.parseArrowExpression(this.startNodeAt(startPos, startLoc), [id], false, forInit)
+       if (this.options.ecmaVersion >= 8 && id.name === "async" && this.type === tt.name && !containsEsc &&
+           (!this.potentialArrowInForAwait || this.value !== "of" || this.containsEsc)) {
+-        id = this.parseIdent(false)
++        id = this.parseIdent({liberal: false})
+         if (this.canInsertSemicolon() || !this.eat(tt.arrow))
+           this.unexpected()
+         return this.parseArrowExpression(this.startNodeAt(startPos, startLoc), [id], true, forInit)
+@@ -524,7 +524,7 @@
+   const node = this.startNode()
+ 
+   // Consume `import` as an identifier for `import.meta`.
+-  // Because `this.parseIdent(true)` doesn't check escape sequences, it needs the check of `this.containsEsc`.
++  // Because `this.parseIdent({liberal: true})` doesn't check escape sequences, it needs the check of `this.containsEsc`.
+   if (this.containsEsc) this.raiseRecoverable(this.start, "Escape sequence in keyword import")
+   this.next()
+ 
+@@ -582,7 +582,7 @@
+   this.next() // skip `.`
+ 
+   const containsEsc = this.containsEsc
+-  node.property = this.parseIdent(true)
++  node.property = this.parseIdent({liberal: true})
+ 
+   if (node.property.name !== "meta")
+     this.raiseRecoverable(node.property.start, "The only valid meta property for import is 'import.meta'")
+@@ -707,7 +707,7 @@
+     node.meta = this.finishNode(meta, "Identifier")
+     this.next()
+     let containsEsc = this.containsEsc
+-    node.property = this.parseIdent(true)
++    node.property = this.parseIdent({liberal: true})
+     if (node.property.name !== "target")
+       this.raiseRecoverable(node.property.start, "The only valid meta property for new is 'new.target'")
+     if (containsEsc)
+@@ -792,7 +792,7 @@
+   let prop = this.startNode(), isGenerator, isAsync, startPos, startLoc
+   if (this.options.ecmaVersion >= 9 && this.eat(tt.ellipsis)) {
+     if (isPattern) {
+-      prop.argument = this.parseIdent(false)
++      prop.argument = this.parseIdent({liberal: false})
+       if (this.type === tt.comma) {
+         this.raiseRecoverable(this.start, "Comma is not permitted after the rest element")
+       }
+@@ -895,7 +895,7 @@
+       prop.computed = false
+     }
+   }
+-  return prop.key = this.type === tt.num || this.type === tt.string ? this.parseExprAtom() : this.parseIdent(this.options.allowReserved !== "never")
++  return prop.key = this.type === tt.num || this.type === tt.string ? this.parseExprAtom() : this.parseIdent({liberal: this.options.allowReserved !== "never"})
+ }
+ 
+ // Initialize empty function node.
+@@ -1059,11 +1059,11 @@
+   }
+ }
+ 
+-// Parse the next token as an identifier. If `liberal` is true (used
++// Parse the next token as an identifier. If `options.liberal` is true (used
+ // when parsing properties), it will also convert keywords into
+ // identifiers.
+ 
+-pp.parseIdent = function(liberal) {
++pp.parseIdent = function({liberal = false} = {}) {
+   let node = this.parseIdentNode()
+   this.next(!!liberal)
+   this.finishNode(node, "Identifier")
+diff -ruN a/acorn/src/statement.js b/acorn/src/statement.js
+--- a/acorn/src/statement.js	2026-11-22 08:05:03.221791547 +0100
++++ b/acorn/src/statement.js	2026-11-22 08:05:03.224287694 +0100
+@@ -1109,7 +1109,7 @@
+ 
+ pp.parseImportAttribute = function() {
+   const node = this.startNode()
+-  node.key = this.type === tt.string ? this.parseExprAtom() : this.parseIdent(this.options.allowReserved !== "never")
++  node.key = this.type === tt.string ? this.parseExprAtom() : this.parseIdent({liberal: this.options.allowReserved !== "never"})
+   this.expect(tt.colon)
+   if (this.type !== tt.string) {
+     this.unexpected()
+@@ -1126,7 +1126,7 @@
+     }
+     return stringLiteral
+   }
+-  return this.parseIdent(true)
++  return this.parseIdent({liberal: true})
+ }
+ 
+ // Set `ExpressionStatement#directive` property for directive prologues.

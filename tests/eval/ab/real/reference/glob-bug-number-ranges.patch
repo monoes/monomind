@@ -1,0 +1,12 @@
+diff -ruN a/packages/to-regex-range/index.js b/packages/to-regex-range/index.js
+--- a/packages/to-regex-range/index.js	2026-11-22 08:13:25.614366120 +0100
++++ b/packages/to-regex-range/index.js	2026-11-22 08:13:25.616363165 +0100
+@@ -230,7 +230,7 @@
+ }
+ 
+ function countNines(min, len) {
+-  return Number(String(min).slice(0, -len) + '9'.repeat(len - 1));
++  return Number(String(min).slice(0, -len) + '9'.repeat(len));
+ }
+ 
+ function countZeros(integer, zeros) {

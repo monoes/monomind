@@ -1,0 +1,64 @@
+diff -ruN a/lib/command.js b/lib/command.js
+--- a/lib/command.js	2026-11-22 07:58:41.881601823 +0100
++++ b/lib/command.js	2026-11-22 07:58:48.267820894 +0100
+@@ -662,6 +662,12 @@
+ 
+     // handler for cli and env supplied values
+     const handleOptionValue = (val, invalidValueMessage, valueSource) => {
++      if (option.deprecatedMessage !== undefined) {
++        const why = option.deprecatedMessage ? `: ${option.deprecatedMessage}` : '';
++        this._outputConfiguration.writeErr(
++          `warning: option '${option.flags}' is deprecated${why}\n`,
++        );
++      }
+       // val is null for optional option used without an optional-argument.
+       // val is undefined for boolean and negated option.
+       if (val == null && option.presetArg !== undefined) {
+diff -ruN a/lib/help.js b/lib/help.js
+--- a/lib/help.js	2026-11-22 07:58:41.881601823 +0100
++++ b/lib/help.js	2026-11-22 07:58:48.267857463 +0100
+@@ -322,11 +322,12 @@
+     if (option.envVar !== undefined) {
+       extraInfo.push(`env: ${option.envVar}`);
+     }
++    const deprecated = option.deprecatedMessage !== undefined ? ' [deprecated]' : '';
+     if (extraInfo.length > 0) {
+-      return `${option.description} (${extraInfo.join(', ')})`;
++      return `${option.description} (${extraInfo.join(', ')})${deprecated}`;
+     }
+ 
+-    return option.description;
++    return `${option.description}${deprecated}`;
+   }
+ 
+   /**
+diff -ruN a/lib/option.js b/lib/option.js
+--- a/lib/option.js	2026-11-22 07:58:41.881601823 +0100
++++ b/lib/option.js	2026-11-22 07:58:48.267730487 +0100
+@@ -30,6 +30,7 @@
+     this.envVar = undefined;
+     this.parseArg = undefined;
+     this.hidden = false;
++    this.deprecatedMessage = undefined; // string (maybe empty) when the option is deprecated
+     this.argChoices = undefined;
+     this.conflictsWith = [];
+     this.implied = undefined;
+@@ -145,6 +146,18 @@
+     return this;
+   }
+ 
++  /**
++   * Mark the option as deprecated; using it prints a warning and help flags it.
++   *
++   * @param {string} [message]
++   * @return {Option}
++   */
++
++  deprecated(message = '') {
++    this.deprecatedMessage = message;
++    return this;
++  }
++
+   /**
+    * Hide option in help.
+    *

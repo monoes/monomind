@@ -1,0 +1,23 @@
+{
+  "id": "semver-rename-prerelease-option",
+  "title": "semver: rename the includePrerelease option across modules",
+  "tags": [
+    "refactor",
+    "rename",
+    "multi-file",
+    "semver"
+  ],
+  "fixture": "slice:semver-7.7.1",
+  "prompt": "This is a copy of node-semver (classes/, functions/, internal/, ranges/, index.js). In this fork the options flag `includePrerelease` must be called `withPrerelease`: rename it everywhere it is read or stored, including the `includePrerelease` instance properties on SemVer and Range and the lookups in coerce, subset, comparator and range parsing. The old name must stop having any effect. Do not rename the internal constant FLAG_INCLUDE_PRERELEASE. Behaviour with the new name must be identical to what the old name did.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/semver-rename-prerelease-option",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

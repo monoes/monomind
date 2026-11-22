@@ -1,0 +1,23 @@
+{
+  "id": "json5-rename-identifier-helpers",
+  "title": "json5: rename the identifier helpers used by parse and stringify",
+  "tags": [
+    "refactor",
+    "rename",
+    "multi-file",
+    "json5"
+  ],
+  "fixture": "slice:json5-2.2.3",
+  "prompt": "This is a copy of json5 2.2.3 (lib/). lib/util.js exports `isIdStartChar` and `isIdContinueChar`. Rename them to `isIdentifierStart` and `isIdentifierPart` and update every module that calls them (the parser and the stringifier). The old names must be gone from lib/ and from the exports, and behaviour must be unchanged.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/json5-rename-identifier-helpers",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

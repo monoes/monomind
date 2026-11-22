@@ -1,0 +1,46 @@
+diff -ruN a/lib/help.js b/lib/help.js
+--- a/lib/help.js	2026-11-22 07:58:41.856275645 +0100
++++ b/lib/help.js	2026-11-22 07:58:48.255816852 +0100
+@@ -64,10 +64,10 @@
+    */
+ 
+   visibleOptions(cmd) {
+-    const visibleOptions = cmd.options.filter((option) => !option.hidden);
++    const visibleOptions = cmd.options.filter((option) => !option.hiddenFromHelp);
+     // Built-in help option.
+     const helpOption = cmd._getHelpOption();
+-    if (helpOption && !helpOption.hidden) {
++    if (helpOption && !helpOption.hiddenFromHelp) {
+       // Automatically hide conflicting flags. Bit dubious but a historical behaviour that is convenient for single-command programs.
+       const removeShort = helpOption.short && cmd._findOption(helpOption.short);
+       const removeLong = helpOption.long && cmd._findOption(helpOption.long);
+@@ -106,7 +106,7 @@
+       ancestorCmd = ancestorCmd.parent
+     ) {
+       const visibleOptions = ancestorCmd.options.filter(
+-        (option) => !option.hidden,
++        (option) => !option.hiddenFromHelp,
+       );
+       globalOptions.push(...visibleOptions);
+     }
+diff -ruN a/lib/option.js b/lib/option.js
+--- a/lib/option.js	2026-11-22 07:58:41.856275645 +0100
++++ b/lib/option.js	2026-11-22 07:58:48.254593434 +0100
+@@ -29,7 +29,7 @@
+     this.presetArg = undefined;
+     this.envVar = undefined;
+     this.parseArg = undefined;
+-    this.hidden = false;
++    this.hiddenFromHelp = false;
+     this.argChoices = undefined;
+     this.conflictsWith = [];
+     this.implied = undefined;
+@@ -153,7 +153,7 @@
+    */
+ 
+   hideHelp(hide = true) {
+-    this.hidden = !!hide;
++    this.hiddenFromHelp = !!hide;
+     return this;
+   }
+ 

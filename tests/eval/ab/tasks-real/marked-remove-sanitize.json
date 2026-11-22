@@ -1,0 +1,23 @@
+{
+  "id": "marked-remove-sanitize",
+  "title": "marked: remove the deprecated sanitize and sanitizer options",
+  "tags": [
+    "refactor",
+    "callers-impact",
+    "multi-file",
+    "marked"
+  ],
+  "fixture": "slice:marked-4.3.0",
+  "prompt": "This is a copy of marked 4.3.0 (src/, ES modules). The `sanitize` and `sanitizer` options have been deprecated since 0.7.0. Remove them completely: from the defaults, from every place in the tokenizer, renderer, helpers and entry point that reads them, and drop the deprecation-warning helper. `helpers.cleanUrl` loses its first (sanitize) parameter and becomes `cleanUrl(base, href)`, so update its callers. After the change, passing those options has no effect (HTML passes through as it does without them) and nothing warns. Everything else, including baseUrl resolution, must behave as before.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/marked-remove-sanitize",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

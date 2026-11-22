@@ -1,0 +1,21 @@
+{
+  "id": "json5-no-trailing-comma",
+  "title": "json5: add a trailingComma option to stringify",
+  "tags": [
+    "feature",
+    "json5"
+  ],
+  "fixture": "slice:json5-2.2.3",
+  "prompt": "This is a copy of json5 2.2.3 (lib/). `JSON5.stringify` currently always writes a trailing comma after the last member when it pretty-prints (space is set). Add a `trailingComma` option, accepted in the options-object form of the second argument next to `space`, `quote` and `replacer`: `trailingComma: false` omits the comma after the last property or element at every nesting level; `true` or leaving it out keeps today's output. Compact output (no space) is never affected, and the existing `(value, replacer, space)` signature must keep working.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/json5-no-trailing-comma",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

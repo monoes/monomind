@@ -1,0 +1,308 @@
+{
+  "_comment": "Pinned open-source slices for the real A/B tasks. sources[]: GitHub repo + full commit SHA + paths kept + destination dir inside the slice. files: literal extra files (only package.json type markers so plain node resolves ESM). A slice with base + patches is a variant of another slice with one injected regression (the bug-localisation tasks); patches are exact-once find/replace. treeSha256 is written by `fetch.mjs --update-hashes`. All licenses are permissive; each slice keeps the upstream LICENSE.",
+  "slices": {
+    "commander-12.1.0": {
+      "license": "MIT",
+      "sources": [
+        {
+          "repo": "tj/commander.js",
+          "sha": "970ecae402b253de691e6a9066fea22f38fe7431",
+          "paths": [
+            "lib",
+            "index.js",
+            "package.json",
+            "LICENSE"
+          ]
+        }
+      ],
+      "treeSha256": "b89ee68367afd9aad241c1baf35cae9b9d30c6c137d45e5dd19b1b45d828df93"
+    },
+    "acorn-8.14.0": {
+      "license": "MIT",
+      "sources": [
+        {
+          "repo": "acornjs/acorn",
+          "sha": "3c6a5a98e8c6dcefef391e6114cc7e64657979d3",
+          "paths": [
+            "acorn/src",
+            "acorn/package.json",
+            "acorn/LICENSE"
+          ]
+        }
+      ],
+      "files": {
+        "acorn/src/package.json": "{\"type\":\"module\"}\n"
+      },
+      "treeSha256": "2de6efdc7e6eb332d5f305654c428d06e5282ebf57bb4932c6d2f86ae8dcd959"
+    },
+    "js-yaml-4.1.0": {
+      "license": "MIT",
+      "sources": [
+        {
+          "repo": "nodeca/js-yaml",
+          "sha": "2cef47bebf60da141b78b085f3dea3b5733dcc12",
+          "paths": [
+            "lib",
+            "index.js",
+            "package.json",
+            "LICENSE"
+          ]
+        }
+      ],
+      "treeSha256": "882f02d1ea15a6ae149d17b47f02cf5cd63f34f0466ae5db2cd67aa8ba3b0baa"
+    },
+    "semver-7.7.1": {
+      "license": "ISC",
+      "sources": [
+        {
+          "repo": "npm/node-semver",
+          "sha": "30c438bb46c74f319aa8783f96d233ebf5f4a90d",
+          "paths": [
+            "classes",
+            "functions",
+            "internal",
+            "ranges",
+            "index.js",
+            "preload.js",
+            "package.json",
+            "LICENSE"
+          ]
+        }
+      ],
+      "treeSha256": "f70fa27bcbfd99ee23a8444e153b414541f405a0543bcf2f61d6a5c81ed1529d"
+    },
+    "marked-4.3.0": {
+      "license": "MIT",
+      "sources": [
+        {
+          "repo": "markedjs/marked",
+          "sha": "d65cf6353c93bde557665787270daa3a25514ce8",
+          "paths": [
+            "src",
+            "package.json",
+            "LICENSE.md"
+          ]
+        }
+      ],
+      "files": {
+        "src/package.json": "{\"type\":\"module\"}\n"
+      },
+      "treeSha256": "50cb2d8ffa7d36dabc8d692eb73e550e76c5fc144da0c84cac078440e66a3a57"
+    },
+    "json5-2.2.3": {
+      "license": "MIT",
+      "sources": [
+        {
+          "repo": "json5/json5",
+          "sha": "c3a75242772a5026a49c4017a16d9b3543b62776",
+          "paths": [
+            "lib",
+            "package.json",
+            "LICENSE.md"
+          ]
+        }
+      ],
+      "treeSha256": "ebf2455f11b4a5045d7da17b1299367f3a4ba079c325ae62c4a9907490c36d36"
+    },
+    "luxon-3.5.0": {
+      "license": "MIT",
+      "sources": [
+        {
+          "repo": "moment/luxon",
+          "sha": "a4044fe60eaae88d2397069eb43f018491a6a698",
+          "paths": [
+            "src",
+            "package.json",
+            "LICENSE.md"
+          ]
+        }
+      ],
+      "files": {
+        "src/package.json": "{\"type\":\"module\"}\n"
+      },
+      "treeSha256": "32b65f4c89e3b02b072f8076fd1538b772c796921e857bbc68dee04c516df27c"
+    },
+    "glob-stack": {
+      "license": "MIT",
+      "sources": [
+        {
+          "repo": "micromatch/micromatch",
+          "sha": "8bd704ec0d9894693d35da425d827819916be920",
+          "paths": [
+            "index.js",
+            "package.json",
+            "LICENSE"
+          ],
+          "dest": "packages/micromatch"
+        },
+        {
+          "repo": "micromatch/picomatch",
+          "sha": "5467a5a9638472610de4f30709991b9a56bb5613",
+          "paths": [
+            "index.js",
+            "lib",
+            "package.json",
+            "LICENSE"
+          ],
+          "dest": "packages/picomatch"
+        },
+        {
+          "repo": "micromatch/braces",
+          "sha": "74b2db2938fad48a2ea54a9c8bf27a37a62c350d",
+          "paths": [
+            "index.js",
+            "lib",
+            "package.json",
+            "LICENSE"
+          ],
+          "dest": "packages/braces"
+        },
+        {
+          "repo": "jonschlinkert/fill-range",
+          "sha": "bef65700633e1a9debb1ce67bf2922731c9ef4b5",
+          "paths": [
+            "index.js",
+            "package.json",
+            "LICENSE"
+          ],
+          "dest": "packages/fill-range"
+        },
+        {
+          "repo": "micromatch/to-regex-range",
+          "sha": "1191a52afa82f52983e684ceeb8f8d3a150fa881",
+          "paths": [
+            "index.js",
+            "package.json",
+            "LICENSE"
+          ],
+          "dest": "packages/to-regex-range"
+        },
+        {
+          "repo": "jonschlinkert/is-number",
+          "sha": "98e8ff1da1a89f93d1397a24d7413ed15421c139",
+          "paths": [
+            "index.js",
+            "package.json",
+            "LICENSE"
+          ],
+          "dest": "packages/is-number"
+        }
+      ],
+      "treeSha256": "adbdc1e9378495f67b7a9a62c9093e8f1ab044518de5b6b4c4f7dc5a5818db24"
+    },
+    "underscore-1.13.7": {
+      "license": "MIT",
+      "sources": [
+        {
+          "repo": "jashkenas/underscore",
+          "sha": "d2e7e613a597bec6b16c946e42c91950dcc1a215",
+          "paths": [
+            "modules",
+            "package.json",
+            "LICENSE"
+          ]
+        }
+      ],
+      "files": {
+        "modules/package.json": "{\"type\":\"module\"}\n"
+      },
+      "treeSha256": "5a148c271d5e47d1e0de8c214e056117c3cebfeab5c8129e659b0e285c11010f"
+    },
+    "commander-bug-transposition": {
+      "license": "MIT",
+      "base": "commander-12.1.0",
+      "patches": [
+        {
+          "path": "lib/suggestSimilar.js",
+          "find": "a[i - 2] === b[j - 1]",
+          "replace": "a[i - 2] === b[j - 2]"
+        }
+      ],
+      "treeSha256": "82e5a9dbcf3773d92ea0e2ecd0f5e9327572842f012d577e3fa168517debb790"
+    },
+    "semver-bug-identifiers": {
+      "license": "ISC",
+      "base": "semver-7.7.1",
+      "patches": [
+        {
+          "path": "internal/identifiers.js",
+          "find": "/^[0-9]+$/",
+          "replace": "/^[0-9]$/"
+        }
+      ],
+      "treeSha256": "8ad169cee70eb6dcdb3b373b1f6eb71d144a1e06ada5db294fcd59c078b7cc48"
+    },
+    "yaml-bug-hex": {
+      "license": "MIT",
+      "base": "js-yaml-4.1.0",
+      "patches": [
+        {
+          "path": "lib/type/int.js",
+          "find": "(c <= 0x46/* F */)",
+          "replace": "(c <= 0x45/* E */)"
+        }
+      ],
+      "treeSha256": "21712be329a5a580324b936f5d58af68975cf53d97f957afbbbce13649850957"
+    },
+    "acorn-bug-const": {
+      "license": "MIT",
+      "base": "acorn-8.14.0",
+      "patches": [
+        {
+          "path": "acorn/src/statement.js",
+          "find": "kind === \"var\" ? BIND_VAR : BIND_LEXICAL, false)",
+          "replace": "kind === \"var\" || kind === \"const\" ? BIND_VAR : BIND_LEXICAL, false)"
+        }
+      ],
+      "treeSha256": "035a4298a193357e980bd9b8fe9e0119184b7ba3ee7d538930141aa32517dbda"
+    },
+    "marked-bug-slugger": {
+      "license": "MIT",
+      "base": "marked-4.3.0",
+      "patches": [
+        {
+          "path": "src/Slugger.js",
+          "find": "      this.seen[slug] = 0;\n",
+          "replace": ""
+        }
+      ],
+      "treeSha256": "5bdd64d93e3779c16d74989cf5a6d113955b66801f69c8a83a609f86c486be0f"
+    },
+    "luxon-bug-leap": {
+      "license": "MIT",
+      "base": "luxon-3.5.0",
+      "patches": [
+        {
+          "path": "src/impl/util.js",
+          "find": "year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)",
+          "replace": "year % 4 === 0 && year % 100 !== 0"
+        }
+      ],
+      "treeSha256": "55d8012c2ca5334c5c070503ba45274c858712882615022fa82b0261266b8d40"
+    },
+    "underscore-bug-index": {
+      "license": "MIT",
+      "base": "underscore-1.13.7",
+      "patches": [
+        {
+          "path": "modules/_createIndexFinder.js",
+          "find": "Math.max(idx + length, i)",
+          "replace": "Math.min(idx + length, i)"
+        }
+      ],
+      "treeSha256": "132ed996ead5efce91d71bdf2401849d2c43f86fc3177871dbcc88760b9c3cb8"
+    },
+    "glob-bug-nines": {
+      "license": "MIT",
+      "base": "glob-stack",
+      "patches": [
+        {
+          "path": "packages/to-regex-range/index.js",
+          "find": "'9'.repeat(len)",
+          "replace": "'9'.repeat(len - 1)"
+        }
+      ],
+      "treeSha256": "109fdf5b0ebb154306375869ae6455163cc399a8766b04a9ff07809d6f9f2ab5"
+    }
+  }
+}

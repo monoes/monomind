@@ -1,0 +1,21 @@
+{
+  "id": "marked-bug-heading-ids",
+  "title": "marked: locate why two headings can end up with the same id",
+  "tags": [
+    "bug-localisation",
+    "marked"
+  ],
+  "fixture": "slice:marked-bug-slugger",
+  "prompt": "In this copy of marked 4.3.0, heading ids are no longer always unique: the document `# Intro`, `# Intro`, `# Intro 1` renders ids `intro`, `intro-1`, `intro-1`, so anchor links hit the wrong heading (earlier versions produced `intro-1-1` for the third). Trace how heading ids are generated from the parser down to where they are stored, find the root cause and fix it with a minimal change.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/marked-bug-heading-ids",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

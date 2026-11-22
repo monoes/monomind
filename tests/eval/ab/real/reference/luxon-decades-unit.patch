@@ -1,0 +1,122 @@
+diff -ruN a/src/datetime.js b/src/datetime.js
+--- a/src/datetime.js	2026-11-22 08:09:31.127234775 +0100
++++ b/src/datetime.js	2026-11-22 08:09:31.129743343 +0100
+@@ -149,7 +149,7 @@
+ // create a new DT instance by adding a duration, adjusting for DSTs
+ function adjustTime(inst, dur) {
+   const oPre = inst.o,
+-    year = inst.c.year + Math.trunc(dur.years),
++    year = inst.c.year + Math.trunc(dur.years) + Math.trunc(dur.decades) * 10,
+     month = inst.c.month + Math.trunc(dur.months) + Math.trunc(dur.quarters) * 3,
+     c = {
+       ...inst.c,
+@@ -161,6 +161,7 @@
+         Math.trunc(dur.weeks) * 7,
+     },
+     millisToAdd = Duration.fromObject({
++      decades: dur.decades - Math.trunc(dur.decades),
+       years: dur.years - Math.trunc(dur.years),
+       quarters: dur.quarters - Math.trunc(dur.quarters),
+       months: dur.months - Math.trunc(dur.months),
+diff -ruN a/src/duration.js b/src/duration.js
+--- a/src/duration.js	2026-11-22 08:09:31.127234775 +0100
++++ b/src/duration.js	2026-11-22 08:09:31.129433713 +0100
+@@ -36,6 +36,17 @@
+     seconds: { milliseconds: 1000 },
+   },
+   casualMatrix = {
++    decades: {
++      years: 10,
++      quarters: 40,
++      months: 120,
++      weeks: 520,
++      days: 3650,
++      hours: 3650 * 24,
++      minutes: 3650 * 24 * 60,
++      seconds: 3650 * 24 * 60 * 60,
++      milliseconds: 3650 * 24 * 60 * 60 * 1000,
++    },
+     years: {
+       quarters: 4,
+       months: 12,
+@@ -69,6 +80,17 @@
+   daysInYearAccurate = 146097.0 / 400,
+   daysInMonthAccurate = 146097.0 / 4800,
+   accurateMatrix = {
++    decades: {
++      years: 10,
++      quarters: 40,
++      months: 120,
++      weeks: (daysInYearAccurate * 10) / 7,
++      days: daysInYearAccurate * 10,
++      hours: daysInYearAccurate * 10 * 24,
++      minutes: daysInYearAccurate * 10 * 24 * 60,
++      seconds: daysInYearAccurate * 10 * 24 * 60 * 60,
++      milliseconds: daysInYearAccurate * 10 * 24 * 60 * 60 * 1000,
++    },
+     years: {
+       quarters: 4,
+       months: 12,
+@@ -101,6 +123,7 @@
+ 
+ // units ordered by size
+ const orderedUnits = [
++  "decades",
+   "years",
+   "quarters",
+   "months",
+@@ -398,6 +421,8 @@
+    */
+   static normalizeUnit(unit) {
+     const normalized = {
++      decade: "decades",
++      decades: "decades",
+       year: "years",
+       years: "years",
+       quarter: "quarters",
+@@ -541,7 +566,7 @@
+     if (!this.isValid) return null;
+ 
+     let s = "P";
+-    if (this.years !== 0) s += this.years + "Y";
++    if (this.years !== 0 || this.decades !== 0) s += this.years + this.decades * 10 + "Y";
+     if (this.months !== 0 || this.quarters !== 0) s += this.months + this.quarters * 3 + "M";
+     if (this.weeks !== 0) s += this.weeks + "W";
+     if (this.days !== 0) s += this.days + "D";
+@@ -863,6 +888,14 @@
+   }
+ 
+   /**
++   * Get the years.
++   * @type {number}
++   */
++  get decades() {
++    return this.isValid ? this.values.decades || 0 : NaN;
++  }
++
++  /**
+    * Get the years.
+    * @type {number}
+    */
+diff -ruN a/src/impl/diff.js b/src/impl/diff.js
+--- a/src/impl/diff.js	2026-11-22 08:09:31.127234775 +0100
++++ b/src/impl/diff.js	2026-11-22 08:09:31.129494421 +0100
+@@ -8,6 +8,7 @@
+ 
+ function highOrderDiffs(cursor, later, units) {
+   const differs = [
++    ["decades", (a, b) => Math.trunc((b.year - a.year) / 10)],
+     ["years", (a, b) => b.year - a.year],
+     ["quarters", (a, b) => b.quarter - a.quarter + (b.year - a.year) * 4],
+     ["months", (a, b) => b.month - a.month + (b.year - a.year) * 12],
+diff -ruN a/src/impl/english.js b/src/impl/english.js
+--- a/src/impl/english.js	2026-11-22 08:09:31.127234775 +0100
++++ b/src/impl/english.js	2026-11-22 08:09:31.129820250 +0100
+@@ -126,6 +126,7 @@
+ 
+ export function formatRelativeTime(unit, count, numeric = "always", narrow = false) {
+   const units = {
++    decades: ["decade", "dec."],
+     years: ["year", "yr."],
+     quarters: ["quarter", "qtr."],
+     months: ["month", "mo."],

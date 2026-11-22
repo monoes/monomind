@@ -1,0 +1,26 @@
+diff -ruN a/packages/braces/lib/compile.js b/packages/braces/lib/compile.js
+--- a/packages/braces/lib/compile.js	2026-11-22 08:13:25.559971024 +0100
++++ b/packages/braces/lib/compile.js	2026-11-22 08:13:25.562823971 +0100
+@@ -38,7 +38,7 @@
+ 
+     if (node.nodes && node.ranges > 0) {
+       const args = utils.reduce(node.nodes);
+-      const range = fill(...args, { ...options, wrap: false, toRegex: true, strictZeros: true });
++      const range = fill(...args, { ...options, wrap: false, toRegex: true, keepZeros: true });
+ 
+       if (range.length !== 0) {
+         return args.length > 1 && range.length > 1 ? `(${range})` : range;
+diff -ruN a/packages/to-regex-range/index.js b/packages/to-regex-range/index.js
+--- a/packages/to-regex-range/index.js	2026-11-22 08:13:25.559971024 +0100
++++ b/packages/to-regex-range/index.js	2026-11-22 08:13:25.562731244 +0100
+@@ -23,8 +23,8 @@
+   }
+ 
+   let opts = { relaxZeros: true, ...options };
+-  if (typeof opts.strictZeros === 'boolean') {
+-    opts.relaxZeros = opts.strictZeros === false;
++  if (typeof opts.keepZeros === 'boolean') {
++    opts.relaxZeros = opts.keepZeros === false;
+   }
+ 
+   let relax = String(opts.relaxZeros);

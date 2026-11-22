@@ -1,0 +1,21 @@
+{
+  "id": "yaml-bug-hex-int",
+  "title": "js-yaml: locate why some hex integers load as strings",
+  "tags": [
+    "bug-localisation",
+    "js-yaml"
+  ],
+  "fixture": "slice:yaml-bug-hex",
+  "prompt": "In this copy of js-yaml, some hexadecimal integers are loaded as strings instead of numbers: `a: 0xdeadbeef` gives the number 3735928559 but `a: 0xDEADBEEF` gives the string \"0xDEADBEEF\", and `dump({a: '0xDEADBEEF'})` no longer quotes that string, so it would not round-trip. Find the root cause and fix it with a minimal change; all other integer forms must keep working.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/yaml-bug-hex-int",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

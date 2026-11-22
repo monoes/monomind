@@ -1,0 +1,22 @@
+{
+  "id": "underscore-sum-by",
+  "title": "underscore: add _.sumBy with exports and chaining",
+  "tags": [
+    "feature",
+    "multi-file",
+    "underscore"
+  ],
+  "fixture": "slice:underscore-1.13.7",
+  "prompt": "This is a copy of Underscore 1.13.7 (modules/, ES modules, one function per file). Add `_.sumBy(list, [iteratee], [context])`: it adds up the values of an array or object, after mapping each through the iteratee when one is given. The iteratee is anything `_.map` accepts (function, property name or path array, matcher object, or omitted for identity) and is called with (value, indexOrKey, list). Empty, null and undefined collections give 0. It lives in its own module `modules/sumBy.js`, is exported as a named export from the package index like the other functions, and is therefore available as `_.sumBy`, in the OOP style `_(list).sumBy(...)` and in chains.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/underscore-sum-by",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

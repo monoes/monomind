@@ -1,0 +1,12 @@
+diff -ruN a/src/impl/util.js b/src/impl/util.js
+--- a/src/impl/util.js	2026-11-22 08:09:31.018855269 +0100
++++ b/src/impl/util.js	2026-11-22 08:09:31.022852288 +0100
+@@ -168,7 +168,7 @@
+ // DATE BASICS
+ 
+ export function isLeapYear(year) {
+-  return year % 4 === 0 && year % 100 !== 0;
++  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+ }
+ 
+ export function daysInYear(year) {

@@ -1,0 +1,44 @@
+diff -ruN a/acorn/src/options.js b/acorn/src/options.js
+--- a/acorn/src/options.js	2026-11-22 08:05:03.276380461 +0100
++++ b/acorn/src/options.js	2026-11-22 08:05:03.280060506 +0100
+@@ -52,6 +52,8 @@
+   // only used in places where they are valid and have been declared.
+   // Set this to false to turn such checks off.
+   checkPrivateFields: true,
++  // Maximum number of simultaneously open `(`, `[`, `{` and `${`; null means unlimited.
++  maxNestingDepth: null,
+   // When `locations` is on, `loc` properties holding objects with
+   // `start` and `end` properties in `{line, column}` form (with
+   // line being 1-based and column 0-based) will be attached to the
+diff -ruN a/acorn/src/state.js b/acorn/src/state.js
+--- a/acorn/src/state.js	2026-11-22 08:05:03.276380461 +0100
++++ b/acorn/src/state.js	2026-11-22 08:05:03.280096495 +0100
+@@ -26,6 +26,9 @@
+     // escape sequences must not be interpreted as keywords.
+     this.containsEsc = false
+ 
++    // Number of currently open brackets (see the maxNestingDepth option)
++    this.nestingDepth = 0
++
+     // Set up token state
+ 
+     // The current position of the tokenizer in the input.
+diff -ruN a/acorn/src/tokenize.js b/acorn/src/tokenize.js
+--- a/acorn/src/tokenize.js	2026-11-22 08:05:03.276380461 +0100
++++ b/acorn/src/tokenize.js	2026-11-22 08:05:03.280128864 +0100
+@@ -35,6 +35,15 @@
+   if (this.options.onToken)
+     this.options.onToken(new Token(this))
+ 
++  const type = this.type
++  if (type === tt.parenL || type === tt.bracketL || type === tt.braceL || type === tt.dollarBraceL) {
++    const max = this.options.maxNestingDepth
++    if (++this.nestingDepth > max && max != null)
++      this.raise(this.start, `Maximum nesting depth of ${max} exceeded`)
++  } else if (type === tt.parenR || type === tt.bracketR || type === tt.braceR) {
++    this.nestingDepth--
++  }
++
+   this.lastTokEnd = this.end
+   this.lastTokStart = this.start
+   this.lastTokEndLoc = this.endLoc

@@ -1,0 +1,22 @@
+{
+  "id": "cmdr-option-deprecated",
+  "title": "commander: add Option.deprecated() touching option, command and help",
+  "tags": [
+    "feature",
+    "multi-file",
+    "commander"
+  ],
+  "fixture": "slice:commander-12.1.0",
+  "prompt": "This is a copy of commander.js (lib/ and index.js). Add a chainable `Option.prototype.deprecated(message)` where `message` is an optional string. Contract: (1) when an option marked deprecated has its value processed from the command line or from its env var, the command writes `warning: option '<option.flags>' is deprecated` followed by `: <message>` only if a non-empty message was given, then a newline, through the command's configured `writeErr` output; parsing results are otherwise unchanged. (2) In generated help the option's description gets ` [deprecated]` appended, after any parenthesised extra info such as the default, for example `the old way (default: \"a\") [deprecated]`. Options that are not deprecated behave exactly as before.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/cmdr-option-deprecated",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

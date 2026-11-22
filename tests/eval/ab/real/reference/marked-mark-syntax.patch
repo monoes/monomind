@@ -1,0 +1,111 @@
+diff -ruN a/src/Lexer.js b/src/Lexer.js
+--- a/src/Lexer.js	2026-11-22 08:07:07.087684844 +0100
++++ b/src/Lexer.js	2026-11-22 08:07:07.090060126 +0100
+@@ -442,6 +442,13 @@
+         continue;
+       }
+ 
++      // mark (gfm)
++      if (token = this.tokenizer.mark(src)) {
++        src = src.substring(token.raw.length);
++        tokens.push(token);
++        continue;
++      }
++
+       // autolink
+       if (token = this.tokenizer.autolink(src, mangle)) {
+         src = src.substring(token.raw.length);
+diff -ruN a/src/Parser.js b/src/Parser.js
+--- a/src/Parser.js	2026-11-22 08:07:07.087684844 +0100
++++ b/src/Parser.js	2026-11-22 08:07:07.090093855 +0100
+@@ -223,7 +223,7 @@
+       // Run any renderer extensions
+       if (this.options.extensions && this.options.extensions.renderers && this.options.extensions.renderers[token.type]) {
+         ret = this.options.extensions.renderers[token.type].call({ parser: this }, token);
+-        if (ret !== false || !['escape', 'html', 'link', 'image', 'strong', 'em', 'codespan', 'br', 'del', 'text'].includes(token.type)) {
++        if (ret !== false || !['escape', 'html', 'link', 'image', 'strong', 'em', 'codespan', 'br', 'del', 'mark', 'text'].includes(token.type)) {
+           out += ret || '';
+           continue;
+         }
+@@ -266,6 +266,10 @@
+           out += renderer.del(this.parseInline(token.tokens, renderer));
+           break;
+         }
++        case 'mark': {
++          out += renderer.mark(this.parseInline(token.tokens, renderer));
++          break;
++        }
+         case 'text': {
+           out += renderer.text(token.text);
+           break;
+diff -ruN a/src/Renderer.js b/src/Renderer.js
+--- a/src/Renderer.js	2026-11-22 08:07:07.087684844 +0100
++++ b/src/Renderer.js	2026-11-22 08:07:07.090114474 +0100
+@@ -160,6 +160,10 @@
+     return `<del>${text}</del>`;
+   }
+ 
++  mark(text) {
++    return `<mark>${text}</mark>`;
++  }
++
+   /**
+    * @param {string} href
+    * @param {string} title
+diff -ruN a/src/rules.js b/src/rules.js
+--- a/src/rules.js	2026-11-22 08:07:07.087684844 +0100
++++ b/src/rules.js	2026-11-22 08:07:07.089956439 +0100
+@@ -177,6 +177,7 @@
+   code: /^(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)/,
+   br: /^( {2,}|\\)\n(?!\s*$)/,
+   del: noopTest,
++  mark: noopTest,
+   text: /^(`+|[^`])(?:(?= {2,}\n)|[\s\S]*?(?:(?=[\\<!\[`*_]|\b_|$)|[^ ](?= {2,}\n)))/,
+   punctuation: /^([\spunctuation])/
+ };
+@@ -289,7 +290,8 @@
+   url: /^((?:ftp|https?):\/\/|www\.)(?:[a-zA-Z0-9\-]+\.?)+[^\s<]*|^email/,
+   _backpedal: /(?:[^?!.,:;*_'"~()&]+|\([^)]*\)|&(?![a-zA-Z0-9]+;$)|[?!.,:;*_'"~)]+(?!$))+/,
+   del: /^(~~?)(?=[^\s~])([\s\S]*?[^\s~])\1(?=[^~]|$)/,
+-  text: /^([`~]+|[^`~])(?:(?= {2,}\n)|(?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)|[\s\S]*?(?:(?=[\\<!\[`*~_]|\b_|https?:\/\/|ftp:\/\/|www\.|$)|[^ ](?= {2,}\n)|[^a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-](?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)))/
++  mark: /^(==)(?=[^\s=])([\s\S]*?[^\s=])\1(?=[^=]|$)/,
++  text: /^([`~=]+|[^`~=])(?:(?= {2,}\n)|(?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)|[\s\S]*?(?:(?=[\\<!\[`*~=_]|\b_|https?:\/\/|ftp:\/\/|www\.|$)|[^ ](?= {2,}\n)|[^a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-](?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)))/
+ };
+ 
+ inline.gfm.url = edit(inline.gfm.url, 'i')
+diff -ruN a/src/TextRenderer.js b/src/TextRenderer.js
+--- a/src/TextRenderer.js	2026-11-22 08:07:07.087684844 +0100
++++ b/src/TextRenderer.js	2026-11-22 08:07:07.090134184 +0100
+@@ -20,6 +20,10 @@
+     return text;
+   }
+ 
++  mark(text) {
++    return text;
++  }
++
+   html(text) {
+     return text;
+   }
+diff -ruN a/src/Tokenizer.js b/src/Tokenizer.js
+--- a/src/Tokenizer.js	2026-11-22 08:07:07.087684844 +0100
++++ b/src/Tokenizer.js	2026-11-22 08:07:07.090026327 +0100
+@@ -710,6 +710,18 @@
+     }
+   }
+ 
++  mark(src) {
++    const cap = this.rules.inline.mark.exec(src);
++    if (cap) {
++      return {
++        type: 'mark',
++        raw: cap[0],
++        text: cap[2],
++        tokens: this.lexer.inlineTokens(cap[2])
++      };
++    }
++  }
++
+   autolink(src, mangle) {
+     const cap = this.rules.inline.autolink.exec(src);
+     if (cap) {

@@ -1,0 +1,24 @@
+diff -ruN a/src/Parser.js b/src/Parser.js
+--- a/src/Parser.js	2026-11-22 08:07:06.924355966 +0100
++++ b/src/Parser.js	2026-11-22 08:07:06.926470096 +0100
+@@ -166,7 +166,7 @@
+             }
+ 
+             itemBody += this.parse(item.tokens, loose);
+-            body += this.renderer.listitem(itemBody, task, checked);
++            body += this.renderer.listItem(itemBody, task, checked);
+           }
+ 
+           out += this.renderer.list(body, ordered, start);
+diff -ruN a/src/Renderer.js b/src/Renderer.js
+--- a/src/Renderer.js	2026-11-22 08:07:06.924355966 +0100
++++ b/src/Renderer.js	2026-11-22 08:07:06.926448097 +0100
+@@ -78,7 +78,7 @@
+   /**
+    * @param {string} text
+    */
+-  listitem(text) {
++  listItem(text) {
+     return `<li>${text}</li>\n`;
+   }
+ 

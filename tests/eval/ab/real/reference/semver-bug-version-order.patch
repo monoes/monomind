@@ -1,0 +1,9 @@
+diff -ruN a/internal/identifiers.js b/internal/identifiers.js
+--- a/internal/identifiers.js	2026-11-22 08:00:32.985577762 +0100
++++ b/internal/identifiers.js	2026-11-22 08:00:32.987808556 +0100
+@@ -1,4 +1,4 @@
+-const numeric = /^[0-9]$/
++const numeric = /^[0-9]+$/
+ const compareIdentifiers = (a, b) => {
+   const anum = numeric.test(a)
+   const bnum = numeric.test(b)

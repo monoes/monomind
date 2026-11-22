@@ -1,0 +1,78 @@
+diff -ruN a/lib/parse.js b/lib/parse.js
+--- a/lib/parse.js	2026-11-22 08:13:25.705432671 +0100
++++ b/lib/parse.js	2026-11-22 08:13:25.711083317 +0100
+@@ -322,7 +322,7 @@
+             break
+ 
+         default:
+-            if (!util.isIdStartChar(u)) {
++            if (!util.isIdentifierStart(u)) {
+                 throw invalidIdentifier()
+             }
+ 
+@@ -348,7 +348,7 @@
+             return
+         }
+ 
+-        if (util.isIdContinueChar(c)) {
++        if (util.isIdentifierPart(c)) {
+             buffer += read()
+             return
+         }
+@@ -371,7 +371,7 @@
+             break
+ 
+         default:
+-            if (!util.isIdContinueChar(u)) {
++            if (!util.isIdentifierPart(u)) {
+                 throw invalidIdentifier()
+             }
+ 
+@@ -645,7 +645,7 @@
+             return
+         }
+ 
+-        if (util.isIdStartChar(c)) {
++        if (util.isIdentifierStart(c)) {
+             buffer += read()
+             lexState = 'identifierName'
+             return
+diff -ruN a/lib/stringify.js b/lib/stringify.js
+--- a/lib/stringify.js	2026-11-22 08:13:25.707414661 +0100
++++ b/lib/stringify.js	2026-11-22 08:13:25.711035978 +0100
+@@ -211,12 +211,12 @@
+         }
+ 
+         const firstChar = String.fromCodePoint(key.codePointAt(0))
+-        if (!util.isIdStartChar(firstChar)) {
++        if (!util.isIdentifierStart(firstChar)) {
+             return quoteString(key, true)
+         }
+ 
+         for (let i = firstChar.length; i < key.length; i++) {
+-            if (!util.isIdContinueChar(String.fromCodePoint(key.codePointAt(i)))) {
++            if (!util.isIdentifierPart(String.fromCodePoint(key.codePointAt(i)))) {
+                 return quoteString(key, true)
+             }
+         }
+diff -ruN a/lib/util.js b/lib/util.js
+--- a/lib/util.js	2026-11-22 08:13:25.707414661 +0100
++++ b/lib/util.js	2026-11-22 08:13:25.710997019 +0100
+@@ -5,7 +5,7 @@
+         return typeof c === 'string' && unicode.Space_Separator.test(c)
+     },
+ 
+-    isIdStartChar (c) {
++    isIdentifierStart (c) {
+         return typeof c === 'string' && (
+             (c >= 'a' && c <= 'z') ||
+         (c >= 'A' && c <= 'Z') ||
+@@ -14,7 +14,7 @@
+         )
+     },
+ 
+-    isIdContinueChar (c) {
++    isIdentifierPart (c) {
+         return typeof c === 'string' && (
+             (c >= 'a' && c <= 'z') ||
+         (c >= 'A' && c <= 'Z') ||

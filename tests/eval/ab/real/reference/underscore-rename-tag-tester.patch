@@ -1,0 +1,193 @@
+diff -ruN a/modules/_hasObjectTag.js b/modules/_hasObjectTag.js
+--- a/modules/_hasObjectTag.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/_hasObjectTag.js	2026-11-22 08:11:12.767695645 +0100
+@@ -1,3 +1,3 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ 
+-export default tagTester('Object');
++export default typeTester('Object');
+diff -ruN a/modules/isArguments.js b/modules/isArguments.js
+--- a/modules/isArguments.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isArguments.js	2026-11-22 08:11:12.767253819 +0100
+@@ -1,7 +1,7 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ import has from './_has.js';
+ 
+-var isArguments = tagTester('Arguments');
++var isArguments = typeTester('Arguments');
+ 
+ // Define a fallback version of the method in browsers (ahem, IE < 9), where
+ // there isn't any inspectable "Arguments" type.
+diff -ruN a/modules/isArrayBuffer.js b/modules/isArrayBuffer.js
+--- a/modules/isArrayBuffer.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isArrayBuffer.js	2026-11-22 08:11:12.767223370 +0100
+@@ -1,3 +1,3 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ 
+-export default tagTester('ArrayBuffer');
++export default typeTester('ArrayBuffer');
+diff -ruN a/modules/isArray.js b/modules/isArray.js
+--- a/modules/isArray.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isArray.js	2026-11-22 08:11:12.767238620 +0100
+@@ -1,6 +1,6 @@
+ import { nativeIsArray } from './_setup.js';
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ 
+ // Is a given value an array?
+ // Delegates to ECMA5's native `Array.isArray`.
+-export default nativeIsArray || tagTester('Array');
++export default nativeIsArray || typeTester('Array');
+diff -ruN a/modules/isDataView.js b/modules/isDataView.js
+--- a/modules/isDataView.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isDataView.js	2026-11-22 08:11:12.767201951 +0100
+@@ -1,9 +1,9 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ import isFunction from './isFunction.js';
+ import isArrayBuffer from './isArrayBuffer.js';
+ import { hasDataViewBug } from './_stringTagBug.js';
+ 
+-var isDataView = tagTester('DataView');
++var isDataView = typeTester('DataView');
+ 
+ // In IE 10 - Edge 13, we need a different heuristic
+ // to determine whether an object is a `DataView`.
+diff -ruN a/modules/isDate.js b/modules/isDate.js
+--- a/modules/isDate.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isDate.js	2026-11-22 08:11:12.767186771 +0100
+@@ -1,3 +1,3 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ 
+-export default tagTester('Date');
++export default typeTester('Date');
+diff -ruN a/modules/isError.js b/modules/isError.js
+--- a/modules/isError.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isError.js	2026-11-22 08:11:12.767146423 +0100
+@@ -1,3 +1,3 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ 
+-export default tagTester('Error');
++export default typeTester('Error');
+diff -ruN a/modules/isFunction.js b/modules/isFunction.js
+--- a/modules/isFunction.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isFunction.js	2026-11-22 08:11:12.767124813 +0100
+@@ -1,7 +1,7 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ import { root } from './_setup.js';
+ 
+-var isFunction = tagTester('Function');
++var isFunction = typeTester('Function');
+ 
+ // Optimize `isFunction` if appropriate. Work around some `typeof` bugs in old
+ // v8, IE 11 (#1621), Safari 8 (#1929), and PhantomJS (#2236).
+diff -ruN a/modules/isMap.js b/modules/isMap.js
+--- a/modules/isMap.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isMap.js	2026-11-22 08:11:12.767109554 +0100
+@@ -1,5 +1,5 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ import { isIE11 } from './_stringTagBug.js';
+ import { ie11fingerprint, mapMethods }  from './_methodFingerprint.js';
+ 
+-export default isIE11 ? ie11fingerprint(mapMethods) : tagTester('Map');
++export default isIE11 ? ie11fingerprint(mapMethods) : typeTester('Map');
+diff -ruN a/modules/isNumber.js b/modules/isNumber.js
+--- a/modules/isNumber.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isNumber.js	2026-11-22 08:11:12.767073965 +0100
+@@ -1,3 +1,3 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ 
+-export default tagTester('Number');
++export default typeTester('Number');
+diff -ruN a/modules/isRegExp.js b/modules/isRegExp.js
+--- a/modules/isRegExp.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isRegExp.js	2026-11-22 08:11:12.767052426 +0100
+@@ -1,3 +1,3 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ 
+-export default tagTester('RegExp');
++export default typeTester('RegExp');
+diff -ruN a/modules/isSet.js b/modules/isSet.js
+--- a/modules/isSet.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isSet.js	2026-11-22 08:11:12.767038246 +0100
+@@ -1,5 +1,5 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ import { isIE11 } from './_stringTagBug.js';
+ import { ie11fingerprint, setMethods }  from './_methodFingerprint.js';
+ 
+-export default isIE11 ? ie11fingerprint(setMethods) : tagTester('Set');
++export default isIE11 ? ie11fingerprint(setMethods) : typeTester('Set');
+diff -ruN a/modules/isString.js b/modules/isString.js
+--- a/modules/isString.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isString.js	2026-11-22 08:11:12.767023277 +0100
+@@ -1,3 +1,3 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ 
+-export default tagTester('String');
++export default typeTester('String');
+diff -ruN a/modules/isSymbol.js b/modules/isSymbol.js
+--- a/modules/isSymbol.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isSymbol.js	2026-11-22 08:11:12.767008967 +0100
+@@ -1,3 +1,3 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ 
+-export default tagTester('Symbol');
++export default typeTester('Symbol');
+diff -ruN a/modules/isWeakMap.js b/modules/isWeakMap.js
+--- a/modules/isWeakMap.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isWeakMap.js	2026-11-22 08:11:12.766978848 +0100
+@@ -1,5 +1,5 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ import { isIE11 } from './_stringTagBug.js';
+ import { ie11fingerprint, weakMapMethods }  from './_methodFingerprint.js';
+ 
+-export default isIE11 ? ie11fingerprint(weakMapMethods) : tagTester('WeakMap');
++export default isIE11 ? ie11fingerprint(weakMapMethods) : typeTester('WeakMap');
+diff -ruN a/modules/isWeakSet.js b/modules/isWeakSet.js
+--- a/modules/isWeakSet.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/isWeakSet.js	2026-11-22 08:11:12.766959449 +0100
+@@ -1,3 +1,3 @@
+-import tagTester from './_tagTester.js';
++import typeTester from './_typeTester.js';
+ 
+-export default tagTester('WeakSet');
++export default typeTester('WeakSet');
+diff -ruN a/modules/_tagTester.js b/modules/_tagTester.js
+--- a/modules/_tagTester.js	2026-11-22 08:11:12.759722045 +0100
++++ b/modules/_tagTester.js	1970-01-01 01:00:00.000000000 +0100
+@@ -1,9 +0,0 @@
+-import { toString } from './_setup.js';
+-
+-// Internal function for creating a `toString`-based type tester.
+-export default function tagTester(name) {
+-  var tag = '[object ' + name + ']';
+-  return function(obj) {
+-    return toString.call(obj) === tag;
+-  };
+-}
+diff -ruN a/modules/_typeTester.js b/modules/_typeTester.js
+--- a/modules/_typeTester.js	1970-01-01 01:00:00.000000000 +0100
++++ b/modules/_typeTester.js	2026-11-22 08:11:12.764737782 +0100
+@@ -0,0 +1,9 @@
++import { toString } from './_setup.js';
++
++// Internal function for creating a `toString`-based type tester.
++export default function typeTester(name) {
++  var tag = '[object ' + name + ']';
++  return function(obj) {
++    return toString.call(obj) === tag;
++  };
++}

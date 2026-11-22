@@ -1,0 +1,183 @@
+diff -ruN a/classes/comparator.js b/classes/comparator.js
+--- a/classes/comparator.js	2026-11-22 08:00:32.941651872 +0100
++++ b/classes/comparator.js	2026-11-22 08:00:32.944383430 +0100
+@@ -94,11 +94,11 @@
+     options = parseOptions(options)
+ 
+     // Special cases where nothing can possibly be lower
+-    if (options.includePrerelease &&
++    if (options.withPrerelease &&
+       (this.value === '<0.0.0-0' || comp.value === '<0.0.0-0')) {
+       return false
+     }
+-    if (!options.includePrerelease &&
++    if (!options.withPrerelease &&
+       (this.value.startsWith('<0.0.0') || comp.value.startsWith('<0.0.0'))) {
+       return false
+     }
+diff -ruN a/classes/range.js b/classes/range.js
+--- a/classes/range.js	2026-11-22 08:00:32.941651872 +0100
++++ b/classes/range.js	2026-11-22 08:00:32.944362341 +0100
+@@ -8,7 +8,7 @@
+     if (range instanceof Range) {
+       if (
+         range.loose === !!options.loose &&
+-        range.includePrerelease === !!options.includePrerelease
++        range.withPrerelease === !!options.withPrerelease
+       ) {
+         return range
+       } else {
+@@ -26,7 +26,7 @@
+ 
+     this.options = options
+     this.loose = !!options.loose
+-    this.includePrerelease = !!options.includePrerelease
++    this.withPrerelease = !!options.withPrerelease
+ 
+     // First reduce all whitespace as much as possible so we do not have to rely
+     // on potentially slow regexes like \s*. This is then stored and used for
+@@ -99,7 +99,7 @@
+     // memoize range parsing for performance.
+     // this is a very hot path, and fully deterministic.
+     const memoOpts =
+-      (this.options.includePrerelease && FLAG_INCLUDE_PRERELEASE) |
++      (this.options.withPrerelease && FLAG_INCLUDE_PRERELEASE) |
+       (this.options.loose && FLAG_LOOSE)
+     const memoKey = memoOpts + ':' + range
+     const cached = cache.get(memoKey)
+@@ -110,7 +110,7 @@
+     const loose = this.options.loose
+     // `1.2.3 - 1.2.4` => `>=1.2.3 <=1.2.4`
+     const hr = loose ? re[t.HYPHENRANGELOOSE] : re[t.HYPHENRANGE]
+-    range = range.replace(hr, hyphenReplace(this.options.includePrerelease))
++    range = range.replace(hr, hyphenReplace(this.options.withPrerelease))
+     debug('hyphen replace', range)
+ 
+     // `> 1.2.3 < 1.2.5` => `>1.2.3 <1.2.5`
+@@ -329,7 +329,7 @@
+ const replaceCaret = (comp, options) => {
+   debug('caret', comp, options)
+   const r = options.loose ? re[t.CARETLOOSE] : re[t.CARET]
+-  const z = options.includePrerelease ? '-0' : ''
++  const z = options.withPrerelease ? '-0' : ''
+   return comp.replace(r, (_, M, m, p, pr) => {
+     debug('caret', comp, _, M, m, p, pr)
+     let ret
+@@ -403,7 +403,7 @@
+ 
+     // if we're including prereleases in the match, then we need
+     // to fix this to -0, the lowest possible prerelease value
+-    pr = options.includePrerelease ? '-0' : ''
++    pr = options.withPrerelease ? '-0' : ''
+ 
+     if (xM) {
+       if (gtlt === '>' || gtlt === '<') {
+@@ -476,7 +476,7 @@
+   debug('replaceGTE0', comp, options)
+   return comp
+     .trim()
+-    .replace(re[options.includePrerelease ? t.GTE0PRE : t.GTE0], '')
++    .replace(re[options.withPrerelease ? t.GTE0PRE : t.GTE0], '')
+ }
+ 
+ // This function is passed to string.replace(re[t.HYPHENRANGE])
+@@ -524,7 +524,7 @@
+     }
+   }
+ 
+-  if (version.prerelease.length && !options.includePrerelease) {
++  if (version.prerelease.length && !options.withPrerelease) {
+     // Find the set of versions that are allowed to have prereleases
+     // For example, ^1.2.3-pr.1 desugars to >=1.2.3-pr.1 <2.0.0
+     // That should allow `1.2.3-pr.2` to pass.
+diff -ruN a/classes/semver.js b/classes/semver.js
+--- a/classes/semver.js	2026-11-22 08:00:32.941651872 +0100
++++ b/classes/semver.js	2026-11-22 08:00:32.944336602 +0100
+@@ -10,7 +10,7 @@
+ 
+     if (version instanceof SemVer) {
+       if (version.loose === !!options.loose &&
+-        version.includePrerelease === !!options.includePrerelease) {
++        version.withPrerelease === !!options.withPrerelease) {
+         return version
+       } else {
+         version = version.version
+@@ -30,7 +30,7 @@
+     this.loose = !!options.loose
+     // this isn't actually relevant for versions, but keep it so that we
+     // don't run into trouble passing this.options around.
+-    this.includePrerelease = !!options.includePrerelease
++    this.withPrerelease = !!options.withPrerelease
+ 
+     const m = version.trim().match(options.loose ? re[t.LOOSE] : re[t.FULL])
+ 
+diff -ruN a/functions/coerce.js b/functions/coerce.js
+--- a/functions/coerce.js	2026-11-22 08:00:32.941651872 +0100
++++ b/functions/coerce.js	2026-11-22 08:00:32.944301093 +0100
+@@ -19,18 +19,18 @@
+ 
+   let match = null
+   if (!options.rtl) {
+-    match = version.match(options.includePrerelease ? re[t.COERCEFULL] : re[t.COERCE])
++    match = version.match(options.withPrerelease ? re[t.COERCEFULL] : re[t.COERCE])
+   } else {
+     // Find the right-most coercible string that does not share
+     // a terminus with a more left-ward coercible string.
+     // Eg, '1.2.3.4' wants to coerce '2.3.4', not '3.4' or '4'
+-    // With includePrerelease option set, '1.2.3.4-rc' wants to coerce '2.3.4-rc', not '2.3.4'
++    // With withPrerelease option set, '1.2.3.4-rc' wants to coerce '2.3.4-rc', not '2.3.4'
+     //
+     // Walk through the string checking with a /g regexp
+     // Manually set the index so as to pick up overlapping matches.
+     // Stop when we get a match that ends at the string end, since no
+     // coercible string can be more right-ward without the same terminus.
+-    const coerceRtlRegex = options.includePrerelease ? re[t.COERCERTLFULL] : re[t.COERCERTL]
++    const coerceRtlRegex = options.withPrerelease ? re[t.COERCERTLFULL] : re[t.COERCERTL]
+     let next
+     while ((next = coerceRtlRegex.exec(version)) &&
+         (!match || match.index + match[0].length !== version.length)
+@@ -52,8 +52,8 @@
+   const major = match[2]
+   const minor = match[3] || '0'
+   const patch = match[4] || '0'
+-  const prerelease = options.includePrerelease && match[5] ? `-${match[5]}` : ''
+-  const build = options.includePrerelease && match[6] ? `+${match[6]}` : ''
++  const prerelease = options.withPrerelease && match[5] ? `-${match[5]}` : ''
++  const build = options.withPrerelease && match[6] ? `+${match[6]}` : ''
+ 
+   return parse(`${major}.${minor}.${patch}${prerelease}${build}`, options)
+ }
+diff -ruN a/ranges/subset.js b/ranges/subset.js
+--- a/ranges/subset.js	2026-11-22 08:00:32.941651872 +0100
++++ b/ranges/subset.js	2026-11-22 08:00:32.944042391 +0100
+@@ -79,7 +79,7 @@
+   if (sub.length === 1 && sub[0].semver === ANY) {
+     if (dom.length === 1 && dom[0].semver === ANY) {
+       return true
+-    } else if (options.includePrerelease) {
++    } else if (options.withPrerelease) {
+       sub = minimumVersionWithPreRelease
+     } else {
+       sub = minimumVersion
+@@ -87,7 +87,7 @@
+   }
+ 
+   if (dom.length === 1 && dom[0].semver === ANY) {
+-    if (options.includePrerelease) {
++    if (options.withPrerelease) {
+       return true
+     } else {
+       dom = minimumVersion
+@@ -144,10 +144,10 @@
+   // if the subset has a prerelease, we need a comparator in the superset
+   // with the same tuple and a prerelease, or it's not a subset
+   let needDomLTPre = lt &&
+-    !options.includePrerelease &&
++    !options.withPrerelease &&
+     lt.semver.prerelease.length ? lt.semver : false
+   let needDomGTPre = gt &&
+-    !options.includePrerelease &&
++    !options.withPrerelease &&
+     gt.semver.prerelease.length ? gt.semver : false
+   // exception: <1.2.3-0 is the same as <1.2.3
+   if (needDomLTPre && needDomLTPre.prerelease.length === 1 &&

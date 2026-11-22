@@ -1,0 +1,37 @@
+diff -ruN a/lib/stringify.js b/lib/stringify.js
+--- a/lib/stringify.js	2026-11-22 08:13:25.756653451 +0100
++++ b/lib/stringify.js	2026-11-22 08:13:25.758464952 +0100
+@@ -7,6 +7,7 @@
+     let replacerFunc
+     let gap = ''
+     let quote
++    let trailingComma = true
+ 
+     if (
+         replacer != null &&
+@@ -15,6 +16,7 @@
+     ) {
+         space = replacer.space
+         quote = replacer.quote
++        if (replacer.trailingComma !== undefined) trailingComma = replacer.trailingComma
+         replacer = replacer.replacer
+     }
+ 
+@@ -196,7 +198,7 @@
+             } else {
+                 let separator = ',\n' + indent
+                 properties = partial.join(separator)
+-                final = '{\n' + indent + properties + ',\n' + stepback + '}'
++                final = '{\n' + indent + properties + (trailingComma ? ',' : '') + '\n' + stepback + '}'
+             }
+         }
+ 
+@@ -250,7 +252,7 @@
+             } else {
+                 let separator = ',\n' + indent
+                 let properties = partial.join(separator)
+-                final = '[\n' + indent + properties + ',\n' + stepback + ']'
++                final = '[\n' + indent + properties + (trailingComma ? ',' : '') + '\n' + stepback + ']'
+             }
+         }
+ 

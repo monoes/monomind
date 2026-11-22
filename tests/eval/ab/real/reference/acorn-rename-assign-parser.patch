@@ -1,0 +1,186 @@
+diff -ruN a/acorn/src/expression.js b/acorn/src/expression.js
+--- a/acorn/src/expression.js	2026-11-22 08:05:03.124732452 +0100
++++ b/acorn/src/expression.js	2026-11-22 08:05:03.127334515 +0100
+@@ -95,11 +95,11 @@
+ 
+ pp.parseExpression = function(forInit, refDestructuringErrors) {
+   let startPos = this.start, startLoc = this.startLoc
+-  let expr = this.parseMaybeAssign(forInit, refDestructuringErrors)
++  let expr = this.parseAssignExpression(forInit, refDestructuringErrors)
+   if (this.type === tt.comma) {
+     let node = this.startNodeAt(startPos, startLoc)
+     node.expressions = [expr]
+-    while (this.eat(tt.comma)) node.expressions.push(this.parseMaybeAssign(forInit, refDestructuringErrors))
++    while (this.eat(tt.comma)) node.expressions.push(this.parseAssignExpression(forInit, refDestructuringErrors))
+     return this.finishNode(node, "SequenceExpression")
+   }
+   return expr
+@@ -108,7 +108,7 @@
+ // Parse an assignment expression. This includes applications of
+ // operators like `+=`.
+ 
+-pp.parseMaybeAssign = function(forInit, refDestructuringErrors, afterLeftParse) {
++pp.parseAssignExpression = function(forInit, refDestructuringErrors, afterLeftParse) {
+   if (this.isContextual("yield")) {
+     if (this.inGenerator) return this.parseYield(forInit)
+     // The tokenizer will assume an expression is allowed after
+@@ -150,7 +150,7 @@
+       this.checkLValSimple(left)
+     node.left = left
+     this.next()
+-    node.right = this.parseMaybeAssign(forInit)
++    node.right = this.parseAssignExpression(forInit)
+     if (oldDoubleProto > -1) refDestructuringErrors.doubleProto = oldDoubleProto
+     return this.finishNode(node, "AssignmentExpression")
+   } else {
+@@ -170,9 +170,9 @@
+   if (this.eat(tt.question)) {
+     let node = this.startNodeAt(startPos, startLoc)
+     node.test = expr
+-    node.consequent = this.parseMaybeAssign()
++    node.consequent = this.parseAssignExpression()
+     this.expect(tt.colon)
+-    node.alternate = this.parseMaybeAssign(forInit)
++    node.alternate = this.parseAssignExpression(forInit)
+     return this.finishNode(node, "ConditionalExpression")
+   }
+   return expr
+@@ -544,13 +544,13 @@
+   this.next() // skip `(`
+ 
+   // Parse node.source.
+-  node.source = this.parseMaybeAssign()
++  node.source = this.parseAssignExpression()
+ 
+   if (this.options.ecmaVersion >= 16) {
+     if (!this.eat(tt.parenR)) {
+       this.expect(tt.comma)
+       if (!this.afterTrailingComma(tt.parenR)) {
+-        node.options = this.parseMaybeAssign()
++        node.options = this.parseAssignExpression()
+         if (!this.eat(tt.parenR)) {
+           this.expect(tt.comma)
+           if (!this.afterTrailingComma(tt.parenR)) {
+@@ -641,7 +641,7 @@
+         }
+         break
+       } else {
+-        exprList.push(this.parseMaybeAssign(false, refDestructuringErrors, this.parseParenItem))
++        exprList.push(this.parseAssignExpression(false, refDestructuringErrors, this.parseParenItem))
+       }
+     }
+     let innerEndPos = this.lastTokEnd, innerEndLoc = this.lastTokEndLoc
+@@ -799,7 +799,7 @@
+       return this.finishNode(prop, "RestElement")
+     }
+     // Parse argument.
+-    prop.argument = this.parseMaybeAssign(false, refDestructuringErrors)
++    prop.argument = this.parseAssignExpression(false, refDestructuringErrors)
+     // To disallow trailing comma via `this.toAssignable()`.
+     if (this.type === tt.comma && refDestructuringErrors && refDestructuringErrors.trailingComma < 0) {
+       refDestructuringErrors.trailingComma = this.start
+@@ -852,7 +852,7 @@
+     this.unexpected()
+ 
+   if (this.eat(tt.colon)) {
+-    prop.value = isPattern ? this.parseMaybeDefault(this.start, this.startLoc) : this.parseMaybeAssign(false, refDestructuringErrors)
++    prop.value = isPattern ? this.parseMaybeDefault(this.start, this.startLoc) : this.parseAssignExpression(false, refDestructuringErrors)
+     prop.kind = "init"
+   } else if (this.options.ecmaVersion >= 6 && this.type === tt.parenL) {
+     if (isPattern) this.unexpected()
+@@ -888,7 +888,7 @@
+   if (this.options.ecmaVersion >= 6) {
+     if (this.eat(tt.bracketL)) {
+       prop.computed = true
+-      prop.key = this.parseMaybeAssign()
++      prop.key = this.parseAssignExpression()
+       this.expect(tt.bracketR)
+       return prop.key
+     } else {
+@@ -962,7 +962,7 @@
+   let oldStrict = this.strict, useStrict = false
+ 
+   if (isExpression) {
+-    node.body = this.parseMaybeAssign(forInit)
++    node.body = this.parseAssignExpression(forInit)
+     node.expression = true
+     this.checkParams(node, false)
+   } else {
+@@ -1031,7 +1031,7 @@
+       if (refDestructuringErrors && this.type === tt.comma && refDestructuringErrors.trailingComma < 0)
+         refDestructuringErrors.trailingComma = this.start
+     } else {
+-      elt = this.parseMaybeAssign(false, refDestructuringErrors)
++      elt = this.parseAssignExpression(false, refDestructuringErrors)
+     }
+     elts.push(elt)
+   }
+@@ -1131,7 +1131,7 @@
+     node.argument = null
+   } else {
+     node.delegate = this.eat(tt.star)
+-    node.argument = this.parseMaybeAssign(forInit)
++    node.argument = this.parseAssignExpression(forInit)
+   }
+   return this.finishNode(node, "YieldExpression")
+ }
+diff -ruN a/acorn/src/lval.js b/acorn/src/lval.js
+--- a/acorn/src/lval.js	2026-11-22 08:05:03.124732452 +0100
++++ b/acorn/src/lval.js	2026-11-22 08:05:03.127168421 +0100
+@@ -106,7 +106,7 @@
+ pp.parseSpread = function(refDestructuringErrors) {
+   let node = this.startNode()
+   this.next()
+-  node.argument = this.parseMaybeAssign(false, refDestructuringErrors)
++  node.argument = this.parseAssignExpression(false, refDestructuringErrors)
+   return this.finishNode(node, "SpreadElement")
+ }
+ 
+@@ -181,7 +181,7 @@
+   if (this.options.ecmaVersion < 6 || !this.eat(tt.eq)) return left
+   let node = this.startNodeAt(startPos, startLoc)
+   node.left = left
+-  node.right = this.parseMaybeAssign()
++  node.right = this.parseAssignExpression()
+   return this.finishNode(node, "AssignmentPattern")
+ }
+ 
+diff -ruN a/acorn/src/statement.js b/acorn/src/statement.js
+--- a/acorn/src/statement.js	2026-11-22 08:05:03.124732452 +0100
++++ b/acorn/src/statement.js	2026-11-22 08:05:03.126383780 +0100
+@@ -491,7 +491,7 @@
+     )
+   }
+   node.left = init
+-  node.right = isForIn ? this.parseExpression() : this.parseMaybeAssign()
++  node.right = isForIn ? this.parseExpression() : this.parseAssignExpression()
+   this.expect(tt.parenR)
+   node.body = this.parseStatement("for")
+   this.exitScope()
+@@ -508,7 +508,7 @@
+     let decl = this.startNode()
+     this.parseVarId(decl, kind)
+     if (this.eat(tt.eq)) {
+-      decl.init = this.parseMaybeAssign(isFor)
++      decl.init = this.parseAssignExpression(isFor)
+     } else if (!allowMissingInitializer && kind === "const" && !(this.type === tt._in || (this.options.ecmaVersion >= 6 && this.isContextual("of")))) {
+       this.unexpected()
+     } else if (!allowMissingInitializer && decl.id.type !== "Identifier" && !(isFor && (this.type === tt._in || this.isContextual("of")))) {
+@@ -745,7 +745,7 @@
+     const scope = this.currentThisScope()
+     const inClassFieldInit = scope.inClassFieldInit
+     scope.inClassFieldInit = true
+-    field.value = this.parseMaybeAssign()
++    field.value = this.parseAssignExpression()
+     scope.inClassFieldInit = inClassFieldInit
+   } else {
+     field.value = null
+@@ -927,7 +927,7 @@
+     let cNode = this.startNode()
+     return this.parseClass(cNode, "nullableID")
+   } else {
+-    let declaration = this.parseMaybeAssign()
++    let declaration = this.parseAssignExpression()
+     this.semicolon()
+     return declaration
+   }

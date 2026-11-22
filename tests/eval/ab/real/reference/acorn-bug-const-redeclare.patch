@@ -1,0 +1,12 @@
+diff -ruN a/acorn/src/statement.js b/acorn/src/statement.js
+--- a/acorn/src/statement.js	2026-11-22 08:05:03.179559415 +0100
++++ b/acorn/src/statement.js	2026-11-22 08:05:03.181807431 +0100
+@@ -524,7 +524,7 @@
+ 
+ pp.parseVarId = function(decl, kind) {
+   decl.id = this.parseBindingAtom()
+-  this.checkLValPattern(decl.id, kind === "var" || kind === "const" ? BIND_VAR : BIND_LEXICAL, false)
++  this.checkLValPattern(decl.id, kind === "var" ? BIND_VAR : BIND_LEXICAL, false)
+ }
+ 
+ const FUNC_STATEMENT = 1, FUNC_HANGING_STATEMENT = 2, FUNC_NULLABLE_ID = 4

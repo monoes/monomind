@@ -1,0 +1,22 @@
+{
+  "id": "marked-mark-syntax",
+  "title": "marked: add ==highlight== inline syntax across the whole pipeline",
+  "tags": [
+    "feature",
+    "multi-file",
+    "marked"
+  ],
+  "fixture": "slice:marked-4.3.0",
+  "prompt": "This is a copy of marked 4.3.0 (src/, ES modules). Add GFM-style highlight syntax: `==text==` becomes `<mark>text</mark>`, the same way `~~text~~` becomes `<del>`. Requirements: it is an inline token of type `mark` with `raw`, `text` and child `tokens` (so `==*x*==` nests emphasis); the opening marker must be followed, and the closing marker preceded, by a non-space (so `a == b == c` stays literal); it does not apply inside code spans or when the `gfm` option is false; there is a `mark(text)` method on Renderer (overridable like the others) and on TextRenderer so heading ids ignore the markers (`# a ==b== c` gets id `a-b-c`); and plain `=` in text such as `a=b` is unaffected. Follow how `del` is wired through rules, tokenizer, lexer, parser and the renderers.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/marked-mark-syntax",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

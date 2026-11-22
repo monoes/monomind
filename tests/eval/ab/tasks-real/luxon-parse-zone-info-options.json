@@ -1,0 +1,25 @@
+{
+  "id": "luxon-parse-zone-info-options",
+  "title": "luxon: change parseZoneInfo to an options object at all call sites",
+  "tags": [
+    "refactor",
+    "callers-impact",
+    "multi-file",
+    "luxon"
+  ],
+  "fixture": "slice:luxon-3.5.0",
+  "prompt": "This is a copy of Luxon 3.5.0 (src/, ES modules). `parseZoneInfo(ts, offsetFormat, locale, timeZone = null)` in src/impl/util.js takes four positional arguments, two of them easy to swap. Change it to `parseZoneInfo(ts, { offsetFormat, locale, timeZone = null })` and update every caller in the source. Offset names (`DateTime#offsetNameShort/Long`, the ZZZZ and ZZZZZ format tokens, IANAZone and SystemZone `offsetName`) must behave exactly as before.",
+  "check": {
+    "command": [
+      "env",
+      "TZ=UTC",
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/luxon-parse-zone-info-options",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

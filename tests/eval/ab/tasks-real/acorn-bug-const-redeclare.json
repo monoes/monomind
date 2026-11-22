@@ -1,0 +1,21 @@
+{
+  "id": "acorn-bug-const-redeclare",
+  "title": "acorn: locate why const redeclarations are not detected",
+  "tags": [
+    "bug-localisation",
+    "acorn"
+  ],
+  "fixture": "slice:acorn-bug-const",
+  "prompt": "In this copy of the acorn JavaScript parser, redeclaration errors are missing for `const`: `const a = 1; var a;` and `{ const a = 1; var a; }` parse without any error, although `let a; var a;` is correctly rejected with \"Identifier 'a' has already been declared\". Trace how declared names are recorded and checked, find the root cause and fix it with a minimal change. Legal shadowing in nested scopes must keep working.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/acorn-bug-const-redeclare",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

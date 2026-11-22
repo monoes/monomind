@@ -1,0 +1,23 @@
+{
+  "id": "luxon-rename-zeropad",
+  "title": "luxon: rename the util padStart helper to zeroPad across modules",
+  "tags": [
+    "refactor",
+    "rename",
+    "multi-file",
+    "luxon"
+  ],
+  "fixture": "slice:luxon-3.5.0",
+  "prompt": "This is a copy of Luxon 3.5.0 (src/, ES modules). The helper `padStart(input, n)` exported from src/impl/util.js zero-pads numbers but shares its name with String.prototype.padStart. Rename the helper to `zeroPad`: its definition, every import and every call to the helper in the other modules (datetime, formatter, locale and util itself). Leave genuine String#padStart method calls alone. The old export must be gone and output must not change.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/luxon-rename-zeropad",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

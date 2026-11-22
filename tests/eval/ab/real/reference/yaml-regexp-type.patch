@@ -1,0 +1,66 @@
+diff -ruN a/index.js b/index.js
+--- a/index.js	2026-11-22 08:02:27.956838649 +0100
++++ b/index.js	2026-11-22 08:02:27.959135943 +0100
+@@ -38,7 +38,8 @@
+   merge:     require('./lib/type/merge'),
+   omap:      require('./lib/type/omap'),
+   seq:       require('./lib/type/seq'),
+-  str:       require('./lib/type/str')
++  str:       require('./lib/type/str'),
++  regexp:    require('./lib/type/regexp')
+ };
+ 
+ // Removed functions from JS-YAML 3.0.x
+diff -ruN a/lib/schema/default.js b/lib/schema/default.js
+--- a/lib/schema/default.js	2026-11-22 08:02:27.956838649 +0100
++++ b/lib/schema/default.js	2026-11-22 08:02:27.959096314 +0100
+@@ -17,6 +17,7 @@
+     require('../type/binary'),
+     require('../type/omap'),
+     require('../type/pairs'),
+-    require('../type/set')
++    require('../type/set'),
++    require('../type/regexp')
+   ]
+ });
+diff -ruN a/lib/type/regexp.js b/lib/type/regexp.js
+--- a/lib/type/regexp.js	1970-01-01 01:00:00.000000000 +0100
++++ b/lib/type/regexp.js	2026-11-22 08:02:27.958838604 +0100
+@@ -0,0 +1,37 @@
++'use strict';
++
++var Type = require('../type');
++
++var PATTERN = /^\/([\s\S]+)\/([a-z]*)$/;
++
++function parse(data) {
++  var match = PATTERN.exec(data);
++  return new RegExp(match[1], match[2]);
++}
++
++function resolveYamlRegexp(data) {
++  if (data === null) return false;
++  if (!PATTERN.test(data)) return false;
++  try {
++    parse(data);
++    return true;
++  } catch (err) {
++    return false;
++  }
++}
++
++function constructYamlRegexp(data) {
++  return parse(data);
++}
++
++function representYamlRegexp(object) {
++  return '/' + object.source + '/' + object.flags;
++}
++
++module.exports = new Type('tag:yaml.org,2002:regexp', {
++  kind: 'scalar',
++  resolve: resolveYamlRegexp,
++  construct: constructYamlRegexp,
++  instanceOf: RegExp,
++  represent: representYamlRegexp
++});

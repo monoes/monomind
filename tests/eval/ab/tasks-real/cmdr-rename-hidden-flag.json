@@ -1,0 +1,23 @@
+{
+  "id": "cmdr-rename-hidden-flag",
+  "title": "commander: rename Option.hidden to hiddenFromHelp across modules",
+  "tags": [
+    "refactor",
+    "rename",
+    "multi-file",
+    "commander"
+  ],
+  "fixture": "slice:commander-12.1.0",
+  "prompt": "This is a copy of commander.js (lib/ and index.js). The Option class records whether it is hidden from help in a property called `hidden`. Rename that property to `hiddenFromHelp` everywhere under lib/ that defines or reads it (the Option class and the help generation). Keep unchanged: the `hideHelp()` method name, `Command._hidden`, and the `{ hidden: true }` / `noHelp` settings objects accepted by `.command()` and `.addCommand()`, which are public API and must keep working. Behaviour must not otherwise change.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/cmdr-rename-hidden-flag",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

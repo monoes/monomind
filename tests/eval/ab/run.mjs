@@ -27,7 +27,9 @@
 // Task file (tests/eval/ab/tasks/*.json):
 //   { id, title, tags[], fixture, prompt, maxTurns, timeoutS,
 //     check: { command: [argv...], overlay, timeoutS } }
-//   fixture = directory (relative to tests/eval/ab) copied into a fresh workspace per run;
+//   fixture = directory (relative to tests/eval/ab) copied into a fresh workspace per run, or
+//   "slice:<id>", a pinned open-source slice from real/slices.json that real/fetch.mjs
+//   materialises into the cache dir (the 30 real tasks in tasks-real/ use this);
 //   after the turn `check.overlay` (hidden tests the agent never saw) is copied over it and
 //   check.command runs there: exit 0 = success.
 //
@@ -57,6 +59,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fixtureDir, loadManifest, sliceDir, sliceId } from './real/slices.mjs';
 import {
   estimatePlan,
   parseExecOutput,
@@ -88,6 +91,8 @@ const price = { inPerMtok: num('--price-in', 3), outPerMtok: num('--price-out', 
 const outFile = opt('--out');
 const tasksDir = resolve(opt('--tasks', join(HERE, 'tasks')));
 
+const sliceManifest = loadManifest();
+
 function loadTasks() {
   const tasks = readdirSync(tasksDir)
     .filter((f) => f.endsWith('.json'))
@@ -96,7 +101,10 @@ function loadTasks() {
   for (const t of tasks) {
     for (const k of ['id', 'fixture', 'prompt', 'check'])
       if (!t[k]) throw new Error(`task ${t.id ?? '?'}: missing "${k}"`);
-    for (const p of [t.fixture, t.check.overlay])
+    const sid = sliceId(t.fixture);
+    if (sid && !sliceManifest.slices[sid])
+      throw new Error(`task ${t.id}: slice ${sid} is not in real/slices.json`);
+    for (const p of sid ? [t.check.overlay] : [t.fixture, t.check.overlay])
       if (!existsSync(join(HERE, p))) throw new Error(`task ${t.id}: ${p} does not exist`);
     if (!Array.isArray(t.check.command))
       throw new Error(`task ${t.id}: check.command must be an argv array`);
@@ -110,6 +118,8 @@ for (const a of armIds)
   if (!allArms[a])
     throw new Error(`unknown arm ${a}; arms.json has ${Object.keys(allArms).join(', ')}`);
 const tasks = loadTasks();
+const neededSlices = [...new Set(tasks.map((t) => sliceId(t.fixture)).filter(Boolean))];
+const missingSlices = neededSlices.filter((id) => !existsSync(sliceDir(id)));
 const plan = planRuns({ tasks, arms: armIds, reps, seed });
 const estimate = estimatePlan(plan, allArms, price);
 
@@ -142,6 +152,11 @@ for (const [arm, e] of Object.entries(estimate.perArm))
     `  ${arm.padEnd(6)} ${String(e.runs).padStart(3)} runs x $${e.perRunUsd.toFixed(2)} = $${e.usd.toFixed(2)}`,
   );
 console.log(`  total  $${estimate.totalUsd.toFixed(2)}`);
+if (neededSlices.length)
+  console.log(
+    `slices: ${neededSlices.length} pinned, ${neededSlices.length - missingSlices.length} fetched` +
+      (missingSlices.length ? ' (run `node tests/eval/ab/real/fetch.mjs` before --execute)' : ''),
+  );
 
 if (!execute) {
   console.log(
@@ -152,6 +167,10 @@ if (!execute) {
 }
 
 if (!report.maxUsd) throw new Error('--execute needs --max-usd N (the hard spend cap)');
+if (missingSlices.length)
+  throw new Error(
+    `slices not fetched: ${missingSlices.join(', ')}; run node tests/eval/ab/real/fetch.mjs`,
+  );
 if (!model) throw new Error('--execute needs --model ID');
 if (!existsSync(CLI)) throw new Error(`${CLI} is missing; run \`pnpm run build\` first`);
 const guard = new SpendGuard(report.maxUsd);
@@ -168,7 +187,7 @@ function runOnce(run) {
   const env = { ...process.env, MONOMIND_NO_UPDATE_CHECK: '1' };
   const rec = { task: run.task.id, arm: run.arm, rep: run.rep };
   try {
-    cpSync(join(HERE, run.task.fixture), ws, { recursive: true });
+    cpSync(fixtureDir(run.task.fixture, HERE), ws, { recursive: true });
     const git = (...a) =>
       execFileSync('git', ['-c', 'user.name=ab', '-c', 'user.email=ab@example.invalid', ...a], {
         cwd: ws,

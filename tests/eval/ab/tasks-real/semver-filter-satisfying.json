@@ -1,0 +1,22 @@
+{
+  "id": "semver-filter-satisfying",
+  "title": "semver: add Range#filter and semver.filterSatisfying",
+  "tags": [
+    "feature",
+    "multi-file",
+    "semver"
+  ],
+  "fixture": "slice:semver-7.7.1",
+  "prompt": "This is a copy of node-semver. Add two things. (1) `Range.prototype.filter(versions)`: returns the entries of the `versions` array that satisfy the range, as the original entries (strings or SemVer objects, not copies) in input order, silently skipping entries that are not valid versions; it follows the options the Range was built with. (2) `semver.filterSatisfying(versions, range, options)`: a new file ranges/filter-satisfying.js, exported from index.js in the same way as maxSatisfying/minSatisfying, built on Range#filter; an invalid range returns an empty array instead of throwing.",
+  "check": {
+    "command": [
+      "node",
+      "--test",
+      "check.mjs"
+    ],
+    "overlay": "real/hidden/semver-filter-satisfying",
+    "timeoutS": 60
+  },
+  "maxTurns": 30,
+  "timeoutS": 600
+}

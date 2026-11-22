@@ -1,0 +1,28 @@
+diff -ruN a/modules/index.js b/modules/index.js
+--- a/modules/index.js	2026-11-22 08:11:12.863762353 +0100
++++ b/modules/index.js	2026-11-22 08:11:12.867651256 +0100
+@@ -156,6 +156,7 @@
+ export { default as indexBy } from './indexBy.js';
+ export { default as countBy } from './countBy.js';
+ export { default as partition } from './partition.js';
++export { default as sumBy } from './sumBy.js';
+ export { default as toArray } from './toArray.js';
+ export { default as size } from './size.js';
+ 
+diff -ruN a/modules/sumBy.js b/modules/sumBy.js
+--- a/modules/sumBy.js	1970-01-01 01:00:00.000000000 +0100
++++ b/modules/sumBy.js	2026-11-22 08:11:12.867511201 +0100
+@@ -0,0 +1,13 @@
++import cb from './_cb.js';
++import each from './each.js';
++
++// Sum the values of a collection, optionally after mapping each one through an
++// iteratee (a function, property name or path, or matcher object).
++export default function sumBy(obj, iteratee, context) {
++  iteratee = cb(iteratee, context);
++  var sum = 0;
++  each(obj, function(value, key, list) {
++    sum += iteratee(value, key, list);
++  });
++  return sum;
++}

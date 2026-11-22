@@ -1,0 +1,11 @@
+diff -ruN a/src/Slugger.js b/src/Slugger.js
+--- a/src/Slugger.js	2026-11-22 08:07:06.978654885 +0100
++++ b/src/Slugger.js	2026-11-22 08:07:06.981516042 +0100
+@@ -37,6 +37,7 @@
+     }
+     if (!isDryRun) {
+       this.seen[originalSlug] = occurenceAccumulator;
++      this.seen[slug] = 0;
+     }
+     return slug;
+   }

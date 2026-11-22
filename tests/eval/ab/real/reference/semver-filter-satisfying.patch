@@ -1,0 +1,48 @@
+diff -ruN a/classes/range.js b/classes/range.js
+--- a/classes/range.js	2026-11-22 08:00:33.031593651 +0100
++++ b/classes/range.js	2026-11-22 08:00:33.033821946 +0100
+@@ -188,6 +188,10 @@
+   }
+ 
+   // if ANY of the sets match ALL of its comparators, then pass
++  filter (versions) {
++    return versions.filter(v => this.test(v))
++  }
++
+   test (version) {
+     if (!version) {
+       return false
+diff -ruN a/index.js b/index.js
+--- a/index.js	2026-11-22 08:00:33.031593651 +0100
++++ b/index.js	2026-11-22 08:00:33.033874154 +0100
+@@ -32,6 +32,7 @@
+ const toComparators = require('./ranges/to-comparators')
+ const maxSatisfying = require('./ranges/max-satisfying')
+ const minSatisfying = require('./ranges/min-satisfying')
++const filterSatisfying = require('./ranges/filter-satisfying')
+ const minVersion = require('./ranges/min-version')
+ const validRange = require('./ranges/valid')
+ const outside = require('./ranges/outside')
+@@ -70,6 +71,7 @@
+   toComparators,
+   maxSatisfying,
+   minSatisfying,
++  filterSatisfying,
+   minVersion,
+   validRange,
+   outside,
+diff -ruN a/ranges/filter-satisfying.js b/ranges/filter-satisfying.js
+--- a/ranges/filter-satisfying.js	1970-01-01 01:00:00.000000000 +0100
++++ b/ranges/filter-satisfying.js	2026-11-22 08:00:33.033703090 +0100
+@@ -0,0 +1,11 @@
++const Range = require('../classes/range')
++const filterSatisfying = (versions, range, options) => {
++  let rangeObj = null
++  try {
++    rangeObj = new Range(range, options)
++  } catch (er) {
++    return []
++  }
++  return rangeObj.filter(versions)
++}
++module.exports = filterSatisfying
