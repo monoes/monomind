@@ -5,9 +5,16 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # Pinned to an exact, hash-checked version; the "Claude SDK refresh" workflow moves it.
+      - dependency-name: '@anthropic-ai/claude-agent-sdk'
     groups:
+      # Native and ABI-coupled: the core and every grammar have to move together.
+      tree-sitter:
+        patterns: ['tree-sitter', 'tree-sitter-*']
       npm-minor-and-patch:
         update-types: [minor, patch]
+        exclude-patterns: ['tree-sitter', 'tree-sitter-*']
   - package-ecosystem: github-actions
     directory: /
     schedule:
