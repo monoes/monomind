@@ -4,6 +4,7 @@
  * See docs/mastermind/specs/2026-09-07-org-runtime-role-respawn-design.md.
  */
 import type { AgentRuntime, RuntimeKind } from './daemon.js';
+import { BASE_SPECS } from './runner-specs.js';
 import type { OrgDef, OrgRole } from './types.js';
 
 export type RoleSlotPhase =
@@ -102,25 +103,8 @@ export function computeReplacementBudget(def: OrgDef, roleId: string): number {
     : 0;
 }
 
-const RUNTIME_KINDS = new Set<string>([
-  'claude',
-  'kimicode',
-  'opencode',
-  'vercel',
-  'codex',
-  'antigravity',
-  'grok',
-  'qwen',
-  'crush',
-  'copilot',
-  'pi',
-  'pi-rpc',
-  'qwen-rpc',
-  'hermes',
-  'cline',
-  'aider',
-  'dsh',
-]);
+// One source: the runner specs. A copied list here missed `kilo`, so a respawn to it was refused.
+const RUNTIME_KINDS = new Set<string>(BASE_SPECS.map((s) => s.id));
 
 export interface RespawnInput {
   roleId: string;
