@@ -111,7 +111,8 @@ export async function prepareOrgStart(
   // Sections spec 9.2: a sections org starts only through the eval harness.
   assertEvalGate(def, name, options);
   // GA row R6: the host probes validation cannot run, before a lock or a session exists.
-  assertHostPreflight(def, name, options?.resume ? 'resume' : 'start');
+  for (const w of assertHostPreflight(def, name, options?.resume ? 'resume' : 'start'))
+    if (w.startsWith('run_config.host_isolation')) console.warn(`[orgrt] org ${name}: ${w}`);
   // GA row R1: a sections org has one OS-held owner per root. Held until the org
   // stops (stopOrg) or this start fails (startOrg); the OS drops it on a crash.
   if (sectionsSurface(def).enabled) {

@@ -61,6 +61,38 @@ describe('hostPreflight', () => {
     expect(r.warnings.join('\n')).toMatch(/authority mask/);
   });
 
+  it('a strict refusal names the best-effort opt-in (#768)', () => {
+    const r = hostPreflight(prodDef(), { mask: NO('x'), sandbox: OK }, 'win32');
+    expect(r.refusals.at(-1)).toMatch(/host_isolation to "best-effort"/);
+  });
+
+  it('with host_isolation "best-effort" the mask and sandbox gaps are warnings, on every platform (#768)', () => {
+    for (const platform of ['win32', 'darwin', 'linux'] as NodeJS.Platform[]) {
+      const d = prodDef();
+      d.run_config.host_isolation = 'best-effort';
+      const r = hostPreflight(d, { mask: NO('no mask here'), sandbox: NO('no sandbox here') }, platform);
+      expect(r, platform).toMatchObject({ ok: true, refusals: [] });
+      expect(r.warnings.join('\n'), platform).toMatch(/host_isolation is "best-effort": the authority mask .*no mask here/);
+      expect(r.warnings.join('\n'), platform).toMatch(/host_isolation is "best-effort": the SDK sandbox .*no sandbox here/);
+    }
+  });
+
+  it('host_isolation "best-effort" does not lift a copy-inventory refusal', () => {
+    const d = prodDef();
+    d.run_config.host_isolation = 'best-effort';
+    d.roles.find((r: any) => r.id === 'coder').runtime = 'no-such-runtime';
+    const r = hostPreflight(d, { mask: NO('x'), sandbox: NO('y') }, 'win32');
+    expect(r.ok).toBe(false);
+    expect(r.refusals).toHaveLength(1);
+    expect(r.refusals[0]).toMatch(/coder.*no-such-runtime/);
+  });
+
+  it('host_isolation "strict" behaves like the default', () => {
+    const d = prodDef();
+    d.run_config.host_isolation = 'strict';
+    expect(hostPreflight(d, { mask: NO('x'), sandbox: OK }, 'linux').ok).toBe(false);
+  });
+
   it('refuses a runtime without a copy-inventory entry outside the eval harness', () => {
     const d = prodDef();
     d.roles.find((r: any) => r.id === 'coder').runtime = 'no-such-runtime';
@@ -119,6 +151,15 @@ describe('start, resume and replacement (real daemon)', () => {
     await expect(d.startOrg('sec-org', undefined, { evalGate: true })).rejects.toThrow(/authority mask/);
     expect(d.getOrg('sec-org')).toBeUndefined();
     expect(d.daemonLocks.size).toBe(0);
+  });
+
+  it('starts a best-effort sections org on an unprotected host (#768)', async () => {
+    setHostProbes({ mask: NO('no mask on win32'), sandbox: NO('no sandbox on win32') });
+    const raw = prodDef();
+    raw.run_config.host_isolation = 'best-effort';
+    const d = mk(raw);
+    await d.startOrg('sec-org');
+    expect(d.getOrg('sec-org')).toBeDefined();
   });
 
   it('starts an eval org on an unprotected host (a warning only)', async () => {
