@@ -6,8 +6,12 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     ignore:
-      # Pinned to an exact, hash-checked version; the "Claude SDK refresh" workflow moves it.
+      # Exact pins with embedded lockfiles (src/utils/optional-deps.ts): moving the
+      # package.json range alone makes init reinstall them. The "Claude SDK refresh"
+      # workflow moves the SDK; the other two move with a hand-edited pin and lock.
       - dependency-name: '@anthropic-ai/claude-agent-sdk'
+      - dependency-name: '@huggingface/transformers'
+      - dependency-name: '@puppeteer/browsers'
     groups:
       # Native and ABI-coupled: the core and every grammar have to move together.
       tree-sitter:
