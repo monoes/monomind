@@ -1,6 +1,6 @@
 {
   "name": "@monoes/mcp",
-  "version": "2.24.5",
+  "version": "2.24.6",
   "type": "module",
   "description": "Standalone MCP (Model Context Protocol) server - stdio/http/websocket transports, connection pooling, tool registry",
   "license": "Apache-2.0",
