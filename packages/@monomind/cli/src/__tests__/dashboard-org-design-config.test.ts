@@ -331,6 +331,32 @@ describe('Role editor patch', () => {
     expect(r.json.error).toContain('role "ghost" not found');
   });
 
+  it('names a decision role as such when refusing a session setting on it', async () => {
+    writeDef(
+      goodDef({
+        roles: [
+          { id: 'lead', title: 'Lead' },
+          {
+            id: 'triage',
+            kind: 'decision',
+            reports_to: 'lead',
+            decision: {
+              provider: 'local',
+              question: 'noul',
+              criteria: {},
+              threshold: 0.7,
+              fallback_role: 'lead',
+            },
+          },
+        ],
+      }),
+    );
+    const r = await call('POST', `/api/org/${ORG}/agent/triage/config`, { runtime: 'claude' });
+    expect(r.status).toBe(400);
+    expect(r.json.error).toContain('decision role "triage"');
+    expect(r.json.error).not.toContain('endpoint role');
+  });
+
   it('is a human-session route, like the other definition writes', () => {
     expect(_isHumanRoute(`/api/org/${ORG}/agent/dev/config`)).toBe(true);
     expect(_isHumanRoute(`/api/org/${ORG}/agent/dev`)).toBe(false);

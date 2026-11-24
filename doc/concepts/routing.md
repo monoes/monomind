@@ -84,7 +84,7 @@ A skill can declare `pick: low` in its frontmatter. Admin and meta skills (org m
 
 Only items with some overlap are returned. The same ranker builds the shortlist (up to 30 candidates) the decision model chooses from.
 
-### Decision model (Jev)
+### Decision model (Jev and other providers)
 
 When `MONOMIND_JEV_URL` (self-hosted OpenJev), `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1` (hosted TypeSafe) or a named provider (below) is set, [`rankForTask`](packages/@monomind/cli/src/decision/picks.ts#rankForTask) asks the model to rank the shortlisted agents and skills. Two floors apply to its answer:
 
@@ -115,6 +115,19 @@ monomind decision providers test -n local
 - An answer that comes without probabilities (`probSource: none`) never clears the 0.6 automatic floor.
 - The catalog egress gate keeps its name: `--target jev` now means "any decision provider".
 - `doctor -c jev` probes each named provider; `doctor -c pick` lists them; an invalid entry is reported as ignored.
+
+#### Provider kinds and where an answer's probability comes from
+
+Every answer carries a `probSource`. The automatic floor (0.6) and a `decision` org role's `threshold` both need a real probability, so a `none` answer never acts on its own.
+
+| Kind | `probSource` | Where the probability comes from | Hook-eligible |
+|---|---|---|---|
+| `systemone` (default; OpenJev, hosted TypeSafe) | `native` | Computed by the server; any other `probSource` it sends is ignored | yes |
+| `openai` | `logprob` (`none` when the endpoint sends no logprobs, or the reply is a bare label) | Renormalised logprobs of the allowed option labels | yes |
+| `anthropic` | `sampled` | How often each option was chosen over `--samples` requests | no (k paid requests per question) |
+| `hf-zeroshot` | `logprob` | The classifier's scores over the candidate labels | yes |
+
+Provider confidence is not calibrated across kinds: the floors were set on Jev against the 60-task benchmark, so re-run `pnpm run pick:eval -- --jev` with that provider before relying on another kind for unattended use. Besides picking, the same providers answer `decision` org roles and the org's `role` approval decider ([Org Runtime §6.8](org-runtime.md#68-decision-roles), [§6.5a](org-runtime.md#65a-decision-roles-as-an-approval-decider)); `monomind decision providers` is documented in the [CLI reference](../commands/cli-reference.md#decision-providers).
 
 Each shortlisted candidate is sent as its id and its description (for an agent, `when_to_use — description`) cut at 160 characters, and the task is cut at 8000; secrets are redacted first. [Privacy](../privacy.md) lists exactly what leaves the machine. `doctor -c jev` probes the configured providers.
 

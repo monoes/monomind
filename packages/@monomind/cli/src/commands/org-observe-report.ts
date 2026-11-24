@@ -9,17 +9,18 @@ import { readContextLog, summarizeContextLog } from '../orgrt/context-log.js';
 import { sectionBudgetReportLines } from '../orgrt/documents/section-budget-report.js';
 import { roleTokensNote, type TokenBasis } from '../orgrt/report-budget.js';
 import { readHistory, readRunEvents, summarizeRun } from '../orgrt/reporting.js';
+import { isSessionlessRole } from '../orgrt/sessionless-roles.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
 import { output } from '../output.js';
 import type { CommandContext, CommandResult } from '../types.js';
 import {
+  decisionRoleSummaries,
   endpointRoleIds,
   orgJson,
   printOrgJson,
   resolveRun,
   sectionsJson,
 } from './org-observe-shared.js';
-import { isSessionlessRole } from '../orgrt/sessionless-roles.js';
 
 const log = (text: string): void => {
   console.log(text);
@@ -58,6 +59,8 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   // M2: endpoint roles are automations — they have no row in the role tables.
   const endpointIds = endpointRoleIds(ctx.cwd, name);
   for (const id of endpointIds) delete s.roles[id];
+  // #835: decision roles run no session; the role tables show their config, not token counts.
+  const decisionRoles = decisionRoleSummaries(ctx.cwd, name);
 
   // --context: per-call context and cache figures from the run's context.jsonl.
   if (ctx.flags.context === true) {
@@ -218,6 +221,7 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   if (ctx.flags['by-role'] === true) {
     const byRole = new Map<string, { cost: number | null; tokens: number; messages: number }>();
     for (const [roleId, roleStats] of Object.entries(s.roles)) {
+      if (decisionRoles.has(roleId)) continue;
       const acc = byRole.get(roleId) ?? { cost: null, tokens: 0, messages: 0 };
       if (roleStats.costUsd !== null) acc.cost = (acc.cost ?? 0) + roleStats.costUsd;
       acc.tokens += roleStats.tokens;
@@ -297,6 +301,11 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   }
   log(output.info('  Roles:'));
   for (const [id, r] of Object.entries(s.roles)) {
+    const decisionLine = decisionRoles.get(id);
+    if (decisionLine) {
+      log(output.info(`    • ${id}: ${decisionLine}`));
+      continue;
+    }
     const wasCutShort = s.cutShort.includes(id);
     const icon = r.crashed ? '✗' : wasCutShort ? '⊘' : '•';
     const suffix = r.crashed ? ' — CRASHED' : wasCutShort ? ' — cut short by stop' : '';
@@ -373,11 +382,13 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
   >();
   // M2: endpoint roles are automations — no row in the cost table.
   const endpointIds = endpointRoleIds(ctx.cwd, name);
+  // #835: decision roles run no session, so they have no cost row either.
+  const decisionIds = decisionRoleSummaries(ctx.cwd, name);
 
   // Add live metrics from runtime.json
   if (rt?.roleMetrics) {
     for (const [roleId, metrics] of Object.entries(rt.roleMetrics)) {
-      if (endpointIds.has(roleId)) continue;
+      if (endpointIds.has(roleId) || decisionIds.has(roleId)) continue;
       roleData.set(roleId, {
         tokens: metrics.tokens,
         // A live $0 is a real cost; only null/missing is unknown (#540).
@@ -391,7 +402,7 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
   // Add historical data from summary if available
   if (summary?.roles) {
     for (const [roleId, roleStats] of Object.entries(summary.roles)) {
-      if (endpointIds.has(roleId)) continue;
+      if (endpointIds.has(roleId) || decisionIds.has(roleId)) continue;
       const existing = roleData.get(roleId);
       roleData.set(roleId, {
         tokens: existing?.tokens || roleStats.tokens,

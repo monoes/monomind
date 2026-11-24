@@ -1035,6 +1035,19 @@ Callers may read `<projectRoot>/.monomind/orgs/<name>/runtime.json` and run `bus
 (read-only) for high-frequency UI needs. **Never write these files.** All mutations go through
 `org` commands (`--json` action results).
 
+### 7.5 Decision roles: what the caller (mono-agent) must change (capability `org-decision-roles`, rev 33, issue #835)
+
+Monomind lands first and is complete without any caller change. A caller that wants to use decision roles must do the following; nothing below changes an org that has no decision role.
+
+1. **Gate on the capability.** Send a role with `kind: "decision"`, or an `autonomy.decider` of `{"kind":"role","role":"<id>"}`, only when `monomind --capabilities` (§2) lists `org-decision-roles`. Without it, keep the org on the caller's own decider or refuse; never forward it to a monomind that would reject it. A monomind without the capability fails `org validate` on the unknown kind, which is the intended fail-closed behaviour.
+2. **Accept the same definition.** The role JSON is `{id, kind: "decision", reports_to, decision: {provider, model?, question: "choice"|"noul"|"score", criteria, instructions?, threshold, fallback_role}}` (`DecisionSchema` in `orgrt/types-role.ts`). It must not carry `policy`, `runtime`, `adapter_config`, `budget_tokens`, `budget_usd` or `tool_providers`, may not be the root role, and `fallback_role` must name a role that is not itself a decision role. Both sides must accept and reject the same definitions.
+3. **Add `role` to the decider kinds.** The caller's own kinds are `model`, `boss`, `parent`, `jev`; monomind accepts these plus `role` (`DECIDER_KINDS` in `orgrt/approval-decider.ts`). A caller that does not know `role` must treat the request as human-owned, never as approved. A `role` decider whose role is missing, not a decision role, or without a non-decision `fallback_role` (and, for `choice`, without an `approve` option in `criteria`) is human-owned too.
+4. **Accept the `resolvedBy` prefix `decision:<role>`.** Monomind writes it when a decision role resolves an approval or gate (`resolverLabel` in `orgrt/approval-waiters.ts` shows it as "the org's decision role"); the `decision-resolved` audit event carries the same resolver. A caller that displays resolvers should recognise the prefix and show the same label.
+5. **Keep decision roles out of agent tables.** A decision role has no session, mailbox, slot, budget or token usage: do not count it in per-role budget shares, cost tables or "agents running" views. Mail to it is answered, or forwarded to `fallback_role`, synchronously and from the same org only; cross-org and remote senders get a `REFUSED` text, so do not route mail to it from another org.
+6. **Provider names are monomind's.** `decision.provider` names a provider configured with `monomind decision providers configure` on the machine that runs the org. The caller does not need the provider's key or URL and must not store one in the org JSON.
+
+Tests on each side: a shared fixture org (one decision role plus a `role` decider) that `monomind org validate` and the caller's loader accept or reject identically (the monomind copy: `__tests__/orgrt/decision-roles.test.ts`, `decision-decider.test.ts`); a handshake test (no capability, nothing is sent; capability present, it is); a round trip of a gate resolved as `decision:<role>` showing the same label in both UIs.
+
 ## 8. Testing requirements (monomind-side, Phase 0 gate)
 
 1. Fake-runner round-trip: scripted NDJSON runner exercises every event type + stdio tool loop,

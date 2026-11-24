@@ -6966,6 +6966,19 @@ function _v2RoleEditorHtml(role) {
   if (!role?.id) return '';
   if (role.kind === 'endpoint')
     return '<div class="oad-sec"><div class="oad-sec-h">Runtime settings</div><div class="oad-empty">An endpoint role is an HTTP automation: it has no runtime, model or budget.</div></div>';
+  if (role.kind === 'decision') {
+    const d = role.decision || {};
+    const rows = [
+      ['Kind', 'decision (automated, no session)'],
+      ['Provider', d.provider],
+      ['Model', d.model],
+      ['Question', d.question],
+      ['Options', d.criteria ? Object.keys(d.criteria).join(', ') : ''],
+      ['Threshold', d.threshold],
+      ['Fallback role', d.fallback_role],
+    ].filter(([, v]) => v !== undefined && v !== null && v !== '');
+    return `<div class="oad-sec"><div class="oad-sec-h">Decision settings</div><div class="oad-chars">${rows.map(([k, v]) => `<div class="oad-char"><span class="oad-char-k">${esc(k)}</span><span class="oad-char-v">${esc(String(v))}</span></div>`).join('')}</div><div class="oad-empty">A decision role has no runtime, model or budget. Edit its decision block in the org JSON.</div></div>`;
+  }
   const cfg = _v2OrgData?.config || _v2OrgData || {};
   const tierEntry = cfg.cost_tiers?.roles?.[role.id];
   const curTier = tierEntry && typeof tierEntry === 'object' ? (tierEntry.tier || '') : (tierEntry || '');

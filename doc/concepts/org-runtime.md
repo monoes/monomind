@@ -339,7 +339,7 @@ Any `context` key also changes three things for the whole org:
 | `provider.vendor` | _(unset)_ | Which Vercel AI SDK provider to use (only when `kind='vercel-api-key'`): `'openai'` \| `'anthropic'` \| `'google'` \| `'xai'` \| `'deepseek'` \| `'glm'` \| `'mistral'` \| `'groq'` \| `'together'` \| `'fireworks'` \| `'cohere'` \| `'perplexity'` \| `'alibaba'` \| `'openrouter'` \| `'ollama'` \| `'openai-compatible'` |
 | `policy` | see below | Per-role tool/file/web policy |
 | `kind` | `'agent'` | `'agent'` \| `'endpoint'` (§6.2) \| `'decision'` (§6.8). Endpoint and decision roles have no session, mailbox, slot or budget |
-| `decision` | _(unset)_ | Required for, and only allowed on, `kind: 'decision'` roles: `{provider, model?, question, criteria, threshold, fallback_role}`. See §6.8 |
+| `decision` | _(unset)_ | Required for, and only allowed on, `kind: 'decision'` roles: `{provider, model?, question, criteria, instructions?, threshold, fallback_role}`. See §6.8 |
 
 ### Role Policy (`RolePolicySchema`)
 
@@ -992,11 +992,13 @@ A role with `kind: "decision"` is an automated decider, not an agent: no session
                 "threshold": 0.7, "fallback_role": "lead" } }
 ```
 
-- `question` is `choice` (needs non-empty `criteria`), `noul` or `score`; `threshold` is in (0, 1]; `provider` names a configured decision provider and `model` optionally overrides its model.
+- `question` is `choice` (needs non-empty `criteria`), `noul` or `score`; `threshold` is in (0, 1]; `provider` names a configured decision provider and `model` optionally overrides its model; `instructions` optionally replaces the generic question text sent with the mail (`criteria` may be omitted for `noul` and `score`).
 - At or above `threshold` the role replies from itself, with text built from the enumerated option, never from provider text. Below it, or when the provider is down, answers off the menu or returns no probability (`probSource` `none` never counts), the original mail is forwarded to `fallback_role`. It never guesses.
 - Same-org mail only: cross-org and remote senders are refused with a clear error.
 - `org validate` rejects agent-only keys on a decision role (`policy`, `runtime`, `adapter_config`, `budget_*`, `tool_providers`), a root decision role, and a `fallback_role` that is missing or is itself a decision role. `org sign` review lists the `decision` block, since it decides where mail goes.
 - A decision role can also be the org's approval decider (§6.5a).
+- Observability: `org report` lists a decision role as `decision role: <question> via <provider>, threshold <t>, fallback <role>` and leaves it out of the cost tables (`org report --by-role`, `org costs`), since it has no tokens. The dashboard's agent drawer shows its provider, model, question, options, threshold and fallback instead of the runtime editor, and the role editor refuses runtime, model and budget fields on it.
+- What a caller such as mono-agent must change to use decision roles: [Agent Exec Protocol §7.5](../agent-exec-protocol.md#75-decision-roles-what-the-caller-mono-agent-must-change-capability-org-decision-roles-rev-33-issue-835).
 
 The org-level decision role that would replace the global provider in `pickTaskRole` / `suggestTaskSkills` is deferred (it changes where task titles go); it is not implemented.
 

@@ -55,6 +55,26 @@
 
 **Hooks availability:** all 28 `hooks` subcommands are always registered in the CLI parser — this doesn't depend on whether the optional `@monoes/hooks` package resolved at install time.
 
+## `decision providers`
+
+`monomind decision providers configure|test|list|remove` manages the named decision-model providers behind agent and skill picking (the Jev picker) and behind `decision` org roles ([Org Runtime §6.8](../concepts/org-runtime.md#68-decision-roles)). It is a separate group from the generic `providers` command, which configures AI providers for agent sessions. Entries live in `.monomind/decision-providers.json` (project) or `~/.monomind/decision-providers.json` (`--scope user`); the file stores the name of the environment variable that holds the key, never the key, and `configure` refuses a raw key. How the providers are ranked and what each kind sends: [Routing Concept](../concepts/routing.md#named-providers).
+
+| Subcommand | Flags | What it does |
+|---|---|---|
+| `configure` | `-n, --name` (required), `-u, --url` (required), `--kind` (`systemone` default, `openai`, `anthropic`, `hf-zeroshot`), `--api-key-env`, `-m, --model` (needed by every kind but `systemone`), `--scope project\|user`, `--samples 2-10` (`anthropic` only, default 5), `--local` (cost 0), `--price-in`, `--price-out` (USD per million tokens; stored only when both are given) | Adds or replaces a provider. The `openai` kind probes once for logprobs and stores `logprobs: false` when the endpoint sends none |
+| `test` | `-n, --name` (optional: all when omitted) | Sends one fixed sentence to each provider and reports whether it answered. This is a real request |
+| `list` | `-j, --json` | Lists providers with their scope and whether the key variable is set; never prints a key. An invalid entry is shown as ignored, with the reason |
+| `remove` | `-n, --name` (required) | Removes a provider |
+
+```bash
+export MY_JEV_KEY=...
+monomind decision providers configure -n local -u http://127.0.0.1:3000 --api-key-env MY_JEV_KEY
+monomind decision providers configure -n oa --kind openai -u https://api.openai.com -m gpt-4o-mini --api-key-env OPENAI_API_KEY
+monomind decision providers test -n local
+```
+
+An org role names a provider by its `name` (`decision.provider`). `monomind doctor -c jev` probes every named provider.
+
 ## Entry points
 
 - Umbrella bin: `monomind` → `./bin/cli.js` (root `package.json` "bin"). CLI package bins: `monomindcli`, `monomind` → `./bin/cli.js`, plus `monomind-mcp` → `./bin/mcp-server.js`. The `monomindcli` bin matches the package's own short name, which is what lets `npx -y @monoes/monomindcli@<version> mcp start` resolve an executable at all (#312, fixed in 2.14.0 — npx picks a bin only when exactly one exists or one matches the package short name).

@@ -191,7 +191,7 @@ export function patchOrgRole(root, org, roleId, patch) {
     }
     if (SESSIONLESS_KINDS.includes(role.kind) && ENDPOINT_FORBIDDEN.includes(k)) {
       problems.push(
-        `${k} is not allowed on endpoint role "${roleId}" (it is an automation, not a session)`,
+        `${k} is not allowed on ${role.kind} role "${roleId}" (it is an automation, not a session)`,
       );
       continue;
     }

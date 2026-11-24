@@ -75,6 +75,29 @@ export const endpointRoleIds = (cwd: string, name: string): Set<string> => {
   }
 };
 
+/** #835: one line per decision role (kind, provider, question, threshold, fallback), keyed by role id.
+ *  Decision roles run no model session, so the role tables show this instead of token and tool counts.
+ *  Unreadable config → none. */
+export const decisionRoleSummaries = (cwd: string, name: string): Map<string, string> => {
+  const out = new Map<string, string>();
+  try {
+    const raw = JSON.parse(readFileSync(join(cwd, ORG_DIR, `${name}.json`), 'utf8')) as {
+      roles?: Array<{ id?: unknown; kind?: unknown; decision?: Record<string, unknown> }>;
+    };
+    for (const r of Array.isArray(raw.roles) ? raw.roles : []) {
+      if (r?.kind !== 'decision' || typeof r.id !== 'string') continue;
+      const d = r.decision ?? {};
+      out.set(
+        r.id,
+        `decision role: ${d.question} via ${d.provider}, threshold ${d.threshold}, fallback ${d.fallback_role}`,
+      );
+    }
+  } catch {
+    /* unreadable config → no summaries */
+  }
+  return out;
+};
+
 /** The JSON `sections` field of a run: the rows of the `org report` section table, computed by the same function
  *  from the run's usage events. Omitted (an empty object to spread) when the org has no section budgets, the run
  *  has no events or the definition is unreadable, so such orgs' JSON is unchanged. */
