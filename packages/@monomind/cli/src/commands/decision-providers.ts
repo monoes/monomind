@@ -30,6 +30,11 @@ interface ConfigureArgs {
   apiKeyEnv?: string;
   model?: string;
   scope?: string;
+  local?: boolean;
+  samples?: number;
+  /** USD per million tokens. */
+  priceIn?: number;
+  priceOut?: number;
   /** Only to refuse it: keys are never stored. */
   key?: string;
 }
@@ -61,15 +66,52 @@ export async function runConfigure(
     baseUrl: deps.jev.normalizeBaseUrl(args.url) ?? args.url,
     ...(args.apiKeyEnv ? { apiKeyEnv: args.apiKeyEnv } : {}),
     ...(args.model ? { model: args.model } : {}),
+    ...(args.local ? { local: true } : {}),
+    ...(args.samples !== undefined ? { samples: args.samples } : {}),
+    ...(args.priceIn !== undefined && args.priceOut !== undefined
+      ? { pricing: { in: args.priceIn / 1e6, out: args.priceOut / 1e6 } }
+      : {}),
   };
   const problem = deps.jev.registry.validateEntry(entry);
   if (problem) return fail(`Not saved: ${problem}`);
   const file = fileFor(deps, scope);
   if (!file) return fail(`No ${scope} directory to store the provider in.`);
+  const notes = await detectCapabilities(entry, deps);
   const store = deps.jev.registry.readStore(file);
   const others = store.providers.filter((p) => p.name !== entry.name);
   deps.jev.registry.writeStore(file, [...others, entry]);
-  return { success: true, data: entry, message: `Provider "${entry.name}" saved to ${file}` };
+  return {
+    success: true,
+    data: entry,
+    message: [`Provider "${entry.name}" saved to ${file}`, ...notes].join('\n'),
+  };
+}
+
+/** Kinds that can learn something by asking (openai: does it send logprobs?)
+ *  are probed once at configure time; the result is stored on the entry. */
+async function detectCapabilities(
+  entry: NamedProviderEntry,
+  deps: DecisionProvidersDeps,
+): Promise<string[]> {
+  const detect = deps.jev.registry.detect;
+  if (!detect) return [];
+  const keyName = entry.apiKeyEnv;
+  const key = keyName ? deps.env[keyName]?.trim() : undefined;
+  if (keyName && !key)
+    return [`Not probed: ${keyName} is not set. Export it and run \`decision providers test\`.`];
+  try {
+    const found = await detect(probeConfig(entry, key), { fetchImpl: deps.fetchImpl });
+    Object.assign(entry, found);
+    return found.logprobs === false
+      ? [
+          'This endpoint sends no logprobs: answers carry no probabilities and never act automatically.',
+        ]
+      : [];
+  } catch (err) {
+    return [
+      `Saved, but could not probe the endpoint: ${err instanceof Error ? err.message : String(err)}`,
+    ];
+  }
 }
 
 interface Located {
@@ -129,6 +171,10 @@ function probeConfig(entry: NamedProviderEntry, apiKey: string | undefined) {
     baseUrl: entry.baseUrl,
     apiKey,
     model: entry.model ?? 'jev-latest',
+    ...(entry.logprobs !== undefined ? { logprobs: entry.logprobs } : {}),
+    ...(entry.samples !== undefined ? { samples: entry.samples } : {}),
+    ...(entry.pricing ? { pricing: entry.pricing } : {}),
+    ...(entry.local !== undefined ? { local: entry.local } : {}),
   };
 }
 
@@ -197,6 +243,10 @@ const str = (ctx: CommandContext, name: string): string | undefined => {
   const v = ctx.flags[name];
   return typeof v === 'string' && v ? v : undefined;
 };
+const num = (ctx: CommandContext, name: string): number | undefined => {
+  const v = Number(ctx.flags[name]);
+  return ctx.flags[name] !== undefined && Number.isFinite(v) && v >= 0 ? v : undefined;
+};
 const nameArg = (ctx: CommandContext) => ({ name: str(ctx, 'name') ?? ctx.args?.[0] });
 
 const nameOption = {
@@ -227,12 +277,25 @@ const configureCommand: Command = {
     },
     { name: 'model', short: 'm', type: 'string', description: 'Model name sent to the provider' },
     { name: 'scope', type: 'string', description: 'project (default) or user' },
+    {
+      name: 'samples',
+      type: 'number',
+      description: 'anthropic kind: samples per question (2-10, default 5)',
+    },
+    { name: 'local', type: 'boolean', description: 'A local server: cost is 0' },
+    { name: 'price-in', type: 'number', description: 'USD per million input tokens' },
+    { name: 'price-out', type: 'number', description: 'USD per million output tokens' },
   ],
   examples: [
     {
       command:
         'monomind decision providers configure -n local -u http://127.0.0.1:3000 --api-key-env MY_JEV_KEY',
       description: 'Add a self-hosted OpenJev server',
+    },
+    {
+      command:
+        'monomind decision providers configure -n oa --kind openai -u https://api.openai.com -m gpt-4o-mini --api-key-env OPENAI_API_KEY',
+      description: 'Add an OpenAI-compatible chat model (probes for logprobs)',
     },
   ],
   action: wrap(runConfigure, (ctx) => ({
@@ -242,6 +305,10 @@ const configureCommand: Command = {
     apiKeyEnv: str(ctx, 'api-key-env') ?? str(ctx, 'apiKeyEnv'),
     model: str(ctx, 'model'),
     scope: str(ctx, 'scope'),
+    local: ctx.flags.local === true,
+    samples: num(ctx, 'samples'),
+    priceIn: num(ctx, 'price-in'),
+    priceOut: num(ctx, 'price-out'),
     key: str(ctx, 'key') ?? str(ctx, 'api-key') ?? str(ctx, 'apiKey'),
   })),
 };

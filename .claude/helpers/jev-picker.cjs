@@ -220,10 +220,13 @@ async function pick(task, catalogs, opts) {
   opts = opts || {};
   var env = opts.env || process.env;
   var configs = resolveProviders(env);
+  // The prompt hook runs on every prompt: only kinds that cost one cheap request.
+  if (opts.hook) configs = configs.filter(registry.hookEligible);
   if (configs.length === 0) return null;
   var text = redaction.redactHead(task).slice(0, MAX_STATE_CHARS);
   if (!text.trim()) return null;
-  var max = opts.maxCandidates || DEFAULT_MAX_CANDIDATES;
+  // A kind with a label alphabet limits the options (one is the "none" option).
+  var max = Math.min(opts.maxCandidates || DEFAULT_MAX_CANDIDATES, registry.maxOptions(configs) - 1);
   var include = opts.include || {};
   var agents = catalogs && Array.isArray(catalogs.agents) ? catalogs.agents : [];
   var skills = catalogs && Array.isArray(catalogs.skills) ? catalogs.skills : [];

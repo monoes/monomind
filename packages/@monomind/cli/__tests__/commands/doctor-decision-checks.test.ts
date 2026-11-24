@@ -105,6 +105,32 @@ describe('named providers (decision-providers.json)', () => {
     });
   });
 
+  it('lists provider kinds, and says which are never used by the prompt hook', async () => {
+    const entries = [
+      { name: 'oa', kind: 'openai', baseUrl: 'https://api.openai.com', model: 'gpt-x' },
+      { name: 'an', kind: 'anthropic', baseUrl: 'https://api.anthropic.com', model: 'claude-x' },
+    ];
+    await withStore(entries, async (env) => {
+      const fetchImpl = vi.fn() as unknown as typeof fetch;
+      const r = await checkDecisionModel({ env, fetchImpl });
+      expect(r.status).toBe('pass');
+      expect(r.message).toContain('oa (https://api.openai.com, openai)');
+      expect(r.message).toMatch(/Not used by the prompt hook: an/);
+      expect(fetchImpl).not.toHaveBeenCalled();
+    });
+  });
+
+  it('probes an openai provider through chat completions', async () => {
+    const entries = [{ name: 'oa', kind: 'openai', baseUrl: 'https://api.openai.com', model: 'gpt-x', logprobs: false }];
+    await withStore(entries, async (env) => {
+      const fetchImpl = vi.fn(
+        async () => new Response(JSON.stringify({ choices: [{ message: { content: 'Y' } }] }), { status: 200 }),
+      ) as unknown as typeof fetch;
+      const r = await checkDecisionModel({ env, probe: true, fetchImpl });
+      expect(r.message).toMatch(/oa \d+ms/);
+    });
+  });
+
   it('adds no row and no network when no file exists', async () => {
     const env = { MONOMIND_DECISION_PROVIDERS_FILE: join(tmpdir(), 'does-not-exist-decision.json') };
     expect(await checkDecisionModelIfConfigured(env)).toEqual([]);

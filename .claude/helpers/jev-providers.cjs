@@ -58,7 +58,7 @@ function confidenceFrom(probs, n) {
 function settleAnswer(answer, question) {
   var source = PROB_SOURCES.indexOf(answer.probSource) !== -1 ? answer.probSource : 'none';
   var out = Object.assign({}, answer, { probSource: source });
-  if (answer.type === 'noul' || source === 'native') return out;
+  if (answer.type === 'noul' || answer.type === 'score' || source === 'native') return out;
   if (source === 'none') {
     out.confidence = Math.min(answer.confidence, NONE_SOURCE_MAX_CONFIDENCE);
     return out;
@@ -74,6 +74,8 @@ function settleAnswer(answer, question) {
 function isValidAnswer(answer, question) {
   if (!answer || typeof answer !== 'object' || answer.type !== question.type) return false;
   if (question.type === 'noul') return Number.isFinite(answer.noul);
+  // score: a probability of "yes", the noul wire shape tagged `score`.
+  if (question.type === 'score') return Number.isFinite(answer.noul) && answer.noul >= 0 && answer.noul <= 1;
   return (
     typeof answer.choice === 'string' &&
     Object.prototype.hasOwnProperty.call(question.criteria, answer.choice) &&
@@ -209,18 +211,29 @@ function validateEntry(entry) {
     return 'apiKeyEnv must be an environment variable name (e.g. MY_JEV_KEY), not a key';
   }
   if (entry.model !== undefined && typeof entry.model !== 'string') return 'model must be a string';
-  return null;
+  if (entry.local !== undefined && typeof entry.local !== 'boolean') return 'local must be true or false';
+  var price = entry.pricing;
+  if (price !== undefined && !(price && isCount(price.in) && isCount(price.out))) {
+    return 'pricing must be { "in": USD per token, "out": USD per token }';
+  }
+  var meta = kindMeta.get(kind);
+  return meta && meta.validate ? meta.validate(entry) : null;
 }
 
 function toConfig(entry, env) {
   var key = entry.apiKeyEnv ? readEnvValue(env, entry.apiKeyEnv) : undefined;
-  return makeProvider(
+  var config = makeProvider(
     entry.name,
     normalizeBaseUrl(entry.baseUrl),
     key,
     entry.model || readEnvValue(env, 'MONOMIND_JEV_MODEL') || DEFAULT_MODEL,
     entry.kind || 'systemone',
   );
+  // Settings a kind or the metering reads; absent ones stay absent.
+  ['logprobs', 'samples', 'pricing', 'local'].forEach(function (field) {
+    if (entry[field] !== undefined) config[field] = entry[field];
+  });
+  return config;
 }
 
 /** Usable, enabled named providers: project file first, then user file. */
@@ -254,15 +267,22 @@ function resolveProviders(env, opts) {
 
 // ── Kind: systemone ────────────────────────────────────────────────────────
 
-async function postSystemOne(provider, request, timeoutMs, fetchImpl) {
+/** POST JSON and parse the reply. `headers` already carry the key; it is sent
+ *  only to provider.baseUrl's own origin, never over plain http to a remote
+ *  host when `strictKey` is set, and a redirect is an error. */
+async function postJson(provider, url, headers, request, timeoutMs, fetchImpl, strictKey) {
   var doFetch = fetchImpl || globalThis.fetch;
-  var headers = { 'content-type': 'application/json' };
-  if (provider.apiKey) headers.authorization = 'Bearer ' + provider.apiKey;
+  if (new URL(url).origin !== new URL(provider.baseUrl).origin) {
+    throw new JevError('refusing to send outside the provider host', provider.name);
+  }
+  if (strictKey && provider.apiKey && !isSecureOrLoopback(provider.baseUrl)) {
+    throw new JevError('refusing to send a key over plain http: use https (or a loopback address)', provider.name);
+  }
   var text;
   try {
-    var res = await doFetch(provider.baseUrl + '/v1/systemone', {
+    var res = await doFetch(url, {
       method: 'POST',
-      headers: headers,
+      headers: Object.assign({ 'content-type': 'application/json' }, headers),
       body: JSON.stringify(request),
       // A redirect would re-send the bearer key to wherever it points.
       redirect: 'error',
@@ -275,12 +295,23 @@ async function postSystemOne(provider, request, timeoutMs, fetchImpl) {
     throw new JevError('request failed: ' + (err && err.message ? err.message : String(err)), provider.name);
   }
   if (text.length > MAX_RESPONSE_CHARS) throw new JevError('response too large', provider.name);
-  var body;
   try {
-    body = JSON.parse(text);
+    return JSON.parse(text);
   } catch (e) {
     throw new JevError('response is not JSON', provider.name);
   }
+}
+
+function isSecureOrLoopback(baseUrl) {
+  var u = new URL(baseUrl);
+  var host = u.hostname.replace(/^\[|\]$/g, '');
+  return u.protocol === 'https:' || host === 'localhost' || host === '::1' || /^127\./.test(host);
+}
+
+async function postSystemOne(provider, request, timeoutMs, fetchImpl) {
+  var headers = {};
+  if (provider.apiKey) headers.authorization = 'Bearer ' + provider.apiKey;
+  var body = await postJson(provider, provider.baseUrl + '/v1/systemone', headers, request, timeoutMs, fetchImpl);
   if (!body || typeof body !== 'object' || !body.answers || typeof body.answers !== 'object') {
     throw new JevError('response has no answers', provider.name);
   }
@@ -293,9 +324,15 @@ function createSystemOne(config) {
     kind: 'systemone',
     async ask(state, questions, opts) {
       opts = opts || {};
+      // The wire protocol has noul, not score: a score is the same 0..1 answer.
+      var wire = {};
+      Object.keys(questions).forEach(function (id) {
+        var q = questions[id];
+        wire[id] = q && q.type === 'score' ? Object.assign({}, q, { type: 'noul' }) : q;
+      });
       var body = await postSystemOne(
         config,
-        { state: state, model: config.model, questions: questions },
+        { state: state, model: config.model, questions: wire },
         opts.timeoutMs,
         opts.fetchImpl,
       );
@@ -304,6 +341,9 @@ function createSystemOne(config) {
       Object.keys(body.answers).forEach(function (id) {
         var raw = body.answers[id];
         answers[id] = raw && typeof raw === 'object' ? Object.assign({}, raw, { probSource: 'native' }) : raw;
+        if (answers[id] && questions[id] && questions[id].type === 'score' && answers[id].type === 'noul') {
+          answers[id].type = 'score';
+        }
       });
       return { provider: config.name, answers: answers };
     },
@@ -314,8 +354,35 @@ function createSystemOne(config) {
 
 var registry = new Map();
 
-function registerProvider(kind, factory) {
+// kindMeta: { validate(entry), maxOptions, hookEligible(config), detect(config, opts) }
+var kindMeta = new Map();
+
+function registerProvider(kind, factory, meta) {
   registry.set(kind, factory);
+  if (meta) kindMeta.set(kind, meta);
+}
+
+/** Most options one choice question may carry across these configs (a kind
+ *  with a single-token label alphabet has a limit). */
+function maxOptions(configs) {
+  var max = Infinity;
+  (configs || []).forEach(function (c) {
+    var meta = kindMeta.get(c.kind || 'systemone');
+    if (meta && meta.maxOptions < max) max = meta.maxOptions;
+  });
+  return max;
+}
+
+/** The prompt hook may use a kind only when one prompt costs one cheap request. */
+function hookEligible(config) {
+  var meta = kindMeta.get(config.kind || 'systemone');
+  return !meta || meta.hookEligible === undefined || meta.hookEligible(config) === true;
+}
+
+/** Capabilities a kind can only learn by asking (e.g. logprobs); rejects when unreachable. */
+async function detect(config, opts) {
+  var meta = kindMeta.get(config.kind || 'systemone');
+  return meta && meta.detect ? meta.detect(config, opts || {}) : {};
 }
 
 function kinds() {
@@ -369,6 +436,17 @@ function createProvider(config) {
 
 registerProvider('systemone', createSystemOne);
 
+// Kinds that live in their own helper files. A missing file only drops its
+// kind (validateEntry then calls it unknown), never the whole registry.
+var api = { JevError: JevError, postJson: postJson, registerProvider: registerProvider, readEnvValue: readEnvValue };
+['jev-openai.cjs', 'jev-anthropic.cjs', 'jev-hf.cjs'].forEach(function (file) {
+  try {
+    require('./' + file)(api);
+  } catch (e) {
+    /* kind unavailable */
+  }
+});
+
 module.exports = {
   JevError: JevError,
   TYPESAFE_BASE_URL: TYPESAFE_BASE_URL,
@@ -380,6 +458,10 @@ module.exports = {
   normalizeBaseUrl: normalizeBaseUrl,
   resolveProviders: resolveProviders,
   postSystemOne: postSystemOne,
+  postJson: postJson,
+  maxOptions: maxOptions,
+  hookEligible: hookEligible,
+  detect: detect,
   registerProvider: registerProvider,
   createProvider: createProvider,
   kinds: kinds,

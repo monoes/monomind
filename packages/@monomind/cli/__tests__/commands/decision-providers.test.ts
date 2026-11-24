@@ -144,3 +144,54 @@ describe('command wiring', () => {
     expect(providers?.subcommands?.map((c) => c.name).sort()).toEqual(['configure', 'list', 'remove', 'test']);
   });
 });
+
+describe('decision providers configure: capability probe and cost settings', () => {
+  const withDetect = (env: NodeJS.ProcessEnv, detect: (...a: unknown[]) => Promise<unknown>) => {
+    const made = makeDeps({}, env);
+    Object.assign(made.deps.jev.registry, { detect, validateEntry: () => null });
+    return made;
+  };
+  const args = { name: 'oa', kind: 'openai', url: 'https://api.openai.com', model: 'gpt-x', apiKeyEnv: 'OA_KEY' };
+
+  it('records what the probe found, using the key from the named variable', async () => {
+    const detect = vi.fn(async () => ({ logprobs: false }));
+    const { deps, files } = withDetect({ OA_KEY: 'sk-1' }, detect);
+    const r = await runConfigure(args, deps);
+    expect(r.success).toBe(true);
+    expect(detect).toHaveBeenCalledWith(expect.objectContaining({ kind: 'openai', apiKey: 'sk-1' }), expect.anything());
+    expect(files['/p/decision-providers.json'][0]).toMatchObject({ logprobs: false });
+    expect(JSON.stringify(files)).not.toContain('sk-1');
+    expect(r.message).toMatch(/no logprobs/i);
+  });
+
+  it('still saves when the probe cannot reach the endpoint, and says so', async () => {
+    const { deps, files } = withDetect({ OA_KEY: 'sk-1' }, async () => {
+      throw new Error('down');
+    });
+    const r = await runConfigure(args, deps);
+    expect(r.success).toBe(true);
+    expect(files['/p/decision-providers.json'][0]).not.toHaveProperty('logprobs');
+    expect(r.message).toMatch(/could not probe.*down/i);
+  });
+
+  it('skips the probe when the key variable is not set', async () => {
+    const detect = vi.fn();
+    const { deps } = withDetect({}, detect);
+    const r = await runConfigure(args, deps);
+    expect(detect).not.toHaveBeenCalled();
+    expect(r.message).toMatch(/OA_KEY is not set/);
+  });
+
+  it('stores --local and prices given per million tokens as USD per token', async () => {
+    const { deps, files } = withDetect({}, vi.fn());
+    await runConfigure({ ...args, apiKeyEnv: undefined, local: true, priceIn: 2, priceOut: 8 }, deps);
+    expect(files['/p/decision-providers.json'][0]).toMatchObject({ local: true, pricing: { in: 0.000002, out: 0.000008 } });
+  });
+
+  it('passes the settings through when testing', async () => {
+    const { deps, probe } = withDetect({ OA_KEY: 'sk-1' }, vi.fn());
+    await runConfigure({ ...args, local: true }, deps);
+    await runTest({ name: 'oa' }, deps);
+    expect(probe).toHaveBeenCalledWith(expect.objectContaining({ kind: 'openai', model: 'gpt-x', local: true }), expect.anything());
+  });
+});
