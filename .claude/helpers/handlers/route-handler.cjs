@@ -133,6 +133,7 @@ async function _pickWithJev(CWD, prompt, agents, includeAgentId, skills) {
   var picked = await jp.pick(prompt, { agents: agents, skills: skills }, {
     include: { agents: includeAgentId ? [includeAgentId] : [] },
     timeoutMs: jp.resolveHookTimeoutMs(process.env),
+    hook: true,
     onError: function (err) { failures.push(err.provider + ': ' + err.message); },
   });
   if (failures.length) advisoryLog('[JEV] ' + failures.join('; ') + (picked ? '' : ' — using keyword routing'));

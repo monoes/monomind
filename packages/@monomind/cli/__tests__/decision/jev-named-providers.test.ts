@@ -35,7 +35,7 @@ describe('validateEntry', () => {
     expect(providers.validateEntry(ok)).toBeNull();
   });
   it('rejects an unknown kind with a clear error naming the known kinds', () => {
-    expect(providers.validateEntry({ ...ok, kind: 'openai' })).toMatch(/unknown provider kind "openai".*systemone/);
+    expect(providers.validateEntry({ ...ok, kind: 'palm' })).toMatch(/unknown provider kind "palm".*systemone/);
   });
   it('rejects reserved env provider names and bad names', () => {
     expect(providers.validateEntry({ ...ok, name: 'custom' })).toMatch(/reserved/);

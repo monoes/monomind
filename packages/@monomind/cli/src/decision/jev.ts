@@ -70,6 +70,14 @@ export interface JevProvider {
   baseUrl: string;
   apiKey?: string;
   model: string;
+  /** openai kind: false = the endpoint sends no logprobs (answers carry probSource none). */
+  logprobs?: boolean;
+  /** anthropic kind: repeated samples per question. */
+  samples?: number;
+  /** USD per token; with reported tokens it prices each ask. */
+  pricing?: { in: number; out: number };
+  /** A local server: cost is 0. */
+  local?: boolean;
 }
 
 export interface JevError extends Error {
@@ -83,6 +91,8 @@ export interface PickOptions {
   onError?: (err: JevError) => void;
   /** Overrides MONOMIND_JEV_TIMEOUT_MS for this call. */
   timeoutMs?: number;
+  /** The per-prompt hook: kinds that are not cheap enough for every prompt are skipped. */
+  hook?: boolean;
   maxCandidates?: number;
   include?: { agents?: string[]; skills?: string[] };
   agentInstructions?: string;
@@ -127,6 +137,10 @@ export interface NamedProviderEntry {
   apiKeyEnv?: string;
   model?: string;
   enabled?: boolean;
+  logprobs?: boolean;
+  samples?: number;
+  pricing?: { in: number; out: number };
+  local?: boolean;
 }
 
 export type ProviderScope = 'project' | 'user';
@@ -139,6 +153,13 @@ export interface ProviderRegistryModule {
   writeStore(file: string, entries: NamedProviderEntry[]): void;
   /** null when usable, else a one-line reason (unknown kind, bad url, a key in the file...). */
   validateEntry(entry: unknown): string | null;
+  /** Capabilities a kind learns by asking (openai: { logprobs }); rejects when unreachable. */
+  detect?(
+    config: JevProvider,
+    opts?: { fetchImpl?: typeof fetch; timeoutMs?: number },
+  ): Promise<Partial<NamedProviderEntry>>;
+  /** Whether the prompt hook may use this provider. */
+  hookEligible?(config: JevProvider): boolean;
 }
 
 export interface JevPickerModule {
