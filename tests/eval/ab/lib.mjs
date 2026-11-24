@@ -80,6 +80,7 @@ export function parseExecOutput(stdout) {
     result: null,
     error: null,
     exitCode: null,
+    mcpServers: null,
     toolCalls: { total: 0, byKind: {}, monomind: 0 },
   };
   for (const line of String(stdout).split('\n')) {
@@ -92,6 +93,8 @@ export function parseExecOutput(stdout) {
     }
     if (e.type === 'result') out.result = e;
     else if (e.type === 'error') out.error ??= { code: e.code, message: e.message };
+    else if (e.type === 'status' && e.phase === 'ready' && Array.isArray(e.mcp_servers))
+      out.mcpServers = e.mcp_servers.map((m) => ({ name: m.name, status: m.status }));
     else if (e.type === 'done') out.exitCode = e.exit_code;
     else if (e.type === 'tool_activity' && e.phase === 'start') {
       const t = out.toolCalls;

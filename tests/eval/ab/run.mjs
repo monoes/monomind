@@ -37,7 +37,8 @@
 //     spentUsd, stoppedForBudget,
 //     runs:[{ task, arm, rep, status:"planned"|"done"|"skipped", success, checkExit,
 //             tokens:{input,output}|null, costUsd|null, costKnown, wallMs, setupMs, exitCode,
-//             stopReason, error, toolCalls:{total,byKind,monomind} }],
+//             stopReason, error, toolCalls:{total,byKind,monomind},
+//             mcpServers:[{name,status}]|null (status at turn start; null for --settings none) }],
 //     summary:{ <arm>:{runs,completed,skipped,success:{count,rate,lo,hi},tokensMean,
 //              tokensMedian,costUsdMean,costUsdTotal,costUsdPerSuccess,wallMsMean,wallMsMedian} } }
 //
@@ -229,6 +230,9 @@ function runOnce(run) {
     rec.error = exec.error;
     rec.tokens = r ? { input: r.input_tokens ?? 0, output: r.output_tokens ?? 0 } : null;
     rec.toolCalls = exec.toolCalls;
+    // #723: whether the monomind MCP server was connected when the turn started
+    // ("pending" = the model's first request had no monomind tools)
+    rec.mcpServers = exec.mcpServers;
     const charged = guard.record(r?.cost_usd, estUsd);
     rec.costUsd = charged.costKnown ? charged.chargedUsd : null;
     rec.costKnown = charged.costKnown;
