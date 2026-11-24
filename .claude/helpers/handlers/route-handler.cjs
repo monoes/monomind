@@ -144,6 +144,7 @@ async function _pickWithJev(CWD, prompt, agents, includeAgentId, skills) {
   skills.forEach(function (s) { skillById[s.id] = s; });
   return {
     provider: picked.provider,
+    usage: picked.usage,
     agent: jp.acceptAgent(picked.agent),
     // Jev answered the question (at any confidence): no keyword pick replaces it.
     agentResponded: !!picked.agent,

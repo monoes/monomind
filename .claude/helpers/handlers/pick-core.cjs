@@ -193,7 +193,11 @@ function decide(opts) {
     out.candidates = (opts.keywordCands || []).slice(0, MAX_CANDIDATES)
       .map(function (c) { return c.prior !== undefined && c.prior !== 1 ? { name: c.name, score: c.score, prior: c.prior } : { name: c.name, score: c.score }; });
   }
-  if (viaJev) { out.method = 'jev'; out.provider = jev.provider || null; }
+  if (viaJev) {
+    out.method = 'jev';
+    out.provider = jev.provider || null;
+    if (jev.usage) out.usage = jev.usage;
+  }
   else if (viaKeyword) out.method = 'keyword';
   return out;
 }
@@ -313,6 +317,16 @@ function appendOutcome(CWD, rec) {
   });
 }
 
+/** Provider metering on the outcome line; only the numbers the provider path
+ *  produced, so old-shape and keyword records carry none. */
+function usageFields(usage) {
+  var out = {};
+  ['latencyMs', 'tokensIn', 'tokensOut', 'costUsd'].forEach(function (k) {
+    if (usage && typeof usage[k] === 'number') out[k] = usage[k];
+  });
+  return out;
+}
+
 /** Record the pick: route-outcomes.jsonl line, per-session route file and the
  *  latest-route file the statusline reads. Returns the routeId. */
 function persistRoute(CWD, opts) {
@@ -324,7 +338,7 @@ function persistRoute(CWD, opts) {
   var preview = promptPreview(opts.prompt);
   var agentName = pick.agent ? pick.agent.name : null;
   fs.mkdirSync(monoDir(CWD), { recursive: true });
-  appendOutcome(CWD, {
+  appendOutcome(CWD, Object.assign({
     routeId: routeId,
     sessionId: sid,
     ts: Date.now(),
@@ -343,7 +357,7 @@ function persistRoute(CWD, opts) {
     recommendedAgent: agentName,
     routingMethod: pick.method,
     learningMode: 'js',
-  });
+  }, usageFields(pick.usage)));
   var route = JSON.stringify({
     routeId: routeId,
     sessionId: sid,
