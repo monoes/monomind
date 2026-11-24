@@ -119,3 +119,7 @@ jobs:
             echo "publish ${name}@${version} from ${dir}"
             (cd "$dir" && pnpm publish $flags)
           done
+
+      - name: Verify npm provenance
+        if: ${{ env.PUBLISH == 'true' }}
+        run: node scripts/check-release-attestations.mjs

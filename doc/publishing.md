@@ -58,7 +58,14 @@ agree, and the pin itself is generated — never hand-written:
 `npm run check:versions` (wired into root `prepublishOnly`) blocks the publish on
 drift, on a hand-written pin, and on publishing root with the wrong tool.
 
-**Publish both the CLI and root with `pnpm publish`, never `npm publish`.** npm
+**Publish only through the tag-triggered release workflow (#797).** Pushing a `v*` tag
+runs `.github/workflows/release.yml`, the only place npm provenance (`dist.attestations`) is
+produced. A version published by hand, by a person or by the release org, has no provenance,
+and the workflow then skips it as already on npm (2.29.3 and 2.29.4 went out this way).
+The commands below are what the workflow runs; use them for a local dry run
+(`--dry-run`), not to release.
+
+**Inside that workflow, publish both the CLI and root with `pnpm publish`, never `npm publish`.** npm
 does not understand the workspace protocol — it copies package.json verbatim, so
 a published tarball would depend on the literal string `workspace:*`, which no
 consumer can resolve. Nothing looks wrong at publish time; the package simply
@@ -87,11 +94,11 @@ pnpm --filter "@monoes/monomindcli^..." run build
 #    Direct edit — `npm version` chokes on workspace:* protocol entries.
 npm run check:versions          # verify before going further
 
-# 2. Build + publish the CLI (the real payload) — pnpm, not npm
+# 2. Build + publish the CLI (the real payload) — pnpm, not npm (the workflow does this)
 cd packages/@monomind/cli && npm run build
 pnpm publish --tag latest --no-git-checks
 
-# 3. Publish the umbrella shim from repo root — pnpm, not npm
+# 3. Publish the umbrella shim from repo root — pnpm, not npm (the workflow does this)
 cd ../../.. && pnpm publish --tag latest --no-git-checks
 
 # Verify — these two must report the SAME version (registry propagation can lag
@@ -137,7 +144,7 @@ Bump rules:
 - **A sub-package takes a major only with a breaking commit** (`type(scope)!:` or a `BREAKING CHANGE:` footer) touching it since the last release tag. Never copy the release number onto a sub-package (#636).
 - **A bump does not cascade.** Dependents use `workspace:*`, which pnpm rewrites to the exact version at pack time, so a bumped sub-package is picked up by the next CLI publish without editing the CLI.
 
-`pnpm run check:versions` runs all of these through `scripts/check-versions.mjs` (one summary, every check runs even after a failure; `--no-registry` skips the two that need npm). Each script also runs alone:
+`pnpm run check:versions` runs all of these through `scripts/check-versions.mjs` (one summary, every check runs even after a failure; `--no-registry` skips the three that need npm). Each script also runs alone:
 
 | Script | Enforces |
 | --- | --- |
@@ -146,13 +153,14 @@ Bump rules:
 | `check-workspace-protocol.mjs` | every sibling dependency uses `workspace:` |
 | `check-overrides-source.mjs` | overrides live only in `pnpm-workspace.yaml` |
 | `check-published-pins.mjs` | the packages a manifest pins already exist on npm (needs the registry; checks one package, `.` by default). `MONOMIND_ALLOW_UNPUBLISHED_PINS=1` skips |
+| `check-release-attestations.mjs` | every package in the release set that is on npm carries `dist.attestations` (needs the registry; packages not on npm yet are skipped; the workflow runs it after the Publish step; `MONOMIND_ALLOW_NO_ATTESTATIONS=1` skips). A missing attestation means the version was published outside the workflow |
 | `check-release-deps.mjs` | every workspace dependency of a package in the release set (`release-packages.mjs`) is on npm or released in the same run (needs the registry; skipped with no previous `v*` tag). `MONOMIND_ALLOW_UNPUBLISHED_PINS=1` skips. `--preflight` instead checks the release host: the CLI's pinned Claude SDK is installed in `~/.monomind/deps` (`$MONOMIND_HOME/deps`) and `generate-claude-trees.mjs --probe` runs |
 
-Root `prepublishOnly` still calls the first five scripts directly; `check-release-deps.mjs` runs as its own step of the release workflow, and its `--preflight` form in the release org's PREFLIGHT.
+Root `prepublishOnly` still calls the first five scripts directly; `check-release-deps.mjs` runs as its own step of the release workflow and `check-release-attestations.mjs` runs as the step after Publish, and its `--preflight` form in the release org's PREFLIGHT.
 
 ### Tagging and the release workflow
 
-Tag every release `v<umbrella version>`. `node scripts/tag-release.mjs` refuses on a dirty tree or failing checks, then **prints** the `git tag -a` and `git push origin` commands; it never runs them. Pushing the tag starts `.github/workflows/release.yml`: it builds, runs `check-versions --no-registry`, then `check-release-deps` (registry-backed, so not part of that run), then `test:all:run`, then publishes with pnpm, with `NPM_CONFIG_PROVENANCE` set, every package whose version differs from the previous `v*` tag (`scripts/release-packages.mjs`), siblings first, CLI, then umbrella, skipping versions already on npm. Run it from the Actions tab with `publish` left false for a dry run.
+Tag every release `v<umbrella version>`. `node scripts/tag-release.mjs` refuses on a dirty tree or failing checks, then **prints** the `git tag -a` and `git push origin` commands; it never runs them. Pushing the tag starts `.github/workflows/release.yml`: it builds, runs `check-versions --no-registry`, then `check-release-deps` (registry-backed, so not part of that run), then `test:all:run`, then publishes with pnpm, with `NPM_CONFIG_PROVENANCE` set, every package whose version differs from the previous `v*` tag (`scripts/release-packages.mjs`), siblings first, CLI, then umbrella, skipping versions already on npm, then verifies each published package has `dist.attestations`. Run it from the Actions tab with `publish` left false for a dry run.
 
 One-time setup the maintainer owns: an `NPM_TOKEN` secret (automation token with publish rights) scoped to the `release` GitHub environment, required reviewers on that environment as the approval gate, and the workflow's `id-token: write` permission that npm provenance needs. Releases published before this workflow existed (2.29.4 and earlier) carry no provenance attestations. The first tag has no previous tag to diff against, so run `release-packages.mjs --base <ref>` by hand once to check the list.
 

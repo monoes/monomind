@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 /**
- * Single entry point for the six version-policy checks, with one summary.
+ * Single entry point for the seven version-policy checks, with one summary.
  *
  *   node scripts/check-versions.mjs [--no-registry]
  *
  * Runs, in order: check-publish-versions, check-package-bumps,
  * check-workspace-protocol, check-overrides-source, check-published-pins,
- * check-release-deps.
+ * check-release-deps, check-release-attestations.
  * Every check runs even if an earlier one fails, so one pass reports all the
  * problems. Each script still works alone (root `prepublishOnly` still calls
  * the first five directly; check-release-deps runs as its own step of the
  * release workflow). Exits 1 if any check failed.
  *
- * check-published-pins and check-release-deps ask the npm registry.
+ * check-published-pins, check-release-deps and check-release-attestations ask
+ * the npm registry.
  * --no-registry (or MONOMIND_CHECK_VERSIONS_OFFLINE=1) skips both.
  * See doc/publishing.md ("Version policy").
  */
@@ -41,6 +42,11 @@ export const CHECKS = [
   {
     script: 'check-release-deps.mjs',
     what: 'workspace deps of released packages are on npm or in the release',
+    registry: true,
+  },
+  {
+    script: 'check-release-attestations.mjs',
+    what: 'released packages on npm carry dist.attestations (provenance)',
     registry: true,
   },
 ];
