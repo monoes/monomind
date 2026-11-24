@@ -205,6 +205,7 @@ describe('pick', () => {
     expect(res.agent).toEqual({
       choice: 'security-engineer',
       confidence: 0.9,
+      probSource: 'native',
       ranked: [
         { id: 'security-engineer', probability: 0.9 },
         { id: 'coder', probability: 0.1 },

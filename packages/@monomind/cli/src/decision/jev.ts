@@ -38,20 +38,33 @@ export interface RankedOption {
   probability: number;
 }
 
+/** How a probability was obtained (jev-providers.cjs PROB_SOURCES). */
+export type ProbSource = 'native' | 'logprob' | 'sampled' | 'none';
+
+export interface JevUsage {
+  latencyMs?: number;
+  tokensIn?: number;
+  tokensOut?: number;
+}
+
 export interface JevAnswer {
   choice: string;
   confidence: number;
+  probSource?: ProbSource;
   ranked: RankedOption[];
 }
 
 export interface JevPick {
-  provider: 'custom' | 'typesafe';
+  provider: string;
+  usage?: JevUsage;
   agent?: JevAnswer;
   skill?: JevAnswer;
 }
 
 export interface JevProvider {
-  name: 'custom' | 'typesafe';
+  name: string;
+  /** Provider kind in the jev-providers.cjs registry; `systemone` today. */
+  kind?: string;
   baseUrl: string;
   apiKey?: string;
   model: string;
