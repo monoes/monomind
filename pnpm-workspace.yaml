@@ -36,8 +36,8 @@ overrides:
   body-parser: '^2.4.0'
   better-sqlite3: '^13.2.0'
   nanoid: '^6.0.1'
-  vitest: '>=4.1.11 <5'
-  '@vitest/mocker': '>=4.1.11 <5'
+  vitest: '>=5.1.1 <6'
+  '@vitest/mocker': '>=5.1.1 <6'
   '@modelcontextprotocol/sdk': '>=1.31.0 <2'
 
 # braces GHSA-vfj7-8cjw-p6xm (#664, #675): stack-exhaustion DoS in brace
@@ -51,10 +51,10 @@ auditConfig:
 
 peerDependencyRules:
   allowedVersions:
-    tree-sitter: '0.22.4'
+    tree-sitter: '0.25.1'
     marked: '16'
-    '@vitest/coverage-v8': '4.1.11'
-    vitest: '4.1.11'
+    '@vitest/coverage-v8': '5'
+    vitest: '5'
     vite: '8'
 
 onlyBuiltDependencies:
