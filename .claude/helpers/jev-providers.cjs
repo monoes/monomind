@@ -205,12 +205,49 @@ function kinds() {
   return Array.from(registry.keys());
 }
 
+// ── Metering ───────────────────────────────────────────────────────────────
+
+function isCount(n) {
+  return typeof n === 'number' && Number.isFinite(n) && n >= 0;
+}
+
+/** { latencyMs, tokensIn?, tokensOut?, costUsd? } for one ask. Tokens are only
+ *  what the provider reported (never estimated). Cost: 0 for a `local` config,
+ *  else tokens x config.pricing ({ in, out } USD per token, the MODEL_PRICING
+ *  shape), else absent. A systemone server reports no tokens: latency only. */
+function meterUsage(config, reported, latencyMs) {
+  var usage = { latencyMs: latencyMs };
+  var tokensIn = reported && isCount(reported.tokensIn) ? reported.tokensIn : undefined;
+  var tokensOut = reported && isCount(reported.tokensOut) ? reported.tokensOut : undefined;
+  if (tokensIn !== undefined) usage.tokensIn = tokensIn;
+  if (tokensOut !== undefined) usage.tokensOut = tokensOut;
+  var price = config.pricing;
+  if (config.local === true) {
+    usage.costUsd = 0;
+  } else if (price && isCount(price.in) && isCount(price.out) && tokensIn !== undefined && tokensOut !== undefined) {
+    usage.costUsd = tokensIn * price.in + tokensOut * price.out;
+  }
+  return usage;
+}
+
+/** Every kind is metered here, so no kind has to measure itself. */
+function metered(config, provider) {
+  var inner = provider.ask.bind(provider);
+  return Object.assign({}, provider, {
+    async ask(state, questions, opts) {
+      var started = Date.now();
+      var res = await inner(state, questions, opts);
+      return Object.assign({}, res, { usage: meterUsage(config, res && res.usage, Date.now() - started) });
+    },
+  });
+}
+
 /** A provider from a config object; a config without `kind` is `systemone`. */
 function createProvider(config) {
   var kind = config.kind || 'systemone';
   var factory = registry.get(kind);
   if (!factory) throw new JevError('unknown provider kind: ' + kind, config.name);
-  return factory(config);
+  return metered(config, factory(config));
 }
 
 registerProvider('systemone', createSystemOne);

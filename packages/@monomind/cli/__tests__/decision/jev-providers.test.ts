@@ -138,7 +138,9 @@ describe('registry', () => {
       env: {},
       providers: [{ name: 'u', kind: 'usage-kind', baseUrl: 'http://h', model: 'm' }],
     });
-    expect(res.usage).toEqual(usage);
+    expect(res.usage).toMatchObject({ tokensIn: 3, tokensOut: 1 });
+    // The registry's own measurement replaces a provider-claimed latency.
+    expect(res.usage.latencyMs).not.toBe(12);
   });
 
   it('drops an answer naming an option that was not sent, and falls through to the next provider', async () => {
@@ -191,6 +193,64 @@ describe('env resolution still yields systemone providers', () => {
 
   it('shares one JevError class between the picker and the registry', () => {
     expect(jp.JevError).toBe(providers.JevError);
+  });
+});
+
+describe('usage metering', () => {
+  const answer = { agent: choice('coder', 0.9) };
+  const fakeKind = (usage?: Record<string, number>) => () => ({
+    name: 'fake',
+    kind: 'fake',
+    ask: vi.fn(async () => ({ provider: 'fake', answers: answer, usage })),
+  });
+
+  it('measures latency for a systemone provider and reports no tokens or cost', async () => {
+    const fetchImpl = vi.fn(async () => json({ answers: answer }));
+    const p = providers.createProvider({ name: 'custom', baseUrl: 'http://x', model: 'm' });
+    const res = await p.ask('s', questions, { timeoutMs: 1000, fetchImpl });
+    expect(res.usage.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(res.usage).not.toHaveProperty('tokensIn');
+    expect(res.usage).not.toHaveProperty('tokensOut');
+    expect(res.usage).not.toHaveProperty('costUsd');
+  });
+
+  it('meters any kind: latency plus the tokens the kind reported', async () => {
+    providers.registerProvider('meter-a', fakeKind({ tokensIn: 120, tokensOut: 1 }));
+    const res = await providers.createProvider({ name: 'a', kind: 'meter-a' }).ask('s', questions, {});
+    expect(res.usage).toMatchObject({ tokensIn: 120, tokensOut: 1 });
+    expect(typeof res.usage.latencyMs).toBe('number');
+    expect(res.usage).not.toHaveProperty('costUsd');
+  });
+
+  it('prices tokens from the config per-token table', async () => {
+    providers.registerProvider('meter-b', fakeKind({ tokensIn: 1000, tokensOut: 10 }));
+    const cfg = { name: 'b', kind: 'meter-b', pricing: { in: 2e-6, out: 10e-6 } };
+    const res = await providers.createProvider(cfg).ask('s', questions, {});
+    expect(res.usage.costUsd).toBeCloseTo(1000 * 2e-6 + 10 * 10e-6, 12);
+  });
+
+  it('costs a local server 0 and never estimates tokens it was not given', async () => {
+    providers.registerProvider('meter-c', fakeKind());
+    const res = await providers.createProvider({ name: 'c', kind: 'meter-c', local: true }).ask('s', questions, {});
+    expect(res.usage.costUsd).toBe(0);
+    expect(res.usage).not.toHaveProperty('tokensIn');
+  });
+
+  it('ignores a non-numeric token count from a provider', async () => {
+    providers.registerProvider('meter-d', fakeKind({ tokensIn: 'many' as unknown as number }));
+    const res = await providers.createProvider({ name: 'd', kind: 'meter-d', pricing: { in: 1, out: 1 } }).ask('s', questions, {});
+    expect(res.usage).not.toHaveProperty('tokensIn');
+    expect(res.usage).not.toHaveProperty('costUsd');
+  });
+
+  it('flows through the picker into JevPick.usage', async () => {
+    const fetchImpl = vi.fn(async () => json({ answers: { agent: choice('coder', 0.9) } }));
+    const res = await jp.pick(
+      'fix the bug',
+      { agents: [{ id: 'coder', name: 'coder' }, { id: 'tester', name: 'tester' }] },
+      { env: { MONOMIND_JEV_URL: 'http://127.0.0.1:3000' }, fetchImpl },
+    );
+    expect(res.usage.latencyMs).toBeGreaterThanOrEqual(0);
   });
 });
 

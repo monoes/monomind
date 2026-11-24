@@ -8,6 +8,7 @@ import {
   joinLatestUnresolved,
   computeRoutingAccuracy,
   computeAdherence,
+  readOutcomes,
   type RouteOutcomeRecord,
 } from '../../src/monovector/route-outcomes.js';
 
@@ -60,6 +61,20 @@ describe('computeRoutingAccuracy', () => {
     const acc = await computeRoutingAccuracy(dir, 100);
     expect(acc.totalWithOutcome).toBe(4);
     expect(acc.accuracy).toBeCloseTo(0.75, 5);
+  });
+
+  it('reads metered and old-shape lines side by side', async () => {
+    const metered = { provider: 'custom', latencyMs: 41, tokensIn: 120, tokensOut: 1, costUsd: 0.0002 };
+    await recordRoute(dir, rec({ routeId: 'old' }));
+    await recordRoute(dir, rec({ routeId: 'new', ...metered }));
+    await joinOutcome(dir, 'old', { measuredSuccess: true });
+    await joinOutcome(dir, 'new', { measuredSuccess: false });
+    const all = await readOutcomes(dir);
+    expect(all.find((r) => r.routeId === 'new')).toMatchObject(metered);
+    expect(all.find((r) => r.routeId === 'old')?.latencyMs).toBeUndefined();
+    const acc = await computeRoutingAccuracy(dir, 100);
+    expect(acc.totalWithOutcome).toBe(2);
+    expect(acc.accuracy).toBeCloseTo(0.5, 5);
   });
 
   it('splits accuracy by learning mode', async () => {

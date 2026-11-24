@@ -262,6 +262,19 @@ describe('rankAgents / decide', () => {
   });
 });
 
+describe('decide usage', () => {
+  const agents = [{ id: 'coder', name: 'coder' }];
+  it('carries the Jev usage onto the pick', () => {
+    const usage = { latencyMs: 12 };
+    const out = pc().decide({ agents, keywordCands: [], skillMatches: [], jev: { provider: 'custom', agent: 'coder', agentConfidence: 0.9, usage } });
+    expect(out.usage).toEqual(usage);
+  });
+  it('has no usage for a keyword pick', () => {
+    const out = pc().decide({ agents, keywordCands: [], skillMatches: [], jev: null });
+    expect(out.usage).toBeUndefined();
+  });
+});
+
 describe('rankSkills', () => {
   const jp = require(path.resolve(__dirname, '../../.claude/helpers/jev-picker.cjs'));
   const skills = [
@@ -353,6 +366,19 @@ describe('persistRoute', () => {
     confidence: 0.9,
     candidates: [{ name: 'Security Engineer', score: 0.9 }],
   };
+
+  it('records the pick usage (latency, tokens, cost) on the outcome line', () => {
+    const usage = { latencyMs: 41, tokensIn: 120, tokensOut: 1, costUsd: 0.00025 };
+    pc().persistRoute(tmp, { pick: { ...pick, usage }, prompt: 'p', sessionId: 's', shown: true });
+    const [rec] = readJsonl(path.join(tmp, '.monomind', 'route-outcomes.jsonl'));
+    expect(rec).toMatchObject(usage);
+  });
+
+  it('writes no usage fields when the pick carries none (old shape)', () => {
+    pc().persistRoute(tmp, { pick, prompt: 'p', sessionId: 's', shown: true });
+    const [rec] = readJsonl(path.join(tmp, '.monomind', 'route-outcomes.jsonl'));
+    for (const k of ['latencyMs', 'tokensIn', 'tokensOut', 'costUsd']) expect(rec).not.toHaveProperty(k);
+  });
 
   it('writes an honest outcome record without raw prompt text', () => {
     const prompt = `audit the auth flow ${'z'.repeat(400)}`;

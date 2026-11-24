@@ -40,6 +40,16 @@ const adh = (o) => ({ ts: clock, routeId: `a${clock++}`, ...o });
 const fb = (o) => ({ timestamp: new Date(clock++).toISOString(), ...o });
 
 describe('update: aggregation', () => {
+  it('counts metered and old-shape route lines the same', () => {
+    append('route-outcomes.jsonl', [
+      route({ agentName: 'coder' }),
+      route({ agentName: 'coder', provider: 'custom', latencyMs: 41, tokensIn: 5, costUsd: 0 }),
+    ]);
+    const s = ps.update(tmp);
+    expect(s.totals).toMatchObject({ routes: 2, shown: 2 });
+    expect(s.agents.coder).toBeDefined();
+  });
+
   it('counts routes, adherence and outcomes per agent and in totals', () => {
     append('route-outcomes.jsonl', [
       route({ agentName: 'coder', skill: '/tdd' }),

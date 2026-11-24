@@ -45,6 +45,8 @@ export interface JevUsage {
   latencyMs?: number;
   tokensIn?: number;
   tokensOut?: number;
+  /** 0 for a local provider; absent when tokens or a price are unknown. */
+  costUsd?: number;
 }
 
 export interface JevAnswer {

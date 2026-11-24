@@ -20,6 +20,13 @@ export interface RouteOutcomeRecord {
   routingMethod: string; // 'keyword' | 'neural-augmented' | 'native-hnsw' | etc.
   confidence: number;
   learningMode: 'native' | 'js'; // whether native @monoes was active
+  // Decision-provider metering (jev-providers.cjs); absent on older lines and
+  // on keyword routes. Tokens/cost are absent when the provider reports none.
+  provider?: string | null;
+  latencyMs?: number;
+  tokensIn?: number;
+  tokensOut?: number;
+  costUsd?: number;
   // Joined at post-task:
   agentActuallyUsed?: string;
   measuredSuccess?: boolean;

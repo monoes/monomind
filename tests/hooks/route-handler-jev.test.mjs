@@ -129,6 +129,37 @@ afterEach(() => {
 });
 
 describe('route-handler with Jev', () => {
+  it('meters the provider call into the route-outcomes line (latency only for systemone)', async () => {
+    vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ answers: { agent: { type: 'choice', choice: 'security-engineer', confidence: 0.9 } } }), { status: 200 })),
+    );
+    await loadRH().handle(makeHCtx('check the login handler for injection bugs'));
+    const lines = fs.readFileSync(path.join(tmpDir, '.monomind', 'route-outcomes.jsonl'), 'utf-8').trim().split('\n');
+    const rec = JSON.parse(lines[lines.length - 1]);
+    expect(rec.provider).toBe('custom');
+    expect(rec.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(rec).not.toHaveProperty('tokensIn');
+    expect(rec).not.toHaveProperty('costUsd');
+  });
+
+  it('fails closed when jev-providers.cjs is missing: keyword routing, no network', async () => {
+    const helpers = path.join(tmpDir, 'helpers-copy');
+    fs.cpSync(path.resolve(__dirname, '../../.claude/helpers'), helpers, { recursive: true });
+    fs.rmSync(path.join(helpers, 'jev-providers.cjs'));
+    vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
+    const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchImpl);
+    const rhPath = path.join(helpers, 'handlers', 'route-handler.cjs');
+    delete require.cache[rhPath];
+    await require(rhPath).handle(makeHCtx('check the login handler for injection bugs'));
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(lastRoute().reason).not.toContain('jev');
+    const lines = fs.readFileSync(path.join(tmpDir, '.monomind', 'route-outcomes.jsonl'), 'utf-8').trim().split('\n');
+    expect(JSON.parse(lines[lines.length - 1]).routingMethod).not.toBe('jev');
+  });
+
   it('uses the agent and skill Jev picks', async () => {
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
     vi.stubGlobal(
