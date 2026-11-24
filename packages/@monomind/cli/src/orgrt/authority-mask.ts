@@ -45,6 +45,12 @@ import {
   seatbeltAvailability,
   seatbeltMaskArgs,
 } from './authority-mask-seatbelt.js';
+import {
+  isWinMask,
+  winMaskArgs,
+  winMaskAvailability,
+  winMaskedCommand,
+} from './authority-mask-win32.js';
 import { protectedClaudeBinary } from './claude-sdk.js';
 import { dashboardCredentialPaths, HOME_DENY_WRITE, operatorDirOverride } from './file-roots.js';
 import {
@@ -113,6 +119,13 @@ export function authorityMaskArgs(ctx: {
     return seatbeltMaskArgs({
       ...ctx,
       hidden: authorityDirs(ctx.home, ctx.env),
+    });
+  // Native Windows: a restricted token with marker SIDs (authority-mask-win32.ts, #852).
+  if ((ctx.platform ?? process.platform) === 'win32')
+    return winMaskArgs({
+      home: ctx.home,
+      hidden: authorityDirs(ctx.home, ctx.env),
+      files: dashboardCredentialPaths(ctx.roots),
     });
   const args = ['--dev-bind', '/', '/'];
   // #527: the directories on the way to what the operator's processes run
@@ -213,18 +226,14 @@ function reanchor(args: string[], anchors: string[], from: number): void {
 let probed: { available: boolean; reason?: string } | undefined;
 
 /** Whether the mask can run here: bubblewrap on Linux (user namespaces can be
- *  disabled even when the binary is installed), Seatbelt on macOS, nothing on
- *  Windows. Probed once per process. */
+ *  disabled even when the binary is installed), Seatbelt on macOS, a PowerShell
+ *  restricted-token launcher on Windows. Probed once per process. */
 export function authorityMaskAvailability(platform: NodeJS.Platform = process.platform): {
   available: boolean;
   reason?: string;
 } {
   if (platform === 'darwin') return seatbeltAvailability();
-  if (platform === 'win32')
-    return {
-      available: false,
-      reason: 'no mask for native Windows: run the org under WSL2 (Linux) instead',
-    };
+  if (platform === 'win32') return winMaskAvailability(platform);
   return bubblewrapAvailability(platform);
 }
 
@@ -267,6 +276,7 @@ export function maskedCommand(
   args: string[],
 ): [string, string[]] {
   if (!mask?.length) return [bin, args];
+  if (isWinMask(mask)) return winMaskedCommand(mask, bin, args);
   return isSeatbeltMask(mask)
     ? [SANDBOX_EXEC, [...mask, bin, ...args]]
     : ['bwrap', [...mask, '--', bin, ...args]];

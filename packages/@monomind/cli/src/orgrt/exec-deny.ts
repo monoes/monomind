@@ -37,7 +37,9 @@ import {
   isSeatbeltMask,
   seatbeltWith,
 } from './authority-mask-seatbelt.js';
+import { isWinMask } from './authority-mask-win32.js';
 import type { OrgBus } from './bus.js';
+import { winExecMask } from './exec-deny-win32.js';
 import { homeLayerAvailability, homeWriteLayer } from './home-write-deny.js';
 import { shellSegments } from './shell-scan.js';
 
@@ -282,6 +284,11 @@ export function roleExecMask(args: {
     (!args.authorityMask && (args.platform ?? process.platform) === 'darwin')
   )
     return seatbeltExecMask(args, bestEffort);
+  if (
+    isWinMask(args.authorityMask) ||
+    (!args.authorityMask && (args.platform ?? process.platform) === 'win32')
+  )
+    return winExecMask(args);
   const roBinds = (args.bestEffortReadOnly ?? []).flatMap((d) => {
     const r = real(d);
     return r ? ['--ro-bind', r, r] : [];
