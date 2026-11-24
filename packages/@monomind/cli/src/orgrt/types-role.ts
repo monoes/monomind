@@ -42,6 +42,24 @@ export const EndpointSchema = z
   .passthrough();
 export type EndpointConfig = z.infer<typeof EndpointSchema>;
 
+/** #835 PR 6: a decision role's block. A decision provider answers mail
+ *  synchronously; below `threshold` the mail goes to `fallback_role`. */
+export const DecisionSchema = z
+  .object({
+    /** Name of a configured decision provider (jev-providers registry). */
+    provider: z.string().min(1),
+    model: z.string().optional(),
+    question: z.enum(['choice', 'noul', 'score']),
+    /** choice: option id -> description shown to the provider (non-empty). */
+    criteria: z.record(z.string(), z.string()).default({}),
+    /** What a noul/score question asks; a generic line when absent. */
+    instructions: z.string().optional(),
+    threshold: z.number().gt(0).lte(1),
+    fallback_role: z.string().min(1),
+  })
+  .passthrough();
+export type DecisionConfig = z.infer<typeof DecisionSchema>;
+
 /** Upper bound for `max_tool_rounds` (#326): each round is a full model turn,
  *  so the cap still has to stop a model that keeps calling tools. */
 export const MAX_TOOL_ROUNDS_LIMIT = 200;
@@ -157,12 +175,24 @@ export const RoleSchema = z
     /** Config-defined tools for this role: stdio MCP servers (M1). */
     tool_providers: z.array(ToolProviderSchema).optional(),
     /** M2: 'endpoint' = an automation reached over HTTP, not an agent session. */
-    kind: z.enum(['agent', 'endpoint']).optional(),
+    kind: z.enum(['agent', 'endpoint', 'decision']).optional(),
     /** M2: where an endpoint role's messages are POSTed. */
     endpoint: EndpointSchema.optional(),
+    /** #835 PR 6: a decision role's provider, question and fallback. */
+    decision: DecisionSchema.optional(),
   })
   .passthrough()
   .superRefine((r, ctx) => {
+    const bad = (path: string, message: string) =>
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
+    if (r.kind === 'decision' && !r.decision)
+      bad('decision', `role "${r.id}" has kind "decision" and needs a decision block`);
+    if (r.kind !== 'decision' && r.decision)
+      bad('decision', `role "${r.id}" has a decision block but is not kind "decision"`);
+    if (r.kind === 'decision' && r.endpoint)
+      bad('endpoint', `decision role "${r.id}" may not have an endpoint block`);
+    if (r.decision?.question === 'choice' && Object.keys(r.decision.criteria).length === 0)
+      bad('decision', `role "${r.id}": a choice question needs non-empty decision.criteria`);
     if (r.deliberative && r.review_input === 'artifact-only') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

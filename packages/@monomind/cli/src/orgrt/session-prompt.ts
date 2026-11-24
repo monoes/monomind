@@ -3,6 +3,7 @@
 import { latestModel } from '../latest-models.js';
 import { assertModelAllowed } from '../shared/model-guard.js';
 import { documentGuidance } from './documents/guidance.js';
+import { decisionBriefingLines } from './decision-roles.js';
 import { endpointBriefingLines } from './endpoint-roles.js';
 import { readVerifiedInstructions } from './instructions-file.js';
 import { expandRolePromptVars, promptVarsFor } from './prompt-vars.js';
@@ -149,7 +150,9 @@ export function rolePromptFor(opts: SessionOpts): string {
     ]
       .filter(Boolean)
       .join('\n\n') || undefined,
-    opts.onComplete ? endpointBriefingLines(opts.def) : undefined,
+    opts.onComplete
+      ? [...endpointBriefingLines(opts.def), ...decisionBriefingLines(opts.def)]
+      : undefined,
     opts.runTask,
   );
 }

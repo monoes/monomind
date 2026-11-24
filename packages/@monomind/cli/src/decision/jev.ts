@@ -89,7 +89,42 @@ export interface PickOptions {
   skillInstructions?: string;
 }
 
+/** One question for `ask`: choice (criteria = option id -> description) or noul. */
+export interface JevQuestion {
+  type: string;
+  instructions: string;
+  criteria?: Record<string, string>;
+}
+
+/** A settled answer from `ask` (probSource is always set by the registry). */
+export interface JevRawAnswer {
+  type: string;
+  choice?: string;
+  confidence?: number;
+  noul?: number;
+  probSource?: ProbSource;
+}
+
+export interface JevAskResult {
+  provider: string;
+  answers: Record<string, JevRawAnswer>;
+  usage?: JevUsage;
+}
+
+export interface JevAskOptions {
+  env?: NodeJS.ProcessEnv;
+  providers?: JevProvider[];
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
+  onError?: (err: JevError) => void;
+}
+
 export interface JevPickerModule {
+  ask?(
+    state: string,
+    questions: Record<string, JevQuestion>,
+    opts?: JevAskOptions,
+  ): Promise<JevAskResult | null>;
   NONE_ID: string;
   isDisabled(env?: NodeJS.ProcessEnv): boolean;
   normalizeBaseUrl(value?: string): string | null;

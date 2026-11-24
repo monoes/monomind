@@ -56,7 +56,7 @@ const EDITABLE_ROLE_FIELDS = new Set([
 ]);
 /** An endpoint role is an HTTP automation, not a session (endpoint-roles.ts). */
 // Mirrors SESSIONLESS_ROLE_KINDS in orgrt/sessionless-roles.ts (pinned by a test).
-const SESSIONLESS_KINDS = ['endpoint'];
+const SESSIONLESS_KINDS = ['endpoint', 'decision'];
 const ENDPOINT_FORBIDDEN = ['runtime', 'model', 'budget_tokens', 'budget_usd'];
 
 export class ConfigRejected extends Error {
