@@ -82,6 +82,7 @@ describe('version handshake (§2)', () => {
         'org-sign-expect-hash',
         'org-sign-review-json',
         'agent-exec-attachments',
+        'org-decision-roles',
       ],
     });
     expect(p.capabilities).toContain('agent-exec');

@@ -338,6 +338,8 @@ Any `context` key also changes three things for the whole org:
 | `provider.kind` | `'subscription'` | See §3 above |
 | `provider.vendor` | _(unset)_ | Which Vercel AI SDK provider to use (only when `kind='vercel-api-key'`): `'openai'` \| `'anthropic'` \| `'google'` \| `'xai'` \| `'deepseek'` \| `'glm'` \| `'mistral'` \| `'groq'` \| `'together'` \| `'fireworks'` \| `'cohere'` \| `'perplexity'` \| `'alibaba'` \| `'openrouter'` \| `'ollama'` \| `'openai-compatible'` |
 | `policy` | see below | Per-role tool/file/web policy |
+| `kind` | `'agent'` | `'agent'` \| `'endpoint'` (§6.2) \| `'decision'` (§6.8). Endpoint and decision roles have no session, mailbox, slot or budget |
+| `decision` | _(unset)_ | Required for, and only allowed on, `kind: 'decision'` roles: `{provider, model?, question, criteria, threshold, fallback_role}`. See §6.8 |
 
 ### Role Policy (`RolePolicySchema`)
 
@@ -842,6 +844,18 @@ Every daemon-side resolution emits an audit event with reason `decision-resolved
 
 ---
 
+### 6.5a Decision roles as an approval decider
+
+An org's `autonomy.decider` may name a decision role (§6.8): `{"kind": "role", "role": "triage"}`. When the autonomy routes an approval or a gate to a decider (the level × tier table in `approval-decider.ts`; requests the autonomy rules own stay with them), monomind puts the request to that role's provider. A confident answer resolves it with `resolvedBy: "decision:<role>"` (shown as "the org's decision role"); the `decision-resolved` audit event carries the same resolver. Everything else leaves the request with a person, exactly as for a human-owned one: below `threshold`, an answer without a probability, a provider failure or timeout, an option off the menu, and a role that is missing, not a decision role, or has no non-decision `fallback_role`. Nothing is ever approved because a provider failed.
+
+- `choice` roles must offer an `approve` option in `criteria`; a confident `approve` approves and a confident `deny` denies (any other option falls through). `noul`/`score` roles approve at or above `threshold` and never deny.
+- `org validate` rejects a `role` decider whose role does not exist, is not a decision role, has no non-decision `fallback_role`, or (for `choice`) lacks `approve`.
+- mono-agent's own decider kinds (`model`, `boss`, `parent`, `jev`) are unchanged. A mono-agent that does not know `role` treats the org as human-owned; it sends `kind: "decision"` roles or a `role` decider only after seeing capability `org-decision-roles`.
+
+**Capability:** `org-decision-roles`
+
+---
+
 ### 6.6 Org Skill Library
 
 **Source:** [`orgrt/skill-library.ts`](packages/@monomind/cli/src/orgrt/skill-library.ts), [`orgrt/skill-import.ts`](packages/@monomind/cli/src/orgrt/skill-import.ts)
@@ -962,6 +976,29 @@ auto-restart during a scheduled run no longer leaves the restarted run outside t
 - A role's Bash timeout is capped to a fraction of the time left in a run that has a deadline, so
   a long command can no longer outlive the run itself
   ([#623](https://github.com/monoes/monomind/issues/623)).
+
+---
+
+### 6.8 Decision roles
+
+**Capability:** `org-decision-roles` ([#835](https://github.com/monoes/monomind/issues/835))
+
+A role with `kind: "decision"` is an automated decider, not an agent: no session, mailbox, slot or budget. Mail addressed to it is put to a decision provider (§ routing, "Decision model") as one question.
+
+```json
+{ "id": "triage", "kind": "decision", "reports_to": "lead",
+  "decision": { "provider": "custom", "question": "choice",
+                "criteria": { "approve": "Safe to approve", "deny": "Clearly unsafe" },
+                "threshold": 0.7, "fallback_role": "lead" } }
+```
+
+- `question` is `choice` (needs non-empty `criteria`), `noul` or `score`; `threshold` is in (0, 1]; `provider` names a configured decision provider and `model` optionally overrides its model.
+- At or above `threshold` the role replies from itself, with text built from the enumerated option, never from provider text. Below it, or when the provider is down, answers off the menu or returns no probability (`probSource` `none` never counts), the original mail is forwarded to `fallback_role`. It never guesses.
+- Same-org mail only: cross-org and remote senders are refused with a clear error.
+- `org validate` rejects agent-only keys on a decision role (`policy`, `runtime`, `adapter_config`, `budget_*`, `tool_providers`), a root decision role, and a `fallback_role` that is missing or is itself a decision role. `org sign` review lists the `decision` block, since it decides where mail goes.
+- A decision role can also be the org's approval decider (§6.5a).
+
+The org-level decision role that would replace the global provider in `pickTaskRole` / `suggestTaskSkills` is deferred (it changes where task titles go); it is not implemented.
 
 ---
 

@@ -1,4 +1,4 @@
-# Agent Exec Protocol — v1 (rev 32)
+# Agent Exec Protocol — v1 (rev 33)
 
 - **Status**: Implemented (Phase 0 of the mono-agent delegation plan — see
   `mono-agent:docs/plans/local-agent-monomind-delegation.md`)
@@ -6,6 +6,18 @@
   the Coder mode threat model, the `--access full` guardrails (root refusal, no transitive
   escalation, env hygiene, audit log), what callers own, and residual risks (issue #360).
 - **Revision history**:
+  - rev 33 (2026-11-24): **decision roles** (issue #835) — new capability `org-decision-roles`.
+    An org role may have `kind: "decision"` with a `decision` block (`provider`, `question`
+    `choice`|`noul`|`score`, `criteria`, `threshold`, `fallback_role`): mail to it is put to the
+    named decision provider and answered at once above `threshold`, otherwise forwarded to
+    `fallback_role`; it takes same-org mail only and never fails open. The org's
+    `autonomy.decider` may be `{"kind":"role","role":"<id>"}`: approvals and gates the autonomy
+    routes to a decider are put to that role, and a confident answer resolves them with
+    `resolvedBy: "decision:<role>"`; anything else leaves them to a person. A role that is not a
+    decision role, has no non-decision `fallback_role`, or (for `choice`) lacks an `approve`
+    option makes `org validate` fail and the request human-owned. A caller (mono-agent) must see
+    this capability before it sends `kind: "decision"` roles or a `role` decider; a monomind
+    without it rejects both (unknown kind), which is the fail-closed behaviour. Additive.
   - rev 32 (2026-10-19): **`agent exec --attach FILE`** — new capability `agent-exec-attachments`
     (§3.1). Repeatable; each file must exist, be a regular file and be at most 20 MB, and at most
     10 may be given, else a usage error (exit 2, no events). The type comes from the file's first
@@ -558,7 +570,7 @@ by swarm management and is NOT reused by this protocol — the installed-only vi
 
 ```
 $ monomind --version --json
-{"v":1,"version":"<x.y.z>","min_caller":"1.0.0","capabilities":["agent-exec","agent-exec-full-access","agent-exec-settings","agent-exec-tool-activity","agent-exec-background-pids","agent-exec-full-access-any","agent-exec-effort","agent-scan","agent-scan-read-only","agent-models","agent-test-json","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","org-role-full-access","doctor-json","doctor-read-only","doctor-offline","init-json","knowledge-profile-captures","agent-exec-subagent-events","agent-exec-rate-limit-retry","agent-exec-access-read","agent-exec-full-access-tools","agent-exec-sandbox","agent-test-sandbox","agent-exec-sandbox-restricted","agent-exec-sandbox-fallback","agent-exec-cost-null","agent-models-alias-of","org-sign-check","org-sign-expect-hash","org-sign-review-json","agent-exec-attachments"]}
+{"v":1,"version":"<x.y.z>","min_caller":"1.0.0","capabilities":["agent-exec","agent-exec-full-access","agent-exec-settings","agent-exec-tool-activity","agent-exec-background-pids","agent-exec-full-access-any","agent-exec-effort","agent-scan","agent-scan-read-only","agent-models","agent-test-json","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","org-role-full-access","doctor-json","doctor-read-only","doctor-offline","init-json","knowledge-profile-captures","agent-exec-subagent-events","agent-exec-rate-limit-retry","agent-exec-access-read","agent-exec-full-access-tools","agent-exec-sandbox","agent-test-sandbox","agent-exec-sandbox-restricted","agent-exec-sandbox-fallback","agent-exec-cost-null","agent-models-alias-of","org-sign-check","org-sign-expect-hash","org-sign-review-json","agent-exec-attachments","org-decision-roles"]}
 ```
 
 Callers MUST handshake before use and fail with an actionable message (install/upgrade hint)

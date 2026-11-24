@@ -166,6 +166,12 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  *    blocks, codex gets images as `--image`, and every other file or runtime
  *    gets an "Attached files:" block of absolute paths after the prompt
  *    (§3.1, rev 32)
+ *  - `org-decision-roles` — roles with `kind: "decision"` (a decision-model
+ *    provider answers mail; below `decision.threshold`, or when the provider
+ *    fails, the mail goes to `fallback_role`) and `autonomy.decider`
+ *    `{kind: "role", role: "<id>"}`, which resolves approvals and gates the
+ *    autonomy hands to a decider as `resolvedBy: "decision:<role>"` and
+ *    otherwise leaves them to a person (#835, rev 33)
  */
 export const AGENT_PROTOCOL_CAPABILITIES = [
   'agent-exec',
@@ -205,6 +211,7 @@ export const AGENT_PROTOCOL_CAPABILITIES = [
   'org-sign-expect-hash',
   'org-sign-review-json',
   'agent-exec-attachments',
+  'org-decision-roles',
 ] as const;
 
 /** The exact handshake object emitted by `monomind --version --json`. */
