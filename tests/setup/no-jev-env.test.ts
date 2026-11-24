@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('test environment', () => {
@@ -9,5 +10,11 @@ describe('test environment', () => {
       'MONOMIND_JEV_HOSTED',
     ])
       expect(process.env[name], name).toBeUndefined();
+  });
+
+  it('points the named-provider lookup at a file that does not exist', () => {
+    const file = process.env.MONOMIND_DECISION_PROVIDERS_FILE;
+    expect(file).toBeTruthy();
+    expect(existsSync(file as string)).toBe(false);
   });
 });

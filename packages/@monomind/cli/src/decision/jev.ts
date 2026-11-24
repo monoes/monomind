@@ -119,6 +119,28 @@ export interface JevAskOptions {
   onError?: (err: JevError) => void;
 }
 
+/** One entry of decision-providers.json: the key is only ever an env-var NAME. */
+export interface NamedProviderEntry {
+  name: string;
+  kind?: string;
+  baseUrl: string;
+  apiKeyEnv?: string;
+  model?: string;
+  enabled?: boolean;
+}
+
+export type ProviderScope = 'project' | 'user';
+
+/** The jev-providers.cjs registry and named-provider store. */
+export interface ProviderRegistryModule {
+  kinds(): string[];
+  storeFile(scope: ProviderScope, env?: NodeJS.ProcessEnv, opts?: { cwd?: string }): string | null;
+  readStore(file: string): { providers: NamedProviderEntry[]; error?: string };
+  writeStore(file: string, entries: NamedProviderEntry[]): void;
+  /** null when usable, else a one-line reason (unknown kind, bad url, a key in the file...). */
+  validateEntry(entry: unknown): string | null;
+}
+
 export interface JevPickerModule {
   ask?(
     state: string,
@@ -126,9 +148,10 @@ export interface JevPickerModule {
     opts?: JevAskOptions,
   ): Promise<JevAskResult | null>;
   NONE_ID: string;
+  registry: ProviderRegistryModule;
   isDisabled(env?: NodeJS.ProcessEnv): boolean;
   normalizeBaseUrl(value?: string): string | null;
-  resolveProviders(env?: NodeJS.ProcessEnv): JevProvider[];
+  resolveProviders(env?: NodeJS.ProcessEnv, opts?: { cwd?: string }): JevProvider[];
   resolveTimeoutMs(env?: NodeJS.ProcessEnv): number;
   resolveHookTimeoutMs(env?: NodeJS.ProcessEnv): number;
   resolveMinConfidence(env?: NodeJS.ProcessEnv): number;

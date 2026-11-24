@@ -24,6 +24,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -509,6 +510,29 @@ describe('privacy-claims (i-078)', () => {
           stdio: 'pipe',
         }),
       ).not.toThrow();
+    });
+  });
+
+  describe('§6 — the decision-model row covers every provider kind and the named-provider file', () => {
+    const row = () =>
+      readFileSync(join(REPO_ROOT, 'doc', 'privacy.md'), 'utf-8')
+        .split('\n')
+        .find((l) => l.startsWith('| Jev decision model')) ?? '';
+
+    it('names every kind in the jev-providers.cjs registry, so a new kind cannot ship undocumented', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const reg = createRequire(import.meta.url)(
+        join(REPO_ROOT, '.claude', 'helpers', 'jev-providers.cjs'),
+      ) as { kinds(): string[] };
+      expect(row()).not.toBe('');
+      for (const kind of reg.kinds()) expect(row(), `kind ${kind}`).toContain(`\`${kind}\``);
+    });
+
+    it('names the config file, says it holds no key, and says how to turn it off', () => {
+      const text = row();
+      expect(text).toContain('decision-providers.json');
+      expect(text).toMatch(/environment variable.*never the key|never the key/);
+      expect(text).toContain('MONOMIND_JEV=off');
     });
   });
 });

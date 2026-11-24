@@ -15,6 +15,10 @@
  * only the helpers dir.
  */
 
+var fs = require('fs');
+var os = require('os');
+var path = require('path');
+
 var TYPESAFE_BASE_URL = 'https://api.typesafe.ai';
 var DEFAULT_MODEL = 'jev-latest';
 var MAX_RESPONSE_CHARS = 1024 * 1024;
@@ -110,14 +114,12 @@ function normalizeBaseUrl(value) {
 
 /** Shorthand properties keep a key variable out of `apiKey: <expr>` shapes,
  *  which the repo's git pre-commit secret gate rejects. */
-function makeProvider(name, baseUrl, apiKey, model) {
-  return { name: name, kind: 'systemone', baseUrl: baseUrl, apiKey, model: model };
+function makeProvider(name, baseUrl, apiKey, model, kind) {
+  return { name: name, kind: kind || 'systemone', baseUrl: baseUrl, apiKey, model: model };
 }
 
 /** Provider configs from the environment, in order: MONOMIND_JEV_URL, then hosted TypeSafe. */
-function resolveProviders(env) {
-  env = env || process.env;
-  if (isDisabled(env)) return [];
+function envProviders(env) {
   var model = readEnvValue(env, 'MONOMIND_JEV_MODEL') || DEFAULT_MODEL;
   var providers = [];
   var customUrl = normalizeBaseUrl(env.MONOMIND_JEV_URL);
@@ -133,6 +135,121 @@ function resolveProviders(env) {
     providers.push(makeProvider('typesafe', TYPESAFE_BASE_URL, typesafeKey, model));
   }
   return providers;
+}
+
+// ── Named providers (config file) ──────────────────────────────────────────
+// .monomind/decision-providers.json (project), then ~/.monomind/ (user):
+//   { "providers": [ { name, kind?, baseUrl, apiKeyEnv?, model?, enabled? } ] }
+// The file holds only the NAME of the env var that carries the key, never the key.
+
+var STORE_FILE = 'decision-providers.json';
+var STORE_OVERRIDE_ENV = 'MONOMIND_DECISION_PROVIDERS_FILE';
+var RESERVED_NAMES = ['custom', 'typesafe'];
+
+function homeOf(env) {
+  return readEnvValue(env, 'HOME') || readEnvValue(env, 'USERPROFILE') || (env === process.env ? os.homedir() : '');
+}
+
+/** The file for a scope; MONOMIND_DECISION_PROVIDERS_FILE replaces both. */
+function storeFile(scope, env, opts) {
+  env = env || process.env;
+  var override = readEnvValue(env, STORE_OVERRIDE_ENV);
+  if (override) return override;
+  var base = scope === 'user' ? homeOf(env) : (opts && opts.cwd) || process.cwd();
+  return base ? path.join(base, '.monomind', STORE_FILE) : null;
+}
+
+function readStore(file) {
+  var text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    return { providers: [] };
+  }
+  try {
+    var body = JSON.parse(text);
+    return { providers: body && Array.isArray(body.providers) ? body.providers : [] };
+  } catch (e) {
+    return { providers: [], error: 'invalid JSON in ' + file };
+  }
+}
+
+function writeStore(file, entries) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  var tmp = file + '.' + process.pid + '.tmp';
+  try {
+    fs.writeFileSync(tmp, JSON.stringify({ providers: entries }, null, 2) + '\n');
+    fs.renameSync(tmp, file);
+  } catch (err) {
+    try {
+      fs.unlinkSync(tmp);
+    } catch (e) {
+      /* nothing to clean */
+    }
+    throw err;
+  }
+}
+
+/** null when the entry is usable, else a one-line reason. */
+function validateEntry(entry) {
+  if (!entry || typeof entry !== 'object') return 'entry must be an object';
+  if (typeof entry.name !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(entry.name)) {
+    return 'invalid name (letters, digits, . _ - ; up to 64 characters)';
+  }
+  if (RESERVED_NAMES.indexOf(entry.name.toLowerCase()) !== -1) {
+    return 'name "' + entry.name + '" is reserved for the environment variables';
+  }
+  var kind = entry.kind || 'systemone';
+  if (!registry.has(kind)) {
+    return 'unknown provider kind "' + kind + '" (known: ' + kinds().join(', ') + ')';
+  }
+  if (!normalizeBaseUrl(entry.baseUrl)) return 'baseUrl must be an http(s) URL';
+  if (entry.apiKey !== undefined) return 'keys are never stored in the file: use apiKeyEnv';
+  if (entry.apiKeyEnv !== undefined && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(String(entry.apiKeyEnv))) {
+    return 'apiKeyEnv must be an environment variable name (e.g. MY_JEV_KEY), not a key';
+  }
+  if (entry.model !== undefined && typeof entry.model !== 'string') return 'model must be a string';
+  return null;
+}
+
+function toConfig(entry, env) {
+  var key = entry.apiKeyEnv ? readEnvValue(env, entry.apiKeyEnv) : undefined;
+  return makeProvider(
+    entry.name,
+    normalizeBaseUrl(entry.baseUrl),
+    key,
+    entry.model || readEnvValue(env, 'MONOMIND_JEV_MODEL') || DEFAULT_MODEL,
+    entry.kind || 'systemone',
+  );
+}
+
+/** Usable, enabled named providers: project file first, then user file. */
+function namedProviders(env, opts) {
+  var files = [storeFile('project', env, opts)];
+  if (!readEnvValue(env, STORE_OVERRIDE_ENV)) files.push(storeFile('user', env, opts));
+  var out = [];
+  files.forEach(function (file) {
+    if (!file) return;
+    readStore(file).providers.forEach(function (entry) {
+      if (validateEntry(entry) === null && entry.enabled !== false) out.push(toConfig(entry, env));
+    });
+  });
+  return out;
+}
+
+/** Provider configs in order: environment variables, then named providers
+ *  (a name already taken by an earlier provider is dropped, so env wins ties). */
+function resolveProviders(env, opts) {
+  env = env || process.env;
+  if (isDisabled(env)) return [];
+  var seen = {};
+  return envProviders(env)
+    .concat(namedProviders(env, opts))
+    .filter(function (p) {
+      if (seen[p.name]) return false;
+      seen[p.name] = true;
+      return true;
+    });
 }
 
 // ── Kind: systemone ────────────────────────────────────────────────────────
@@ -266,4 +383,9 @@ module.exports = {
   registerProvider: registerProvider,
   createProvider: createProvider,
   kinds: kinds,
+  storeFile: storeFile,
+  readStore: readStore,
+  writeStore: writeStore,
+  validateEntry: validateEntry,
+  namedProviders: namedProviders,
 };

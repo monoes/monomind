@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { checkDecisionModel, checkDecisionModelIfConfigured } from '../../src/commands/doctor-decision-checks.js';
 
@@ -59,5 +62,51 @@ describe('checkDecisionModel', () => {
     expect(r.message).toContain('typesafe: HTTP 401');
     expect(r.message).not.toContain('hidden7');
     expect(r.fix).toBeDefined();
+  });
+});
+
+describe('named providers (decision-providers.json)', () => {
+  const withStore = async (entries: unknown[], run: (env: NodeJS.ProcessEnv) => Promise<void>) => {
+    const dir = mkdtempSync(join(tmpdir(), 'doctor-named-'));
+    try {
+      const file = join(dir, 'p.json');
+      writeFileSync(file, JSON.stringify({ providers: entries }));
+      await run({ MONOMIND_DECISION_PROVIDERS_FILE: file });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  it('treats a named provider as configured, with no network without probe', async () => {
+    await withStore([{ name: 'mine', baseUrl: 'http://127.0.0.1:3000' }], async (env) => {
+      const fetchImpl = vi.fn() as unknown as typeof fetch;
+      const r = await checkDecisionModel({ env, fetchImpl });
+      expect(r.status).toBe('pass');
+      expect(r.message).toContain('mine (http://127.0.0.1:3000)');
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(await checkDecisionModelIfConfigured(env)).toHaveLength(1);
+    });
+  });
+
+  it('probes each named provider with doctor -c jev', async () => {
+    await withStore([{ name: 'mine', baseUrl: 'http://127.0.0.1:3000' }], async (env) => {
+      const fetchImpl = vi.fn(async () => noulOk()) as unknown as typeof fetch;
+      const r = await checkDecisionModel({ env, probe: true, fetchImpl });
+      expect(r.status).toBe('pass');
+      expect(r.message).toMatch(/mine \d+ms/);
+    });
+  });
+
+  it('warns about an ignored entry (unknown kind) instead of silently dropping it', async () => {
+    await withStore([{ name: 'bad', kind: 'nope', baseUrl: 'http://h:1' }], async (env) => {
+      const r = await checkDecisionModel({ env });
+      expect(r.status).toBe('warn');
+      expect(r.message).toMatch(/bad.*unknown provider kind "nope"/);
+    });
+  });
+
+  it('adds no row and no network when no file exists', async () => {
+    const env = { MONOMIND_DECISION_PROVIDERS_FILE: join(tmpdir(), 'does-not-exist-decision.json') };
+    expect(await checkDecisionModelIfConfigured(env)).toEqual([]);
   });
 });

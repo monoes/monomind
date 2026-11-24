@@ -86,7 +86,7 @@ Only items with some overlap are returned. The same ranker builds the shortlist 
 
 ### Decision model (Jev)
 
-When `MONOMIND_JEV_URL` (self-hosted OpenJev) or `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1` (hosted TypeSafe) is set, [`rankForTask`](packages/@monomind/cli/src/decision/picks.ts#rankForTask) asks the model to rank the shortlisted agents and skills. Two floors apply to its answer:
+When `MONOMIND_JEV_URL` (self-hosted OpenJev), `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1` (hosted TypeSafe) or a named provider (below) is set, [`rankForTask`](packages/@monomind/cli/src/decision/picks.ts#rankForTask) asks the model to rank the shortlisted agents and skills. Two floors apply to its answer:
 
 | Floor | Env var | Default | Used by |
 |---|---|---|---|
@@ -94,6 +94,23 @@ When `MONOMIND_JEV_URL` (self-hosted OpenJev) or `TYPESAFE_API_KEY` + `MONOMIND_
 | Pick | `MONOMIND_JEV_PICK_MIN_CONFIDENCE` | 0.25 | Rankings a person or Claude reads: `monomind pick`, the `pick` MCP tool and its wrappers |
 
 An answer between the two floors is kept and flagged `lowConfidence: true`. Below the pick floor (or with no model, a timeout or a provider error) the list falls back to keyword ranking. Jev tail entries under probability 0.02 are dropped. Each list reports `method` (`jev` or `keyword`) and `source`: `jev`, `keyword` (no model configured) or `keyword-fallback` (a model was asked but gave no usable answer).
+
+#### Named providers
+
+`monomind decision providers configure|test|list|remove` manages named decision-model providers, a separate group from the generic `providers` command. Entries live in `.monomind/decision-providers.json` (project) or `~/.monomind/decision-providers.json` (`--scope user`) and are read by the same helper the prompt hook uses:
+
+```bash
+export MY_JEV_KEY=...
+monomind decision providers configure -n local -u http://127.0.0.1:3000 --api-key-env MY_JEV_KEY
+monomind decision providers test -n local
+```
+
+- The file stores the **name** of the environment variable that carries the key (`apiKeyEnv`), never the key; `configure` refuses a raw key.
+- Order of use: the `MONOMIND_JEV_*` variables first, then project entries, then user entries. A name already taken by an earlier provider is dropped, so the variables win ties; `custom` and `typesafe` are reserved names. `MONOMIND_JEV=off` disables every provider. `MONOMIND_DECISION_PROVIDERS_FILE` replaces the file lookup (tests use it).
+- `kind` selects the protocol from the provider registry in `jev-providers.cjs`; `systemone` is the only kind today, and any other kind is rejected with an error that names the known kinds. Kinds are added in later changes.
+- An answer that comes without probabilities (`probSource: none`) never clears the 0.6 automatic floor.
+- The catalog egress gate keeps its name: `--target jev` now means "any decision provider".
+- `doctor -c jev` probes each named provider; `doctor -c pick` lists them; an invalid entry is reported as ignored.
 
 Each shortlisted candidate is sent as its id and its description (for an agent, `when_to_use — description`) cut at 160 characters, and the task is cut at 8000; secrets are redacted first. [Privacy](../privacy.md) lists exactly what leaves the machine. `doctor -c jev` probes the configured providers.
 
