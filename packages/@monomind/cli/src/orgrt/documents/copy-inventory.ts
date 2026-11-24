@@ -33,6 +33,7 @@ import {
   usesPrivateDir,
 } from './runtime-isolation.js';
 import { sectionsSurface } from './surface.js';
+import { isSessionlessRole } from '../sessionless-roles.js';
 
 export const runnerRootFor = (orgDir: string): string => join(orgDir, 'runner');
 
@@ -118,7 +119,7 @@ export function copyInventoryFindings(def: OrgDef, env: NodeJS.ProcessEnv = proc
   const evalMode =
     (def.run_config as { experimental?: string } | undefined)?.experimental === 'eval';
   for (const role of def.roles) {
-    if ((role as { kind?: string }).kind === 'endpoint') continue;
+    if (isSessionlessRole(role)) continue;
     const runtime = effectiveRoleRuntime(role.runtime, def.runtime, role.provider?.kind);
     const iso = runtimeIsolation(runtime, env);
     if (iso && iso.strategy !== 'refused') {

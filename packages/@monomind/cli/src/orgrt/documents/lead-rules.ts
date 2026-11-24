@@ -15,6 +15,7 @@ import type { Findings } from './definition-util.js';
 import { isObject } from './definition-util.js';
 import { rootRoleId, sectionOf } from './routing.js';
 import { sectionsSurface } from './surface.js';
+import { isSessionlessRole } from '../sessionless-roles.js';
 
 /** The `max_concurrent_agents` an org gets when it sets none (types.ts). */
 export const DEFAULT_MAX_CONCURRENT_AGENTS = 4;
@@ -62,7 +63,7 @@ export function leadRulesFindings(def: OrgDef, f: Findings): void {
     typeof rc.max_concurrent_agents === 'number'
       ? rc.max_concurrent_agents
       : DEFAULT_MAX_CONCURRENT_AGENTS;
-  const agents = def.roles.filter((r) => r.kind !== 'endpoint').length;
+  const agents = def.roles.filter((r) => !isSessionlessRole(r)).length;
   if (cap < agents)
     f.errors.push(
       `run_config.max_concurrent_agents: ${cap} is below the ${agents} agent roles of this sections org (it defaults to ${DEFAULT_MAX_CONCURRENT_AGENTS}) — an idle role keeps its slot, so a role past the cap never starts and a section can stall; raise it to at least ${agents}, or remove roles`,

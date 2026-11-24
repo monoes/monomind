@@ -19,6 +19,7 @@ import {
   resolveRun,
   sectionsJson,
 } from './org-observe-shared.js';
+import { isSessionlessRole } from '../orgrt/sessionless-roles.js';
 
 const log = (text: string): void => {
   console.log(text);
@@ -248,7 +249,7 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
     const def = OrgDefSchema.parse(
       JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, `${name}.json`), 'utf8')),
     );
-    const sessionRoles = def.roles.filter((r) => r.kind !== 'endpoint');
+    const sessionRoles = def.roles.filter((r) => !isSessionlessRole(r));
     perRoleBudget = Math.floor(
       (def.run_config.budget_tokens ?? 1_000_000) / Math.max(1, sessionRoles.length),
     );

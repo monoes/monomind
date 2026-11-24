@@ -20,6 +20,7 @@ import { effectiveRoleRuntime } from './runner-specs.js';
 import { type OrgDef, OrgDefSchema } from './types.js';
 import { runDefectWarnings } from './validate-run-defects.js';
 import { selectionWarnings } from './validate-selection.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 
 type OrgRole = OrgDef['roles'][number];
 
@@ -69,7 +70,7 @@ const shape = (OrgDefSchema as unknown as { shape: Record<string, unknown> }).sh
 const KNOWN_TOP_LEVEL = new Set(Object.keys(shape));
 const KNOWN_RUN_CONFIG = new Set(schemaKeys(shape.run_config) ?? []);
 
-const isAgent = (r: OrgRole): boolean => r.kind !== 'endpoint';
+const isAgent = (r: OrgRole): boolean => !isSessionlessRole(r);
 const prompt = (r: OrgRole): string => [r.title, ...(r.responsibilities ?? [])].join('\n');
 const runtimeOf = (def: OrgDef, r: OrgRole): string =>
   effectiveRoleRuntime(r.runtime, (def as { runtime?: unknown }).runtime, r.provider?.kind);

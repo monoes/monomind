@@ -7,7 +7,7 @@ import { pushMessage } from './cross-org.js';
 import { activeRoleCount, OrgDaemon, type RunningOrg } from './daemon.js';
 import { dispatchReadyTasks, queueDispatch } from './decisions.js';
 import { EVAL_BOSS_CRASH_CLOSED_BY, isEvalMode } from './documents/eval-gate.js';
-import { isEndpointRole } from './endpoint-roles.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 import { newMessageId, peekInbox, queueMessage, takeQueued } from './inbox.js';
 import type { OrgRole } from './types.js';
 
@@ -45,7 +45,7 @@ export async function deliverQueuedFor(
   running: RunningOrg,
   roleId: string,
 ): Promise<void> {
-  if (isEndpointRole(running.def.roles.find((r) => r.id === roleId))) return;
+  if (isSessionlessRole(running.def.roles.find((r) => r.id === roleId))) return;
   const agent = running.agents.get(roleId);
   if (!agent || agent.mailbox.isClosed) return;
   const queued = takeQueued(daemon.root, name, (m) => m.toRole === roleId && !m.endpoint);

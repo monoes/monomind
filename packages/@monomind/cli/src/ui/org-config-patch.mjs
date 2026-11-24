@@ -55,6 +55,8 @@ const EDITABLE_ROLE_FIELDS = new Set([
   'cost_tier',
 ]);
 /** An endpoint role is an HTTP automation, not a session (endpoint-roles.ts). */
+// Mirrors SESSIONLESS_ROLE_KINDS in orgrt/sessionless-roles.ts (pinned by a test).
+const SESSIONLESS_KINDS = ['endpoint'];
 const ENDPOINT_FORBIDDEN = ['runtime', 'model', 'budget_tokens', 'budget_usd'];
 
 export class ConfigRejected extends Error {
@@ -187,7 +189,7 @@ export function patchOrgRole(root, org, roleId, patch) {
       problems.push(`role field ${k} is not editable here`);
       continue;
     }
-    if (role.kind === 'endpoint' && ENDPOINT_FORBIDDEN.includes(k)) {
+    if (SESSIONLESS_KINDS.includes(role.kind) && ENDPOINT_FORBIDDEN.includes(k)) {
       problems.push(
         `${k} is not allowed on endpoint role "${roleId}" (it is an automation, not a session)`,
       );

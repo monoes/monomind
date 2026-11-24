@@ -14,6 +14,7 @@ import { isObject, NAME_RE, RESERVED_TYPES } from './definition-util.js';
 import { writerDefinitionFindings } from './definition-writes.js';
 import { leadRulesFindings } from './lead-rules.js';
 import { sectionBudgetChecklist } from './section-budget-wire.js';
+import { isSessionlessRole } from '../sessionless-roles.js';
 
 const SECTION_FIELDS = [
   'lead',
@@ -245,7 +246,7 @@ function checkSections(
     if (writes.length > 0) writers.push(name);
   }
   for (const r of def.roles)
-    if (r.kind !== 'endpoint' && r.id !== root?.id && !home.has(r.id))
+    if (!isSessionlessRole(r) && r.id !== root?.id && !home.has(r.id))
       f.errors.push(
         `roles.${r.id}: a role outside every section can only be the root — add it to a section's members or make it a lead`,
       );

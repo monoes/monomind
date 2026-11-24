@@ -9,7 +9,7 @@ import { reloadRefusalText, structuralReloadChanges } from './documents/reload-g
 import { reloadReworkCaps } from './documents/rework.js';
 import { sectionRoleCap, syncSectionBudgets } from './documents/section-budget-wire.js';
 import { effectiveRolePolicy } from './effective-role-policy.js';
-import { isEndpointRole } from './endpoint-roles.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 import {
   assertOrgDefSigned,
   instructionsDigests,
@@ -152,7 +152,7 @@ export function reloadOrgDef(
       // M2: an endpoint role never gets a session — nothing to lazy-spawn.
       // #552: while the org-wide budget ceiling is spent, set it aside with
       // the other unspawned roles — a reload that raises it makes it pending.
-      if (!isEndpointRole(role)) {
+      if (!isSessionlessRole(role)) {
         if (running.orgBudgetClosed)
           (running.orgBudgetPendingRoles ??= new Map()).set(role.id, role);
         else (running.pendingRoles ??= new Map()).set(role.id, role);

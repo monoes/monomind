@@ -13,6 +13,7 @@ import { rootRoleId, sectionOf } from './routing.js';
 import { isPositiveUsd } from './section-budget.js';
 import { usd } from './section-budget-text.js';
 import { standingOf, type WriterDef, writingSections } from './writer-overlay.js';
+import { isSessionlessRole } from '../sessionless-roles.js';
 
 const MAX_LISTED = 4;
 
@@ -151,7 +152,7 @@ function reworkLines(
 export function phase4Guidance(def: OrgDef, roleId: string, ctx: Phase4Context): string[] {
   if (!usesPhase4Keys(def)) return [];
   const role = def.roles.find((r) => r.id === roleId);
-  if (!role || role.kind === 'endpoint') return [];
+  if (!role || isSessionlessRole(role)) return [];
   const isRoot = roleId === rootRoleId(def);
   const section = sectionOf(def, roleId);
   const out = [

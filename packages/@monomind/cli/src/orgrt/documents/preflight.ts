@@ -25,6 +25,7 @@ import type { OrgDef } from '../types.js';
 import { copyInventoryFindings } from './copy-inventory.js';
 import { runtimeIsolation } from './runtime-isolation.js';
 import { sectionsSurface } from './surface.js';
+import { isSessionlessRole } from '../sessionless-roles.js';
 
 interface Availability {
   available: boolean;
@@ -73,7 +74,7 @@ const maskFix = (platform: NodeJS.Platform): string =>
 function bindOnlyRuntimes(def: OrgDef): string[] {
   const out = new Set<string>();
   for (const role of def.roles) {
-    if ((role as { kind?: string }).kind === 'endpoint') continue;
+    if (isSessionlessRole(role)) continue;
     const runtime = effectiveRoleRuntime(role.runtime, def.runtime, role.provider?.kind);
     if (runtimeIsolation(runtime)?.strategy === 'mask-bind') out.add(runtime);
   }

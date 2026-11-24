@@ -32,6 +32,7 @@ import { envelopeDirFor, loadEnvelopeKey } from './envelope.js';
 import { ensureMailDirs, mailRootFor, otherMailDirs } from './mail-isolation.js';
 import { runtimeIsolation, usesPrivateDir } from './runtime-isolation.js';
 import { sectionsSurface } from './surface.js';
+import { isSessionlessRole } from '../sessionless-roles.js';
 
 export interface RoleProtection {
   denyReadDirs: string[];
@@ -99,7 +100,7 @@ function otherInputHolders(
   const base = monomindHome(args.home, args.env);
   const dirs: string[] = [];
   for (const r of def.roles) {
-    if ((r as { kind?: string }).kind === 'endpoint') continue;
+    if (isSessionlessRole(r)) continue;
     const dir = runnerInputHolder(base, orgDir, r.id);
     mkdirSync(dir, { recursive: true, mode: 0o700 });
     if (r.id !== args.roleId) dirs.push(dir);
@@ -111,7 +112,7 @@ function otherInputHolders(
 function otherRunnerDirs(def: Pick<OrgDef, 'roles'>, orgDir: string, roleId: string): string[] {
   const dirs: string[] = [];
   for (const r of def.roles) {
-    if ((r as { kind?: string }).kind === 'endpoint') continue;
+    if (isSessionlessRole(r)) continue;
     const dir = privateRunnerRoot(orgDir, r.id);
     mkdirSync(dir, { recursive: true, mode: 0o700 });
     if (r.id !== roleId) dirs.push(dir);
