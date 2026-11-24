@@ -60,6 +60,7 @@ export {
   buildClaudeRestrictions,
   sandboxAvailability,
 } from './role-sandbox-restrictions.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 
 const audited = new WeakMap<OrgBus, Set<string>>();
 function auditOnce(
@@ -291,7 +292,7 @@ export function gitEnforcementFindings(
   const unsandboxed: string[] = [];
   const off: string[] = [];
   for (const role of def.roles) {
-    if ((role as { kind?: string }).kind === 'endpoint') continue;
+    if (isSessionlessRole(role)) continue;
     const level = role.policy?.git ?? 'read';
     if (level === 'push') continue;
     const runtime = effectiveRoleRuntime(role.runtime, def.runtime, role.provider?.kind);

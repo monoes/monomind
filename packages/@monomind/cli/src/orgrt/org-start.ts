@@ -12,7 +12,8 @@ import type { OrgDaemon } from './daemon.js';
 import type { RunningOrg } from './daemon-types.js';
 import * as decisionOps from './decisions.js';
 import { bindRoleWorkspaces } from './documents/deliverable-guards.js';
-import { agentRoles, isEndpointRole } from './endpoint-roles.js';
+import { agentRoles } from './endpoint-roles.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 import { attachForwarder } from './forwarder.js';
 import * as idleWatchdog from './idle-watchdog.js';
 import * as orgMemory from './org-memory.js';
@@ -282,7 +283,7 @@ async function startOrgInner(
   // gate logic or duplicating the session-wiring below.
   const spawnRole = (role: OrgRole, roleCheckpoint?: RoleCheckpoint): void => {
     if (running.agents.has(role.id)) return;
-    if (isEndpointRole(role)) return; // M2: no session, mailbox or slot
+    if (isSessionlessRole(role)) return; // M2: no session, mailbox or slot
     // #552: nothing spawns while the org-wide run_config.budget_tokens ceiling
     // is spent — a reload that raises it clears this and re-spawns the roles.
     // A caller that took the role out of pendingRoles doesn't lose it: it is
@@ -332,7 +333,7 @@ async function startOrgInner(
     }
     const pendingRoles = new Map<string, OrgRole>();
     for (const role of def.roles) {
-      if (!restoredRoles.has(role.id) && !isEndpointRole(role)) {
+      if (!restoredRoles.has(role.id) && !isSessionlessRole(role)) {
         pendingRoles.set(role.id, role);
       }
     }
@@ -361,7 +362,7 @@ async function startOrgInner(
     // message (see deliver()), avoiding the memory gate stampede at startup.
     const pendingRoles = new Map<string, OrgRole>();
     for (const role of def.roles) {
-      if (role.id === bossRole.id || isEndpointRole(role)) continue;
+      if (role.id === bossRole.id || isSessionlessRole(role)) continue;
       pendingRoles.set(role.id, role);
     }
     running.pendingRoles = pendingRoles;

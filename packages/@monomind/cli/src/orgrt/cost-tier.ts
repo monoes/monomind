@@ -58,6 +58,7 @@
 
 import { latestModel } from '../latest-models.js';
 import type { OrgDef, OrgRole } from './types.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 
 /** Abstract reasoning-effort level. Mirrors the Claude Agent SDK's
  *  `EffortLevel` ('low' | 'medium' | 'high' | 'xhigh' | 'max') plus an
@@ -262,7 +263,7 @@ export function validateCostTiers(def: OrgDef): string[] {
   }
 
   for (const role of def.roles ?? []) {
-    if (role.kind === 'endpoint') continue; // endpoint roles run no model session
+    if (isSessionlessRole(role)) continue; // endpoint roles run no model session
     try {
       resolveRoleCostTier({ role, def });
     } catch (err) {

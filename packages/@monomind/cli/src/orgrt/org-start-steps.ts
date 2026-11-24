@@ -34,6 +34,7 @@ import {
   retryQueuedEndpoints,
   startEndpointRetryLoop,
 } from './endpoint-roles.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 import {
   createFenceForRole,
   loadGlobalFenceConfig,
@@ -398,7 +399,7 @@ export async function startInboxAndDrain(
       },
     );
   for (const msg of queued) {
-    if (isEndpointRole(def.roles.find((r) => r.id === msg.toRole))) continue;
+    if (isSessionlessRole(def.roles.find((r) => r.id === msg.toRole))) continue;
     // Spawn a lazy target before delivering. These messages were queued while
     // the org was offline — a human's answer, or another org's request — and
     // the whole point of draining is that they arrive. Skipping a role merely

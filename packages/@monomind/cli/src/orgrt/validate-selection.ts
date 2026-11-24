@@ -6,8 +6,9 @@
  * critical, so each message states what it saw and the measured reason.
  */
 import type { OrgDef } from './types.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 
-const isAgent = (r: OrgDef['roles'][number]): boolean => r.kind !== 'endpoint';
+const isAgent = (r: OrgDef['roles'][number]): boolean => !isSessionlessRole(r);
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 

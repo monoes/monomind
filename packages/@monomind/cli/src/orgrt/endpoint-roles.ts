@@ -23,6 +23,7 @@ import { isAbsolute } from 'node:path';
 import type { OrgDaemon, RunningOrg } from './daemon.js';
 import { newMessageId, peekInbox, type QueuedMessage, queueMessage, takeQueued } from './inbox.js';
 import type { OrgDef, OrgRole } from './types.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 
 export const ENDPOINT_POST_TIMEOUT_MS = 15_000;
 export const DEFAULT_ENDPOINT_WAIT_MS = 600_000;
@@ -45,7 +46,7 @@ export function isEndpointRole(role: unknown): boolean {
 
 /** Roles that get sessions — everything except endpoint roles. */
 export function agentRoles<R>(roles: R[]): R[] {
-  return roles.filter((r) => !isEndpointRole(r));
+  return roles.filter((r) => !isSessionlessRole(r));
 }
 
 export function findEndpointRole(

@@ -6,6 +6,7 @@
 import type { AgentRuntime, RuntimeKind } from './daemon.js';
 import { BASE_SPECS } from './runner-specs.js';
 import type { OrgDef, OrgRole } from './types.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 
 export type RoleSlotPhase =
   | 'pending'
@@ -96,7 +97,7 @@ export function computeReplacementBudget(def: OrgDef, roleId: string): number {
   const overriddenTokenSum = def.roles.reduce((sum, r) => sum + (r.budget_tokens ?? 0), 0);
   // M2: endpoint roles take no share of the token budget.
   const unoverriddenRoleCount = def.roles.filter(
-    (r) => r.budget_tokens == null && (r as { kind?: string }).kind !== 'endpoint',
+    (r) => r.budget_tokens == null && !isSessionlessRole(r),
   ).length;
   return unoverriddenRoleCount > 0
     ? Math.max(0, Math.floor((orgBudgetTokens - overriddenTokenSum) / unoverriddenRoleCount))
