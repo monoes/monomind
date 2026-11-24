@@ -31,6 +31,12 @@ function inMask(mask: string[], script: string, ...argv: string[]) {
 const READ = `try{process.stdout.write('READ:'+require('fs').readFileSync(process.argv[1],'utf8'))}catch(e){process.stdout.write('DENIED:'+e.code);process.exit(3)}`;
 const WRITE = `try{require('fs').writeFileSync(process.argv[1],'x');process.stdout.write('WROTE')}catch(e){process.stdout.write('DENIED:'+e.code);process.exit(3)}`;
 
+// The CI job sets this so a launcher that cannot run fails the job instead of skipping it.
+it.runIf(process.platform === 'win32' && process.env.MONOMIND_REQUIRE_WIN_MASK === '1')(
+  'the launcher runs on this Windows host',
+  () => expect(avail).toEqual({ available: true }),
+);
+
 describe.runIf(avail.available)('the native Windows mask (real restricted token)', () => {
   function world() {
     const home = scratch('w32r-home-');
