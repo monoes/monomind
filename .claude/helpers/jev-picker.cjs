@@ -4,19 +4,24 @@
  * hook (handlers/route-handler.cjs) and the CLI (src/decision/jev.ts requires
  * this file from the package's .claude/helpers).
  *
- * Speaks POST /v1/systemone, which hosted Jev (api.typesafe.ai) and the OpenJev
- * helper shim share. Providers are tried in order (MONOMIND_JEV_URL, then
+ * Providers come from jev-providers.cjs (kind `systemone` speaks POST
+ * /v1/systemone, which hosted Jev (api.typesafe.ai) and the OpenJev helper
+ * shim share). Providers are tried in order (MONOMIND_JEV_URL, then
  * TYPESAFE_API_KEY) inside ONE total window (MONOMIND_JEV_TIMEOUT_MS, default
  * 3000). Nothing configured → no network, and pick() resolves null so every
  * caller keeps its existing routing.
  */
 var redaction = require('./redact-secrets.cjs');
+// The provider registry (protocol kinds, env resolution, confidence). Missing
+// file => this module fails to load => the hook keeps keyword routing.
+var registry = require('./jev-providers.cjs');
+var JevError = registry.JevError;
+var TYPESAFE_BASE_URL = registry.TYPESAFE_BASE_URL;
+var resolveProviders = registry.resolveProviders;
 // Keyword ranking builds the candidate shortlist (and is every caller's fallback).
 var pickRank = require('./pick-rank.cjs');
 var shortlist = pickRank.shortlist;
 
-var TYPESAFE_BASE_URL = 'https://api.typesafe.ai';
-var DEFAULT_MODEL = 'jev-latest';
 var DEFAULT_TIMEOUT_MS = 3000;
 var MIN_TIMEOUT_MS = 100;
 var MAX_TIMEOUT_MS = 30000;
@@ -33,53 +38,14 @@ var DEFAULT_MAX_SKILLS = 3;
 var DEFAULT_MAX_CANDIDATES = 30;
 var MAX_DESCRIPTION_CHARS = 160;
 var MAX_STATE_CHARS = 8000;
-var MAX_RESPONSE_CHARS = 1024 * 1024;
 var NONE_ID = '__none__';
-var OFF_VALUES = ['0', 'off', 'false', 'no'];
-var ON_VALUES = ['1', 'on', 'true', 'yes'];
 var DEFAULT_HOOK_TIMEOUT_MS = 1500;
 // Every prompt waits on the hook window, so a larger value is capped here
 // whatever MONOMIND_JEV_HOOK_TIMEOUT_MS asks: a dead endpoint once held each
 // prompt 10 s. Hosted Jev answers well inside it.
 var MAX_HOOK_TIMEOUT_MS = 3000;
 
-class JevError extends Error {
-  constructor(message, provider, status) {
-    super(message);
-    this.name = 'JevError';
-    this.provider = provider;
-    this.status = status;
-  }
-}
-
 // ── Configuration ──────────────────────────────────────────────────────────
-
-function readEnvValue(env, name) {
-  var value = env[name];
-  if (typeof value !== 'string') return undefined;
-  value = value.trim();
-  return value ? value : undefined;
-}
-
-function isDisabled(env) {
-  var value = readEnvValue(env || process.env, 'MONOMIND_JEV');
-  return value !== undefined && OFF_VALUES.indexOf(value.toLowerCase()) !== -1;
-}
-
-/** http(s) origin + path, trailing slashes and a trailing /v1 removed; null if unusable. */
-function normalizeBaseUrl(value) {
-  var raw = typeof value === 'string' ? value.trim() : '';
-  if (!raw) return null;
-  var url;
-  try {
-    url = new URL(raw);
-  } catch (e) {
-    return null;
-  }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-  if (url.username || url.password) return null;
-  return url.origin + url.pathname.replace(/\/+$/, '').replace(/\/v1$/, '');
-}
 
 function resolveTimeoutMs(env) {
   var n = Number((env || process.env).MONOMIND_JEV_TIMEOUT_MS);
@@ -109,79 +75,6 @@ function floorFor(env, minConfidence) {
   return minConfidence > 0 && minConfidence <= 1 ? minConfidence : resolveMinConfidence(env);
 }
 
-/** Shorthand properties keep a key variable out of `apiKey: <expr>` shapes,
- *  which the repo's git pre-commit secret gate rejects. */
-function makeProvider(name, baseUrl, apiKey, model) {
-  return { name: name, baseUrl: baseUrl, apiKey, model: model };
-}
-
-function resolveProviders(env) {
-  env = env || process.env;
-  if (isDisabled(env)) return [];
-  var model = readEnvValue(env, 'MONOMIND_JEV_MODEL') || DEFAULT_MODEL;
-  var providers = [];
-  var customUrl = normalizeBaseUrl(env.MONOMIND_JEV_URL);
-  if (customUrl) {
-    var customKey = readEnvValue(env, 'MONOMIND_JEV_API_KEY');
-    providers.push(makeProvider('custom', customUrl, customKey, model));
-  }
-  // TYPESAFE_API_KEY alone never sends anything: it may be set for unrelated
-  // TypeSafe use, and every prompt would silently leave the machine.
-  var typesafeKey = readEnvValue(env, 'TYPESAFE_API_KEY');
-  var hosted = (readEnvValue(env, 'MONOMIND_JEV_HOSTED') || '').toLowerCase();
-  if (typesafeKey && ON_VALUES.indexOf(hosted) !== -1) {
-    providers.push(makeProvider('typesafe', TYPESAFE_BASE_URL, typesafeKey, model));
-  }
-  return providers;
-}
-
-// ── Protocol ───────────────────────────────────────────────────────────────
-
-async function postSystemOne(provider, request, timeoutMs, fetchImpl) {
-  var doFetch = fetchImpl || globalThis.fetch;
-  var headers = { 'content-type': 'application/json' };
-  if (provider.apiKey) headers.authorization = 'Bearer ' + provider.apiKey;
-  var text;
-  try {
-    var res = await doFetch(provider.baseUrl + '/v1/systemone', {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(request),
-      // A redirect would re-send the bearer key to wherever it points.
-      redirect: 'error',
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (!res.ok) throw new JevError('HTTP ' + res.status, provider.name, res.status);
-    text = await res.text();
-  } catch (err) {
-    if (err instanceof JevError) throw err;
-    throw new JevError('request failed: ' + (err && err.message ? err.message : String(err)), provider.name);
-  }
-  if (text.length > MAX_RESPONSE_CHARS) throw new JevError('response too large', provider.name);
-  var body;
-  try {
-    body = JSON.parse(text);
-  } catch (e) {
-    throw new JevError('response is not JSON', provider.name);
-  }
-  if (!body || typeof body !== 'object' || !body.answers || typeof body.answers !== 'object') {
-    throw new JevError('response has no answers', provider.name);
-  }
-  return body;
-}
-
-function isValidAnswer(answer, question) {
-  if (!answer || typeof answer !== 'object' || answer.type !== question.type) return false;
-  if (question.type === 'noul') return Number.isFinite(answer.noul);
-  return (
-    typeof answer.choice === 'string' &&
-    Object.prototype.hasOwnProperty.call(question.criteria, answer.choice) &&
-    Number.isFinite(answer.confidence) &&
-    answer.confidence >= 0 &&
-    answer.confidence <= 1
-  );
-}
-
 function report(onError, err) {
   if (typeof onError !== 'function') return;
   try {
@@ -191,38 +84,41 @@ function report(onError, err) {
   }
 }
 
-/** Ask every question in one request; first provider with a usable answer wins. */
+/** Ask every question of each provider in turn; the first with a usable answer
+ *  wins. Every answer is checked against the options that were sent and its
+ *  confidence settled in one place (registry.settleAnswer). */
 async function ask(state, questions, opts) {
   opts = opts || {};
   var env = opts.env || process.env;
-  var providers = opts.providers || resolveProviders(env);
+  var configs = opts.providers || resolveProviders(env);
   var ids = Object.keys(questions);
-  if (providers.length === 0 || ids.length === 0) return null;
+  if (configs.length === 0 || ids.length === 0) return null;
   var deadline = Date.now() + (opts.timeoutMs || resolveTimeoutMs(env));
-  for (var i = 0; i < providers.length; i++) {
-    var provider = providers[i];
+  for (var i = 0; i < configs.length; i++) {
+    var config = configs[i];
     var remaining = deadline - Date.now();
     if (remaining < MIN_PROVIDER_WINDOW_MS) break;
     try {
-      var body = await postSystemOne(
-        provider,
-        { state: state, model: provider.model, questions: questions },
-        remaining,
-        opts.fetchImpl,
-      );
+      var res = await registry
+        .createProvider(config)
+        .ask(state, questions, { timeoutMs: remaining, fetchImpl: opts.fetchImpl });
       var answers = {};
       var usable = 0;
       for (var j = 0; j < ids.length; j++) {
-        var answer = body.answers[ids[j]];
-        if (isValidAnswer(answer, questions[ids[j]])) {
-          answers[ids[j]] = answer;
+        var answer = res.answers[ids[j]];
+        if (registry.isValidAnswer(answer, questions[ids[j]])) {
+          answers[ids[j]] = registry.settleAnswer(answer, questions[ids[j]]);
           usable++;
         }
       }
-      if (usable > 0) return { provider: provider.name, answers: answers };
-      report(opts.onError, new JevError('no usable answer', provider.name));
+      if (usable > 0) {
+        var out = { provider: config.name, answers: answers };
+        if (res.usage) out.usage = res.usage;
+        return out;
+      }
+      report(opts.onError, new JevError('no usable answer', config.name));
     } catch (err) {
-      report(opts.onError, err instanceof JevError ? err : new JevError(String(err), provider.name));
+      report(opts.onError, err instanceof JevError ? err : new JevError(String(err), config.name));
     }
   }
   return null;
@@ -232,17 +128,12 @@ async function ask(state, questions, opts) {
 async function probe(provider, opts) {
   opts = opts || {};
   var started = Date.now();
-  var body = await postSystemOne(
-    provider,
-    {
-      state: 'The sky is blue.',
-      model: provider.model,
-      questions: { probe: { type: 'noul', instructions: 'Does the text mention a colour?' } },
-    },
-    resolveTimeoutMs(opts.env || process.env),
-    opts.fetchImpl,
+  var res = await registry.createProvider(provider).ask(
+    'The sky is blue.',
+    { probe: { type: 'noul', instructions: 'Does the text mention a colour?' } },
+    { timeoutMs: resolveTimeoutMs(opts.env || process.env), fetchImpl: opts.fetchImpl },
   );
-  var answer = body.answers.probe;
+  var answer = res.answers.probe;
   if (!answer || answer.type !== 'noul' || !Number.isFinite(answer.noul)) {
     throw new JevError('probe answer is malformed', provider.name);
   }
@@ -283,7 +174,12 @@ function rankedFrom(answer, criteria) {
 }
 
 function toAnswer(answer, criteria) {
-  return { choice: answer.choice, confidence: answer.confidence, ranked: rankedFrom(answer, criteria) };
+  return {
+    choice: answer.choice,
+    confidence: answer.confidence,
+    probSource: answer.probSource,
+    ranked: rankedFrom(answer, criteria),
+  };
 }
 
 /** The options sent for one question: the keyword-ranked items that share a
@@ -323,8 +219,8 @@ function candidatesFor(text, items, max, include) {
 async function pick(task, catalogs, opts) {
   opts = opts || {};
   var env = opts.env || process.env;
-  var providers = resolveProviders(env);
-  if (providers.length === 0) return null;
+  var configs = resolveProviders(env);
+  if (configs.length === 0) return null;
   var text = redaction.redactHead(task).slice(0, MAX_STATE_CHARS);
   if (!text.trim()) return null;
   var max = opts.maxCandidates || DEFAULT_MAX_CANDIDATES;
@@ -353,13 +249,14 @@ async function pick(task, catalogs, opts) {
   if (!questions.agent && !questions.skill) return null;
   var res = await ask(text, questions, {
     env: env,
-    providers: providers,
+    providers: configs,
     fetchImpl: opts.fetchImpl,
     onError: opts.onError,
     timeoutMs: opts.timeoutMs,
   });
   if (!res) return null;
   var out = { provider: res.provider };
+  if (res.usage) out.usage = res.usage;
   if (res.answers.agent) out.agent = toAnswer(res.answers.agent, questions.agent.criteria);
   if (res.answers.skill) out.skill = toAnswer(res.answers.skill, questions.skill.criteria);
   return out;
@@ -408,8 +305,8 @@ module.exports = {
   JevError: JevError,
   NONE_ID: NONE_ID,
   TYPESAFE_BASE_URL: TYPESAFE_BASE_URL,
-  isDisabled: isDisabled,
-  normalizeBaseUrl: normalizeBaseUrl,
+  isDisabled: registry.isDisabled,
+  normalizeBaseUrl: registry.normalizeBaseUrl,
   resolveTimeoutMs: resolveTimeoutMs,
   resolveMinConfidence: resolveMinConfidence,
   resolvePickMinConfidence: resolvePickMinConfidence,
@@ -417,7 +314,9 @@ module.exports = {
   redactSecrets: redaction.redactSecrets,
   SECRET_PATTERNS: redaction.SECRET_PATTERNS,
   resolveProviders: resolveProviders,
-  postSystemOne: postSystemOne,
+  postSystemOne: registry.postSystemOne,
+  registry: registry,
+  confidenceFrom: registry.confidenceFrom,
   ask: ask,
   probe: probe,
   shortlist: shortlist,

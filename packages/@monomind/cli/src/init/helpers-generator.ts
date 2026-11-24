@@ -71,6 +71,10 @@ export const HELPER_FILES: Record<string, HelperFileSpec> = {
   // by the CLI's src/decision/jev.ts. No fallback generator: without it the
   // hook keeps keyword routing.
   'jev-picker.cjs': { forceSync: true, doctorTracked: true },
+  // The decision-provider registry (protocol kinds, env resolution, central
+  // confidence) jev-picker.cjs requires; without it the picker fails to load
+  // and the hook keeps keyword routing.
+  'jev-providers.cjs': { forceSync: true, doctorTracked: true },
   // The secret redactor jev-picker.cjs requires; without it the picker fails to
   // load and the hook keeps keyword routing.
   'redact-secrets.cjs': { forceSync: true, doctorTracked: true },
