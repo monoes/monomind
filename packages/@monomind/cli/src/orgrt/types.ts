@@ -255,6 +255,13 @@ export const OrgDefSchema = z
          *  ("scraper → analyst → builder") or just its endpoints
          *  ("scraper→builder") — see access-taint.ts. */
         accept_full_access_taint: z.array(z.string()).optional(),
+        /** #768: a sections org only. 'strict' (the default) refuses to start, resume or
+         *  replace a role on a host without the authority mask or the SDK sandbox (GA row R6).
+         *  'best-effort' starts anyway, with those gaps as warnings: mail digests, the envelope
+         *  key and native runner copies are then protected by file-tool rules alone. For hosts
+         *  that cannot provide the mask (native Windows, a macOS shell already inside a sandbox).
+         *  Runtimes the copy inventory refuses stay refused. See documents/preflight.ts. */
+        host_isolation: z.enum(['strict', 'best-effort']).optional(),
       })
       .partial()
       .passthrough()

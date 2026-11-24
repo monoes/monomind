@@ -67,7 +67,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.6.8",
     "@monoes/monograph": "workspace:*",
-    "@types/better-sqlite3": "^7.6.13",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.6",
     "better-sqlite3": "^13.2.0",
     "tsx": "^4.23.15",

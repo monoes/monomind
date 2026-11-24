@@ -178,6 +178,12 @@ export function describeOrgAuthority(raw: unknown): string[] {
     org.push(`allow_unattended_full_access: ${String(rc.allow_unattended_full_access)}`);
   if (rc.accept_full_access_taint !== undefined)
     org.push(`accept_full_access_taint: ${json(rc.accept_full_access_taint)}`);
+  if (rc.host_isolation !== undefined)
+    org.push(
+      rc.host_isolation === 'best-effort'
+        ? 'host_isolation: best-effort (a sections org starts without the authority mask or SDK sandbox when the host lacks them)'
+        : `host_isolation: ${String(rc.host_isolation)}`,
+    );
   for (const k of ['federation', 'fence', 'loadouts'])
     if (def[k] !== undefined) org.push(`${k}: ${json(def[k])}`);
   if (org.length) lines.push('  org:', ...org.map((l) => `      ${l}`));

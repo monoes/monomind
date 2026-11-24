@@ -6,7 +6,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   assessFreshness,
+  OPTIONAL_PACKAGES,
   refresh,
+  refreshOptional,
   replaceSdkObject,
   verifiedTarball,
 } from '../../scripts/claude-sdk-maintenance.mjs';
@@ -142,6 +144,108 @@ describe('verified SDK refresh', () => {
       }
     },
   );
+
+  describe('the other exact-pinned optional packages (#851)', () => {
+    const tf = '@huggingface/transformers';
+    const pb = '@puppeteer/browsers';
+    const bytes = Buffer.from('verified registry bytes');
+    const integrity = `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
+    const fetcher = async () => ({ ok: true, arrayBuffer: async () => bytes });
+    const setup = () => {
+      const root = mkdtempSync(join(tmpdir(), 'optional-refresh-test-'));
+      const cli = join(root, 'packages/@monomind/cli');
+      mkdirSync(join(cli, 'src/utils'), { recursive: true });
+      writeFileSync(
+        join(cli, 'src/utils/optional-deps.ts'),
+        `export const OPTIONAL_DEPENDENCIES = {\n  '${pb}': { version: '3.0.6' },\n  '${tf}': { version: '4.3.0' },\n};`,
+      );
+      writeFileSync(
+        join(cli, 'src/utils/optional-deps-locks.ts'),
+        `export const OPTIONAL_DEPENDENCY_LOCKS = {\n  '${pb}': { old: true },\n  '${tf}': { old: true },\n};\nexport const OPTIONAL_DEPENDENCY_CODE_PINS = {\n  '${tf}': { old: true },\n  'other': { keep: true },\n};`,
+      );
+      writeFileSync(
+        join(cli, 'package.json'),
+        JSON.stringify({ devDependencies: { [tf]: '4.3.0', other: '1.0.0' } }),
+      );
+      return { root, cli };
+    };
+    const fakeRun = (name, version) => (command, args, options) => {
+      if (command === 'npm') {
+        const resolved = 'https://registry.npmjs.org/p/-/p.tgz';
+        const lock = { packages: { [`node_modules/${name}`]: { version, resolved, integrity } } };
+        writeFileSync(join(options.cwd, 'package-lock.json'), JSON.stringify(lock));
+        return;
+      }
+      expect(args.at(-1)).toBe('package/dist/transformers.node.cjs');
+      return Buffer.from('transformers entry');
+    };
+
+    it('lists both packages, with the entry file only where code is pinned', () => {
+      expect(OPTIONAL_PACKAGES[tf]).toEqual({ entry: 'dist/transformers.node.cjs' });
+      expect(OPTIONAL_PACKAGES[pb]).toEqual({});
+    });
+    it('refreshes transformers: pin, lock, entry hash and devDependency together', async () => {
+      const { root, cli } = setup();
+      try {
+        await refreshOptional(root, tf, '4.4.0', { run: fakeRun(tf, '4.4.0'), fetcher });
+        const deps = readFileSync(join(cli, 'src/utils/optional-deps.ts'), 'utf8');
+        expect(deps).toContain(`'${tf}': { version: '4.4.0' }`);
+        expect(deps).toContain(`'${pb}': { version: '3.0.6' }`);
+        const locks = readFileSync(join(cli, 'src/utils/optional-deps-locks.ts'), 'utf8');
+        expect(locks).toContain(integrity);
+        expect(locks).toContain(createHash('sha256').update('transformers entry').digest('hex'));
+        expect(locks).toContain(`'${pb}': { old: true }`);
+        expect(locks).toContain("'other': { keep: true }");
+        const manifest = JSON.parse(readFileSync(join(cli, 'package.json'), 'utf8'));
+        expect(manifest.devDependencies).toEqual({ [tf]: '4.4.0', other: '1.0.0' });
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+    it('refreshes @puppeteer/browsers: lock only, no code pin and no manifest entry', async () => {
+      const { root, cli } = setup();
+      try {
+        await refreshOptional(root, pb, '3.1.0', { run: fakeRun(pb, '3.1.0'), fetcher });
+        const deps = readFileSync(join(cli, 'src/utils/optional-deps.ts'), 'utf8');
+        expect(deps).toContain(`'${pb}': { version: '3.1.0' }`);
+        expect(deps).toContain(`'${tf}': { version: '4.3.0' }`);
+        const locks = readFileSync(join(cli, 'src/utils/optional-deps-locks.ts'), 'utf8');
+        expect(locks).toContain(integrity);
+        expect(locks).toContain(`'${tf}': { old: true }`);
+        const manifest = JSON.parse(readFileSync(join(cli, 'package.json'), 'utf8'));
+        expect(manifest.devDependencies[pb]).toBeUndefined();
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+    it('writes nothing when the tarball fails its integrity check', async () => {
+      const { root, cli } = setup();
+      try {
+        await expect(
+          refreshOptional(root, pb, '3.1.0', {
+            run: fakeRun(pb, '3.1.0'),
+            fetcher: async () => ({ ok: true, arrayBuffer: async () => Buffer.from('tampered') }),
+          }),
+        ).rejects.toThrow('integrity');
+        expect(readFileSync(join(cli, 'src/utils/optional-deps.ts'), 'utf8')).toContain("'3.0.6'");
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+    it('rejects a lock whose version differs from the requested one', async () => {
+      const { root } = setup();
+      try {
+        await expect(
+          refreshOptional(root, pb, '3.1.0', { run: fakeRun(pb, '9.9.9'), fetcher }),
+        ).rejects.toThrow('version mismatch');
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+    it('refuses a package that is not in the refresh list', async () => {
+      await expect(refreshOptional('/nonexistent', 'evil', '1.0.0')).rejects.toThrow('Unsupported');
+    });
+  });
 
   describe('a registry failure', () => {
     const offline =

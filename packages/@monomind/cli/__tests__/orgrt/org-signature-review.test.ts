@@ -292,6 +292,11 @@ describe('5. the sign review', () => {
     expect(text).not.toContain('hidden-value');
   });
 
+  it('flags run_config.host_isolation "best-effort" (#768)', () => {
+    const text = describeOrgAuthority(def({}, { run_config: { host_isolation: 'best-effort' } })).join('\n');
+    expect(text).toMatch(/host_isolation: best-effort \(a sections org starts without the authority mask/);
+  });
+
   it('names every role that runs unconfined', () => {
     const raw = def({ runtime: 'codex' }, { roles: [{ id: 'boss' }, { id: 'dev', runtime: 'codex' }, { id: 'full', policy: { access: 'full' } }, { id: 'pusher', policy: { git: 'push' } }] });
     const none = { available: false, reason: 'test' };
