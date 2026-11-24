@@ -8,6 +8,7 @@ import { clearDeferredSpawn, isDeferredSpawn, markDeferredSpawn } from './cross-
 import { federationAllows, federationDef, federationDenied } from './cross-org-federation.js';
 import { pushMessage } from './cross-org-mail.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
+import { findDecisionRole } from './decision-roles.js';
 import { deliverToEndpoint, findEndpointRole } from './endpoint-roles.js';
 import { newMessageId, queueMessage } from './inbox.js';
 
@@ -272,6 +273,12 @@ export async function receiveRemote(
     }
     return { ok: false, error: `org "${toOrg}" not hosted here` };
   }
+  // #835: a decision role takes same-org mail only (resolved decision).
+  if (findDecisionRole(org.def, toRole))
+    return {
+      ok: false,
+      error: `decision role "${toOrg}:${toRole}" does not take cross-org mail (sender ${fromQualified})`,
+    };
   // M2: an endpoint role has no mailbox — POST to its endpoint instead.
   const endpointRole = findEndpointRole(org.def, toRole);
   if (endpointRole) {

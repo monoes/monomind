@@ -143,6 +143,7 @@ export function describeOrgAuthority(raw: unknown): string[] {
       ['adapter_config', role.adapter_config],
       ['provider', role.provider],
       ['endpoint', role.endpoint],
+      ['decision', role.decision],
       ['instructions_file', role.instructions_file],
       ['blueprint', role.blueprint],
       ['skills', role.skills],

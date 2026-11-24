@@ -34,6 +34,7 @@ import {
   retryQueuedEndpoints,
   startEndpointRetryLoop,
 } from './endpoint-roles.js';
+import { findDecisionRole } from './decision-roles.js';
 import { isSessionlessRole } from './sessionless-roles.js';
 import {
   createFenceForRole,
@@ -399,6 +400,28 @@ export async function startInboxAndDrain(
       },
     );
   for (const msg of queued) {
+    // #835: sessionless but not an endpoint — a decision role has no mailbox to drain into, so
+    // its mail needs explicit routing: answer or forward, same-org senders only.
+    if (findDecisionRole(def, msg.toRole)) {
+      void crossOrg
+        .deliver(daemon, name, msg.fromQualified, msg.toRole, msg.subject, msg.body, {
+          messageId: msg.messageId,
+        })
+        .then((receipt) => {
+          if (receipt.startsWith('REFUSED'))
+            bus.emit({
+              type: 'audit',
+              from: msg.toRole,
+              reason: 'decision-cross-org-refused',
+              msg: receipt,
+              data: { messageId: msg.messageId },
+            });
+        })
+        .catch(() => {
+          /* best-effort — the sender sees no reply */
+        });
+      continue;
+    }
     if (isSessionlessRole(def.roles.find((r) => r.id === msg.toRole))) continue;
     // Spawn a lazy target before delivering. These messages were queued while
     // the org was offline — a human's answer, or another org's request — and

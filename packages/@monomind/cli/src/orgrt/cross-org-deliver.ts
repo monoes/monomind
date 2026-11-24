@@ -6,6 +6,7 @@ import { pushMessage, resolveAddress } from './cross-org-mail.js';
 import { deliverRemote } from './cross-org-remote.js';
 import { activeRoleCount, type OrgDaemon } from './daemon.js';
 import { crossSectionRefusal } from './documents/routing.js';
+import { deliverToDecision, findDecisionRole } from './decision-roles.js';
 import { deliverToEndpoint, findEndpointRole } from './endpoint-roles.js';
 import { newMessageId, queueMessage } from './inbox.js';
 
@@ -88,6 +89,23 @@ export async function deliver(
       src,
       eventTo: toQualified,
     });
+  }
+  // #835: a decision role has no mailbox — it answers synchronously or forwards to its fallback.
+  const decisionRole = targetOrg ? findDecisionRole(targetOrg.def, targetRole) : undefined;
+  if (targetOrg && decisionRole) {
+    return deliverToDecision(
+      {
+        orgName: targetOrgName,
+        org: targetOrg,
+        role: decisionRole,
+        from: cross ? `${fromOrg}:${fromRole}` : fromRole,
+        subject,
+        body,
+        messageId,
+        eventTo: toQualified,
+      },
+      { send: (f, t, s, b) => deliver(daemon, targetOrgName, f, t, s, b) },
+    );
   }
   // Lazy spawn: if the role is pending (not yet spawned), spawn it now.
   // ATOMIC GUARD: Check spawning Set to prevent duplicate spawns from concurrent messages

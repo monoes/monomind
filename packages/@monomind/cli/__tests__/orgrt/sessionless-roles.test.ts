@@ -16,10 +16,11 @@ import { OrgDefSchema } from '../../src/orgrt/types.js';
 const SRC = join(__dirname, '..', '..', 'src');
 
 describe('isSessionlessRole', () => {
-  it('today equals the endpoint check', () => {
+  it('is the endpoint or decision kind', () => {
     for (const r of [{ kind: 'endpoint' }, { kind: 'agent' }, {}, undefined, null, 'x', { kind: 1 }]) {
       expect(isSessionlessRole(r)).toBe(isEndpointRole(r));
     }
+    expect(isSessionlessRole({ kind: 'decision' })).toBe(true);
     expect(isSessionlessRole({ kind: 'endpoint' })).toBe(true);
     expect(isSessionlessRole({ kind: 'agent' })).toBe(false);
   });
@@ -66,6 +67,8 @@ describe('endpoint behaviour pinned at refactored sites', () => {
 /** Files that may spell the endpoint kind literally: the predicates themselves, "is an HTTP endpoint" sites, labels. */
 const ALLOW = new Set([
   'orgrt/endpoint-roles.ts',
+  'orgrt/decision-roles.ts',
+  'orgrt/types-role.ts', // the schema's own kind/block cross-checks (a leaf: imports no runtime predicate)
   'orgrt/sessionless-roles.ts',
   'commands/org-observe-shared.ts', // endpoint-specific: reply tracking / role tables
   'orgrt/documents/writer-overlay.ts', // inert writer core: may import nothing new (writer-inert test)
@@ -80,9 +83,9 @@ function walk(dir: string): string[] {
   });
 }
 
-describe('no new literal endpoint-kind checks', () => {
+describe('no new literal endpoint/decision-kind checks', () => {
   it('src uses the predicates outside the allow-list', () => {
-    const re = /kind\s*[!=]==?\s*'endpoint'/;
+    const re = /kind\s*[!=]==?\s*'(endpoint|decision)'/;
     const hits = walk(SRC)
       .map((f) => relative(SRC, f))
       .filter((f) => !ALLOW.has(f))

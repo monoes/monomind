@@ -36,6 +36,7 @@ export async function printDryRun(
     const def = bp.def;
     const { buildRolePrompt, resolveRoleExtraGuidance } = await import('../orgrt/session.js');
     const { agentRoles, endpointBriefingLines } = await import('../orgrt/endpoint-roles.js');
+    const { decisionBriefingLines } = await import('../orgrt/decision-roles.js');
     const { expandRolePromptVars, promptVarsFor } = await import('../orgrt/prompt-vars.js');
     const roster = def.roles.map((r) => r.id);
     // M2: endpoint roles get no session, so no briefing and no budget share.
@@ -80,7 +81,9 @@ export async function printDryRun(
           roster,
           glossary,
           resolveRoleExtraGuidance(role, cwd),
-          role.id === bossId ? endpointBriefingLines(def) : undefined,
+          role.id === bossId
+            ? [...endpointBriefingLines(def), ...decisionBriefingLines(def)]
+            : undefined,
         ),
       );
     }
