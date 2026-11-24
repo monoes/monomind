@@ -20,7 +20,7 @@ import type { RunningOrg } from './daemon.js';
 import type { OrgDef, OrgRole } from './types.js';
 
 export const DECISION_TIMEOUT_MS = 10_000;
-const QUESTION_ID = 'decision';
+export const QUESTION_ID = 'decision';
 const MAX_STATE_CHARS = 8000;
 
 /** Keys a decision role may not carry (it is not an agent). */
@@ -69,7 +69,8 @@ export function decisionBriefingLines(def: Pick<OrgDef, 'roles'> | undefined): s
   if (!def) return [];
   return def.roles.filter(isDecisionRole).map((r) => {
     const d = r.decision;
-    const options = d?.question === 'choice' ? ` Options: ${Object.keys(d.criteria).join(', ')}.` : '';
+    const options =
+      d?.question === 'choice' ? ` Options: ${Object.keys(d.criteria).join(', ')}.` : '';
     return `- ${r.id} (${r.title || r.type}) is an automated decision service, not an agent. Message it with org_send; it answers at once when confident, otherwise your message goes to ${d?.fallback_role}.${options}`;
   });
 }
@@ -155,26 +156,37 @@ function judge(role: OrgRole, result: JevAskResult | null): Verdict {
   };
 }
 
-async function consult(role: OrgRole, state: string, deps: DecisionDeps): Promise<Verdict> {
+/** Put one question to the role's provider. `why` names every way it can come back empty. */
+export async function askRole(
+  role: OrgRole,
+  state: string,
+  deps: Pick<DecisionDeps, 'ask' | 'resolveProvider'>,
+): Promise<{ result: JevAskResult | null } | { why: string }> {
   const d = role.decision!;
   const mod = jevModule();
   const resolve =
-    deps.resolveProvider ?? ((n: string) => mod?.resolveProviders(process.env).find((p) => p.name === n));
+    deps.resolveProvider ??
+    ((n: string) => mod?.resolveProviders(process.env).find((p) => p.name === n));
   const ask = deps.ask ?? mod?.ask?.bind(mod);
   const base = resolve(d.provider);
-  if (!ask || !base) return { above: false, why: `provider "${d.provider}" is not available` };
+  if (!ask || !base) return { why: `provider "${d.provider}" is not available` };
   const redact = mod?.redactSecrets ?? ((t: string) => t);
   try {
     const provider = { ...base, model: d.model ?? base.model };
-    const res = await ask(
+    const result = await ask(
       redact(state).slice(0, MAX_STATE_CHARS),
       { [QUESTION_ID]: buildQuestion(d) },
       { providers: [provider], timeoutMs: DECISION_TIMEOUT_MS },
     );
-    return judge(role, res);
+    return { result };
   } catch (err) {
-    return { above: false, why: `provider failed: ${err instanceof Error ? err.message : String(err)}` };
+    return { why: `provider failed: ${err instanceof Error ? err.message : String(err)}` };
   }
+}
+
+async function consult(role: OrgRole, state: string, deps: DecisionDeps): Promise<Verdict> {
+  const asked = await askRole(role, state, deps);
+  return 'why' in asked ? { above: false, why: asked.why } : judge(role, asked.result);
 }
 
 /** deliver() leg for a target that is a decision role: answer, or forward to fallback_role. */

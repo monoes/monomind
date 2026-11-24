@@ -5,6 +5,7 @@
  * that only does the name-validation / isOrgRunning guard and delegates here. */
 import { existsSync, readFileSync } from 'node:fs';
 import { writeJsonFileAtomic } from '../shared/json-file.js';
+import { deciderRoleErrors } from './decision-decider.js';
 import { decisionStructureErrors } from './decision-roles.js';
 import { endpointStructureErrors } from './endpoint-roles.js';
 import { parseSchedule } from './scheduler.js';
@@ -59,6 +60,8 @@ export function checkOrgStructure(def: Pick<OrgDef, 'roles' | 'schedule'>): stri
   errors.push(...endpointStructureErrors(def));
   // #835: decision roles are automated deciders, not agents.
   errors.push(...decisionStructureErrors(def));
+  // #835 PR 7: autonomy.decider {kind: 'role'} must name a usable decision role.
+  errors.push(...deciderRoleErrors(def as Parameters<typeof deciderRoleErrors>[0]));
   return errors;
 }
 

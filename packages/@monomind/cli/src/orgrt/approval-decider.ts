@@ -25,9 +25,11 @@
 
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ApprovalWaitResult } from './approval-waiters.js';
-import { checkApprovalEntry } from './approvals.js';
+import { type ApprovalWaitResult, abandonApprovalWaiters } from './approval-waiters.js';
+import { checkApprovalEntry, setApproval } from './approvals.js';
 import type { OrgDaemon } from './daemon.js';
+import { consultDecisionRole, type RoleLike, roleDeciderTarget } from './decision-decider.js';
+import { DECISION_TIMEOUT_MS, type DecisionDeps, findDecisionRole } from './decision-roles.js';
 import { ORG_DIR } from './types.js';
 
 /** mono-agent's decider timeout when none is set (orgdecide/store.go:29). */
@@ -44,7 +46,9 @@ export const DECIDER_WAIT_MAX_S = 300;
 type Tier = 'routine' | 'consequential' | 'irreversible';
 const TIERS = new Set<string>(['routine', 'consequential', 'irreversible']);
 const LEVELS = new Set<string>(['manual', 'mid', 'full']);
-const DECIDER_KINDS = new Set<string>(['model', 'boss', 'parent', 'jev']);
+/** Slack on top of the decision role's provider timeout for the lock and the resolve. */
+const ROLE_DECIDER_SLACK_MS = 5_000;
+const DECIDER_KINDS = new Set<string>(['model', 'boss', 'parent', 'jev', 'role']);
 
 /** Port of mono-agent ClassForAction (internal/orgdecide/route.go:42-54). */
 export function classForAction(action: string): string {
@@ -105,7 +109,7 @@ export function routeFor(level: string, tier: Tier): 'rule' | 'decider' | 'human
 
 export type ApprovalOwnership =
   | { owner: 'human' }
-  | { owner: 'decider'; decider: string; waitMs: number };
+  | { owner: 'decider'; decider: string; waitMs: number; role?: string };
 
 /** What the approval gate returns: the verdict plus who owns the request.
  *  `approved: null` means still pending (a human request, or an automated
@@ -132,6 +136,18 @@ export function approvalOwnership(
   autonomy: unknown,
   action: string,
   now: number = Date.now(),
+  /** The org's roles, needed to trust a `role` decider (#835 PR 7); absent = human-owned. */
+  roles?: readonly RoleLike[],
+): ApprovalOwnership {
+  return ownershipForClass(autonomy, classForAction(action), now, roles);
+}
+
+/** approvalOwnership for an already classified request (`gate` is a class of its own). */
+export function ownershipForClass(
+  autonomy: unknown,
+  cls: string,
+  now: number,
+  roles?: readonly RoleLike[],
 ): ApprovalOwnership {
   const human = { owner: 'human' as const };
   if (!isObject(autonomy)) return human;
@@ -149,10 +165,19 @@ export function approvalOwnership(
   const t = decider.timeout_seconds;
   if (t !== undefined && (typeof t !== 'number' || !Number.isFinite(t) || t < 0)) return human;
 
-  const cls = classForAction(action);
+  const roleTarget = decider.kind === 'role' ? roleDeciderTarget(decider, roles) : undefined;
+  if (decider.kind === 'role' && !roleTarget) return human;
+
   const tier = tierFor(cls, tiers ?? {});
   const route = routeFor(level, tier);
   if (route === 'human') return human;
+  if (roleTarget && route === 'decider')
+    return {
+      owner: 'decider',
+      decider: `decision role ${roleTarget.id}`,
+      waitMs: DECISION_TIMEOUT_MS + ROLE_DECIDER_SLACK_MS,
+      role: roleTarget.id,
+    };
   const timeoutS = typeof t === 'number' && t > 0 ? t : DECIDER_TIMEOUT_DEFAULT_S;
   const waitS = Math.min(timeoutS + DECIDER_WAIT_SLACK_S, DECIDER_WAIT_MAX_S);
   const label =
@@ -190,6 +215,8 @@ export async function awaitApproval(
   role: string,
   action: string,
   input: Record<string, unknown> = {},
+  /** Test seam for the decision role's provider. */
+  deps: Pick<DecisionDeps, 'ask' | 'resolveProvider'> = {},
 ): Promise<ApprovalVerdict> {
   let ownership: ApprovalOwnership = { owner: 'human' };
   const stillLive = () => {
@@ -204,13 +231,45 @@ export async function awaitApproval(
     action,
     input,
     (normalized) => {
-      ownership = approvalOwnership(readOrgAutonomy(daemon.root, org), normalized);
+      ownership = approvalOwnership(
+        readOrgAutonomy(daemon.root, org),
+        normalized,
+        Date.now(),
+        daemon.orgs.get(org)?.def.roles,
+      );
       return ownership.owner === 'decider' ? { timeoutMs: ownership.waitMs, stillLive } : undefined;
     },
   );
   const owned = ownership as ApprovalOwnership;
   if (!wait || owned.owner === 'human')
     return { approved, owner: 'human', resolvedBy: entry?.resolvedBy };
+  if (owned.role && entry) {
+    const target = findDecisionRole(daemon.orgs.get(org)?.def, owned.role);
+    const verdict = target
+      ? await consultDecisionRole(
+          target,
+          `Approval request from role "${role}": may it run tool ${entry.action}? Input: ${JSON.stringify(entry.input ?? {})}`,
+          deps,
+        )
+      : { approved: null, why: 'decision role vanished' };
+    if (verdict.approved === null) {
+      // Never approve on failure: the request stays queued for a person, as a human-owned one.
+      abandonApprovalWaiters(entry);
+      daemon.orgs.get(org)?.bus.emit({
+        type: 'audit',
+        from: owned.role,
+        reason: 'decision-forwarded',
+        msg: `decision role "${owned.role}" left ${entry.action} for ${role} to a human: ${'why' in verdict ? verdict.why : ''}`,
+        data: { role: owned.role, requestId: entry.requestId },
+      });
+      await wait;
+      return { approved: null, owner: 'human', resolvedBy: entry.resolvedBy };
+    }
+    await setApproval(daemon, org, role, entry.action, verdict.approved, {
+      resolvedBy: `decision:${owned.role}`,
+      requestId: entry.requestId,
+    });
+  }
   const result: ApprovalWaitResult = await wait;
   return {
     approved: result.approved,

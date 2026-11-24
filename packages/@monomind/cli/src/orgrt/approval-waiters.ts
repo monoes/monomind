@@ -20,6 +20,8 @@ export interface ApprovalWaitResult {
 const LIVENESS_POLL_MS = 500;
 
 const waiters = new WeakMap<ApprovalEntry, Set<(approved: boolean) => void>>();
+/** How to end one waiter without a verdict (see abandonApprovalWaiters). */
+const abandon = new WeakMap<(approved: boolean) => void, () => void>();
 
 /** Registers a wait on `entry` synchronously and returns its outcome. */
 export function registerApprovalWait(
@@ -39,6 +41,7 @@ export function registerApprovalWait(
       resolve(r);
     };
     waiter = (approved) => done({ approved });
+    abandon.set(waiter, () => done({ approved: null }));
     const timer = setTimeout(() => done({ approved: null }), timeoutMs);
     const poll = setInterval(() => {
       if (!stillLive()) done({ approved: null, cancelled: true });
@@ -59,6 +62,16 @@ export function notifyApprovalWaiters(entry: ApprovalEntry, approved: boolean): 
   return true;
 }
 
+/** #835 PR 7: ends the waits on `entry` with no verdict (the request stays pending), so a later
+ *  resolution reaches the role through its mailbox like any human one. */
+export function abandonApprovalWaiters(entry: ApprovalEntry): void {
+  const set = waiters.get(entry);
+  if (!set?.size) return;
+  const gone = [...set];
+  waiters.delete(entry);
+  for (const w of gone) abandon.get(w)?.();
+}
+
 /** Who resolved a request, from its resolvedBy. mono-agent resolves as
  *  `rule` or `<decider kind>:<...>` (internal/orgdecide/service.go:341-345,
  *  398, 481-483; jev.go:82); anything else came from a person
@@ -67,5 +80,7 @@ export function resolverLabel(resolver: string | undefined): string {
   if (!resolver || resolver === 'human') return 'a human';
   if (resolver === 'rule') return "the org's autonomy rules";
   if (/^(model|jev|boss|parent):/.test(resolver)) return `the org's decider (${resolver})`;
+  // #835 PR 7: written by monomind itself when a decision role resolves it.
+  if (/^decision:/.test(resolver)) return `the org's decision role (${resolver})`;
   return `a human (${resolver})`;
 }

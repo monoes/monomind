@@ -2,7 +2,10 @@
 
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { ownershipForClass, readOrgAutonomy } from './approval-decider.js';
 import type { OrgDaemon } from './daemon.js';
+import { consultDecisionRole } from './decision-decider.js';
+import { type DecisionDeps, findDecisionRole } from './decision-roles.js';
 import { type DecisionGate, type DecisionKind, ORG_DIR } from './types.js';
 
 // ── Decision gates ──────────────────────────────────────────────────────
@@ -60,7 +63,69 @@ export async function createGate(
   role: string,
   name: string,
   description: string,
+  /** Test seam for the decision role's provider. */
+  deps: Pick<DecisionDeps, 'ask' | 'resolveProvider'> = {},
 ): Promise<string> {
+  const created = await createPendingGate(daemon, org, role, name, description);
+  const decided = await resolveViaDecisionRole(
+    daemon,
+    org,
+    created.gateId,
+    name,
+    description,
+    role,
+    deps,
+  );
+  return decided ?? created.text;
+}
+
+/** #835 PR 7: when the org's autonomy hands gates to a `role` decider, put the gate to that
+ *  decision role. A confident answer resolves it as `decision:<role>` (returns the reply text);
+ *  anything else returns undefined and the gate stays pending for a human. */
+async function resolveViaDecisionRole(
+  daemon: OrgDaemon,
+  org: string,
+  gateId: string,
+  name: string,
+  description: string,
+  from: string,
+  deps: Pick<DecisionDeps, 'ask' | 'resolveProvider'>,
+): Promise<string | undefined> {
+  const def = daemon.orgs.get(org)?.def;
+  const owner = ownershipForClass(
+    readOrgAutonomy(daemon.root, org),
+    'gate',
+    Date.now(),
+    def?.roles,
+  );
+  if (owner.owner !== 'decider' || !owner.role) return undefined;
+  const target = findDecisionRole(def, owner.role);
+  if (!target) return undefined;
+  const verdict = await consultDecisionRole(
+    target,
+    `Decision gate from role "${from}": "${name}". ${description}`,
+    deps,
+  );
+  if (verdict.approved === null) return undefined;
+  const resolved = await resolveGate(
+    daemon,
+    org,
+    gateId,
+    verdict.approved,
+    undefined,
+    `decision:${owner.role}`,
+  );
+  if (!resolved.ok) return undefined;
+  return `Decision gate "${name}" (id ${gateId}) was ${verdict.approved ? 'approved' : 'rejected'} by decision role ${owner.role}.`;
+}
+
+async function createPendingGate(
+  daemon: OrgDaemon,
+  org: string,
+  role: string,
+  name: string,
+  description: string,
+): Promise<{ gateId: string; text: string }> {
   return withGatesLock(daemon, org, async () => {
     const running = daemon.orgs.get(org);
     const gateId = `gate-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -76,7 +141,10 @@ export async function createGate(
     data.gates.push(gate);
     writeGates(daemon.root, org, data);
     running?.bus.emit({ type: 'gate', from: role, data: { gateId, name, description } });
-    return `Decision gate "${name}" created (id ${gateId}) — a human must approve or reject it before you proceed. End your turn and wait for the resolution.`;
+    return {
+      gateId,
+      text: `Decision gate "${name}" created (id ${gateId}) — a human must approve or reject it before you proceed. End your turn and wait for the resolution.`,
+    };
   });
 }
 
