@@ -131,6 +131,16 @@ describe('checkPick', () => {
     expect(r.message).toMatch(/decision model: configured \(/);
   });
 
+  it('counts a named provider from the project file as a configured decision model', async () => {
+    const root = project();
+    put(
+      join(root, '.monomind', 'decision-providers.json'),
+      JSON.stringify({ providers: [{ name: 'mine', baseUrl: 'http://127.0.0.1:9' }] }),
+    );
+    const r = await checkPick(root, { HOME: root });
+    expect(r.message).toMatch(/decision model: configured \(mine\)/);
+  });
+
   it('scores the frozen eval set when the project carries one', async () => {
     const root = project();
     const task = { id: 1, task: 'Write unit tests', agents: ['tester'], skills: ['test-master'] };

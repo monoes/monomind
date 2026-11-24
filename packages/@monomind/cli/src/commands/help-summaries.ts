@@ -95,6 +95,10 @@ export const HELP_SUMMARIES: Record<
         'Pick the best agents and skills for a task (Jev decision model, keyword fallback)',
     },
     {
+      name: 'decision',
+      description: 'Decision-model settings (named providers for agent and skill picking)',
+    },
+    {
       name: 'monograph',
       description: 'Knowledge graph for code and documents — build, search, explore',
     },

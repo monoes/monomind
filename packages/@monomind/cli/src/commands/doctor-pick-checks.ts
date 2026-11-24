@@ -151,7 +151,7 @@ export async function checkPick(
     fixes.push('monomind init  (installs skills)');
   }
 
-  const providers = jevModule()?.resolveProviders(env) ?? [];
+  const providers = jevModule()?.resolveProviders(env, { cwd: root }) ?? [];
   lines.push(
     providers.length
       ? `decision model: configured (${providers.map((p) => p.name).join(' → ')}); probe with \`doctor -c jev\``

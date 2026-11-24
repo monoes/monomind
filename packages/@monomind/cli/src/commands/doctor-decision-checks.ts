@@ -2,7 +2,7 @@
  * Doctor — Jev decision-model check. The full doctor run only inspects
  * configuration (no network); `doctor -c jev` probes each provider.
  */
-import { jevLoadError, jevModule } from '../decision/jev.js';
+import { jevLoadError, jevModule, type NamedProviderEntry } from '../decision/jev.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 
 const NAME = 'Decision Model (Jev)';
@@ -12,10 +12,23 @@ const NAME = 'Decision Model (Jev)';
 export async function checkDecisionModelIfConfigured(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<HealthCheck[]> {
-  const touched = ['MONOMIND_JEV_URL', 'MONOMIND_JEV_HOSTED', 'MONOMIND_JEV'].some((k) =>
-    env[k]?.trim(),
-  );
+  const touched =
+    ['MONOMIND_JEV_URL', 'MONOMIND_JEV_HOSTED', 'MONOMIND_JEV'].some((k) => env[k]?.trim()) ||
+    // A named provider in decision-providers.json is as deliberate as the env.
+    namedProviderEntries(env).length > 0;
   return touched ? [await checkDecisionModel({ env })] : [];
+}
+
+/** Every entry in the named-provider files (project, then user), valid or not. */
+function namedProviderEntries(env: NodeJS.ProcessEnv): NamedProviderEntry[] {
+  const reg = jevModule()?.registry;
+  if (!reg) return [];
+  const files = new Set(
+    (['project', 'user'] as const)
+      .map((s) => reg.storeFile(s, env))
+      .filter((f): f is string => !!f),
+  );
+  return [...files].flatMap((f) => reg.readStore(f).providers);
 }
 
 export async function checkDecisionModel(
@@ -52,6 +65,18 @@ export async function checkDecisionModel(
     };
   }
   const providers = jp.resolveProviders(env);
+  const ignored = namedProviderEntries(env).flatMap((e) => {
+    const why = jp.registry.validateEntry(e);
+    return why ? [`${(e as { name?: string }).name ?? '?'}: ${why}`] : [];
+  });
+  if (ignored.length > 0 && providers.length === 0) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `Ignored named provider(s): ${ignored.join('; ')}`,
+      fix: 'monomind decision providers configure ... (or remove the entry)',
+    };
+  }
   if (providers.length === 0) {
     return {
       name: NAME,
@@ -65,8 +90,9 @@ export async function checkDecisionModel(
   if (!opts.probe) {
     return {
       name: NAME,
-      status: 'pass',
+      status: ignored.length > 0 ? 'warn' : 'pass',
       message: `Configured: ${chain}. Probe with \`doctor -c jev\``,
+      ...(ignored.length > 0 ? { fix: `Ignored named provider(s): ${ignored.join('; ')}` } : {}),
     };
   }
   const ok: string[] = [];
