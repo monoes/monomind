@@ -19,6 +19,19 @@ export interface McpRenderResult {
 /** Canonical scoped package; the unscoped `monomind` is its single-bin alias. */
 export const MCP_SCOPED_PACKAGE = '@monoes/monomindcli';
 
+/**
+ * Environment every generated npx launch carries (#853). npm 12 skips
+ * dependency install scripts unless allow-listed, and `npx` has no project
+ * package.json to hold an `allowScripts` field, so the documented one-off
+ * mechanism is the `allow-scripts` config; without it `better-sqlite3`'s
+ * native binary is never built and every monograph tool fails. Older npm
+ * ignores the unknown key.
+ */
+export const MCP_NPM_ENV: Readonly<Record<string, string>> = {
+  npm_config_update_notifier: 'false',
+  npm_config_allow_scripts: 'better-sqlite3',
+};
+
 /** The `pin` value that opts out of pinning (`init --pin latest` / `--no-pin`). */
 export const MCP_FLOATING_PIN = 'latest';
 

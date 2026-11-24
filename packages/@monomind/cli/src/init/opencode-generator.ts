@@ -15,7 +15,7 @@
  *     narrow rules go last.
  */
 
-import { mcpCommand, monomindNpx } from '../platform-adapters/renderers/mcp.js';
+import { MCP_NPM_ENV, mcpCommand, monomindNpx } from '../platform-adapters/renderers/mcp.js';
 import { MESH_PLUGIN_HELPERS, MESH_PLUGIN_HOOKS } from './opencode-mesh-plugin.js';
 import type { InitOptions } from './types.js';
 
@@ -59,9 +59,7 @@ export function generateOpencodeConfig(options: InitOptions): Record<string, unk
         type: 'local',
         command: monomindCommand(options.mcp.pin),
         enabled: true,
-        env: {
-          npm_config_update_notifier: 'false',
-        },
+        env: { ...MCP_NPM_ENV },
       },
     };
   }

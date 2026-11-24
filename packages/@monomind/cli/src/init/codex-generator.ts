@@ -6,7 +6,7 @@
  * the init target flags.
  */
 
-import { mcpCommand, monomindNpx } from '../platform-adapters/renderers/mcp.js';
+import { MCP_NPM_ENV, mcpCommand, monomindNpx } from '../platform-adapters/renderers/mcp.js';
 import type { InitOptions } from './types.js';
 
 /**
@@ -196,7 +196,9 @@ export function generateCodexConfig(options: InitOptions): string {
       'enabled = true',
       'startup_timeout_sec = 30',
       'tool_timeout_sec = 120',
-      'env = { npm_config_update_notifier = "false" }',
+      `env = { ${Object.entries(MCP_NPM_ENV)
+        .map(([key, value]) => `${key} = ${tomlString(value)}`)
+        .join(', ')} }`,
       '',
     );
   }
