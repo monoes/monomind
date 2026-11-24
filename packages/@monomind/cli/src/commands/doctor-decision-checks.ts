@@ -89,7 +89,9 @@ export async function checkDecisionModel(
   const kindOf = (p: { kind?: string }) => (p.kind && p.kind !== 'systemone' ? `, ${p.kind}` : '');
   const chain = providers.map((p) => `${p.name} (${p.baseUrl}${kindOf(p)})`).join(' → ');
   // Kinds that cost k requests per question are never used by the per-prompt hook.
-  const notHook = providers.filter((p) => jp.registry.hookEligible?.(p) === false).map((p) => p.name);
+  const notHook = providers
+    .filter((p) => jp.registry.hookEligible?.(p) === false)
+    .map((p) => p.name);
   const hookNote = notHook.length > 0 ? `. Not used by the prompt hook: ${notHook.join(', ')}` : '';
   if (!opts.probe) {
     return {

@@ -103,10 +103,14 @@ async function detectCapabilities(
     const found = await detect(probeConfig(entry, key), { fetchImpl: deps.fetchImpl });
     Object.assign(entry, found);
     return found.logprobs === false
-      ? ['This endpoint sends no logprobs: answers carry no probabilities and never act automatically.']
+      ? [
+          'This endpoint sends no logprobs: answers carry no probabilities and never act automatically.',
+        ]
       : [];
   } catch (err) {
-    return [`Saved, but could not probe the endpoint: ${err instanceof Error ? err.message : String(err)}`];
+    return [
+      `Saved, but could not probe the endpoint: ${err instanceof Error ? err.message : String(err)}`,
+    ];
   }
 }
 
@@ -273,7 +277,11 @@ const configureCommand: Command = {
     },
     { name: 'model', short: 'm', type: 'string', description: 'Model name sent to the provider' },
     { name: 'scope', type: 'string', description: 'project (default) or user' },
-    { name: 'samples', type: 'number', description: 'anthropic kind: samples per question (2-10, default 5)' },
+    {
+      name: 'samples',
+      type: 'number',
+      description: 'anthropic kind: samples per question (2-10, default 5)',
+    },
     { name: 'local', type: 'boolean', description: 'A local server: cost is 0' },
     { name: 'price-in', type: 'number', description: 'USD per million input tokens' },
     { name: 'price-out', type: 'number', description: 'USD per million output tokens' },
