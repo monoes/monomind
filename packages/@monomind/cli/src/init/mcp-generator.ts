@@ -13,7 +13,7 @@ import path from 'node:path';
 // re-export keeps `generateMCPConfig()` and the existing test's
 // `import { buildMonoesMcpEntry } from './mcp-generator.js'` working.
 import { buildMonoesMcpEntry } from '../mcp/monoes-mcp-entry.mjs';
-import { mcpAddHint, mcpServerEntry } from '../platform-adapters/renderers/mcp.js';
+import { MCP_NPM_ENV, mcpAddHint, mcpServerEntry } from '../platform-adapters/renderers/mcp.js';
 import type { InitOptions } from './types.js';
 
 export { buildMonoesMcpEntry };
@@ -53,10 +53,6 @@ export function generateMCPConfig(options: InitOptions): object {
   const config = options.mcp;
   const mcpServers: Record<string, object> = {};
 
-  const npmEnv = {
-    npm_config_update_notifier: 'false',
-  };
-
   // Monomind MCP server (core)
   // i-041/i-117 §4: MONOMIND_MODE, MONOMIND_HOOKS_ENABLED, MONOMIND_TOPOLOGY,
   // MONOMIND_MAX_AGENTS and MONOMIND_MEMORY_BACKEND were written here but had
@@ -68,9 +64,7 @@ export function generateMCPConfig(options: InitOptions): object {
   if (config.monomind) {
     mcpServers.monomind = mcpServerEntry(
       'claude',
-      {
-        ...npmEnv,
-      },
+      MCP_NPM_ENV,
       process.platform,
       config.pin,
     );

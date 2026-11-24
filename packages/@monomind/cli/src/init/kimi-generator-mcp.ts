@@ -3,14 +3,14 @@
  * File-size sweep: split out of kimi-generator.ts.
  */
 
-import { mcpServerEntry } from '../platform-adapters/renderers/mcp.js';
+import { MCP_NPM_ENV, mcpServerEntry } from '../platform-adapters/renderers/mcp.js';
 import type { InitOptions } from './types.js';
 
 /** Platform-specific pinned npx invocation, shared with mcp-generator.ts. */
 function monomindMcpEntry(options: InitOptions): Record<string, unknown> {
   return mcpServerEntry(
     'kimi',
-    { npm_config_update_notifier: 'false' },
+    MCP_NPM_ENV,
     process.platform,
     options.mcp.pin,
   );
