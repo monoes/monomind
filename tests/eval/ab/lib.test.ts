@@ -87,6 +87,14 @@ describe('parseExecOutput', () => {
     expect(p.error).toBeNull();
   });
 
+  it('records the MCP server status the turn started with (#723)', () => {
+    const p = parseExecOutput(
+      '{"v":1,"type":"status","phase":"ready","mcp_servers":[{"name":"monomind","status":"pending","source":"project"}]}',
+    );
+    expect(p.mcpServers).toEqual([{ name: 'monomind', status: 'pending' }]);
+    expect(parseExecOutput('{"v":1,"type":"done","exit_code":0}').mcpServers).toBeNull();
+  });
+
   it('keeps the first error and tolerates empty output', () => {
     expect(
       parseExecOutput(
