@@ -31,6 +31,7 @@ interface ConfigureArgs {
   model?: string;
   scope?: string;
   local?: boolean;
+  samples?: number;
   /** USD per million tokens. */
   priceIn?: number;
   priceOut?: number;
@@ -66,6 +67,7 @@ export async function runConfigure(
     ...(args.apiKeyEnv ? { apiKeyEnv: args.apiKeyEnv } : {}),
     ...(args.model ? { model: args.model } : {}),
     ...(args.local ? { local: true } : {}),
+    ...(args.samples !== undefined ? { samples: args.samples } : {}),
     ...(args.priceIn !== undefined && args.priceOut !== undefined
       ? { pricing: { in: args.priceIn / 1e6, out: args.priceOut / 1e6 } }
       : {}),
@@ -271,6 +273,7 @@ const configureCommand: Command = {
     },
     { name: 'model', short: 'm', type: 'string', description: 'Model name sent to the provider' },
     { name: 'scope', type: 'string', description: 'project (default) or user' },
+    { name: 'samples', type: 'number', description: 'anthropic kind: samples per question (2-10, default 5)' },
     { name: 'local', type: 'boolean', description: 'A local server: cost is 0' },
     { name: 'price-in', type: 'number', description: 'USD per million input tokens' },
     { name: 'price-out', type: 'number', description: 'USD per million output tokens' },
@@ -295,6 +298,7 @@ const configureCommand: Command = {
     model: str(ctx, 'model'),
     scope: str(ctx, 'scope'),
     local: ctx.flags.local === true,
+    samples: num(ctx, 'samples'),
     priceIn: num(ctx, 'price-in'),
     priceOut: num(ctx, 'price-out'),
     key: str(ctx, 'key') ?? str(ctx, 'api-key') ?? str(ctx, 'apiKey'),

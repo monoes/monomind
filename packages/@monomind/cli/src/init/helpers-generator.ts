@@ -78,6 +78,8 @@ export const HELPER_FILES: Record<string, HelperFileSpec> = {
   // The `openai` provider kind, required by jev-providers.cjs; without it that
   // kind is unknown (a named provider using it is ignored), nothing else breaks.
   'jev-openai.cjs': { forceSync: true, doctorTracked: true },
+  // The `anthropic` provider kind, required by jev-providers.cjs (same fallback as above).
+  'jev-anthropic.cjs': { forceSync: true, doctorTracked: true },
   // The secret redactor jev-picker.cjs requires; without it the picker fails to
   // load and the hook keeps keyword routing.
   'redact-secrets.cjs': { forceSync: true, doctorTracked: true },
