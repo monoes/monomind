@@ -32,7 +32,7 @@ jobs:
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           version: 10
-      - name: Verify newest SDK tarballs and regenerate pins
+      - name: Verify newest SDK, transformers and puppeteer tarballs and regenerate pins
         run: node scripts/claude-sdk-maintenance.mjs --update
       - name: Refresh workspace lockfile
         run: pnpm install --lockfile-only --ignore-scripts
@@ -85,8 +85,8 @@ jobs:
             packages/@monomind/cli/src/orgrt/claude-sdk.ts
             pnpm-lock.yaml
           body: |
-            Refresh the SDK to npm's latest stable release so the bundled Claude model picker includes new models.
+            Refresh the SDK to npm's latest stable release so the bundled Claude model picker includes new models, and refresh `@huggingface/transformers` and `@puppeteer/browsers` (#851), which Dependabot ignores because each is an exact pin with an embedded lockfile. A package already at npm latest is left unchanged.
 
-            The refresh verifies npm tarball integrity before computing SDK and platform executable SHA-256 hashes, reads the bundled Claude version from the verified Linux executable, and regenerates both dependency lockfiles. Pin consistency tests passed in a read-only job.
+            The refresh verifies npm tarball integrity before computing SDK and platform executable (and transformers entry) SHA-256 hashes, reads the bundled Claude version from the verified Linux executable, and regenerates both dependency lockfiles. Pin consistency tests passed in a read-only job.
 
             Review the upstream release and resulting hashes before merging. This workflow never merges or publishes automatically. Workflow-token pull requests do not start the test workflow: close and reopen this one to run it.

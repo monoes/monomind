@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** #594: reviewed refresh of the SDK, lockfile and executable hashes. */
+/** #594: reviewed refresh of the SDK, lockfile and executable hashes (#851: and the other exact-pinned optional packages). */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -11,6 +11,11 @@ const SDK = '@anthropic-ai/claude-agent-sdk';
 const STABLE = /^\d+\.\d+\.\d+$/;
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = 'packages/@monomind/cli';
+/** #851: the other exact-pinned optional packages; `entry` is the file whose SHA-256 is pinned, if any. */
+export const OPTIONAL_PACKAGES = {
+  '@huggingface/transformers': { entry: 'dist/transformers.node.cjs' },
+  '@puppeteer/browsers': {},
+};
 
 function compare(a, b) {
   const parts = a.split('.').map(Number);
@@ -31,10 +36,10 @@ export function assessFreshness(pin, metadata, threshold = 5) {
 }
 
 /** Replace just the SDK entry, preserving comments and every other package. */
-export function replaceSdkObject(source, constant, value) {
+export function replaceSdkObject(source, constant, value, name = SDK) {
   const start = source.indexOf(`export const ${constant}`);
-  const key = source.indexOf(`'${SDK}':`, start);
-  if (start < 0 || key < 0) throw new Error(`Missing ${constant} SDK entry`);
+  const key = source.indexOf(`'${name}':`, start);
+  if (start < 0 || key < 0) throw new Error(`Missing ${constant} ${name} entry`);
   const open = source.indexOf('{', key);
   let depth = 0;
   let quote = '';
@@ -51,7 +56,7 @@ export function replaceSdkObject(source, constant, value) {
       return source.slice(0, open) + JSON.stringify(value, null, 2) + source.slice(end + 1);
     }
   }
-  throw new Error(`Unclosed ${constant} SDK entry`);
+  throw new Error(`Unclosed ${constant} ${name} entry`);
 }
 
 export async function verifiedTarball(entry, fetcher = fetch) {
@@ -77,29 +82,91 @@ function replaceRequired(source, pattern, replacement, label) {
   return source.replace(pattern, replacement);
 }
 
+/** Resolve `name@version` into an npm lockfile (no install, no scripts) inside `temp`. */
+function generateLock(temp, name, version, run) {
+  writeFileSync(
+    join(temp, 'package.json'),
+    JSON.stringify({
+      name: 'monomind-optional-dependency',
+      private: true,
+      dependencies: { [name]: version },
+    }),
+  );
+  run(
+    'npm',
+    [
+      'install',
+      '--package-lock-only',
+      '--legacy-peer-deps',
+      '--ignore-scripts',
+      '--registry=https://registry.npmjs.org',
+    ],
+    { cwd: temp, stdio: 'inherit' },
+  );
+  return JSON.parse(readFileSync(join(temp, 'package-lock.json'), 'utf8'));
+}
+
+/** #851: refresh one of OPTIONAL_PACKAGES: pin, lockfile, entry hash and devDependency. */
+export async function refreshOptional(
+  root,
+  name,
+  version,
+  { run = execFileSync, fetcher = fetch } = {},
+) {
+  if (!Object.hasOwn(OPTIONAL_PACKAGES, name)) throw new Error(`Unsupported package: ${name}`);
+  const { entry: entryFile } = OPTIONAL_PACKAGES[name];
+  const temp = mkdtempSync(join(tmpdir(), 'monomind-optional-refresh-'));
+  try {
+    const lock = generateLock(temp, name, version, run);
+    const entry = lock.packages[`node_modules/${name}`];
+    if (entry?.version !== version) throw new Error(`Generated ${name} lock version mismatch`);
+    const archive = join(temp, 'download.tgz');
+    writeFileSync(archive, await verifiedTarball(entry, fetcher));
+    let pins;
+    if (entryFile) {
+      const bytes = run('tar', ['-xOzf', archive, `package/${entryFile}`], {
+        maxBuffer: 500 * 1024 * 1024,
+      });
+      pins = {
+        version,
+        entry: { file: entryFile, sha256: createHash('sha256').update(bytes).digest('hex') },
+      };
+    }
+    const depsPath = join(root, CLI, 'src/utils/optional-deps.ts');
+    const locksPath = join(root, CLI, 'src/utils/optional-deps-locks.ts');
+    const manifestPath = join(root, CLI, 'package.json');
+    const escaped = name.replace(/[/@]/g, '\\$&');
+    const deps = replaceRequired(
+      readFileSync(depsPath, 'utf8'),
+      new RegExp(`('${escaped}':\\s*\\{\\s*version: ')[^']+(')`),
+      `$1${version}$2`,
+      `${name} optional pin`,
+    );
+    let locks = replaceSdkObject(
+      readFileSync(locksPath, 'utf8'),
+      'OPTIONAL_DEPENDENCY_LOCKS',
+      lock,
+      name,
+    );
+    if (pins) locks = replaceSdkObject(locks, 'OPTIONAL_DEPENDENCY_CODE_PINS', pins, name);
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    if (manifest.devDependencies?.[name]) manifest.devDependencies[name] = version;
+    for (const [path, content] of [
+      [depsPath, deps],
+      [locksPath, locks],
+      [manifestPath, `${JSON.stringify(manifest, null, 2)}\n`],
+    ])
+      writeFileSync(path, content);
+    console.log(`Updated ${name} to ${version}`);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+}
+
 export async function refresh(root, version, { run = execFileSync, fetcher = fetch } = {}) {
   const temp = mkdtempSync(join(tmpdir(), 'monomind-sdk-refresh-'));
   try {
-    writeFileSync(
-      join(temp, 'package.json'),
-      JSON.stringify({
-        name: 'monomind-optional-dependency',
-        private: true,
-        dependencies: { [SDK]: version },
-      }),
-    );
-    run(
-      'npm',
-      [
-        'install',
-        '--package-lock-only',
-        '--legacy-peer-deps',
-        '--ignore-scripts',
-        '--registry=https://registry.npmjs.org',
-      ],
-      { cwd: temp, stdio: 'inherit' },
-    );
-    const lock = JSON.parse(readFileSync(join(temp, 'package-lock.json'), 'utf8'));
+    const lock = generateLock(temp, SDK, version, run);
     const sdkEntry = lock.packages[`node_modules/${SDK}`];
     if (sdkEntry?.version !== version) throw new Error('Generated SDK lock version mismatch');
     const pins = { version, entry: null, binaries: {} };
@@ -175,21 +242,26 @@ async function main() {
   if (!Number.isInteger(threshold) || threshold < 0)
     throw new Error('--max-behind requires a nonnegative integer');
   const source = readFileSync(join(ROOT, CLI, 'src/utils/optional-deps.ts'), 'utf8');
-  const pin = source.match(/'@anthropic-ai\/claude-agent-sdk':\s*\{\s*version: '([^']+)'/)?.[1];
-  const response = await fetch('https://registry.npmjs.org/@anthropic-ai%2fclaude-agent-sdk', {
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!response.ok) throw new Error(`SDK registry lookup failed: ${response.status}`);
-  const result = assessFreshness(pin, await response.json(), threshold);
-  console.log(
-    `Claude SDK ${pin}; npm latest ${result.latest}; ${result.behind} stable releases behind (limit ${threshold})`,
-  );
-  if (update && compare(result.latest, pin) > 0) await refresh(ROOT, result.latest);
-  else if (result.stale) {
-    console.warn(
-      `::warning::Claude SDK is ${result.behind} stable releases behind npm; run the Claude SDK refresh workflow and review its PR.`,
+  for (const name of [SDK, ...Object.keys(OPTIONAL_PACKAGES)]) {
+    const escaped = name.replace(/[/@]/g, '\\$&');
+    const pin = source.match(new RegExp(`'${escaped}':\\s*\\{\\s*version: '([^']+)'`))?.[1];
+    const response = await fetch(`https://registry.npmjs.org/${name.replace('/', '%2f')}`, {
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`${name} registry lookup failed: ${response.status}`);
+    const result = assessFreshness(pin, await response.json(), threshold);
+    console.log(
+      `${name} ${pin}; npm latest ${result.latest}; ${result.behind} stable releases behind (limit ${threshold})`,
     );
-    if (strict) process.exitCode = 1;
+    if (update && compare(result.latest, pin) > 0) {
+      if (name === SDK) await refresh(ROOT, result.latest);
+      else await refreshOptional(ROOT, name, result.latest);
+    } else if (result.stale) {
+      console.warn(
+        `::warning::${name} is ${result.behind} stable releases behind npm; run the Claude SDK refresh workflow and review its PR.`,
+      );
+      if (strict) process.exitCode = 1;
+    }
   }
 }
 
@@ -198,7 +270,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     // --warn-only (prepublishOnly): a registry or network failure must not block a publish.
     const warnOnly = process.argv.includes('--warn-only');
     console.error(
-      `${warnOnly ? '::warning::' : ''}Claude SDK maintenance failed: ${error.message}`,
+      `${warnOnly ? '::warning::' : ''}Optional dependency maintenance failed: ${error.message}`,
     );
     process.exitCode = warnOnly ? 0 : 1;
   });
