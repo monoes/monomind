@@ -3913,7 +3913,7 @@ async function renderSessions() {
         <div class="sess-notes-wrap" onclick="event.stopPropagation()">
           <button class="sess-notes-toggle${hasNote ? ' has-note' : ''}" onclick="toggleSessNote('${esc(String(s.id).replace(/['\\]/g,'\\$&'))}',this)">✎ ${hasNote ? 'Note' : 'Add note'}</button>
           <div class="sess-notes-area" id="snote-${esc(s.id)}">
-            <textarea class="sess-note-input" rows="2" placeholder="Session note…" oninput="saveSessNote('${esc(s.id)}',this.value,this.closest('.sess-notes-wrap').querySelector('.sess-notes-toggle'),this.closest('.sess-row').querySelector('.sess-note-saved'))">${esc(note)}</textarea>
+            <textarea class="sess-note-input" rows="2" placeholder="Session note…" oninput="saveSessNote('${esc(String(s.id).replace(/['\\]/g,'\\$&'))}',this.value,this.closest('.sess-notes-wrap').querySelector('.sess-notes-toggle'),this.closest('.sess-row').querySelector('.sess-note-saved'))">${esc(note)}</textarea>
             <div class="sess-note-saved"></div>
           </div>
         </div>
@@ -12340,8 +12340,8 @@ async function loadStoreEntries() {
       html += `<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${preview}</td>`;
       html += `<td>${tags}</td>`;
       html += `<td style="color:var(--text-lo);white-space:nowrap">${updated}</td>`;
-      html += `<td style="white-space:nowrap"><button class="btn" style="font-size:10px;padding:1px 6px" onclick="viewStoreEntry('${esc(e.key)}','${esc(e.namespace)}')">View</button>`;
-      html += ` <button class="btn" style="font-size:10px;padding:1px 6px;color:var(--red);border-color:var(--red)" onclick="deleteStoreEntry('${esc(e.id || '')}','${esc(e.key)}','${esc(e.namespace)}')">Del</button></td>`;
+      html += `<td style="white-space:nowrap"><button class="btn" style="font-size:10px;padding:1px 6px" data-key="${esc(e.key)}" data-ns="${esc(e.namespace)}" onclick="viewStoreEntry(this.dataset.key,this.dataset.ns)">View</button>`;
+      html += ` <button class="btn" style="font-size:10px;padding:1px 6px;color:var(--red);border-color:var(--red)" data-id="${esc(e.id || '')}" data-key="${esc(e.key)}" data-ns="${esc(e.namespace)}" onclick="deleteStoreEntry(this.dataset.id,this.dataset.key,this.dataset.ns)">Del</button></td>`;
       html += '</tr>';
     }
     html += '</tbody></table>';
