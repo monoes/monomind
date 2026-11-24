@@ -1,0 +1,61 @@
+name: Sections mask (Windows)
+
+# #852: runs the REAL native-Windows authority mask (a PowerShell launcher, a
+# restricted token and ACLs) and a sections-org host preflight on a real
+# windows-latest host. The test file authority-mask-win32-real.test.ts skips
+# itself on every other platform and where the launcher cannot run, so this is
+# the only place it executes. Native modules are not built (--ignore-scripts):
+# the mask code needs none.
+
+on:
+  pull_request:
+    paths:
+      - 'packages/@monomind/cli/src/orgrt/authority-mask*.ts'
+      - 'packages/@monomind/cli/src/orgrt/exec-deny*.ts'
+      - 'packages/@monomind/cli/src/orgrt/role-sandbox*.ts'
+      - 'packages/@monomind/cli/src/orgrt/documents/preflight.ts'
+      - 'packages/@monomind/cli/__tests__/orgrt/authority-mask-win32*.test.ts'
+      - '.github/workflows/sections-mask-win32.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/@monomind/cli/src/orgrt/authority-mask*.ts'
+      - 'packages/@monomind/cli/src/orgrt/exec-deny*.ts'
+      - 'packages/@monomind/cli/src/orgrt/role-sandbox*.ts'
+      - 'packages/@monomind/cli/src/orgrt/documents/preflight.ts'
+      - 'packages/@monomind/cli/__tests__/orgrt/authority-mask-win32*.test.ts'
+
+concurrency:
+  group: sections-mask-win32-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sections-mask-win32:
+    name: sections-mask-win32
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Disable git autocrlf
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Install dependencies
+        shell: bash
+        run: pnpm install --frozen-lockfile --ignore-scripts --filter "@monoes/monomindcli..."
+
+      - name: Real restricted-token mask and sections-org start
+        shell: bash
+        working-directory: packages/@monomind/cli
+        run: pnpm exec vitest run __tests__/orgrt/authority-mask-win32.test.ts __tests__/orgrt/authority-mask-win32-real.test.ts --reporter=verbose
+        env:
+          CI: true
+          MONOMIND_REQUIRE_WIN_MASK: '1'

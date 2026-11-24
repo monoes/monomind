@@ -90,7 +90,7 @@ describe('the Seatbelt profile (any host)', () => {
     expect(maskedCommand(undefined, 'git', ['status'])).toEqual(['git', ['status']]);
   });
 
-  it('says on Windows what to do instead', () => {
+  it.skipIf(process.platform === 'win32')('says on Windows what to do instead', () => {
     const a = authorityMaskAvailability('win32');
     expect(a.available).toBe(false);
     expect(a.reason).toMatch(/WSL2/);

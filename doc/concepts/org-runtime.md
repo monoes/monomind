@@ -908,8 +908,35 @@ refused in a non-eval sections org. `agent scan` and `doctor -c agent-runtimes` 
   start, resume and role replacement. A host without the mask or the sandbox is refused, unless the
   definition sets `run_config.host_isolation: "best-effort"`: then those gaps are warnings and mail
   digests, the envelope key and native runner copies are protected by file-tool rules alone. Use
-  it where the mask cannot run (native Windows, a macOS shell already inside a sandbox); it is shown
-  in the `org sign` review. Runtimes the copy inventory refuses stay refused (#768).
+  it where the mask cannot run (a macOS shell already inside a sandbox; native Windows where
+  PowerShell cannot compile the launcher, see below); it is shown in the `org sign` review.
+  Runtimes the copy inventory refuses stay refused (#768).
+- **R6 on native Windows (#852) — restricted token.** The mask is a PowerShell 5.1 launcher
+  ([`authority-mask-win32.ts`](packages/@monomind/cli/src/orgrt/authority-mask-win32.ts)) that starts a
+  role's whole process tree under `CreateRestrictedToken` of the daemon's token, in a kill-on-close
+  job object. All privileges are dropped (no `SeBackupPrivilege`), and the user, Everyone, Users,
+  Authenticated Users, logon-session and Administrators SIDs plus a marker SID that no account has
+  are the token's restricting SIDs. The protected paths carry an inheritable deny entry for the
+  marker; the daemon does not hold it, so it is unaffected, while the second access check of a
+  role's token matches the deny and refuses read, write, ACL change and take-ownership. Protected:
+  the operator credentials, the dashboard secret and token files (also files created later), the
+  launcher itself (write), other roles' mail digests and `denyRead` paths (a per-role marker), and
+  the mail root (read-only, with the role's own directory writable). It needs no native addon
+  (the P/Invoke layer is compiled by `Add-Type`), costs about half a second per launch, and is
+  probed by running it; when PowerShell is in Constrained Language Mode, blocked by AppLocker or an
+  execution-policy group policy, the probe reports unavailable and `host_isolation: "best-effort"`
+  is the way to start. Alternatives rejected: an `icacls` deny for the user (locks the daemon out;
+  `icacls` also refuses unmapped SIDs), AppContainer (denies the profile and every toolchain),
+  low integrity (blocks writes to the role's own work tree), a separate local user (needs an
+  administrator). **Not protected:** the mask is a file-access boundary for the role's process
+  tree, not against a hostile same-user process. A role can still open the daemon's process (its
+  user SID passes the second check), reach a same-user broker such as a scheduled task or COM
+  server, and read the daemon's memory. The org-layout write protection of the bubblewrap and
+  Seatbelt masks (orgs dir read-only, authority files, mount-point renames) is not reproduced,
+  nor are private native runner copy directories (no bind mounts; audited
+  `native-copies-unprotected`, and preflight warns); `denyExec` and `homeWriteAllow` refuse the
+  role. Roles on the Claude runtime run in this mask, not the SDK sandbox (it does not exist on
+  Windows). CI runs the real launcher on `windows-latest` (`sections-mask-win32` job).
 - **R7 — adversarial probe suite:** a mutation check exercises the above under fault injection.
 
 **Scheduled sections orgs:** `org validate` no longer refuses `schedule` for a sections org (an

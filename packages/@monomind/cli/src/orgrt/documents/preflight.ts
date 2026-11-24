@@ -50,7 +50,10 @@ export function setHostProbes(p: HostProbes | undefined): void {
 }
 
 /** The probes of this host, unless a test replaced them. */
-function probes(given?: HostProbes): { mask: Availability; sandbox: Availability } {
+function probes(given?: HostProbes): {
+  mask: Availability;
+  sandbox: Availability;
+} {
   const p = given ?? override;
   return {
     mask: p?.mask ?? authorityMaskAvailability(),
@@ -59,14 +62,14 @@ function probes(given?: HostProbes): { mask: Availability; sandbox: Availability
 }
 
 const maskName = (platform: NodeJS.Platform): string =>
-  platform === 'darwin' ? 'Seatbelt' : platform === 'win32' ? 'none on Windows' : 'bubblewrap';
+  platform === 'darwin' ? 'Seatbelt' : platform === 'win32' ? 'restricted token' : 'bubblewrap';
 
 /** What to do on this platform when the mask cannot run. */
 const maskFix = (platform: NodeJS.Platform): string =>
   platform === 'darwin'
     ? 'Start the org from a terminal that is not itself inside a sandbox (Seatbelt does not nest) and check that /usr/bin/sandbox-exec exists.'
     : platform === 'win32'
-      ? 'Run the org under WSL2 (Linux), where bubblewrap can be installed.'
+      ? 'Check that Windows PowerShell 5.1 starts here and is not in Constrained Language Mode or blocked by AppLocker or an execution-policy group policy, or run the org under WSL2 (Linux).'
       : 'Install bubblewrap (bwrap) and allow unprivileged user namespaces.';
 
 /** The runtimes of `def` whose native copies only a bind mount can separate (`mask-bind`). */
@@ -99,6 +102,12 @@ export function hostPreflight(
       `the SDK sandbox is unavailable on this host (${p.sandbox.reason ?? 'unknown'}), so shell commands run without the read and write denials`,
     );
   const unbound = platform === 'darwin' && p.mask.available ? bindOnlyRuntimes(def) : [];
+  const winNote =
+    platform === 'win32' && p.mask.available
+      ? [
+          "on Windows the restricted-token mask protects the authority directories, the dashboard token and other roles' mail digests, but cannot give each role a private native runner copy directory (it has no bind mounts), and it does not stop a role from reaching a same-user process such as the daemon or a scheduled task",
+        ]
+      : [];
   const macNote = unbound.length
     ? [
         `on macOS the Seatbelt mask cannot give each role a private native runner copy directory for the ${unbound.join(', ')} runtime (it has no bind mounts and the CLI cannot be pointed at another directory), so those transcripts are shared between its roles`,
@@ -119,7 +128,7 @@ export function hostPreflight(
   return {
     ok: refusals.length === 0,
     refusals,
-    warnings: [...hostWarnings, ...macNote, ...inventory.warnings],
+    warnings: [...hostWarnings, ...macNote, ...winNote, ...inventory.warnings],
   };
 }
 

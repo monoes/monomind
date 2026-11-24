@@ -11,6 +11,7 @@ import {
   GIT_GUARD_DIR,
   ORG_STATE_FILES,
 } from './authority-mask.js';
+import { winMaskAvailability } from './authority-mask-win32.js';
 import { protectedClaudeBinary } from './claude-sdk.js';
 import {
   DAEMON_SOCKETS,
@@ -84,7 +85,13 @@ export function sandboxAvailability(
       return { available: false, reason: '/usr/bin/sandbox-exec not found' };
     }
   }
-  return { available: false, reason: `the SDK sandbox is not supported on ${platform}` };
+  // The SDK's own sandbox does not exist on Windows; the restricted-token mask
+  // (authority-mask-win32.ts) stands in for it and is applied to every role.
+  if (platform === 'win32') return winMaskAvailability(platform);
+  return {
+    available: false,
+    reason: `the SDK sandbox is not supported on ${platform}`,
+  };
 }
 
 /** Agent sockets that would hand a role push credentials, plus the X11 socket
@@ -253,7 +260,8 @@ export function buildClaudeRestrictions(
         ].map((f) => rule('Edit', join(ctx.orgRoot as string, '.monomind', 'orgs', f)))
       : []),
   ];
-  if (!sandboxEnabled) return { disallowedTools };
+  // Windows: no SDK sandbox to configure; the role runs inside the mask instead.
+  if (!sandboxEnabled || (ctx.platform ?? process.platform) === 'win32') return { disallowedTools };
 
   const allowWrite = uniq([ctx.cwd, ctx.orgRoot, home, tmp, ...(cfg?.allowWrite ?? [])]);
   // #518 review (B1): the deps dir must exist to be denied (only existing
