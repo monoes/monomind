@@ -398,3 +398,53 @@ describe('HTTP transport Origin/Host guard and auth predicate', () => {
     ).toBe('open');
   });
 });
+
+describe('WebSocket transport Origin/Host guard', () => {
+  let transport: WebSocketTransport;
+  afterEach(async () => {
+    await transport?.stop();
+  });
+
+  async function startT(extra: Record<string, unknown> = {}) {
+    transport = createWebSocketTransport(createMockLogger(), {
+      host: '127.0.0.1',
+      port: 0,
+      ...extra,
+    });
+    transport.onRequest(okHandler);
+    await transport.start();
+    return (transport as any).server.address().port as number;
+  }
+
+  const outcome = (port: number, opts: Record<string, unknown>) =>
+    new Promise<string>((resolve) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, opts);
+      ws.on('open', () => {
+        ws.close();
+        resolve('open');
+      });
+      ws.on('unexpected-response', (_q, r) => resolve(`http-${r.statusCode}`));
+      ws.on('error', () => {});
+    });
+
+  it('refuses a cross-origin upgrade on an unauthenticated loopback server', async () => {
+    const port = await startT();
+    expect(await outcome(port, { origin: 'https://evil.example' })).toBe('http-403');
+  });
+
+  it('refuses a disallowed Host', async () => {
+    const port = await startT();
+    expect(await outcome(port, { headers: { Host: 'evil.example' } })).toBe('http-403');
+  });
+
+  it('allows a client without an Origin and a loopback origin', async () => {
+    const port = await startT();
+    expect(await outcome(port, {})).toBe('open');
+    expect(await outcome(port, { origin: `http://localhost:${port}` })).toBe('open');
+  });
+
+  it('honours the configured Origin allow-list', async () => {
+    const port = await startT({ corsOrigins: ['https://ok.example'] });
+    expect(await outcome(port, { origin: 'https://ok.example' })).toBe('open');
+  });
+});
