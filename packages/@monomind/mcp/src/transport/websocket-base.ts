@@ -30,6 +30,11 @@ export interface WebSocketTransportConfig {
   maxMessageSize?: number;
   auth?: AuthConfig;
   enableBinaryMode?: boolean;
+  /** Extra upgrade Origins besides loopback ('*' allows all). */
+  allowedOrigins?: string[];
+  corsOrigins?: string[];
+  /** Extra Host names besides loopback and `host`. */
+  allowedHosts?: string[];
 }
 
 export interface ClientConnection {

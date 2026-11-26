@@ -8,6 +8,7 @@ import { createServer } from 'node:http';
 import { type RawData, WebSocketServer } from 'ws';
 import { validateCredential } from '../auth.js';
 import type { ILogger, ITransport, MCPNotification, MCPRequest, MCPResponse } from '../types.js';
+import { isAllowedHost, isAllowedOrigin } from './origin-guard.js';
 import {
   type ClientConnection,
   WebSocketTransportBase,
@@ -40,6 +41,20 @@ export class WebSocketTransport extends WebSocketTransportBase implements ITrans
       path: this.config.path || '/ws',
       maxPayload: this.config.maxMessageSize || 10 * 1024 * 1024,
       perMessageDeflate: true,
+      // SECURITY: refuse cross-origin browser upgrades and rebound Host names.
+      verifyClient: (info, done) => {
+        const { host, origin } = info.req.headers;
+        const ok =
+          isAllowedHost(host, [...(this.config.allowedHosts ?? []), this.config.host]) &&
+          isAllowedOrigin(info.origin || origin, [
+            ...(this.config.allowedOrigins ?? []),
+            ...(this.config.corsOrigins ?? []),
+          ]);
+        if (!ok) {
+          this.logger.warn('WebSocket upgrade rejected: Origin/Host not allowed', { origin, host });
+        }
+        done(ok, 403, 'Forbidden');
+      },
     });
 
     this.setupWebSocketHandlers();

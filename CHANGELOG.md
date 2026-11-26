@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Security
+
+- **The standalone WebSocket MCP transport (`monomind mcp start -t websocket`) now checks the upgrade's Origin and Host, as the HTTP transport already did.** Without `MONOMIND_MCP_TOKEN` it accepted a browser connection from any web origin on loopback. Cross-origin upgrades and foreign Host names now get 403; clients that send no Origin, loopback origins and configured allow-list entries are unchanged (GHSA-7wvv-m3mq-m5j3).
+
 ## [2.29.4] — 2026-11-17
 
 Covers v2.29.3..9d4332c3b (main CI repair and release-tooling hardening).
