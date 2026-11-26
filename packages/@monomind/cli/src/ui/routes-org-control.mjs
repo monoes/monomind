@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as hil from './org-hil.mjs';
 import { readBodyOrReply } from './routes-org-helpers.mjs';
+import { resolveAllowedProjectDir } from './server-fileutils.mjs';
 import { writeSse } from './sse-manager.mjs';
 
 // Org dashboard routes: mark-complete, current-run stream and chat.
@@ -18,7 +19,16 @@ export async function handleOrgControlRoutes(req, res, url, corsOrigin, ctx) {
       res.end(JSON.stringify({ error: 'Invalid org name' }));
       return true;
     }
-    const _mcRoot = ctx.projectDir || process.cwd();
+    // ?dir= picks the project, like POST /api/orgs/:name/stop does.
+    const _mcRoot = resolveAllowedProjectDir(
+      new URL(req.url, 'http://localhost').searchParams.get('dir'),
+      ctx.projectDir,
+    );
+    if (!_mcRoot) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'dir is not the server project or a known project' }));
+      return true;
+    }
     const _mcMonoDir = ctx._getGitMonomindDir(_mcRoot) || path.join(_mcRoot, '.monomind');
     const _mcRunId = ctx.activeOrgRuns.get(_mcOrgName) || ctx._getActiveRunId(_mcOrgName, _mcRoot);
     if (!_mcRunId) {

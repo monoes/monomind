@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveAllowedProjectDir } from './server-fileutils.mjs';
 import { handleMcpToolsPart1 } from './server-routes-mcp-tools-1.mjs';
 import { handleMcpToolsPart2 } from './server-routes-mcp-tools-2.mjs';
 
@@ -42,9 +43,18 @@ export async function handleMcpCallRoutes(req, res, url, corsOrigin, ctx) {
       try {
         const { tool, input = {}, args = {} } = JSON.parse(body);
         const qs2 = new URL(req.url, 'http://localhost').searchParams;
-        // dir can come from: URL query string, body.args.dir, body.input.dir, or server default
-        const dir2 = qs2.get('dir') || args.dir || input.dir || projectDir;
-        const d2 = path.resolve(dir2 || process.cwd());
+        // dir can come from: URL query string, body.args.dir, body.input.dir, or server default.
+        // The tools run git with cwd: d2, and a repo's own .git/config can make git run
+        // commands — so d2 must be the server project or a known project.
+        const d2 = resolveAllowedProjectDir(qs2.get('dir') || args.dir || input.dir, projectDir);
+        if (!d2) {
+          res.writeHead(403, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          });
+          res.end(JSON.stringify({ error: 'dir is not the server project or a known project' }));
+          return;
+        }
         const dbPath2 = path.join(d2, '.monomind', 'monograph.db');
         if (!fs.existsSync(dbPath2)) {
           err('monograph.db not found — run monograph build first');

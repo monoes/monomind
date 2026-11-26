@@ -23,8 +23,11 @@
  * there later are hidden too), the dashboard token files read as empty, and
  * the orgs dir is read-only apart from the subdirectories roles work in —
  * so no org definition, decision or control file can be written, created or
- * renamed, and the org root and `.monomind` cannot be renamed away. No git,
- * network or write restriction beyond that.
+ * renamed, and the org root and `.monomind` cannot be renamed away. The role
+ * also gets its own pid namespace and /proc and a new session, and the user's
+ * runtime dir and the daemon sockets (file-roots.ts) are out of its reach, as
+ * in the SDK sandbox: see `isolationArgs`. No git, network or write
+ * restriction beyond that.
  *
  * The SDK sandbox cannot express that layout (its denyWrite binds come after
  * its allowWrite binds, so a writable subdirectory of a denied one stays
@@ -36,8 +39,9 @@
  * (decisions.ts's gatesFor) and signed inbox entries (inbox.ts).
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
-import { join, sep } from 'node:path';
+import { existsSync, mkdirSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { isAbsolute, join, sep } from 'node:path';
 import { protectableDepsRoot } from '../utils/optional-deps.js';
 import {
   isSeatbeltMask,
@@ -52,7 +56,13 @@ import {
   winMaskedCommand,
 } from './authority-mask-win32.js';
 import { protectedClaudeBinary } from './claude-sdk.js';
-import { dashboardCredentialPaths, HOME_DENY_WRITE, operatorDirOverride } from './file-roots.js';
+import {
+  DAEMON_SOCKETS,
+  dashboardCredentialPaths,
+  HOME_DENY_WRITE,
+  operatorDirOverride,
+  runtimeDir,
+} from './file-roots.js';
 import {
   maskReadOnlyPaths,
   monomindMaskLayout,
@@ -113,6 +123,8 @@ export function authorityMaskArgs(ctx: {
   allowWrite?: string[];
   /** Test seam: the platform to build the mask for. */
   platform?: NodeJS.Platform;
+  /** Test seam: the daemon sockets to hide (default DAEMON_SOCKETS). */
+  daemonSockets?: string[];
 }): string[] {
   // macOS has no bubblewrap: the same layout as a Seatbelt profile (#768).
   if ((ctx.platform ?? process.platform) === 'darwin')
@@ -198,7 +210,57 @@ export function authorityMaskArgs(ctx: {
   // Last, so that no bind above can uncover them.
   for (const d of hidden) if (existsSync(d)) args.push('--tmpfs', d);
   for (const f of dashboardCredentialPaths(ctx.roots)) args.push('--ro-bind', '/dev/null', f);
+  args.push(...isolationArgs(ctx));
   return args;
+}
+
+/** A private pid namespace and the /proc that shows it. exec-deny.ts adds
+ *  them only to a mask that lacks them. */
+export const PID_ISOLATION = ['--unshare-pid', '--proc', '/proc'];
+
+/** Whether bubblewrap `args` already give the role its own pid namespace. */
+export const hasPidIsolation = (args: string[]): boolean => args.includes('--unshare-pid');
+
+/** The isolation the SDK sandbox gives a Claude role, for the mask: no other
+ *  process of the user is visible (its root and environment through /proc
+ *  included), the role cannot reach the terminal it was started from, and the
+ *  user's runtime dir (session bus, keyring, rootless container sockets) and
+ *  the system daemon sockets are empty. A work root that lies under the
+ *  runtime dir (a TMPDIR there, say) is bound back from the host. */
+function isolationArgs(ctx: {
+  env: NodeJS.ProcessEnv;
+  cwd?: string;
+  orgRoot?: string;
+  allowWrite?: string[];
+  daemonSockets?: string[];
+}): string[] {
+  const out = [...PID_ISOLATION, '--new-session'];
+  const run = runtimeDir(ctx.env);
+  const runReal = run && existsSync(run) ? realPath(run) : undefined;
+  const tmp = ctx.env.TMPDIR || ctx.env.TMP || ctx.env.TEMP || tmpdir();
+  const roots = [
+    ...new Set(
+      [ctx.cwd, ctx.orgRoot, tmp, ...(ctx.allowWrite ?? [])]
+        .filter((r): r is string => !!r && isAbsolute(r) && existsSync(r))
+        .map(realPath),
+    ),
+  ];
+  // A runtime dir that is itself a work root stays as it is.
+  if (runReal && !roots.includes(runReal)) {
+    out.push('--tmpfs', runReal);
+    for (const r of roots) if (holds(runReal, r)) out.push('--bind', r, r);
+  }
+  for (const s of new Set((ctx.daemonSockets ?? DAEMON_SOCKETS).map(realPath))) {
+    if ((runReal && holds(runReal, s)) || roots.some((r) => holds(s, r))) continue;
+    let dir: boolean;
+    try {
+      dir = statSync(s).isDirectory();
+    } catch {
+      continue;
+    }
+    out.push(...(dir ? ['--tmpfs', s] : ['--ro-bind', '/dev/null', s]));
+  }
+  return out;
 }
 
 const holds = (t: string, d: string) => d === t || d.startsWith(t.endsWith(sep) ? t : t + sep);

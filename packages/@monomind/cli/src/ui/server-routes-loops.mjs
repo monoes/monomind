@@ -185,7 +185,12 @@ export async function handleRoutesLoops(req, res, url, corsOrigin, ctx) {
           return true;
         }
         const _stopQs = new URL(req.url, 'http://localhost').searchParams;
-        const _stopDir = path.resolve(_stopQs.get('dir') || projectDir || process.cwd());
+        const _stopDir = resolveAllowedProjectDir(_stopQs.get('dir'), projectDir);
+        if (!_stopDir) {
+          res.writeHead(403);
+          res.end(JSON.stringify({ error: 'dir is not the server project or a known project' }));
+          return true;
+        }
         const loopsDir = path.join(_stopDir, '.monomind', 'loops');
         const stopFile = path.resolve(loopsDir, `${id}.stop`);
         if (path.dirname(stopFile) !== path.resolve(loopsDir)) {
