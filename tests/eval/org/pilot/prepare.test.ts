@@ -9,6 +9,8 @@ import { checklistFindings } from '../../../../packages/@monomind/cli/src/orgrt/
 import { effectiveDiff } from '../smoke/lib.mjs';
 // @ts-expect-error plain .mjs module
 import { buildInputs } from '../smoke/prepare.mjs';
+// @ts-expect-error plain .mjs module
+import { hasSnapshot } from '../smoke/scenarios/growth-like/kit.mjs';
 import { preparePilotTrial } from './prepare.js';
 
 const org = (root: string) => {
@@ -90,7 +92,7 @@ describe('round 2 arms and profile', () => {
   });
 
   const snapshot = process.env.SMOKE_GROWTH_SNAPSHOT ?? '/var/tmp/mm-phase0/snapshot';
-  describe.skipIf(!existsSync(join(snapshot, 'manifest.json')))('growth-like', () => {
+  describe.skipIf(!hasSnapshot(snapshot))('growth-like', () => {
     const base = mkdtempSync(join(tmpdir(), 'pilot-growth-'));
     it('builds the three arms on the production profile: single alone, baseline and treatment with the roles', async () => {
       await buildInputs({ scenario: 'growth-like', base });

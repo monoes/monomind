@@ -121,7 +121,7 @@ describe('Init Command E2E (real fs)', () => {
     expect(fs.existsSync(path.join(tmpDir, 'opencode.json'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.kimi-code', 'mcp.json'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(true);
-  }, 30000); // real-fs init under full-suite parallel load can exceed the 15s default (#33)
+  }, 120_000); // real-fs init took 50 s under full-suite load, 3 s alone (#33)
 
   it('indexes project and user-level (~/.claude) agents and skills, and says how many', async () => {
     const put = (file: string, text: string) => {
@@ -175,7 +175,7 @@ describe('Init Command E2E (real fs)', () => {
     expect(files.filter((file) => /monomind:start skills:/.test(fs.readFileSync(file, 'utf8')))).toEqual([]);
     const router = fs.readFileSync(path.join(root, 'mastermind', 'SKILL.md'), 'utf8');
     expect(router.match(/^# Mastermind Router$/gm)).toHaveLength(1);
-  }, 30000);
+  }, 120_000);
 
   it('suggests optional SheetJS installation without downloading it', async () => {
     const printInfo = vi.spyOn(output, 'printInfo');
@@ -189,7 +189,7 @@ describe('Init Command E2E (real fs)', () => {
     expect(printInfo).toHaveBeenCalledWith(
       expect.stringContaining('npm install -g xlsx'),
     );
-  }, 30000);
+  }, 120_000);
 
   it('should emit Codex project artifacts when requested', async () => {
     ctx.flags = { target: 'codex', _: [], 'no-watch': true, 'no-start-all': true };
@@ -206,7 +206,7 @@ describe('Init Command E2E (real fs)', () => {
     expect(fs.existsSync(path.join(tmpDir, 'opencode.json'))).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, '.kimi-code'))).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, 'GEMINI.md'))).toBe(false);
-  }, 30000);
+  }, 120_000);
 
   // i-066 follow-up finding 9 [MAJOR]: the leak check lived inside
   // writeMCPConfig (gated by options.components.mcp), and components.mcp is
@@ -246,7 +246,7 @@ describe('Init Command E2E (real fs)', () => {
     } finally {
       errorSpy.mockRestore();
     }
-  }, 30000);
+  }, 120_000);
 
   // Companion to the codex test above: on a target that DOES select the mcp
   // component (default/claude) with --force, the same run must both warn
@@ -293,7 +293,7 @@ describe('Init Command E2E (real fs)', () => {
     } finally {
       errorSpy.mockRestore();
     }
-  }, 30000);
+  }, 120_000);
 
   // Third companion to the two tests above, and the case the reviewer flagged
   // as the one that matters most: default flags, no --force, against a
@@ -349,7 +349,7 @@ describe('Init Command E2E (real fs)', () => {
     } finally {
       errorSpy.mockRestore();
     }
-  }, 30000);
+  }, 120_000);
 
   it('accepts registry aliases through --platform without expanding legacy --target all', async () => {
     ctx.flags = { platform: 'kimicode,codex', _: [], 'no-watch': true, 'no-start-all': true };
@@ -359,7 +359,7 @@ describe('Init Command E2E (real fs)', () => {
     expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.kimi-code', 'mcp.json'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, 'opencode.json'))).toBe(false);
-  }, 30000);
+  }, 120_000);
 
   it('keeps non-Claude legacy targets and adapter artifacts when --skip-claude is selected', async () => {
     ctx.flags = {
@@ -380,7 +380,7 @@ describe('Init Command E2E (real fs)', () => {
     expect(fs.readFileSync(path.join(tmpDir, 'AGENTS.md'), 'utf8')).toContain(
       'monomind:start instructions:codex',
     );
-  }, 30000);
+  }, 120_000);
 
   describe('CLAUDE.md carries exactly one monomind block', () => {
     const count = (text: string, needle: string) => text.split(needle).length - 1;
@@ -449,7 +449,7 @@ describe('Init Command E2E (real fs)', () => {
     // contents are gated by the component flags.
     expect(fs.readdirSync(path.join(tmpDir, '.claude', 'commands'))).toHaveLength(0);
     expect(fs.readdirSync(path.join(tmpDir, '.claude', 'agents'))).toHaveLength(0);
-  }, 30000); // #33
+  }, 120_000); // #33
 
   it('should initialize with full configuration', async () => {
     ctx.flags = { full: true, _: [], 'no-watch': true, 'no-start-all': true };
@@ -505,13 +505,13 @@ describe('Init Command E2E (real fs)', () => {
     it('is not written for claude + kimi or codex', async () => {
       await run('claude,kimi,codex');
       expect(fs.existsSync(path.join(tmpDir, '.gemini', 'helpers'))).toBe(false);
-    }, 30000);
+    }, 120_000);
 
     it('is written when antigravity is selected', async () => {
       await run('claude,antigravity');
       expect(fs.existsSync(geminiStatusline())).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, '.gemini', 'helpers', 'statusline.sh'))).toBe(true);
-    }, 30000);
+    }, 120_000);
 
     it('gives antigravity-only init a working status bar without Claude helpers', async () => {
       ctx.flags = { target: 'antigravity', _: [], 'no-watch': true, 'no-start-all': true };
@@ -546,6 +546,6 @@ describe('Init Command E2E (real fs)', () => {
       fs.writeFileSync(geminiStatusline(), '// existing\n');
       await run('claude');
       expect(fs.readFileSync(geminiStatusline(), 'utf8')).toBe('// existing\n');
-    }, 30000);
+    }, 120_000);
   });
 });

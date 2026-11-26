@@ -10,10 +10,18 @@ import { checkTrial } from '../../check.mjs';
 // @ts-expect-error plain .mjs modules
 import { buildInputs, prepareTrial } from '../../prepare.mjs';
 // @ts-expect-error plain .mjs modules
-import { ALLOCATION_USD, CAPS, ORG_STOP_USD, SESSION_CAP, SOLO_TASK, TASK } from './kit.mjs';
+import {
+  ALLOCATION_USD,
+  CAPS,
+  hasSnapshot,
+  ORG_STOP_USD,
+  SESSION_CAP,
+  SOLO_TASK,
+  TASK,
+} from './kit.mjs';
 
 const snapshot = process.env.SMOKE_GROWTH_SNAPSHOT ?? '/var/tmp/mm-phase0/snapshot';
-const have = existsSync(join(snapshot, 'manifest.json'));
+const have = hasSnapshot(snapshot);
 
 // Declared change, round 2 (2026-10-02, owner decision 2): the per-role caps are doubled, the planning
 // allocation is $12 per run, and an org-wide stop of $12 bounds the worst case, so the role caps may sum

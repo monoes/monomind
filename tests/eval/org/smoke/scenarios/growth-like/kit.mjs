@@ -68,15 +68,20 @@ export const TASK = `${TASK_BODY} The lead coordinates and does not write delive
 /** The single-agent arm (the null hypothesis, spec R18): one role does the whole task alone. */
 export const SOLO_TASK = `${TASK_BODY} You are the only agent in this run: do all of it yourself.`;
 
+const SNAPSHOT_FILES = ['org.json', 'tools.json', 'replay.json', 'manifest.json'];
+const SNAPSHOT_DIRS = ['workspace', 'org-memory', 'repo'];
+
+/** True only when every part of the snapshot is there: a partly cleaned one counts as absent. */
+export const hasSnapshot = (snap = snapshotDir()) =>
+  [...SNAPSHOT_FILES, ...SNAPSHOT_DIRS].every((p) => existsSync(join(snap, p)));
+
 export async function buildInputs({ dir }) {
   const snap = snapshotDir();
-  if (!existsSync(join(snap, 'manifest.json')))
-    throw new Error(`no Phase 0 snapshot at ${snap} (set SMOKE_GROWTH_SNAPSHOT)`);
+  if (!hasSnapshot(snap))
+    throw new Error(`no complete Phase 0 snapshot at ${snap} (set SMOKE_GROWTH_SNAPSHOT)`);
   mkdirSync(dir, { recursive: true });
-  for (const f of ['org.json', 'tools.json', 'replay.json', 'manifest.json'])
-    cpSync(join(snap, f), join(dir, f));
-  for (const d of ['workspace', 'org-memory', 'repo'])
-    cpSync(join(snap, d), join(dir, d), { recursive: true });
+  for (const f of SNAPSHOT_FILES) cpSync(join(snap, f), join(dir, f));
+  for (const d of SNAPSHOT_DIRS) cpSync(join(snap, d), join(dir, d), { recursive: true });
 }
 
 /** Replace every occurrence of `from` in every string of a JSON value. */
