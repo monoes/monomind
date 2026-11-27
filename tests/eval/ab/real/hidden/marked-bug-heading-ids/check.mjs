@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Slugger, marked } from './src/marked.js';
+import { marked, Slugger } from './src/marked.js';
 
 const ids = (md) => [...marked(md).matchAll(/ id="([^"]+)"/g)].map((m) => m[1]);
 

@@ -1,32 +1,37 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import * as acorn from './acorn/src/index.js';
 
 const corpus = [
-  "a = b = c ? d : e",
-  "x => y => x + y",
-  "async (a, b = 1, ...rest) => { await a; }",
-  "function* g(a) { const x = yield a; yield* g(x); }",
-  "async function f() { for await (const x of y) { await x } }",
-  "var {a, b: [c, d = 5], ...e} = obj; [a, b] = [b, a];",
-  "({a = 1, b: {c}} = {}) => 0",
-  "class A extends B { #p = 1; static s = 2; get x() { return this.#p } static { A.s++ } constructor() { super(); } }",
-  "label: for (let i = 0, j = 10; i < j; i++, j--) { if (i % 2) continue label; else break label }",
-  "const t = `a${b}c${`d${e}`}`; tag`x${1}y`;",
-  "a?.b?.[c]?.(d) ?? e; x ||= y; x &&= z; x ??= w; 2 ** 3 ** 2",
-  "switch (a) { case 1: let z = 2; break; default: { var q } }",
-  "try { throw new Error(\"x\") } catch ({message}) { log(message) } finally { done() }",
-  "function h() { return new.target } import(\"m\").then(m => m.default)",
-  "if (a) b; else if (c) d; else { e }; do x++; while (x < 5)",
-  "let o = { get a() { return 1 }, set a(v) {}, async *m() {}, [k + 1]: 2, \"s\": 3, 4: 5, ...spread }"
+  'a = b = c ? d : e',
+  'x => y => x + y',
+  'async (a, b = 1, ...rest) => { await a; }',
+  'function* g(a) { const x = yield a; yield* g(x); }',
+  'async function f() { for await (const x of y) { await x } }',
+  'var {a, b: [c, d = 5], ...e} = obj; [a, b] = [b, a];',
+  '({a = 1, b: {c}} = {}) => 0',
+  'class A extends B { #p = 1; static s = 2; get x() { return this.#p } static { A.s++ } constructor() { super(); } }',
+  'label: for (let i = 0, j = 10; i < j; i++, j--) { if (i % 2) continue label; else break label }',
+  'const t = `a${b}c${`d${e}`}`; tag`x${1}y`;',
+  'a?.b?.[c]?.(d) ?? e; x ||= y; x &&= z; x ??= w; 2 ** 3 ** 2',
+  'switch (a) { case 1: let z = 2; break; default: { var q } }',
+  'try { throw new Error("x") } catch ({message}) { log(message) } finally { done() }',
+  'function h() { return new.target } import("m").then(m => m.default)',
+  'if (a) b; else if (c) d; else { e }; do x++; while (x < 5)',
+  'let o = { get a() { return 1 }, set a(v) {}, async *m() {}, [k + 1]: 2, "s": 3, 4: 5, ...spread }',
 ];
 const programs = [
-  "import d, {a as b, c} from \"m\"; export default class {}; export {b as e}; export * as ns from \"n\";",
-  "import.meta.url; export const v = 1; export function f() {}; export async function* ag() {}"
+  'import d, {a as b, c} from "m"; export default class {}; export {b as e}; export * as ns from "n";',
+  'import.meta.url; export const v = 1; export function f() {}; export async function* ag() {}',
 ];
-const scriptOpts = { ecmaVersion: 'latest', sourceType: 'script', allowReturnOutsideFunction: true, allowAwaitOutsideFunction: true };
+const scriptOpts = {
+  ecmaVersion: 'latest',
+  sourceType: 'script',
+  allowReturnOutsideFunction: true,
+  allowAwaitOutsideFunction: true,
+};
 const moduleOpts = { ecmaVersion: 'latest', sourceType: 'module' };
 const astHash = (cs, ps) => {
   const h = createHash('sha256');
@@ -40,7 +45,8 @@ const srcText = () =>
     .map((f) => readFileSync('acorn/src/' + f, 'utf8'))
     .join('\n');
 
-const depthOf = (code, max, extra = {}) => acorn.parse(code, { ecmaVersion: 'latest', maxNestingDepth: max, ...extra });
+const depthOf = (code, max, extra = {}) =>
+  acorn.parse(code, { ecmaVersion: 'latest', maxNestingDepth: max, ...extra });
 
 test('code within the limit parses', () => {
   assert.equal(depthOf('[[[1]]]', 3).body.length, 1);
@@ -82,5 +88,6 @@ test('without the option nothing is limited, and the default parse is unchanged'
 });
 
 test('a realistic program parses under a generous limit', () => {
-  for (const s of corpus) depthOf(s, 40, { allowReturnOutsideFunction: true, allowAwaitOutsideFunction: true });
+  for (const s of corpus)
+    depthOf(s, 40, { allowReturnOutsideFunction: true, allowAwaitOutsideFunction: true });
 });

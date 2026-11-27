@@ -1,15 +1,21 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { DateTime, IANAZone, Settings, SystemZone } from './src/luxon.js';
 import { parseZoneInfo } from './src/impl/util.js';
+import { DateTime, IANAZone, Settings, SystemZone } from './src/luxon.js';
 
 const JAN = Date.UTC(2020, 0, 15, 12);
 const JUL = Date.UTC(2020, 6, 1, 12);
 
 test('parseZoneInfo takes an options object', () => {
-  assert.equal(parseZoneInfo(JAN, { offsetFormat: 'short', locale: 'en-US', timeZone: 'America/New_York' }), 'EST');
-  assert.equal(parseZoneInfo(JUL, { offsetFormat: 'short', locale: 'en-US', timeZone: 'America/New_York' }), 'EDT');
+  assert.equal(
+    parseZoneInfo(JAN, { offsetFormat: 'short', locale: 'en-US', timeZone: 'America/New_York' }),
+    'EST',
+  );
+  assert.equal(
+    parseZoneInfo(JUL, { offsetFormat: 'short', locale: 'en-US', timeZone: 'America/New_York' }),
+    'EDT',
+  );
   assert.equal(
     parseZoneInfo(JUL, { offsetFormat: 'long', locale: 'en-US', timeZone: 'America/New_York' }),
     'Eastern Daylight Time',
@@ -18,7 +24,10 @@ test('parseZoneInfo takes an options object', () => {
 
 test('timeZone is optional and falls back to the system zone (TZ=UTC in this check)', () => {
   assert.equal(parseZoneInfo(JAN, { offsetFormat: 'short', locale: 'en-US' }), 'UTC');
-  assert.equal(parseZoneInfo(JAN, { offsetFormat: 'long', locale: 'en-US' }), 'Coordinated Universal Time');
+  assert.equal(
+    parseZoneInfo(JAN, { offsetFormat: 'long', locale: 'en-US' }),
+    'Coordinated Universal Time',
+  );
 });
 
 test('the old positional form is no longer understood', () => {
@@ -30,7 +39,10 @@ test('zones still produce their offset names', () => {
   assert.equal(tokyo.offsetName(JAN, { format: 'short', locale: 'en-US' }), 'GMT+9');
   assert.equal(tokyo.offsetName(JAN, { format: 'long', locale: 'en-US' }), 'Japan Standard Time');
   assert.equal(SystemZone.instance.offsetName(JAN, { format: 'short', locale: 'en-US' }), 'UTC');
-  assert.equal(SystemZone.instance.offsetName(JAN, { format: 'long', locale: 'en-US' }), 'Coordinated Universal Time');
+  assert.equal(
+    SystemZone.instance.offsetName(JAN, { format: 'long', locale: 'en-US' }),
+    'Coordinated Universal Time',
+  );
 });
 
 test('DateTime offset names and format tokens work end to end', () => {

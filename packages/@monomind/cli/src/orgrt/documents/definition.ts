@@ -6,6 +6,8 @@
  * runs for an org without `sections`. Pure: reads the definition, returns
  * findings. Every message names the path it is about and a remedy.
  */
+
+import { isSessionlessRole } from '../sessionless-roles.js';
 import type { OrgDef } from '../types.js';
 import { copyInventoryFindings } from './copy-inventory.js';
 import { checkDocuments } from './definition-documents.js';
@@ -14,7 +16,6 @@ import { isObject, NAME_RE, RESERVED_TYPES } from './definition-util.js';
 import { writerDefinitionFindings } from './definition-writes.js';
 import { leadRulesFindings } from './lead-rules.js';
 import { sectionBudgetChecklist } from './section-budget-wire.js';
-import { isSessionlessRole } from '../sessionless-roles.js';
 
 const SECTION_FIELDS = [
   'lead',

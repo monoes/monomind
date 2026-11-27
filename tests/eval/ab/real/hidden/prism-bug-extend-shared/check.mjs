@@ -7,14 +7,19 @@ const require = createRequire(import.meta.url);
 const Prism = require('./prism.js');
 const load = require('./components/index.js');
 
-const JS = "// note\nconst s = 'a' + `b${1}`;\nlet re = /x+/g, n = 0x1F;\nclass A { #p = 1; static m() {} }\n";
+const JS =
+  "// note\nconst s = 'a' + `b${1}`;\nlet re = /x+/g, n = 0x1F;\nclass A { #p = 1; static m() {} }\n";
 const before = Prism.highlight(JS, Prism.languages.javascript, 'javascript');
 
 test('plain javascript highlights the same before and after derived languages are loaded', () => {
   assert.match(before, /<span class="token comment">\/\/ note<\/span>/);
   for (const lang of ['coffeescript', 'typescript', 'jsx', 'flow', 'actionscript']) {
     load([lang]);
-    assert.equal(Prism.highlight(JS, Prism.languages.javascript, 'javascript'), before, `after loading ${lang}`);
+    assert.equal(
+      Prism.highlight(JS, Prism.languages.javascript, 'javascript'),
+      before,
+      `after loading ${lang}`,
+    );
   }
 });
 

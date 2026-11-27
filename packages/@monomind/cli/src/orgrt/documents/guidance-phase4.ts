@@ -5,6 +5,8 @@
 // the role: the single writer (`writes`), the section budgets (`budget`, `run_config.budget_usd`), the rework cap
 // (`max_rework_rounds`). An org that sets none of them gets an empty list, so its prompt
 // stays byte for byte what P3.12 pinned. Every value comes from the definition; nothing here names a fixture.
+
+import { isSessionlessRole } from '../sessionless-roles.js';
 import type { OrgDef } from '../types.js';
 import { isObject } from './definition-util.js';
 import { sectionLead } from './lead-rules.js';
@@ -13,7 +15,6 @@ import { rootRoleId, sectionOf } from './routing.js';
 import { isPositiveUsd } from './section-budget.js';
 import { usd } from './section-budget-text.js';
 import { standingOf, type WriterDef, writingSections } from './writer-overlay.js';
-import { isSessionlessRole } from '../sessionless-roles.js';
 
 const MAX_LISTED = 4;
 

@@ -50,15 +50,36 @@ test('the full Math entry point carries it next to scale and clamp', () => {
 });
 
 test('the math-extensions proposal entry and the stage-1 bundle install it globally', () => {
-  assert.equal(fresh(`delete Math.lerp; require('./${P}/proposals/math-extensions'); console.log(typeof Math.lerp)`), 'function');
-  assert.equal(fresh(`delete Math.lerp; require('./${P}/stage/1'); console.log(typeof Math.lerp, Math.lerp(2, 4, 0.5))`), 'function 3');
+  assert.equal(
+    fresh(
+      `delete Math.lerp; require('./${P}/proposals/math-extensions'); console.log(typeof Math.lerp)`,
+    ),
+    'function',
+  );
+  assert.equal(
+    fresh(
+      `delete Math.lerp; require('./${P}/stage/1'); console.log(typeof Math.lerp, Math.lerp(2, 4, 0.5))`,
+    ),
+    'function 3',
+  );
 });
 
 test('the entry points that must not carry a proposal do not', () => {
-  assert.equal(fresh(`delete Math.lerp; require('./${P}/es/math/trunc'); console.log(typeof Math.lerp)`), 'undefined');
-  assert.equal(fresh(`delete Math.lerp; require('./${P}/stable/math/sign'); console.log(typeof Math.lerp)`), 'undefined');
+  assert.equal(
+    fresh(`delete Math.lerp; require('./${P}/es/math/trunc'); console.log(typeof Math.lerp)`),
+    'undefined',
+  );
+  assert.equal(
+    fresh(`delete Math.lerp; require('./${P}/stable/math/sign'); console.log(typeof Math.lerp)`),
+    'undefined',
+  );
 });
 
 test('the existing math extensions still work', () => {
-  assert.equal(fresh(`console.log(require('./${P}/full/math/scale')(5, 0, 10, 0, 100), require('./${P}/full/math/clamp')(5, 0, 2))`), '50 2');
+  assert.equal(
+    fresh(
+      `console.log(require('./${P}/full/math/scale')(5, 0, 10, 0, 100), require('./${P}/full/math/clamp')(5, 0, 2))`,
+    ),
+    '50 2',
+  );
 });

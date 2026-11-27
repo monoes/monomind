@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Lexer, Renderer, marked } from './src/marked.js';
+import { Lexer, marked, Renderer } from './src/marked.js';
 
 test('==text== renders as <mark>', () => {
   assert.equal(marked('a ==b== c'), '<p>a <mark>b</mark> c</p>\n');
@@ -8,7 +8,10 @@ test('==text== renders as <mark>', () => {
 });
 
 test('inline markup nests inside', () => {
-  assert.equal(marked('==*x* and **y**=='), '<p><mark><em>x</em> and <strong>y</strong></mark></p>\n');
+  assert.equal(
+    marked('==*x* and **y**=='),
+    '<p><mark><em>x</em> and <strong>y</strong></mark></p>\n',
+  );
   assert.equal(marked('~~==x==~~'), '<p><del><mark>x</mark></del></p>\n');
 });
 
@@ -28,7 +31,10 @@ test('the lexer produces a mark token with child tokens', () => {
   assert.equal(tok.type, 'mark');
   assert.equal(tok.raw, '==y==');
   assert.equal(tok.text, 'y');
-  assert.deepEqual(tok.tokens.map((t) => t.type), ['text']);
+  assert.deepEqual(
+    tok.tokens.map((t) => t.type),
+    ['text'],
+  );
 });
 
 test('the renderer has a mark method that can be overridden', () => {
@@ -44,5 +50,8 @@ test('heading ids ignore the markers (text renderer)', () => {
 
 test('existing syntax still works', () => {
   assert.equal(marked('~~d~~ and *e*'), '<p><del>d</del> and <em>e</em></p>\n');
-  assert.equal(marked('x@example.com', { mangle: false }), '<p><a href="mailto:x@example.com">x@example.com</a></p>\n');
+  assert.equal(
+    marked('x@example.com', { mangle: false }),
+    '<p><a href="mailto:x@example.com">x@example.com</a></p>\n',
+  );
 });

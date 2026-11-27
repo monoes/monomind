@@ -1,19 +1,11 @@
 {
   "id": "acorn-max-nesting-depth",
   "title": "acorn: add a maxNestingDepth option (options, state, tokenizer)",
-  "tags": [
-    "feature",
-    "multi-file",
-    "acorn"
-  ],
+  "tags": ["feature", "multi-file", "acorn"],
   "fixture": "slice:acorn-8.14.0",
   "prompt": "This is a copy of the acorn JavaScript parser (acorn/src). Add a parser option `maxNestingDepth` (default `null`, meaning unlimited, and present in `defaultOptions`). The nesting depth at any moment is the number of currently open `(`, `[`, `{` and template-literal `${` tokens that have not yet been closed. When consuming an opening token would make the depth exceed `maxNestingDepth`, raise a SyntaxError (through the normal `raise` so it carries `pos` and `loc`) at the start of that opening token with the message `Maximum nesting depth of N exceeded`, where N is the configured limit. Code that stays within the limit, and all code when the option is not set, must parse exactly as before.",
   "check": {
-    "command": [
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["node", "--test", "check.mjs"],
     "overlay": "real/hidden/acorn-max-nesting-depth",
     "timeoutS": 60
   },

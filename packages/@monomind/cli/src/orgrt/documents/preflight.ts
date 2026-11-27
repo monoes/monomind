@@ -21,11 +21,11 @@
 import { authorityMaskAvailability } from '../authority-mask.js';
 import { sandboxAvailability } from '../role-sandbox-restrictions.js';
 import { effectiveRoleRuntime } from '../runner-specs.js';
+import { isSessionlessRole } from '../sessionless-roles.js';
 import type { OrgDef } from '../types.js';
 import { copyInventoryFindings } from './copy-inventory.js';
 import { runtimeIsolation } from './runtime-isolation.js';
 import { sectionsSurface } from './surface.js';
-import { isSessionlessRole } from '../sessionless-roles.js';
 
 interface Availability {
   available: boolean;

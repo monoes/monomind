@@ -19,6 +19,7 @@
 import { mkdirSync } from 'node:fs';
 import { monomindHome } from '../operator-protected-paths.js';
 import { runnerInputHolder } from '../runner-inputs.js';
+import { isSessionlessRole } from '../sessionless-roles.js';
 import type { OrgDef } from '../types.js';
 import {
   ensureNativeSources,
@@ -32,7 +33,6 @@ import { envelopeDirFor, loadEnvelopeKey } from './envelope.js';
 import { ensureMailDirs, mailRootFor, otherMailDirs } from './mail-isolation.js';
 import { runtimeIsolation, usesPrivateDir } from './runtime-isolation.js';
 import { sectionsSurface } from './surface.js';
-import { isSessionlessRole } from '../sessionless-roles.js';
 
 export interface RoleProtection {
   denyReadDirs: string[];

@@ -22,6 +22,7 @@ import * as crossOrg from './cross-org.js';
 import type { OrgDaemon } from './daemon.js';
 import { acquireDaemonLock } from './daemon-lock.js';
 import { activeRoleCount, type RunningOrg } from './daemon-types.js';
+import { findDecisionRole } from './decision-roles.js';
 import { RUNTIME_SENDER } from './documents/deliver.js';
 import { assertEvalGate } from './documents/eval-gate.js';
 import { assertHostPreflight } from './documents/preflight.js';
@@ -34,8 +35,6 @@ import {
   retryQueuedEndpoints,
   startEndpointRetryLoop,
 } from './endpoint-roles.js';
-import { findDecisionRole } from './decision-roles.js';
-import { isSessionlessRole } from './sessionless-roles.js';
 import {
   createFenceForRole,
   loadGlobalFenceConfig,
@@ -49,6 +48,7 @@ import { firstLookAudit, plantNotifier, plantWatchFor } from './planted-paths.js
 import { expandOrgPolicyPathVars, promptVarsFor } from './prompt-vars.js';
 import * as questionOps from './questions.js';
 import { resolveRoleRunner } from './runner-resolve.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 import { ORG_DIR, type OrgDef, OrgDefSchema } from './types.js';
 
 /** Everything startOrgInner needs before it creates the bus: validates the

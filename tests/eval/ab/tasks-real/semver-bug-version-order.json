@@ -1,18 +1,11 @@
 {
   "id": "semver-bug-version-order",
   "title": "semver: locate why build-metadata versions sort wrongly",
-  "tags": [
-    "bug-localisation",
-    "semver"
-  ],
+  "tags": ["bug-localisation", "semver"],
   "fixture": "slice:semver-bug-identifiers",
   "prompt": "In this copy of node-semver, versions that differ only in build metadata sort in the wrong order once the build numbers have different digit counts: `semver.sort(['1.2.3+build.100','1.2.3+build.20','1.2.3+build.3'])` does not give `['1.2.3+build.3','1.2.3+build.20','1.2.3+build.100']`, and `compareBuild('1.0.0+20','1.0.0+100')` is not -1. Trace how sorting and build comparison are done, find the root cause and fix it with a minimal change. Numeric identifiers must still sort below alphanumeric ones.",
   "check": {
-    "command": [
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["node", "--test", "check.mjs"],
     "overlay": "real/hidden/semver-bug-version-order",
     "timeoutS": 60
   },

@@ -90,6 +90,7 @@ describe('the Seatbelt profile (any host)', () => {
     expect(maskedCommand(undefined, 'git', ['status'])).toEqual(['git', ['status']]);
   });
 
+  // reason: win32-only message is asserted by the sibling win32 test; this one needs a non-win32 host
   it.skipIf(process.platform === 'win32')('says on Windows what to do instead', () => {
     const a = authorityMaskAvailability('win32');
     expect(a.available).toBe(false);

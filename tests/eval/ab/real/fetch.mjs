@@ -16,7 +16,15 @@
 // A source may carry `exclude: [suffix, ...]` (file-name suffixes dropped after extraction).
 // Cache dir: $MONOMIND_AB_CACHE or tests/eval/ab/.cache. Needs network and git only.
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,7 +51,8 @@ function dropSuffixes(dir, suffixes) {
 }
 
 function fetchSource(src, dest) {
-  if (!/^[0-9a-f]{40}$/.test(src.sha)) throw new Error(`${src.repo}: sha must be a full 40-hex commit`);
+  if (!/^[0-9a-f]{40}$/.test(src.sha))
+    throw new Error(`${src.repo}: sha must be a full 40-hex commit`);
   const tmp = mkdtempSync(join(tmpdir(), 'mm-ab-fetch-'));
   try {
     git(tmp, 'init', '-q');
@@ -72,8 +81,12 @@ function applyPatches(dir, patches) {
   for (const { path, find, replace } of patches) {
     const f = join(dir, path);
     const text = readFileSync(f, 'utf8');
-    if (text.split(find).length !== 2) throw new Error(`${path}: patch anchor must occur exactly once: ${find}`);
-    writeFileSync(f, text.replace(find, () => replace));
+    if (text.split(find).length !== 2)
+      throw new Error(`${path}: patch anchor must occur exactly once: ${find}`);
+    writeFileSync(
+      f,
+      text.replace(find, () => replace),
+    );
   }
 }
 

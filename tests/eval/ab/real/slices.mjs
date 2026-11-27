@@ -44,6 +44,7 @@ export const fixtureDir = (fixture, abDir) => {
   const id = sliceId(fixture);
   if (!id) return join(abDir, fixture);
   const dir = sliceDir(id);
-  if (!isDir(dir)) throw new Error(`slice ${id} is not fetched; run node tests/eval/ab/real/fetch.mjs`);
+  if (!isDir(dir))
+    throw new Error(`slice ${id} is not fetched; run node tests/eval/ab/real/fetch.mjs`);
   return dir;
 };

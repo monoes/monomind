@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { Renderer, marked } from './src/marked.js';
+import { marked, Renderer } from './src/marked.js';
 
 const LIST = '- a\n- [x] b\n- [ ] c\n\n1. one\n2. two\n';
 const LIST_HTML =
@@ -18,7 +18,8 @@ test('default rendering is unchanged', () => {
 
 test('a renderer override named listItem is used by the parser for every item', () => {
   const r = new Renderer();
-  r.listItem = (text, task, checked) => `<li data-task="${task}" data-checked="${checked}">${text}</li>\n`;
+  r.listItem = (text, task, checked) =>
+    `<li data-task="${task}" data-checked="${checked}">${text}</li>\n`;
   const html = marked(LIST, { renderer: r });
   assert.equal((html.match(/data-task=/g) ?? []).length, 5);
   assert.match(html, /<li data-task="true" data-checked="true"><input checked/);

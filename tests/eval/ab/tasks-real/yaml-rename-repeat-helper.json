@@ -1,20 +1,11 @@
 {
   "id": "yaml-rename-repeat-helper",
   "title": "js-yaml: rename common.repeat to repeatString across modules",
-  "tags": [
-    "refactor",
-    "rename",
-    "multi-file",
-    "js-yaml"
-  ],
+  "tags": ["refactor", "rename", "multi-file", "js-yaml"],
   "fixture": "slice:js-yaml-4.1.0",
   "prompt": "This is a copy of js-yaml 4.1.0 (index.js and lib/). The helper `repeat` exported from lib/common.js is easy to confuse with String.prototype.repeat. Rename it to `repeatString` and update every caller under lib/ (loader, dumper, snippet and anything else that uses it). The old export must be gone. Behaviour of load, dump and error snippets must not change.",
   "check": {
-    "command": [
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["node", "--test", "check.mjs"],
     "overlay": "real/hidden/yaml-rename-repeat-helper",
     "timeoutS": 60
   },

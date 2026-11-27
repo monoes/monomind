@@ -1,20 +1,11 @@
 {
   "id": "acorn-rename-assign-parser",
   "title": "acorn: rename parseMaybeAssign across expression, statement and lval",
-  "tags": [
-    "refactor",
-    "rename",
-    "multi-file",
-    "acorn"
-  ],
+  "tags": ["refactor", "rename", "multi-file", "acorn"],
   "fixture": "slice:acorn-8.14.0",
   "prompt": "This is a copy of the acorn JavaScript parser (acorn/src, ES modules). Rename the parser method `parseMaybeAssign` to `parseAssignExpression` everywhere in acorn/src: its definition on the Parser prototype and every internal caller, in all files that use it. Subclasses that override the method by its new name must be called from all of the places that used to call the old one. The old name must be gone. Parsing results must not change at all.",
   "check": {
-    "command": [
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["node", "--test", "check.mjs"],
     "overlay": "real/hidden/acorn-rename-assign-parser",
     "timeoutS": 60
   },

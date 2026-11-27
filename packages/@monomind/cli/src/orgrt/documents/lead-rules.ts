@@ -10,12 +10,13 @@
  *    else the role's `reports_to`, else the root. A sections-off org never asks (callers keep `reports_to`).
  *  - `leadRulesFindings`: the capacity preflight (an error) and the `reports_to` advice (a warning).
  */
+
+import { isSessionlessRole } from '../sessionless-roles.js';
 import type { OrgDef } from '../types.js';
 import type { Findings } from './definition-util.js';
 import { isObject } from './definition-util.js';
 import { rootRoleId, sectionOf } from './routing.js';
 import { sectionsSurface } from './surface.js';
-import { isSessionlessRole } from '../sessionless-roles.js';
 
 /** The `max_concurrent_agents` an org gets when it sets none (types.ts). */
 export const DEFAULT_MAX_CONCURRENT_AGENTS = 4;

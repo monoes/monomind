@@ -7,8 +7,8 @@ import { pushMessage } from './cross-org.js';
 import { activeRoleCount, OrgDaemon, type RunningOrg } from './daemon.js';
 import { dispatchReadyTasks, queueDispatch } from './decisions.js';
 import { EVAL_BOSS_CRASH_CLOSED_BY, isEvalMode } from './documents/eval-gate.js';
-import { isSessionlessRole } from './sessionless-roles.js';
 import { newMessageId, peekInbox, queueMessage, takeQueued } from './inbox.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 import type { OrgRole } from './types.js';
 
 /** #552: a deferred spawn re-checks budget closure right before it starts —

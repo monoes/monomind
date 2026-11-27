@@ -36,11 +36,18 @@ test('malformed regexp scalars are load errors', () => {
 test('the type is exported for custom schemas and kept out of the core schemas', () => {
   assert.ok(yaml.types.regexp instanceof yaml.Type);
   assert.equal(yaml.types.regexp.tag, 'tag:yaml.org,2002:regexp');
-  assert.throws(() => yaml.load('r: !!regexp /a/', { schema: yaml.CORE_SCHEMA }), yaml.YAMLException);
+  assert.throws(
+    () => yaml.load('r: !!regexp /a/', { schema: yaml.CORE_SCHEMA }),
+    yaml.YAMLException,
+  );
   const custom = yaml.CORE_SCHEMA.extend({ explicit: [yaml.types.regexp] });
   assert.ok(yaml.load('r: !!regexp /a/', { schema: custom }).r instanceof RegExp);
 });
 
 test('existing types are untouched', () => {
-  assert.deepEqual(yaml.load('a: 0xff\nb: [1, 2]\nc: !!set {x, y}\n'), { a: 255, b: [1, 2], c: { x: null, y: null } });
+  assert.deepEqual(yaml.load('a: 0xff\nb: [1, 2]\nc: !!set {x, y}\n'), {
+    a: 255,
+    b: [1, 2],
+    c: { x: null, y: null },
+  });
 });

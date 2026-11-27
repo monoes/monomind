@@ -1,22 +1,11 @@
 {
   "id": "glob-rename-strict-zeros",
   "title": "micromatch stack: rename the strictZeros option across braces and to-regex-range",
-  "tags": [
-    "refactor",
-    "rename",
-    "multi-package",
-    "glob-stack"
-  ],
+  "tags": ["refactor", "rename", "multi-package", "glob-stack"],
   "fixture": "slice:glob-stack",
   "prompt": "packages/ holds a slice of the micromatch dependency tree (micromatch, picomatch, braces, fill-range, to-regex-range, is-number), resolved by plain Node with NODE_PATH=packages. The brace range compiler asks for strict handling of zero-padded numbers through an option called `strictZeros`, which to-regex-range turns into its older `relaxZeros` flag. Rename the `strictZeros` option to `keepZeros` in every package that sets, forwards or reads it, so that the whole chain micromatch -> braces -> fill-range -> to-regex-range uses the new name. `relaxZeros` stays. The old name must have no effect and no longer appear anywhere in packages/. Generated patterns must not change.",
   "check": {
-    "command": [
-      "env",
-      "NODE_PATH=packages",
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["env", "NODE_PATH=packages", "node", "--test", "check.mjs"],
     "overlay": "real/hidden/glob-rename-strict-zeros",
     "timeoutS": 60
   },

@@ -57,8 +57,8 @@
  */
 
 import { latestModel } from '../latest-models.js';
-import type { OrgDef, OrgRole } from './types.js';
 import { isSessionlessRole } from './sessionless-roles.js';
+import type { OrgDef, OrgRole } from './types.js';
 
 /** Abstract reasoning-effort level. Mirrors the Claude Agent SDK's
  *  `EffortLevel` ('low' | 'medium' | 'high' | 'xhigh' | 'max') plus an

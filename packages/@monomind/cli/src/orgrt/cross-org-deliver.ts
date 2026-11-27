@@ -5,8 +5,8 @@ import { clearDeferredSpawn, isDeferredSpawn, markDeferredSpawn } from './cross-
 import { pushMessage, resolveAddress } from './cross-org-mail.js';
 import { deliverRemote } from './cross-org-remote.js';
 import { activeRoleCount, type OrgDaemon } from './daemon.js';
-import { crossSectionRefusal } from './documents/routing.js';
 import { deliverToDecision, findDecisionRole } from './decision-roles.js';
+import { crossSectionRefusal } from './documents/routing.js';
 import { deliverToEndpoint, findEndpointRole } from './endpoint-roles.js';
 import { newMessageId, queueMessage } from './inbox.js';
 

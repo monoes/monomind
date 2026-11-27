@@ -19,9 +19,15 @@ test('conversions between decades and the other units', () => {
   assert.equal(Duration.fromObject({ decades: 1 }).as('months'), 120);
   assert.equal(Duration.fromObject({ decades: 1 }).as('quarters'), 40);
   assert.equal(Duration.fromObject({ years: 25 }).as('decades'), 2.5);
-  assert.deepEqual(Duration.fromObject({ years: 25 }).shiftTo('decades', 'years').toObject(), { decades: 2, years: 5 });
+  assert.deepEqual(Duration.fromObject({ years: 25 }).shiftTo('decades', 'years').toObject(), {
+    decades: 2,
+    years: 5,
+  });
   assert.equal(Duration.fromObject({ decades: 1.5 }).shiftTo('years').years, 15);
-  assert.equal(Duration.fromObject({ decades: 1 }, { conversionAccuracy: 'longterm' }).as('days'), 3652.425);
+  assert.equal(
+    Duration.fromObject({ decades: 1 }, { conversionAccuracy: 'longterm' }).as('days'),
+    3652.425,
+  );
   assert.equal(Duration.fromObject({ decades: 1 }).as('days'), 3650);
 });
 
@@ -44,7 +50,10 @@ test('DateTime plus and minus', () => {
 test('DateTime diff in decades', () => {
   assert.equal(utc(2030).diff(utc(2000), 'decades').decades, 3);
   assert.ok(Math.abs(utc(2025).diff(utc(2000), 'decades').decades - 2.5) < 0.01);
-  assert.deepEqual(utc(2025).diff(utc(2000), ['decades', 'years']).toObject(), { decades: 2, years: 5 });
+  assert.deepEqual(utc(2025).diff(utc(2000), ['decades', 'years']).toObject(), {
+    decades: 2,
+    years: 5,
+  });
   assert.equal(utc(2000).diff(utc(2030), 'decades').decades, -3);
   assert.equal(utc(2029, 12, 31).diff(utc(2000), ['decades']).decades < 3, true);
 });
@@ -53,5 +62,8 @@ test('existing units are unaffected', () => {
   assert.equal(Duration.fromObject({ years: 1 }).as('quarters'), 4);
   assert.equal(utc(2000, 1, 31).plus({ months: 1 }).toISODate(), '2000-02-29');
   assert.equal(utc(2020).diff(utc(2000), 'years').years, 20);
-  assert.deepEqual(Duration.fromObject({ days: 400 }).shiftTo('years', 'days').toObject(), { years: 1, days: 35 });
+  assert.deepEqual(Duration.fromObject({ days: 400 }).shiftTo('years', 'days').toObject(), {
+    years: 1,
+    days: 35,
+  });
 });

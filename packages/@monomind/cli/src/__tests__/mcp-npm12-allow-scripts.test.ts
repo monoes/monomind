@@ -17,7 +17,7 @@ import { MCP_NPM_ENV } from '../platform-adapters/renderers/mcp.js';
 
 const options = (): InitOptions => ({
   ...DEFAULT_INIT_OPTIONS,
-  targetDir: '/tmp/does-not-matter',
+  targetDir: '/nonexistent/does-not-matter',
   mcp: { ...DEFAULT_INIT_OPTIONS.mcp, monomind: true },
 });
 
@@ -52,6 +52,7 @@ describe('generated MCP launches allow the better-sqlite3 install script (#853)'
 
 // Guarded real-install check: needs network and npm 12. Run with
 // MONOMIND_REAL_NPM12_TEST=1 (optionally MONOMIND_REAL_NPM12_SPEC=<pkg spec>).
+// reason: opt-in real npm 12 install, needs network (MONOMIND_REAL_NPM12_TEST)
 describe.skipIf(!process.env.MONOMIND_REAL_NPM12_TEST)('npm 12 cold npx install (#853)', () => {
   it('builds better-sqlite3 when launched with the generated env', () => {
     const dir = fs.mkdtempSync(path.join(process.env.TMPDIR ?? os.tmpdir(), 'mm853-'));

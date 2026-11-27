@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -13,7 +13,9 @@ const square = (n) => n * n;
 const add = (a, b) => a + b;
 
 const walk = (d) =>
-  readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
+  readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)],
+  );
 
 test('the single-file build exposes transformArgs and no longer overArgs', () => {
   assert.equal(typeof lodash.transformArgs, 'function');

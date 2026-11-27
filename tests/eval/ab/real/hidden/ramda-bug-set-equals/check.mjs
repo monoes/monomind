@@ -13,7 +13,19 @@ test('equals compares sets irrespective of order', () => {
 });
 
 test('equals compares maps by entries irrespective of order', () => {
-  assert.equal(R.equals(new Map([['a', 1], ['b', 2]]), new Map([['b', 2], ['a', 1]])), true);
+  assert.equal(
+    R.equals(
+      new Map([
+        ['a', 1],
+        ['b', 2],
+      ]),
+      new Map([
+        ['b', 2],
+        ['a', 1],
+      ]),
+    ),
+    true,
+  );
   assert.equal(R.equals(new Map([['a', [1]]]), new Map([['a', [1]]])), true);
   assert.equal(R.equals(new Map([['a', 1]]), new Map([['a', 2]])), false);
 });
@@ -31,12 +43,22 @@ test('differenceWith removes every element that matches anything in the second l
 });
 
 test('innerJoin keeps elements that match some element of the second list', () => {
-  assert.deepEqual(R.innerJoin((a, b) => a.id === b, [{ id: 1 }, { id: 2 }, { id: 3 }], [3]), [{ id: 3 }]);
-  assert.deepEqual(R.innerJoin((a, b) => a === b, [1, 2, 3], [1, 3]), [1, 3]);
+  assert.deepEqual(
+    R.innerJoin((a, b) => a.id === b, [{ id: 1 }, { id: 2 }, { id: 3 }], [3]),
+    [{ id: 3 }],
+  );
+  assert.deepEqual(
+    R.innerJoin((a, b) => a === b, [1, 2, 3], [1, 3]),
+    [1, 3],
+  );
 });
 
 test('the transducer form of uniqWith agrees', () => {
-  assert.deepEqual(R.into([], R.uniqWith(eqLen), ['a', 'bb', 'c', 'dd', 'eee']), ['a', 'bb', 'eee']);
+  assert.deepEqual(R.into([], R.uniqWith(eqLen), ['a', 'bb', 'c', 'dd', 'eee']), [
+    'a',
+    'bb',
+    'eee',
+  ]);
   assert.deepEqual(R.intersection([1, 2, 3], [3]), [3]);
   assert.deepEqual(R.union([1, 2], [2, 3]), [1, 2, 3]);
 });

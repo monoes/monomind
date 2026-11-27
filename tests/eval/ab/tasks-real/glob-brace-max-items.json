@@ -1,21 +1,11 @@
 {
   "id": "glob-brace-max-items",
   "title": "micromatch stack: add a maxItems limit to brace expansion",
-  "tags": [
-    "feature",
-    "multi-package",
-    "glob-stack"
-  ],
+  "tags": ["feature", "multi-package", "glob-stack"],
   "fixture": "slice:glob-stack",
   "prompt": "packages/ holds a slice of the micromatch dependency tree (micromatch, picomatch, braces, fill-range, to-regex-range, is-number), resolved by plain Node with NODE_PATH=packages. Add an option `maxItems` to brace expansion: when `braces.expand(...)` or `braces(input, { expand: true })` would produce more than `maxItems` items for one pattern, throw a `RangeError` whose message contains `maxItems` instead of returning them (for an array of patterns the limit applies to each pattern separately). It must also apply through `micromatch.braceExpand` and `micromatch.braces(pattern, { expand: true, ... })`. `null` or `undefined` means unlimited (the default), compile mode (`expand` not set) is not affected, and a brace set that is not a real expansion (like `a{b}c`) is returned as before.",
   "check": {
-    "command": [
-      "env",
-      "NODE_PATH=packages",
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["env", "NODE_PATH=packages", "node", "--test", "check.mjs"],
     "overlay": "real/hidden/glob-brace-max-items",
     "timeoutS": 60
   },

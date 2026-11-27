@@ -1,19 +1,11 @@
 {
   "id": "yaml-regexp-type",
   "title": "js-yaml: add a !!regexp type (new type, default schema, exports)",
-  "tags": [
-    "feature",
-    "multi-file",
-    "js-yaml"
-  ],
+  "tags": ["feature", "multi-file", "js-yaml"],
   "fixture": "slice:js-yaml-4.1.0",
   "prompt": "This is a copy of js-yaml 4.1.0. Add a new built-in YAML type `tag:yaml.org,2002:regexp` (written `!!regexp`). A scalar like `/ab+c/gi` loads as the matching RegExp (flags optional; the pattern may contain escaped slashes such as `/a\\/b/`). Malformed values (not slash-delimited, bad flags such as `/abc/zz`, or a non-scalar node) must be load errors. A RegExp value must dump as `!!regexp /source/flags` and round-trip. Register it in the default schema only (CORE_SCHEMA and JSON_SCHEMA stay as they are) and export it as `yaml.types.regexp` like the other types so custom schemas can use it. Put the type in its own file under lib/type/ following the existing ones.",
   "check": {
-    "command": [
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["node", "--test", "check.mjs"],
     "overlay": "real/hidden/yaml-regexp-type",
     "timeoutS": 60
   },

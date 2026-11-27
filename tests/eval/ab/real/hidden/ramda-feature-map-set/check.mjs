@@ -18,7 +18,10 @@ test('clone makes an independent deep copy of a Set', () => {
 
 test('clone makes an independent deep copy of a Map, keys and values', () => {
   const k = { id: 1 };
-  const m = new Map([[k, { v: new Date(0) }], ['s', [1, 2]]]);
+  const m = new Map([
+    [k, { v: new Date(0) }],
+    ['s', [1, 2]],
+  ]);
   const c = R.clone(m);
   assert.ok(c instanceof Map);
   assert.notEqual(c, m);
@@ -57,7 +60,15 @@ test('clone of the existing kinds is unchanged', () => {
 
 test('length reports size for Map and Set and still length for the rest', () => {
   assert.equal(R.length(new Set([1, 2, 2, 3])), 3);
-  assert.equal(R.length(new Map([[1, 1], [2, 2]])), 2);
+  assert.equal(
+    R.length(
+      new Map([
+        [1, 1],
+        [2, 2],
+      ]),
+    ),
+    2,
+  );
   assert.equal(R.length(new Set()), 0);
   assert.equal(R.length([1, 2, 3]), 3);
   assert.equal(R.length('abcd'), 4);

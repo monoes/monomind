@@ -62,12 +62,7 @@ export function generateMCPConfig(options: InitOptions): object {
   // process's env doing nothing. Writing an unread var into real config is
   // the same class of lie as a wrong count in a doc string.
   if (config.monomind) {
-    mcpServers.monomind = mcpServerEntry(
-      'claude',
-      MCP_NPM_ENV,
-      process.platform,
-      config.pin,
-    );
+    mcpServers.monomind = mcpServerEntry('claude', MCP_NPM_ENV, process.platform, config.pin);
   }
 
   // Monograph knowledge graph — built into monomind MCP server since v1.8.0.

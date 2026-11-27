@@ -24,6 +24,7 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { effectiveRoleRuntime } from '../runner-specs.js';
+import { isSessionlessRole } from '../sessionless-roles.js';
 import type { OrgDef } from '../types.js';
 import type { Findings } from './definition-util.js';
 import {
@@ -33,7 +34,6 @@ import {
   usesPrivateDir,
 } from './runtime-isolation.js';
 import { sectionsSurface } from './surface.js';
-import { isSessionlessRole } from '../sessionless-roles.js';
 
 export const runnerRootFor = (orgDir: string): string => join(orgDir, 'runner');
 

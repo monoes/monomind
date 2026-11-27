@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -37,7 +37,11 @@ const EXPECTED = {
 
 const walk = (dir) =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory() ? (e.name === 'node_modules' ? [] : walk(join(dir, e.name))) : [join(dir, e.name)],
+    e.isDirectory()
+      ? e.name === 'node_modules'
+        ? []
+        : walk(join(dir, e.name))
+      : [join(dir, e.name)],
   );
 
 test('the helper is exposed as insertTokensBefore only', () => {
@@ -54,13 +58,18 @@ test('insertTokensBefore still inserts in order and returns the new grammar', ()
 });
 
 test('no file of the copy mentions the old name any more', () => {
-  const left = walk('.').filter((f) => f !== 'check.mjs' && /insertBefore/.test(readFileSync(f, 'utf8')));
+  const left = walk('.').filter(
+    (f) => f !== 'check.mjs' && /insertBefore/.test(readFileSync(f, 'utf8')),
+  );
   assert.deepEqual(left, []);
 });
 
 test('every language component loads', () => {
   load();
-  assert.equal(Object.keys(Prism.languages).filter((k) => typeof Prism.languages[k] === 'object').length, 400);
+  assert.equal(
+    Object.keys(Prism.languages).filter((k) => typeof Prism.languages[k] === 'object').length,
+    400,
+  );
 });
 
 for (const [lang, code] of Object.entries(SAMPLES)) {

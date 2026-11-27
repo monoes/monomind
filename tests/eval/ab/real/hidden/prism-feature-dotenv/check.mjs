@@ -8,14 +8,26 @@ const loadLanguages = require('./components/index.js');
 const json = require('./components.json');
 const js = require('./components.js');
 
-const SAMPLE = ['# database', 'export DB_URL="postgres://x"', 'PORT = 8080', 'EMPTY=', '  # indented', 'A.B=c d'].join('\n');
+const SAMPLE = [
+  '# database',
+  'export DB_URL="postgres://x"',
+  'PORT = 8080',
+  'EMPTY=',
+  '  # indented',
+  'A.B=c d',
+].join('\n');
 
 // top-level tokens that are not plain whitespace text, as [type, text]
 const flat = (code, grammar) =>
   Prism.tokenize(code, grammar)
-    .map((t) => (typeof t === 'string' ? ['', t] : [t.type, Prism.util.stringify ? flatten(t.content) : t.content]))
+    .map((t) =>
+      typeof t === 'string'
+        ? ['', t]
+        : [t.type, Prism.util.stringify ? flatten(t.content) : t.content],
+    )
     .filter(([type, text]) => type || text.trim());
-const flatten = (c) => (typeof c === 'string' ? c : Array.isArray(c) ? c.map(flatten).join('') : flatten(c.content));
+const flatten = (c) =>
+  typeof c === 'string' ? c : Array.isArray(c) ? c.map(flatten).join('') : flatten(c.content);
 
 test('loadLanguages knows dotenv and registers it with the env alias', () => {
   loadLanguages.silent = true;

@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { DateTime, Duration, FixedOffsetZone } from './src/luxon.js';
 import * as util from './src/impl/util.js';
+import { DateTime, Duration, FixedOffsetZone } from './src/luxon.js';
 
 const walk = (d) =>
   readdirSync(d, { withFileTypes: true }).flatMap((e) =>
@@ -36,7 +36,10 @@ test('ISO and custom formatting are unchanged', () => {
   assert.equal(dt.toISODate(), '0005-03-09');
   assert.equal(dt.toISOTime(), '07:04:02.006Z');
   assert.equal(dt.set({ millisecond: 0 }).toISOTime({ suppressMilliseconds: true }), '07:04:02Z');
-  assert.equal(DateTime.fromObject({ year: -1 }, { zone: 'UTC' }).toISO(), '-000001-01-01T00:00:00.000Z');
+  assert.equal(
+    DateTime.fromObject({ year: -1 }, { zone: 'UTC' }).toISO(),
+    '-000001-01-01T00:00:00.000Z',
+  );
   assert.equal(dt.toFormat('yyyy-MM-dd HH:mm:ss.SSS'), '0005-03-09 07:04:02.006');
   const z = DateTime.fromISO('2020-02-03T04:05:06', { zone: FixedOffsetZone.instance(-330) });
   assert.equal(z.toISO(), '2020-02-03T04:05:06.000-05:30');
@@ -47,6 +50,12 @@ test('ISO and custom formatting are unchanged', () => {
 });
 
 test('duration formatting is unchanged', () => {
-  assert.equal(Duration.fromObject({ hours: 5, minutes: 7, seconds: 3 }).toFormat('hh:mm:ss'), '05:07:03');
-  assert.equal(Duration.fromObject({ minutes: 7, milliseconds: 9 }).toFormat('mm:ss.SSS'), '07:00.009');
+  assert.equal(
+    Duration.fromObject({ hours: 5, minutes: 7, seconds: 3 }).toFormat('hh:mm:ss'),
+    '05:07:03',
+  );
+  assert.equal(
+    Duration.fromObject({ minutes: 7, milliseconds: 9 }).toFormat('mm:ss.SSS'),
+    '07:00.009',
+  );
 });

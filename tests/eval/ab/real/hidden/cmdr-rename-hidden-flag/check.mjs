@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 
@@ -27,7 +27,10 @@ test('help output still hides hidden options and shows visible ones', () => {
   const text = p.helpInformation();
   assert.match(text, /--visible/);
   assert.doesNotMatch(text, /--secret/);
-  const names = p.createHelp().visibleOptions(p).map((o) => o.long);
+  const names = p
+    .createHelp()
+    .visibleOptions(p)
+    .map((o) => o.long);
   assert.ok(!names.includes('--secret'));
 });
 
@@ -53,6 +56,10 @@ test('lib no longer reads or writes the old Option property', () => {
   for (const f of readdirSync('lib')) {
     const src = readFileSync(`lib/${f}`, 'utf8');
     assert.doesNotMatch(src, /this\.hidden\b/, `${f} still has this.hidden`);
-    assert.doesNotMatch(src, /\b(option|helpOption|opt)\.hidden\b/, `${f} still reads option.hidden`);
+    assert.doesNotMatch(
+      src,
+      /\b(option|helpOption|opt)\.hidden\b/,
+      `${f} still reads option.hidden`,
+    );
   }
 });

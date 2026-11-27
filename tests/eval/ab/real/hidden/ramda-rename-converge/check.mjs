@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import * as R from './source/index.js';
 
 const walk = (d) =>
-  readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
+  readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)],
+  );
 
 test('the combinator is exported as fanIn only', () => {
   assert.equal(typeof R.fanIn, 'function');
@@ -26,7 +28,10 @@ test('curried arity and placeholders still work', () => {
 
 test('its dependents still work: juxt, applySpec, call, useWith', () => {
   assert.deepEqual(R.juxt([Math.min, Math.max, R.add])(3, 4), [3, 4, 7]);
-  assert.deepEqual(R.applySpec({ sum: R.add, nested: { mul: R.multiply } })(2, 3), { sum: 5, nested: { mul: 6 } });
+  assert.deepEqual(R.applySpec({ sum: R.add, nested: { mul: R.multiply } })(2, 3), {
+    sum: 5,
+    nested: { mul: 6 },
+  });
   assert.equal(R.call(R.fanIn(R.concat, [R.toUpper, R.toLower]), 'Ab'), 'ABab');
   assert.equal(R.useWith(Math.pow, [R.identity, R.identity])(3, 4), 81);
 });

@@ -60,6 +60,7 @@ export {
   buildClaudeRestrictions,
   sandboxAvailability,
 } from './role-sandbox-restrictions.js';
+
 import { isSessionlessRole } from './sessionless-roles.js';
 
 const audited = new WeakMap<OrgBus, Set<string>>();

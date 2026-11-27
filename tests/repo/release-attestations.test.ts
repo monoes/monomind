@@ -5,13 +5,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  CHECKS,
-  // @ts-expect-error plain .mjs script without types
-} from '../../scripts/check-versions.mjs';
-import {
   findMissingAttestations,
   // @ts-expect-error plain .mjs script without types
 } from '../../scripts/check-release-attestations.mjs';
+import {
+  CHECKS,
+  // @ts-expect-error plain .mjs script without types
+} from '../../scripts/check-versions.mjs';
 
 const releaseSet = [
   { name: 'monomind', version: '2.30.0' },

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { getDefaults } from './src/defaults.js';
 import { cleanUrl } from './src/helpers.js';
@@ -19,7 +19,10 @@ test('passing sanitize/sanitizer now has no effect and no deprecation warning', 
   try {
     const plain = marked('<b>x</b> [a](javascript:alert(1)) <i>y</i>');
     assert.equal(marked('<b>x</b> [a](javascript:alert(1)) <i>y</i>', { sanitize: true }), plain);
-    assert.equal(marked('<b>x</b>', { sanitize: true, sanitizer: () => 'NOPE' }), '<p><b>x</b></p>\n');
+    assert.equal(
+      marked('<b>x</b>', { sanitize: true, sanitizer: () => 'NOPE' }),
+      '<p><b>x</b></p>\n',
+    );
     assert.match(plain, /<a href="javascript:alert\(1\)">a<\/a>/);
   } finally {
     console.warn = orig;
@@ -42,7 +45,10 @@ test('links and images still resolve against baseUrl', () => {
 });
 
 test('inline and block html pass through untouched', () => {
-  assert.equal(marked('<div>raw</div>\n\ntext <i>x</i>'), '<div>raw</div>\n\n<p>text <i>x</i></p>\n');
+  assert.equal(
+    marked('<div>raw</div>\n\ntext <i>x</i>'),
+    '<div>raw</div>\n\n<p>text <i>x</i></p>\n',
+  );
 });
 
 test('no source file mentions sanitize any more', () => {

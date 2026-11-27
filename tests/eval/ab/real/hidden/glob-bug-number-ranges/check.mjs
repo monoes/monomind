@@ -18,7 +18,15 @@ const matches = (source, from, to, extra = 30) => {
 };
 
 test('to-regex-range matches exactly the numbers in the range', () => {
-  for (const [a, b] of [[1, 20], [5, 123], [1, 100], [10, 99], [0, 9], [45, 1005], [7, 7]])
+  for (const [a, b] of [
+    [1, 20],
+    [5, 123],
+    [1, 100],
+    [10, 99],
+    [0, 9],
+    [45, 1005],
+    [7, 7],
+  ])
     assert.deepEqual(matches(toRegexRange(a, b), a, b), [], `range ${a}..${b}`);
 });
 

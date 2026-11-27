@@ -9,7 +9,6 @@ import { reloadRefusalText, structuralReloadChanges } from './documents/reload-g
 import { reloadReworkCaps } from './documents/rework.js';
 import { sectionRoleCap, syncSectionBudgets } from './documents/section-budget-wire.js';
 import { effectiveRolePolicy } from './effective-role-policy.js';
-import { isSessionlessRole } from './sessionless-roles.js';
 import {
   assertOrgDefSigned,
   instructionsDigests,
@@ -18,6 +17,7 @@ import {
 } from './org-signature.js';
 import { expandOrgPolicyPathVars, promptVarsFor } from './prompt-vars.js';
 import { computeReplacementBudget } from './role-slot.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 import { ORG_DIR, OrgDefSchema } from './types.js';
 import { checklistFindings } from './validate-checklist.js';
 

@@ -8,12 +8,7 @@ import type { InitOptions } from './types.js';
 
 /** Platform-specific pinned npx invocation, shared with mcp-generator.ts. */
 function monomindMcpEntry(options: InitOptions): Record<string, unknown> {
-  return mcpServerEntry(
-    'kimi',
-    MCP_NPM_ENV,
-    process.platform,
-    options.mcp.pin,
-  );
+  return mcpServerEntry('kimi', MCP_NPM_ENV, process.platform, options.mcp.pin);
 }
 
 /**

@@ -14,7 +14,10 @@ const modular = {
   sortedUniq: require('./sortedUniq'),
 };
 
-for (const [name, _] of [['require("lodash")', monolith], ['per-method requires', modular]]) {
+for (const [name, _] of [
+  ['require("lodash")', monolith],
+  ['per-method requires', modular],
+]) {
   test(`${name}: sortedLastIndex finds the end of a run of equal values`, () => {
     assert.equal(_.sortedLastIndex([4, 5, 5, 5, 6], 5), 4);
     assert.equal(_.sortedLastIndex([4, 5, 5, 5, 6], 4), 1);
@@ -32,7 +35,10 @@ for (const [name, _] of [['require("lodash")', monolith], ['per-method requires'
     const objs = [{ x: 4 }, { x: 5 }, { x: 5 }, { x: 5 }, { x: 6 }];
     assert.equal(_.sortedLastIndexBy(objs, { x: 5 }, 'x'), 4);
     assert.equal(_.sortedIndexBy(objs, { x: 5 }, 'x'), 1);
-    assert.equal(_.sortedLastIndexBy(objs, { x: 5 }, (o) => o.x), 4);
+    assert.equal(
+      _.sortedLastIndexBy(objs, { x: 5 }, (o) => o.x),
+      4,
+    );
   });
 
   test(`${name}: sortedLastIndexOf returns the last matching index`, () => {

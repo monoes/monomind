@@ -5,8 +5,8 @@
  */
 import type { AgentRuntime, RuntimeKind } from './daemon.js';
 import { BASE_SPECS } from './runner-specs.js';
-import type { OrgDef, OrgRole } from './types.js';
 import { isSessionlessRole } from './sessionless-roles.js';
+import type { OrgDef, OrgRole } from './types.js';
 
 export type RoleSlotPhase =
   | 'pending'

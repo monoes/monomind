@@ -7,7 +7,11 @@ const braces = require('braces');
 const micromatch = require('micromatch');
 
 const throwsMax = (fn) =>
-  assert.throws(fn, (e) => e instanceof RangeError && /maxItems/.test(e.message), 'expected a RangeError naming maxItems');
+  assert.throws(
+    fn,
+    (e) => e instanceof RangeError && /maxItems/.test(e.message),
+    'expected a RangeError naming maxItems',
+  );
 
 test('expansion within the limit is unchanged', () => {
   assert.equal(braces.expand('{1..5}{a,b}', { maxItems: 10 }).length, 10);

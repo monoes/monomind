@@ -1,19 +1,11 @@
 {
   "id": "luxon-decades-unit",
   "title": "luxon: add a decades unit to Duration, DateTime math and diff",
-  "tags": [
-    "feature",
-    "multi-file",
-    "luxon"
-  ],
+  "tags": ["feature", "multi-file", "luxon"],
   "fixture": "slice:luxon-3.5.0",
   "prompt": "This is a copy of Luxon 3.5.0 (src/, ES modules). Add `decades` (1 decade = 10 years) as a unit, wired in the same way `quarters` is. Required behaviour: `Duration.fromObject({ decades: 2 })` works, with a `decades` getter and the singular `decade` accepted by `Duration.normalizeUnit`; `as`/`shiftTo` convert between decades and every other unit in both the casual and the longterm conversion accuracy (e.g. `{years: 25}.shiftTo('decades','years')` is `{decades: 2, years: 5}`, one decade is 3650 casual days); `toISO()` folds decades into the years designator (`P20Y`, and `years: 3, decades: 1` gives `P13Y`); `DateTime#plus/minus` accept decades (clamping the day of month like years do, fractional decades included); and `DateTime#diff(other, 'decades')` works, also combined with finer units such as `['decades','years']`. Existing units must behave as before.",
   "check": {
-    "command": [
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["node", "--test", "check.mjs"],
     "overlay": "real/hidden/luxon-decades-unit",
     "timeoutS": 60
   },

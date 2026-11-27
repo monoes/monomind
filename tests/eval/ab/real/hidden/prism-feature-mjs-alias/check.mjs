@@ -14,7 +14,10 @@ test('the bundled prism.js treats mjs exactly like js', () => {
   assert.equal(Prism.languages.mjs, Prism.languages.javascript);
   assert.equal(Prism.languages.js, Prism.languages.javascript);
   const code = 'const a = () => `x${1}`;';
-  assert.equal(Prism.highlight(code, Prism.languages.mjs, 'mjs'), Prism.highlight(code, Prism.languages.js, 'js'));
+  assert.equal(
+    Prism.highlight(code, Prism.languages.mjs, 'mjs'),
+    Prism.highlight(code, Prism.languages.js, 'js'),
+  );
 });
 
 test('loading the javascript component registers mjs again', () => {
@@ -27,7 +30,10 @@ test('loading the javascript component registers mjs again', () => {
 
 test('typescript, which extends javascript, still loads and highlights', () => {
   loadLanguages(['typescript']);
-  assert.match(Prism.highlight('let a: number = 1;', Prism.languages.typescript, 'typescript'), /token keyword/);
+  assert.match(
+    Prism.highlight('let a: number = 1;', Prism.languages.typescript, 'typescript'),
+    /token keyword/,
+  );
 });
 
 test('both copies of the language metadata list mjs next to js', () => {
@@ -36,7 +42,15 @@ test('both copies of the language metadata list mjs next to js', () => {
 });
 
 test('other aliases stay as they were', () => {
-  assert.deepEqual(json.languages.markup.alias, ['html', 'xml', 'svg', 'mathml', 'ssml', 'atom', 'rss']);
+  assert.deepEqual(json.languages.markup.alias, [
+    'html',
+    'xml',
+    'svg',
+    'mathml',
+    'ssml',
+    'atom',
+    'rss',
+  ]);
   assert.equal(json.languages.antlr4.alias, 'g4');
   assert.equal(typeof Prism.languages.html, 'object');
 });

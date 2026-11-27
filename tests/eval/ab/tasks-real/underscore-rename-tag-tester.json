@@ -1,20 +1,11 @@
 {
   "id": "underscore-rename-tag-tester",
   "title": "underscore: rename the _tagTester module and its importers",
-  "tags": [
-    "refactor",
-    "rename",
-    "multi-file",
-    "underscore"
-  ],
+  "tags": ["refactor", "rename", "multi-file", "underscore"],
   "fixture": "slice:underscore-1.13.7",
   "prompt": "This is a copy of Underscore 1.13.7 (modules/, ES modules, one function per file). The internal helper module `modules/_tagTester.js` (default export `tagTester`) builds the `Object.prototype.toString` type predicates. Rename it: move the file to `modules/_typeTester.js`, rename the function to `typeTester`, and update every module that imports or uses it. The old file and name must be gone and every relative import in the package must still resolve. Public behaviour must not change.",
   "check": {
-    "command": [
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["node", "--test", "check.mjs"],
     "overlay": "real/hidden/underscore-rename-tag-tester",
     "timeoutS": 60
   },

@@ -5,8 +5,9 @@
  * error: shape alone cannot prove the work is sequential, independent or hand-off
  * critical, so each message states what it saw and the measured reason.
  */
-import type { OrgDef } from './types.js';
+
 import { isSessionlessRole } from './sessionless-roles.js';
+import type { OrgDef } from './types.js';
 
 const isAgent = (r: OrgDef['roles'][number]): boolean => !isSessionlessRole(r);
 const isObject = (v: unknown): v is Record<string, unknown> =>

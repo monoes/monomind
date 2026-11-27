@@ -60,7 +60,6 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fixtureDir, loadManifest, sliceDir, sliceId } from './real/slices.mjs';
 import {
   estimatePlan,
   parseExecOutput,
@@ -69,6 +68,7 @@ import {
   SpendGuard,
   summarizeRuns,
 } from './lib.mjs';
+import { fixtureDir, loadManifest, sliceDir, sliceId } from './real/slices.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..', '..', '..');

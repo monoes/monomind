@@ -1,18 +1,11 @@
 {
   "id": "luxon-bug-leap-year",
   "title": "luxon: locate why year 2000 is not a leap year",
-  "tags": [
-    "bug-localisation",
-    "luxon"
-  ],
+  "tags": ["bug-localisation", "luxon"],
   "fixture": "slice:luxon-bug-leap",
   "prompt": "In this copy of Luxon, dates in the year 2000 are wrong: `DateTime.utc(2000, 2, 29).isValid` is false, `DateTime.utc(2000).daysInYear` is 365 and `DateTime.utc(2000, 1, 31).plus({ months: 1 })` lands on 2000-02-28. 2400 has the same problem, while 1900 and 2100 correctly are not leap years. Trace where the calendar validity and day-count arithmetic get their leap-year rule, find the root cause and fix it with a minimal change.",
   "check": {
-    "command": [
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["node", "--test", "check.mjs"],
     "overlay": "real/hidden/luxon-bug-leap-year",
     "timeoutS": 60
   },

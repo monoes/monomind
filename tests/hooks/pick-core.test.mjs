@@ -266,7 +266,12 @@ describe('decide usage', () => {
   const agents = [{ id: 'coder', name: 'coder' }];
   it('carries the Jev usage onto the pick', () => {
     const usage = { latencyMs: 12 };
-    const out = pc().decide({ agents, keywordCands: [], skillMatches: [], jev: { provider: 'custom', agent: 'coder', agentConfidence: 0.9, usage } });
+    const out = pc().decide({
+      agents,
+      keywordCands: [],
+      skillMatches: [],
+      jev: { provider: 'custom', agent: 'coder', agentConfidence: 0.9, usage },
+    });
     expect(out.usage).toEqual(usage);
   });
   it('has no usage for a keyword pick', () => {
@@ -377,7 +382,8 @@ describe('persistRoute', () => {
   it('writes no usage fields when the pick carries none (old shape)', () => {
     pc().persistRoute(tmp, { pick, prompt: 'p', sessionId: 's', shown: true });
     const [rec] = readJsonl(path.join(tmp, '.monomind', 'route-outcomes.jsonl'));
-    for (const k of ['latencyMs', 'tokensIn', 'tokensOut', 'costUsd']) expect(rec).not.toHaveProperty(k);
+    for (const k of ['latencyMs', 'tokensIn', 'tokensOut', 'costUsd'])
+      expect(rec).not.toHaveProperty(k);
   });
 
   it('writes an honest outcome record without raw prompt text', () => {

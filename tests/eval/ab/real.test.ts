@@ -96,7 +96,8 @@ describe('slices manifest', () => {
   it('uses every slice in at least one task of either set', () => {
     const used = new Set([...tasks, ...hardTasks].map((t) => sliceId(t.fixture)));
     const bases = new Set(Object.values(manifest.slices).map((s) => s.base));
-    for (const id of Object.keys(manifest.slices)) expect(used.has(id) || bases.has(id), id).toBe(true);
+    for (const id of Object.keys(manifest.slices))
+      expect(used.has(id) || bases.has(id), id).toBe(true);
   });
 });
 
@@ -198,6 +199,9 @@ describe('hard task set (tasks-hard)', () => {
     expect(arms['lean-graph'].setup).toEqual([...arms.lean.setup, ['monograph', 'build']]);
     expect(arms['lean-graph'].assume).toEqual(arms.lean.assume);
     expect(arms.off.setup).toEqual([]);
-    expect(arms.full.setup).toEqual([['init', '--full', '--yes'], ['monograph', 'build']]);
+    expect(arms.full.setup).toEqual([
+      ['init', '--full', '--yes'],
+      ['monograph', 'build'],
+    ]);
   });
 });

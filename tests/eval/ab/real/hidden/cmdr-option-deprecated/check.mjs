@@ -39,7 +39,9 @@ test('no message: warning has no trailing reason', () => {
 test('env var supplied value also warns', () => {
   process.env.PROG_OLD = 'e';
   try {
-    const { p, err } = make((p) => p.addOption(new Option('--old <v>').env('PROG_OLD').deprecated('x')));
+    const { p, err } = make((p) =>
+      p.addOption(new Option('--old <v>').env('PROG_OLD').deprecated('x')),
+    );
     p.parse([], { from: 'user' });
     assert.equal(p.opts().old, 'e');
     assert.equal(err.length, 1);
@@ -67,5 +69,8 @@ test('help marks deprecated options with [deprecated] after the other extra info
   const text = p.helpInformation();
   assert.match(text, /the old way \(default: "a"\) \[deprecated\]/);
   assert.match(text, /bare one \[deprecated\]/);
-  assert.doesNotMatch(text.split('\n').find((l) => l.includes('--plain')), /deprecated/);
+  assert.doesNotMatch(
+    text.split('\n').find((l) => l.includes('--plain')),
+    /deprecated/,
+  );
 });

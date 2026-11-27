@@ -1,18 +1,11 @@
 {
   "id": "cmdr-bug-typo-suggestion",
   "title": "commander: locate why a transposed typo suggests two options",
-  "tags": [
-    "bug-localisation",
-    "commander"
-  ],
+  "tags": ["bug-localisation", "commander"],
   "fixture": "slice:commander-bug-transposition",
   "prompt": "In this copy of commander.js a regression was introduced: with options `--port <n>` and `--post <b>` defined, running with the typo `--prot` prints `(Did you mean one of --port, --post?)` instead of `(Did you mean --port?)`; an unknown command `strat` next to commands `start` and `strip` has the same problem. Typos with a swapped pair of adjacent letters used to be treated as a single edit. Find the root cause and fix it with a minimal change; other suggestion behaviour must stay the same.",
   "check": {
-    "command": [
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["node", "--test", "check.mjs"],
     "overlay": "real/hidden/cmdr-bug-typo-suggestion",
     "timeoutS": 60
   },

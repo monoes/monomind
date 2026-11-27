@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -29,7 +29,8 @@ test('error snippets (snippet.js) still render', () => {
     () => yaml.load('a: [1,\n  b: }'),
     (e) =>
       e instanceof yaml.YAMLException &&
-      e.message === 'missed comma between flow collection entries (2:6)\n\n 1 | a: [1,\n 2 |   b: }\n----------^',
+      e.message ===
+        'missed comma between flow collection entries (2:6)\n\n 1 | a: [1,\n 2 |   b: }\n----------^',
   );
 });
 
@@ -42,5 +43,8 @@ test('dumper indentation and unicode escapes still work', () => {
 });
 
 test('loader block scalars keep their blank lines', () => {
-  assert.deepEqual(yaml.load('a: |\n  l1\n\n\n  l2\nb: >\n  x\n\n  y\n'), { a: 'l1\n\n\nl2\n', b: 'x\ny\n' });
+  assert.deepEqual(yaml.load('a: |\n  l1\n\n\n  l2\nb: >\n  x\n\n  y\n'), {
+    a: 'l1\n\n\nl2\n',
+    b: 'x\ny\n',
+  });
 });

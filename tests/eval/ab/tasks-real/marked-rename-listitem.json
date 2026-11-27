@@ -1,20 +1,11 @@
 {
   "id": "marked-rename-listitem",
   "title": "marked: rename the Renderer listitem hook to listItem",
-  "tags": [
-    "refactor",
-    "rename",
-    "multi-file",
-    "marked"
-  ],
+  "tags": ["refactor", "rename", "multi-file", "marked"],
   "fixture": "slice:marked-4.3.0",
   "prompt": "This is a copy of marked 4.3.0 (src/, ES modules). The Renderer method `listitem` is the only camelCase-violating renderer hook. Rename it to `listItem` everywhere in src: the Renderer definition and every place that calls or references it. Custom renderers registered with `marked.use({ renderer: { listItem() {} } })` must work and the old name must no longer exist anywhere. Rendered output must not change.",
   "check": {
-    "command": [
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["node", "--test", "check.mjs"],
     "overlay": "real/hidden/marked-rename-listitem",
     "timeoutS": 60
   },

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -8,7 +8,9 @@ const require = createRequire(import.meta.url);
 const P = 'packages/core-js';
 
 const walk = (d) =>
-  readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
+  readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)],
+  );
 
 test('the helper lives under the new module name and still uncurries', () => {
   assert.equal(existsSync(`${P}/internals/function-uncurry-this.js`), false);
@@ -39,7 +41,17 @@ test('nothing still requires the old module name', () => {
 test('every module and entry point still loads', () => {
   const failed = [];
   let loaded = 0;
-  for (const dir of ['internals', 'modules', 'es', 'stable', 'actual', 'full', 'proposals', 'stage', 'web']) {
+  for (const dir of [
+    'internals',
+    'modules',
+    'es',
+    'stable',
+    'actual',
+    'full',
+    'proposals',
+    'stage',
+    'web',
+  ]) {
     for (const f of walk(`${P}/${dir}`).filter((p) => p.endsWith('.js'))) {
       try {
         require(`./${f}`);

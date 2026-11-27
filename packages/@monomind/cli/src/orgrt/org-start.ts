@@ -13,7 +13,6 @@ import type { RunningOrg } from './daemon-types.js';
 import * as decisionOps from './decisions.js';
 import { bindRoleWorkspaces } from './documents/deliverable-guards.js';
 import { agentRoles } from './endpoint-roles.js';
-import { isSessionlessRole } from './sessionless-roles.js';
 import { attachForwarder } from './forwarder.js';
 import * as idleWatchdog from './idle-watchdog.js';
 import * as orgMemory from './org-memory.js';
@@ -23,6 +22,7 @@ import { mergeEffectiveRoleConfig, type RoleOverrides } from './role-slot.js';
 import { sweepStaleRoleTmpdirs } from './role-tmpdir.js';
 import { runStartMs } from './run-start.js';
 import { SessionLedger } from './session-ledger.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 import { TaskDag } from './task-dag.js';
 import type { BusEvent, OrgRole } from './types.js';
 

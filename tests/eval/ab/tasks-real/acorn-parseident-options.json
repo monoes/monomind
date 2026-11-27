@@ -1,20 +1,11 @@
 {
   "id": "acorn-parseident-options",
   "title": "acorn: change parseIdent(liberal) to an options object at all call sites",
-  "tags": [
-    "refactor",
-    "callers-impact",
-    "multi-file",
-    "acorn"
-  ],
+  "tags": ["refactor", "callers-impact", "multi-file", "acorn"],
   "fixture": "slice:acorn-8.14.0",
   "prompt": "This is a copy of the acorn JavaScript parser (acorn/src). `Parser.prototype.parseIdent` currently takes a positional boolean `liberal`, and call sites pass `true`, `false` or an expression such as `this.options.allowReserved !== \"never\"`, which is unreadable. Change its signature to take an optional options object, `parseIdent({ liberal })` (no argument means `liberal: false`), and update every caller in the source so that no call passes a bare boolean any more. Behaviour (ASTs, errors, the allowReserved: \"never\" handling) must be identical.",
   "check": {
-    "command": [
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["node", "--test", "check.mjs"],
     "overlay": "real/hidden/acorn-parseident-options",
     "timeoutS": 60
   },

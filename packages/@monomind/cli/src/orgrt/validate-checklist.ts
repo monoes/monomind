@@ -17,10 +17,10 @@ import { BUDGET_REFUSED_RUN_CONFIG_KEYS } from './documents/section-budget-wire.
 import { sectionsSurface } from './documents/surface.js';
 import { outdatedModelWarnings, validateOrgModels } from './org-model-guard.js';
 import { effectiveRoleRuntime } from './runner-specs.js';
+import { isSessionlessRole } from './sessionless-roles.js';
 import { type OrgDef, OrgDefSchema } from './types.js';
 import { runDefectWarnings } from './validate-run-defects.js';
 import { selectionWarnings } from './validate-selection.js';
-import { isSessionlessRole } from './sessionless-roles.js';
 
 type OrgRole = OrgDef['roles'][number];
 

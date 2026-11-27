@@ -133,10 +133,21 @@ describe('route-handler with Jev', () => {
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(JSON.stringify({ answers: { agent: { type: 'choice', choice: 'security-engineer', confidence: 0.9 } } }), { status: 200 })),
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              answers: { agent: { type: 'choice', choice: 'security-engineer', confidence: 0.9 } },
+            }),
+            { status: 200 },
+          ),
+      ),
     );
     await loadRH().handle(makeHCtx('check the login handler for injection bugs'));
-    const lines = fs.readFileSync(path.join(tmpDir, '.monomind', 'route-outcomes.jsonl'), 'utf-8').trim().split('\n');
+    const lines = fs
+      .readFileSync(path.join(tmpDir, '.monomind', 'route-outcomes.jsonl'), 'utf-8')
+      .trim()
+      .split('\n');
     const rec = JSON.parse(lines[lines.length - 1]);
     expect(rec.provider).toBe('custom');
     expect(rec.latencyMs).toBeGreaterThanOrEqual(0);
@@ -156,7 +167,10 @@ describe('route-handler with Jev', () => {
     await require(rhPath).handle(makeHCtx('check the login handler for injection bugs'));
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(lastRoute().reason).not.toContain('jev');
-    const lines = fs.readFileSync(path.join(tmpDir, '.monomind', 'route-outcomes.jsonl'), 'utf-8').trim().split('\n');
+    const lines = fs
+      .readFileSync(path.join(tmpDir, '.monomind', 'route-outcomes.jsonl'), 'utf-8')
+      .trim()
+      .split('\n');
     expect(JSON.parse(lines[lines.length - 1]).routingMethod).not.toBe('jev');
   });
 

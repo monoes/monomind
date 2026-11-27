@@ -7,12 +7,7 @@
         {
           "repo": "tj/commander.js",
           "sha": "970ecae402b253de691e6a9066fea22f38fe7431",
-          "paths": [
-            "lib",
-            "index.js",
-            "package.json",
-            "LICENSE"
-          ]
+          "paths": ["lib", "index.js", "package.json", "LICENSE"]
         }
       ],
       "treeSha256": "b89ee68367afd9aad241c1baf35cae9b9d30c6c137d45e5dd19b1b45d828df93"
@@ -23,11 +18,7 @@
         {
           "repo": "acornjs/acorn",
           "sha": "3c6a5a98e8c6dcefef391e6114cc7e64657979d3",
-          "paths": [
-            "acorn/src",
-            "acorn/package.json",
-            "acorn/LICENSE"
-          ]
+          "paths": ["acorn/src", "acorn/package.json", "acorn/LICENSE"]
         }
       ],
       "files": {
@@ -41,12 +32,7 @@
         {
           "repo": "nodeca/js-yaml",
           "sha": "2cef47bebf60da141b78b085f3dea3b5733dcc12",
-          "paths": [
-            "lib",
-            "index.js",
-            "package.json",
-            "LICENSE"
-          ]
+          "paths": ["lib", "index.js", "package.json", "LICENSE"]
         }
       ],
       "treeSha256": "882f02d1ea15a6ae149d17b47f02cf5cd63f34f0466ae5db2cd67aa8ba3b0baa"
@@ -77,11 +63,7 @@
         {
           "repo": "markedjs/marked",
           "sha": "d65cf6353c93bde557665787270daa3a25514ce8",
-          "paths": [
-            "src",
-            "package.json",
-            "LICENSE.md"
-          ]
+          "paths": ["src", "package.json", "LICENSE.md"]
         }
       ],
       "files": {
@@ -95,11 +77,7 @@
         {
           "repo": "json5/json5",
           "sha": "c3a75242772a5026a49c4017a16d9b3543b62776",
-          "paths": [
-            "lib",
-            "package.json",
-            "LICENSE.md"
-          ]
+          "paths": ["lib", "package.json", "LICENSE.md"]
         }
       ],
       "treeSha256": "ebf2455f11b4a5045d7da17b1299367f3a4ba079c325ae62c4a9907490c36d36"
@@ -110,11 +88,7 @@
         {
           "repo": "moment/luxon",
           "sha": "a4044fe60eaae88d2397069eb43f018491a6a698",
-          "paths": [
-            "src",
-            "package.json",
-            "LICENSE.md"
-          ]
+          "paths": ["src", "package.json", "LICENSE.md"]
         }
       ],
       "files": {
@@ -128,63 +102,37 @@
         {
           "repo": "micromatch/micromatch",
           "sha": "8bd704ec0d9894693d35da425d827819916be920",
-          "paths": [
-            "index.js",
-            "package.json",
-            "LICENSE"
-          ],
+          "paths": ["index.js", "package.json", "LICENSE"],
           "dest": "packages/micromatch"
         },
         {
           "repo": "micromatch/picomatch",
           "sha": "5467a5a9638472610de4f30709991b9a56bb5613",
-          "paths": [
-            "index.js",
-            "lib",
-            "package.json",
-            "LICENSE"
-          ],
+          "paths": ["index.js", "lib", "package.json", "LICENSE"],
           "dest": "packages/picomatch"
         },
         {
           "repo": "micromatch/braces",
           "sha": "74b2db2938fad48a2ea54a9c8bf27a37a62c350d",
-          "paths": [
-            "index.js",
-            "lib",
-            "package.json",
-            "LICENSE"
-          ],
+          "paths": ["index.js", "lib", "package.json", "LICENSE"],
           "dest": "packages/braces"
         },
         {
           "repo": "jonschlinkert/fill-range",
           "sha": "bef65700633e1a9debb1ce67bf2922731c9ef4b5",
-          "paths": [
-            "index.js",
-            "package.json",
-            "LICENSE"
-          ],
+          "paths": ["index.js", "package.json", "LICENSE"],
           "dest": "packages/fill-range"
         },
         {
           "repo": "micromatch/to-regex-range",
           "sha": "1191a52afa82f52983e684ceeb8f8d3a150fa881",
-          "paths": [
-            "index.js",
-            "package.json",
-            "LICENSE"
-          ],
+          "paths": ["index.js", "package.json", "LICENSE"],
           "dest": "packages/to-regex-range"
         },
         {
           "repo": "jonschlinkert/is-number",
           "sha": "98e8ff1da1a89f93d1397a24d7413ed15421c139",
-          "paths": [
-            "index.js",
-            "package.json",
-            "LICENSE"
-          ],
+          "paths": ["index.js", "package.json", "LICENSE"],
           "dest": "packages/is-number"
         }
       ],
@@ -196,11 +144,7 @@
         {
           "repo": "jashkenas/underscore",
           "sha": "d2e7e613a597bec6b16c946e42c91950dcc1a215",
-          "paths": [
-            "modules",
-            "package.json",
-            "LICENSE"
-          ]
+          "paths": ["modules", "package.json", "LICENSE"]
         }
       ],
       "files": {
@@ -310,9 +254,7 @@
         {
           "repo": "lodash/lodash",
           "sha": "c6e281b878b315c7a10d90f9c2af4cdb112d9625",
-          "paths": [
-            "."
-          ]
+          "paths": ["."]
         }
       ],
       "treeSha256": "6a04ee75c55b9b6b7f855161413c6c9cceb25a7b8d342e7ac4af583aab49ab47"
@@ -323,11 +265,7 @@
         {
           "repo": "ramda/ramda",
           "sha": "7ee3d7a3b0f646a9d91c583c93734740fb4c8933",
-          "paths": [
-            "source",
-            "package.json",
-            "LICENSE.txt"
-          ]
+          "paths": ["source", "package.json", "LICENSE.txt"]
         }
       ],
       "files": {
@@ -341,10 +279,7 @@
         {
           "repo": "zloirock/core-js",
           "sha": "486e8d62611aa2f5f2321329b0c168135bf22861",
-          "paths": [
-            "packages/core-js",
-            "LICENSE"
-          ]
+          "paths": ["packages/core-js", "LICENSE"]
         }
       ],
       "treeSha256": "b996dc287ef9e50c914a705ac7fd982ad83812edb9aa3083618afa8e2c01b7b1"
@@ -364,9 +299,7 @@
             "package.json",
             "LICENSE"
           ],
-          "exclude": [
-            ".min.js"
-          ]
+          "exclude": [".min.js"]
         }
       ],
       "treeSha256": "a5125a75053cc554304e6510b28a7e16ea0a36b7d5c860e3353a33b3b1d86801"

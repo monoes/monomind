@@ -1,21 +1,11 @@
 {
   "id": "glob-bug-number-ranges",
   "title": "micromatch stack: locate why numeric brace ranges miss numbers",
-  "tags": [
-    "bug-localisation",
-    "multi-package",
-    "glob-stack"
-  ],
+  "tags": ["bug-localisation", "multi-package", "glob-stack"],
   "fixture": "slice:glob-bug-nines",
   "prompt": "packages/ holds a slice of the micromatch dependency tree (micromatch, picomatch, braces, fill-range, to-regex-range, is-number), resolved by plain Node with NODE_PATH=packages. Numeric brace ranges compiled to a regular expression are wrong: `require('braces')('{1..20}', { toRegex: true })` gives `['(1|20)']` instead of `['([1-9]|1[0-9]|20)']`, so the regex only matches 1 and 20, and `micromatch.braces('{1..20}', { toRegex: true })` and `to-regex-range` itself have the same problem for many ranges (5..123, 1..100, 45..1005). Find which package really causes it by following the call chain from braces down, and fix it with a minimal change.",
   "check": {
-    "command": [
-      "env",
-      "NODE_PATH=packages",
-      "node",
-      "--test",
-      "check.mjs"
-    ],
+    "command": ["env", "NODE_PATH=packages", "node", "--test", "check.mjs"],
     "overlay": "real/hidden/glob-bug-number-ranges",
     "timeoutS": 60
   },

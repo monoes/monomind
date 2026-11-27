@@ -11,7 +11,11 @@ const point = { type: 'P' };
 
 // Every public function built on _dispatchable, through the array path and the transducer path.
 export const CASES = {
-  any: () => [R.any(gt2, L), into(R.compose(R.map(inc)), [1]), R.transduce(R.map(R.identity), (a, x) => a + x, 0, L)],
+  any: () => [
+    R.any(gt2, L),
+    into(R.compose(R.map(inc)), [1]),
+    R.transduce(R.map(R.identity), (a, x) => a + x, 0, L),
+  ],
   all: () => [R.all(gt2, L), R.all(R.lt(0), L)],
   aperture: () => [R.aperture(3, L), into(R.aperture(2))],
   drop: () => [R.drop(3, L), into(R.drop(3)), R.drop(2, 'abcd')],
@@ -19,13 +23,24 @@ export const CASES = {
   dropWhile: () => [R.dropWhile(R.lt(2), L), into(R.dropWhile(gt2))],
   dropLastWhile: () => [R.dropLastWhile(gt2, L), into(R.dropLastWhile(gt2))],
   dropRepeats: () => [R.dropRepeats(L), into(R.dropRepeats())],
-  dropRepeatsWith: () => [R.dropRepeatsWith(R.eqBy(Math.floor), [1, 1.5, 2, 2.2, 3]), into(R.dropRepeatsWith(R.eqBy(Math.floor)))],
-  dropRepeatsBy: () => [R.dropRepeatsBy(Math.abs, [1, -1, 2, -2, 3]), into(R.dropRepeatsBy(Math.abs), [1, -1, 2, -2, 3])],
+  dropRepeatsWith: () => [
+    R.dropRepeatsWith(R.eqBy(Math.floor), [1, 1.5, 2, 2.2, 3]),
+    into(R.dropRepeatsWith(R.eqBy(Math.floor))),
+  ],
+  dropRepeatsBy: () => [
+    R.dropRepeatsBy(Math.abs, [1, -1, 2, -2, 3]),
+    into(R.dropRepeatsBy(Math.abs), [1, -1, 2, -2, 3]),
+  ],
   find: () => [R.find(gt2, L), into(R.find(gt2))],
   findIndex: () => [R.findIndex(gt2, L), into(R.findIndex(gt2))],
   findLast: () => [R.findLast(gt2, L), into(R.findLast(gt2))],
   findLastIndex: () => [R.findLastIndex(gt2, L), into(R.findLastIndex(gt2))],
-  map: () => [R.map(inc, L), into(R.map(inc)), R.map(inc, { a: 1, b: 2 }), R.map(inc, (x) => x * 2)(3)],
+  map: () => [
+    R.map(inc, L),
+    into(R.map(inc)),
+    R.map(inc, { a: 1, b: 2 }),
+    R.map(inc, (x) => x * 2)(3),
+  ],
   filter: () => [R.filter(gt2, L), into(R.filter(gt2)), R.filter(gt2, { a: 1, b: 5 })],
   reject: () => [R.reject(gt2, L), into(R.reject(gt2))],
   take: () => [R.take(3, L), into(R.take(3)), R.take(2, 'abcd')],
@@ -37,8 +52,26 @@ export const CASES = {
     return [R.tap((x) => seen.push(x), 5), seen, into(R.tap(R.identity))];
   },
   scan: () => [R.scan(R.add, 0, [1, 2, 3]), into(R.scan(R.add, 0), [1, 2, 3])],
-  reduceBy: () => [R.reduceBy((a, x) => a + x, 0, (x) => x % 2, L), R.transduce(R.map(inc), (a, x) => a + x, 0, L)],
-  chain: () => [R.chain((x) => [x, x], [1, 2]), into(R.chain((x) => [x, x]), [1, 2]), R.chain((f) => (g) => f + g, (x) => x * 2)(3)],
+  reduceBy: () => [
+    R.reduceBy(
+      (a, x) => a + x,
+      0,
+      (x) => x % 2,
+      L,
+    ),
+    R.transduce(R.map(inc), (a, x) => a + x, 0, L),
+  ],
+  chain: () => [
+    R.chain((x) => [x, x], [1, 2]),
+    into(
+      R.chain((x) => [x, x]),
+      [1, 2],
+    ),
+    R.chain(
+      (f) => (g) => f + g,
+      (x) => x * 2,
+    )(3),
+  ],
   unnest: () => [R.unnest([[1], [2, [3]]])],
   promap: () => [R.promap(inc, inc, (x) => x * 2)(3)],
   collectBy: () => [R.collectBy(R.prop('t'), [{ t: 1 }, { t: 2 }, { t: 1 }])],
@@ -51,11 +84,22 @@ export const CASES = {
 
 // custom list-like values reach their own methods first
 test('an object with the method name is dispatched to', () => {
-  const o = { take: (n) => `took ${n}`, find: (f) => `found ${f.name}`, drop: (n) => `dropped ${n}`, any: () => 'anyd' };
+  const o = {
+    take: (n) => `took ${n}`,
+    find: (f) => `found ${f.name}`,
+    drop: (n) => `dropped ${n}`,
+    any: () => 'anyd',
+  };
   assert.equal(R.take(2, o), 'took 2');
   assert.equal(R.drop(1, o), 'dropped 1');
-  assert.equal(R.any(function pred() {}, o), 'anyd');
-  assert.equal(R.find(function pred() {}, o), 'found pred');
+  assert.equal(
+    R.any(function pred() {}, o),
+    'anyd',
+  );
+  assert.equal(
+    R.find(function pred() {}, o),
+    'found pred',
+  );
   assert.equal(R.map(inc, { map: (f) => f(1) }), 2);
   assert.equal(R.filter(inc, { filter: (f) => f(1) }), 2);
   assert.equal(R.filter(inc, { 'fantasy-land/filter': (f) => `fl ${f(1)}` }), 'fl 2');
@@ -78,10 +122,25 @@ test('the helper takes the default implementation first, then method names, then
     '@@transducer/step': (r, x) => (r.push(x), r),
   };
   const t = d(7, sink);
-  assert.deepEqual(t['@@transducer/step'](t['@@transducer/step'](t['@@transducer/init'](), 1), 2), [1, 2]);
-  assert.deepEqual(calls, [['xf', 7, 1], ['xf', 7, 2]]);
+  assert.deepEqual(
+    t['@@transducer/step'](t['@@transducer/step'](t['@@transducer/init'](), 1), 2),
+    [1, 2],
+  );
+  assert.deepEqual(calls, [
+    ['xf', 7, 1],
+    ['xf', 7, 2],
+  ]);
   assert.equal(_dispatchable(() => 'no args', [], null)(), 'no args');
-  assert.equal(_dispatchable(function () { return this.tag; }, [], null).call({ tag: 'ctx' }, point), 'ctx');
+  assert.equal(
+    _dispatchable(
+      function () {
+        return this.tag;
+      },
+      [],
+      null,
+    ).call({ tag: 'ctx' }, point),
+    'ctx',
+  );
 });
 
 test('every dispatching public function behaves as before', () => {
@@ -89,4 +148,5 @@ test('every dispatching public function behaves as before', () => {
   assert.equal(JSON.stringify(out), EXPECTED);
 });
 
-const EXPECTED = "{\"any\":[true,[2],32],\"all\":[false,true],\"aperture\":[[[3,1,1],[1,1,4],[1,4,1],[4,1,5],[1,5,9],[5,9,2],[9,2,6]],[[3,1],[1,1],[1,4],[4,1],[1,5],[5,9],[9,2],[2,6]]],\"drop\":[[4,1,5,9,2,6],[4,1,5,9,2,6],\"cd\"],\"dropLast\":[[3,1,1,4,1,5],[3,1,1,4,1,5]],\"dropWhile\":[[1,1,4,1,5,9,2,6],[1,1,4,1,5,9,2,6]],\"dropLastWhile\":[[3,1,1,4,1,5,9,2],[3,1,1,4,1,5,9,2]],\"dropRepeats\":[[3,1,4,1,5,9,2,6],[3,1,4,1,5,9,2,6]],\"dropRepeatsWith\":[[1,2,3],[3,1,4,1,5,9,2,6]],\"dropRepeatsBy\":[[1,2,3],[1,2,3]],\"find\":[3,[3]],\"findIndex\":[0,[0]],\"findLast\":[6,[6]],\"findLastIndex\":[8,[8]],\"map\":[[4,2,2,5,2,6,10,3,7],[4,2,2,5,2,6,10,3,7],{\"a\":2,\"b\":3},7],\"filter\":[[3,4,5,9,6],[3,4,5,9,6],{\"b\":5}],\"reject\":[[1,1,1,2],[1,1,1,2]],\"take\":[[3,1,1],[3,1,1],\"ab\"],\"takeWhile\":[[3],[3,1,1,4,1,5,9,2,6]],\"uniqBy\":[[1,2],[3,1,4,5,9,2,6]],\"uniqWith\":[[1,2],[3,1,4,5,9,2,6]],\"tap\":[5,[5],[3,1,1,4,1,5,9,2,6]],\"scan\":[[0,1,3,6],[0,1,3,6]],\"reduceBy\":[{\"0\":12,\"1\":20},41],\"chain\":[[1,1,2,2],[1,1,2,2],9],\"unnest\":[[1,2,[3]]],\"promap\":[9],\"collectBy\":[[[{\"t\":1},{\"t\":1}],[{\"t\":2}]]],\"groupBy\":[{\"0\":[3,9,6],\"1\":[1,1,4,1],\"2\":[5,2]}],\"pluck\":[[1,2]],\"sequence\":[[[1,3],[2,3]]],\"innerJoin\":[[1,1,1,9]],\"without\":[[3,4,5,2,6]]}";
+const EXPECTED =
+  '{"any":[true,[2],32],"all":[false,true],"aperture":[[[3,1,1],[1,1,4],[1,4,1],[4,1,5],[1,5,9],[5,9,2],[9,2,6]],[[3,1],[1,1],[1,4],[4,1],[1,5],[5,9],[9,2],[2,6]]],"drop":[[4,1,5,9,2,6],[4,1,5,9,2,6],"cd"],"dropLast":[[3,1,1,4,1,5],[3,1,1,4,1,5]],"dropWhile":[[1,1,4,1,5,9,2,6],[1,1,4,1,5,9,2,6]],"dropLastWhile":[[3,1,1,4,1,5,9,2],[3,1,1,4,1,5,9,2]],"dropRepeats":[[3,1,4,1,5,9,2,6],[3,1,4,1,5,9,2,6]],"dropRepeatsWith":[[1,2,3],[3,1,4,1,5,9,2,6]],"dropRepeatsBy":[[1,2,3],[1,2,3]],"find":[3,[3]],"findIndex":[0,[0]],"findLast":[6,[6]],"findLastIndex":[8,[8]],"map":[[4,2,2,5,2,6,10,3,7],[4,2,2,5,2,6,10,3,7],{"a":2,"b":3},7],"filter":[[3,4,5,9,6],[3,4,5,9,6],{"b":5}],"reject":[[1,1,1,2],[1,1,1,2]],"take":[[3,1,1],[3,1,1],"ab"],"takeWhile":[[3],[3,1,1,4,1,5,9,2,6]],"uniqBy":[[1,2],[3,1,4,5,9,2,6]],"uniqWith":[[1,2],[3,1,4,5,9,2,6]],"tap":[5,[5],[3,1,1,4,1,5,9,2,6]],"scan":[[0,1,3,6],[0,1,3,6]],"reduceBy":[{"0":12,"1":20},41],"chain":[[1,1,2,2],[1,1,2,2],9],"unnest":[[1,2,[3]]],"promap":[9],"collectBy":[[[{"t":1},{"t":1}],[{"t":2}]]],"groupBy":[{"0":[3,9,6],"1":[1,1,4,1],"2":[5,2]}],"pluck":[[1,2]],"sequence":[[[1,3],[2,3]]],"innerJoin":[[1,1,1,9]],"without":[[3,4,5,2,6]]}';
