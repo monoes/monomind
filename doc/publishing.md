@@ -152,6 +152,7 @@ Bump rules:
 | `check-package-bumps.mjs` | shipped changes need a bump; no unearned major. `MONOMIND_ALLOW_STALE_PACKAGES=1` / `MONOMIND_ALLOW_MAJOR_BUMP=1` skip |
 | `check-workspace-protocol.mjs` | every sibling dependency uses `workspace:` |
 | `check-overrides-source.mjs` | overrides live only in `pnpm-workspace.yaml` |
+| `check-repository-field.mjs` | every published package has a non-empty `repository.url`, which npm provenance requires (a missing one fails the publish with E422) |
 | `check-published-pins.mjs` | the packages a manifest pins already exist on npm (needs the registry; checks one package, `.` by default). `MONOMIND_ALLOW_UNPUBLISHED_PINS=1` skips |
 | `check-release-attestations.mjs` | every package in the release set that is on npm carries `dist.attestations` (needs the registry; packages not on npm yet are skipped; the workflow runs it after the Publish step; `MONOMIND_ALLOW_NO_ATTESTATIONS=1` skips). A missing attestation means the version was published outside the workflow |
 | `check-release-deps.mjs` | every workspace dependency of a package in the release set (`release-packages.mjs`) is on npm or released in the same run (needs the registry; skipped with no previous `v*` tag). `MONOMIND_ALLOW_UNPUBLISHED_PINS=1` skips. `--preflight` instead checks the release host: the CLI's pinned Claude SDK is installed in `~/.monomind/deps` (`$MONOMIND_HOME/deps`) and `generate-claude-trees.mjs --probe` runs |
