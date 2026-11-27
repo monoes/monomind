@@ -1,8 +1,15 @@
+import { mkdtempSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { describe, expect, it, vi } from 'vitest';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const tmpDirs: string[] = [];
+afterEach(() => {
+  for (const d of tmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
+});
 const providers: any = require('../../.claude/helpers/jev-providers.cjs');
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const jp: any = require('../../.claude/helpers/jev-picker.cjs');
@@ -153,7 +160,9 @@ describe('anthropic kind: cost, safety, eligibility', () => {
   });
 
   it('drops hook-ineligible providers in pick()', async () => {
-    const file = `/var/tmp/jev-anthropic-${process.pid}.json`;
+    const dir = mkdtempSync(join(tmpdir(), 'jev-'));
+    tmpDirs.push(dir);
+    const file = join(dir, 'providers.json');
     providers.writeStore(file, [{ name: 'an', kind: 'anthropic', baseUrl: 'https://api.anthropic.com', model: 'claude-x', apiKeyEnv: 'AN_KEY', samples: 2 }]);
     const env = { MONOMIND_DECISION_PROVIDERS_FILE: file, AN_KEY: 'k' };
     const agents = [

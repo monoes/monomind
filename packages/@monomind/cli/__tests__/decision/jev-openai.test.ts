@@ -1,8 +1,15 @@
+import { mkdtempSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { describe, expect, it, vi } from 'vitest';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const tmpDirs: string[] = [];
+afterEach(() => {
+  for (const d of tmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
+});
 const providers: any = require('../../.claude/helpers/jev-providers.cjs');
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const jp: any = require('../../.claude/helpers/jev-picker.cjs');
@@ -237,7 +244,9 @@ describe('openai kind: metering and configuration', () => {
   });
 
   it('carries logprobs, pricing and local from a named entry into the config', () => {
-    const file = `/var/tmp/jev-openai-${process.pid}.json`;
+    const dir = mkdtempSync(join(tmpdir(), 'jev-'));
+    tmpDirs.push(dir);
+    const file = join(dir, 'providers.json');
     providers.writeStore(file, [
       { name: 'oa', kind: 'openai', baseUrl: 'https://api.openai.com', model: 'gpt-x', apiKeyEnv: 'OA_KEY', logprobs: false, pricing: { in: 1, out: 2 }, local: false },
     ]);
