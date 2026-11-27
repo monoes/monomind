@@ -85,17 +85,17 @@ interface OptionalDependencySpec {
 
 export const OPTIONAL_DEPENDENCIES = {
   '@anthropic-ai/claude-agent-sdk': {
-    version: '0.3.319',
+    version: '0.3.332',
     size: 'about 300 MB, nearly all of it the native Claude binary',
     feature: 'The Claude runtime (Claude org roles, `agent exec --runtime claude`)',
   },
   '@puppeteer/browsers': {
-    version: '3.0.6',
+    version: '3.3.0',
     size: 'about 2 MB',
     feature: 'The Chrome download for `monomind browse`',
   },
   '@huggingface/transformers': {
-    version: '4.3.0',
+    version: '4.3.2',
     size: 'about 500 MB, mostly the onnxruntime native libraries; model weights are fetched separately',
     feature: 'The local embedding runtime (Second Brain, memory search, semantic routing)',
   },
