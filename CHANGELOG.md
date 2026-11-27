@@ -4,9 +4,9 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
-## [2.29.5] — 2026-11-27
+## [2.29.6] — 2026-11-27
 
-Covers v2.29.4..HEAD. Published with it: `@monoes/mcp` 2.24.8, `@monoes/monobrowse` 2.24.8, `@monoes/hooks` 2.24.4, `@monoes/monograph` 2.25.11, `@monoes/memory` 2.24.6, `@monoes/monodesign` 2.24.3.
+Version 2.29.5 was tagged but never published to npm (its release workflow failed on missing package repository metadata), so 2.29.6 carries its contents. Covers v2.29.4..HEAD. Published with it: `@monoes/mcp` 2.24.8, `@monoes/monobrowse` 2.24.8, `@monoes/hooks` 2.24.4, `@monoes/monograph` 2.25.11, `@monoes/memory` 2.24.6, `@monoes/monodesign` 2.24.3.
 
 ### Security
 
@@ -25,6 +25,7 @@ Covers v2.29.4..HEAD. Published with it: `@monoes/mcp` 2.24.8, `@monoes/monobrow
 
 ### Changed
 
+- **Package repository metadata** completed for all published packages (`repository.url`, required for npm provenance; f2e2199fc), with a check in `scripts/check-repository-field.mjs`.
 - **vitest 5 (#850, 2d97f5142).** Dev dependency only.
 - **SDK refresh re-pins `@huggingface/transformers` and `@puppeteer/browsers` (#851, b0411a47d).**
 - **Release checks (#797, 2b84eded1, 5b54a1260).** `check-versions` flags released packages without npm provenance; `release.yml` verifies provenance. Also a preflight check of the pinned Claude SDK and tree generator (d9ae64c07, #789), a logo-version check (677c35c2b, #794) and a release lock that recovers from a dead holder on macOS (537845db7).
