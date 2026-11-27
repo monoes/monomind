@@ -21,28 +21,28 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
       '': {
         name: 'monomind-optional-dependency',
         dependencies: {
-          '@anthropic-ai/claude-agent-sdk': '0.3.319',
+          '@anthropic-ai/claude-agent-sdk': '0.3.332',
         },
       },
       'node_modules/@anthropic-ai/claude-agent-sdk': {
-        version: '0.3.319',
+        version: '0.3.332',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.319.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.332.tgz',
         integrity:
-          'sha512-7X+sh4uZv/u4OL4I4cQvMr9N3NM6FDiuyk829hFylgbrnNwVyiGElWEDWGuO26zwMIxmgpKdPoDILoFIHh1uwA==',
+          'sha512-N0ejnrTLMNJYXkvhdmLEy8QSfjym2ljJCkUBCrLKesYNGgqooi8zHDHawNsi+An6zav/ImPnpi27sbRsRjfcOw==',
         license: 'SEE LICENSE IN README.md',
         engines: {
           node: '>=18.14.0',
         },
         optionalDependencies: {
-          '@anthropic-ai/claude-agent-sdk-darwin-arm64': '0.3.319',
-          '@anthropic-ai/claude-agent-sdk-darwin-x64': '0.3.319',
-          '@anthropic-ai/claude-agent-sdk-linux-arm64': '0.3.319',
-          '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': '0.3.319',
-          '@anthropic-ai/claude-agent-sdk-linux-x64': '0.3.319',
-          '@anthropic-ai/claude-agent-sdk-linux-x64-musl': '0.3.319',
-          '@anthropic-ai/claude-agent-sdk-win32-arm64': '0.3.319',
-          '@anthropic-ai/claude-agent-sdk-win32-x64': '0.3.319',
+          '@anthropic-ai/claude-agent-sdk-darwin-arm64': '0.3.332',
+          '@anthropic-ai/claude-agent-sdk-darwin-x64': '0.3.332',
+          '@anthropic-ai/claude-agent-sdk-linux-arm64': '0.3.332',
+          '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': '0.3.332',
+          '@anthropic-ai/claude-agent-sdk-linux-x64': '0.3.332',
+          '@anthropic-ai/claude-agent-sdk-linux-x64-musl': '0.3.332',
+          '@anthropic-ai/claude-agent-sdk-win32-arm64': '0.3.332',
+          '@anthropic-ai/claude-agent-sdk-win32-x64': '0.3.332',
         },
         peerDependencies: {
           '@anthropic-ai/sdk': '>=0.93.0',
@@ -51,92 +51,88 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         },
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64': {
-        version: '0.3.319',
+        version: '0.3.332',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-darwin-arm64/-/claude-agent-sdk-darwin-arm64-0.3.319.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-darwin-arm64/-/claude-agent-sdk-darwin-arm64-0.3.332.tgz',
         integrity:
-          'sha512-rNiAbMbRhgOM2CELsDTIq7q++sFVIZukTkgeswcncGbcX8STIgtf0XaZzKdRXtKK+v9ez+mQn8P4pb2Ka17wGA==',
+          'sha512-EFqYJyg1zpgQM3NxfOsOLCi2ktm8uYwgSR1DP9D6Z/InlQ0KSBbWAXL/s11itvLTAj6Pn15VeFtNJS7Ehw4xpg==',
         cpu: ['arm64'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['darwin'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-darwin-x64': {
-        version: '0.3.319',
+        version: '0.3.332',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-darwin-x64/-/claude-agent-sdk-darwin-x64-0.3.319.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-darwin-x64/-/claude-agent-sdk-darwin-x64-0.3.332.tgz',
         integrity:
-          'sha512-jM730Fl+cFotDnjF9cStIf+Xe57YdfDB3TXaSVVv8uVAXW4xoWFwIj2eDvmsciEEe5UMkKzjVqXu9kR21OrXng==',
+          'sha512-vHanIaflUZ5OGgkefYjLjUBfQfiduETCqFlnpvh3DjelEdpphDkBvVmYnPLgH1Lx/eAQBLbIwR8z0qry30u8Dw==',
         cpu: ['x64'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['darwin'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-linux-arm64': {
-        version: '0.3.319',
+        version: '0.3.332',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-arm64/-/claude-agent-sdk-linux-arm64-0.3.319.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-arm64/-/claude-agent-sdk-linux-arm64-0.3.332.tgz',
         integrity:
-          'sha512-g2tpMsHLMQahI4bk5CIcMHAB/RwzxoPGmL5Q5G5MDir5WTrl71vulWbtLQISUPm/yFPRG97tdzZnCa5Uq1v/dw==',
+          'sha512-sFApHjuWc+1+1cPoEvC9OpSKv+1LxWQJisjgGK2zIVXE+tBGYSodbsVvhLfLHFKc3pWEnqm90QqUqEQ+v+5vWA==',
         cpu: ['arm64'],
-        libc: ['glibc'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['linux'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-linux-arm64-musl': {
-        version: '0.3.319',
+        version: '0.3.332',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-arm64-musl/-/claude-agent-sdk-linux-arm64-musl-0.3.319.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-arm64-musl/-/claude-agent-sdk-linux-arm64-musl-0.3.332.tgz',
         integrity:
-          'sha512-8KDZQJAS2CEb5aGAvuXkpyHMc9TOM/zYTw2iKmbbVi4im0atw93EtJPapYyp0g/lQI/Xk8jMYdWU6Zlv9EWjLw==',
+          'sha512-dlt1/pFZ4PNTsmSa/cS3m/DD4D17c5S7LEtlD0I8Ue4jbTIdYaNZOIUOYulhy9iD4Eoa47rWfP9L8MkmCrCMUg==',
         cpu: ['arm64'],
-        libc: ['musl'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['linux'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-linux-x64': {
-        version: '0.3.319',
+        version: '0.3.332',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-x64/-/claude-agent-sdk-linux-x64-0.3.319.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-x64/-/claude-agent-sdk-linux-x64-0.3.332.tgz',
         integrity:
-          'sha512-uBAZA8x0hd5gVifyL5Lo73dVmi9xZeJ6jro2NO0al6yyWaw/6UL9xbsVh9lOhLFOmYIdSbQ2j4zAfnvG/t5F3Q==',
+          'sha512-jcy9+qHfZp8chlyAzugVCDSVoMv3lNIrDxuWo8ukM2SkZWJn0pr4K8sXhJIKbUIvbGrZhZeY5E68zPHNfpv6Sw==',
         cpu: ['x64'],
-        libc: ['glibc'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['linux'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-linux-x64-musl': {
-        version: '0.3.319',
+        version: '0.3.332',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-x64-musl/-/claude-agent-sdk-linux-x64-musl-0.3.319.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-x64-musl/-/claude-agent-sdk-linux-x64-musl-0.3.332.tgz',
         integrity:
-          'sha512-XkKYj3c1jVFjLATrZr4YTsmS5AIb5s2iphF9X670EcVQqDCCGIKKTVNLLg9mg1e7D+2xX8FU0XNlOJatWfpBeA==',
+          'sha512-weDfrdbgQVDuIKjk4kMoQA2x+/FPCpWno/5a9tDKeYg+jbqjIhlpvfvniteEjViL7GVf/U3SfTrjHljylsvSSg==',
         cpu: ['x64'],
-        libc: ['musl'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['linux'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-win32-arm64': {
-        version: '0.3.319',
+        version: '0.3.332',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-win32-arm64/-/claude-agent-sdk-win32-arm64-0.3.319.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-win32-arm64/-/claude-agent-sdk-win32-arm64-0.3.332.tgz',
         integrity:
-          'sha512-YoP0lYHJCziENFCotHQq9qd/gaJrwUNkAcnZyVjXxg1OPmtKuyw31aG60s4cWXRDXXGm/m1siNSQaGGfAYBvrw==',
+          'sha512-FWzNarl2AiOzNlF6FQZRFMN1t75elEdDsgVfrB+yIlMZeoMZG9OhFv38oWfgcVbZe4Hv+sR0VEQ5aYRtFDh0AQ==',
         cpu: ['arm64'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
         os: ['win32'],
       },
       'node_modules/@anthropic-ai/claude-agent-sdk-win32-x64': {
-        version: '0.3.319',
+        version: '0.3.332',
         resolved:
-          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-win32-x64/-/claude-agent-sdk-win32-x64-0.3.319.tgz',
+          'https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-win32-x64/-/claude-agent-sdk-win32-x64-0.3.332.tgz',
         integrity:
-          'sha512-UC27x+8gfCS2OjNGJWrueP0gLOOKsLEsJ/kg0p6aa8GToZcJYjJ8KeAapHHRYMUAIB6Sarqe49Itm5P1wswCcQ==',
+          'sha512-UgAe9yBXZJU3km8SY2/jRetE16HpPtWhEcfmQscS4PQFwqGvKHbpUjIZ6J917gAKA8jpJ2PRtDNpDHvCcgrOqg==',
         cpu: ['x64'],
         license: 'SEE LICENSE IN LICENSE.md',
         optional: true,
@@ -152,17 +148,17 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
       '': {
         name: 'monomind-optional-dependency',
         dependencies: {
-          '@puppeteer/browsers': '3.0.6',
+          '@puppeteer/browsers': '3.3.0',
         },
       },
       'node_modules/@puppeteer/browsers': {
-        version: '3.0.6',
-        resolved: 'https://registry.npmjs.org/@puppeteer/browsers/-/browsers-3.0.6.tgz',
+        version: '3.3.0',
+        resolved: 'https://registry.npmjs.org/@puppeteer/browsers/-/browsers-3.3.0.tgz',
         integrity:
-          'sha512-B/gKoqlFkzhvzsI6jo9K1cZz9o5ypviVv/xu8CwA4grZzyVwN+XfkT+tu8T1zrauuEXv6VhS2oGX+6NL95WcKA==',
+          'sha512-ZiOVHQ5KmsinwZJMwRc/a3xsGHbi9dRuAyf2gq4i9J5vRaI4r7SSIaJUniF1JVClG+qNoVdtBBWfL08N9Oib6g==',
         license: 'Apache-2.0',
         dependencies: {
-          'modern-tar': '^0.7.6',
+          'modern-tar': '^0.8.6',
           yargs: '^18.0.0',
         },
         bin: {
@@ -185,10 +181,10 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         },
       },
       'node_modules/ansi-regex': {
-        version: '6.4.0',
-        resolved: 'https://registry.npmjs.org/ansi-regex/-/ansi-regex-6.4.0.tgz',
+        version: '6.6.0',
+        resolved: 'https://registry.npmjs.org/ansi-regex/-/ansi-regex-6.6.0.tgz',
         integrity:
-          'sha512-KzTVk2tCWAHtYrvvvaP8bJKJq2pVinhLcGEQdtLIYPbmNGNyYe8QwNaTUYQp2J7/vIsUKt5QCqAfUkYyG9DkOw==',
+          'sha512-XZ5apbzreCbXSKwPjJstu8R0zOi247w3XYwWxtwBXgpZrCyc1Ka7p9/xY0A9/diMewmHbEKz+FIraWaEWjlN5g==',
         license: 'MIT',
         engines: {
           node: '>=12',
@@ -285,10 +281,10 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         },
       },
       'node_modules/modern-tar': {
-        version: '0.7.7',
-        resolved: 'https://registry.npmjs.org/modern-tar/-/modern-tar-0.7.7.tgz',
+        version: '0.8.7',
+        resolved: 'https://registry.npmjs.org/modern-tar/-/modern-tar-0.8.7.tgz',
         integrity:
-          'sha512-t9VmxaqrmANnEOBhpSDI6HD192Ge48k8vmWqQQL7hSFEqHEYwZbbsu49+aKLWZeRvFs3j1pMhXOqqF4kPlvjkQ==',
+          'sha512-q17gyzLiCw2wf/Rcl5c3EA5ynB2hOHb5+qMpbaILOQBaTiBx9bumfXC5sMk0wQrVoLtlBhW77dJTnLArlczsGg==',
         license: 'MIT',
         engines: {
           node: '>=18.0.0',
@@ -434,7 +430,7 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
       '': {
         name: 'monomind-optional-dependency',
         dependencies: {
-          '@huggingface/transformers': '4.3.0',
+          '@huggingface/transformers': '4.3.2',
         },
       },
       'node_modules/@emnapi/runtime': {
@@ -449,10 +445,10 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         },
       },
       'node_modules/@huggingface/jinja': {
-        version: '0.5.11',
-        resolved: 'https://registry.npmjs.org/@huggingface/jinja/-/jinja-0.5.11.tgz',
+        version: '0.5.13',
+        resolved: 'https://registry.npmjs.org/@huggingface/jinja/-/jinja-0.5.13.tgz',
         integrity:
-          'sha512-YzEzwM5oQf4r0vs7ifWQ+yuVR1YkAHrjERQ+a8WRsStHHp4NRBg+NesjiFc+X2AFUpRvvrIeHDS1xFy9jY/IjQ==',
+          'sha512-jM17MqFily1iyT/1LD3r5w8/CZiyapVB0+7vOw48PfVtzyKsXStmHE4jVTyDAD05Tqv3un1xrS9ILUU1ugQAYQ==',
         license: 'MIT',
         engines: {
           node: '>=18',
@@ -466,10 +462,10 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'Apache-2.0',
       },
       'node_modules/@huggingface/transformers': {
-        version: '4.3.0',
-        resolved: 'https://registry.npmjs.org/@huggingface/transformers/-/transformers-4.3.0.tgz',
+        version: '4.3.2',
+        resolved: 'https://registry.npmjs.org/@huggingface/transformers/-/transformers-4.3.2.tgz',
         integrity:
-          'sha512-fL1A/WUZwouPrOlYxU5dzIwD2T5J781JiB2jDR8bFe5DwCj0Gfudq+NEXCMno49kQgajHA7xQkrRLJlqG1veEA==',
+          'sha512-V3+dqf3iWlRYJ9I9GreM3zGQd0lAXnnoPeddmkOQYWAEE4l/+Fi6p7tx/qVUJlKQgLXGim2W76rTOzz+eC0i7g==',
         license: 'Apache-2.0',
         dependencies: {
           '@huggingface/jinja': '^0.5.10',
@@ -502,6 +498,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>=20.9.0',
         },
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
         optionalDependencies: {
           '@img/sharp-libvips-darwin-arm64': '1.3.4',
         },
@@ -517,6 +516,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         os: ['darwin'],
         engines: {
           node: '>=20.9.0',
+        },
+        funding: {
+          url: 'https://opencollective.com/libvips',
         },
         optionalDependencies: {
           '@img/sharp-libvips-darwin-x64': '1.3.4',
@@ -537,6 +539,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>=20.9.0',
         },
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-libvips-darwin-arm64': {
         version: '1.3.4',
@@ -548,6 +553,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'LGPL-3.0-or-later',
         optional: true,
         os: ['darwin'],
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-libvips-darwin-x64': {
         version: '1.3.4',
@@ -559,6 +567,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'LGPL-3.0-or-later',
         optional: true,
         os: ['darwin'],
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-libvips-linux-arm': {
         version: '1.3.4',
@@ -570,6 +581,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'LGPL-3.0-or-later',
         optional: true,
         os: ['linux'],
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-libvips-linux-arm64': {
         version: '1.3.4',
@@ -581,6 +595,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'LGPL-3.0-or-later',
         optional: true,
         os: ['linux'],
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-libvips-linux-ppc64': {
         version: '1.3.4',
@@ -592,6 +609,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'LGPL-3.0-or-later',
         optional: true,
         os: ['linux'],
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-libvips-linux-riscv64': {
         version: '1.3.4',
@@ -603,6 +623,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'LGPL-3.0-or-later',
         optional: true,
         os: ['linux'],
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-libvips-linux-s390x': {
         version: '1.3.4',
@@ -614,6 +637,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'LGPL-3.0-or-later',
         optional: true,
         os: ['linux'],
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-libvips-linux-x64': {
         version: '1.3.4',
@@ -625,6 +651,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'LGPL-3.0-or-later',
         optional: true,
         os: ['linux'],
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-libvips-linuxmusl-arm64': {
         version: '1.3.4',
@@ -636,6 +665,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'LGPL-3.0-or-later',
         optional: true,
         os: ['linux'],
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-libvips-linuxmusl-x64': {
         version: '1.3.4',
@@ -647,6 +679,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'LGPL-3.0-or-later',
         optional: true,
         os: ['linux'],
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-linux-arm': {
         version: '0.35.5',
@@ -659,6 +694,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         os: ['linux'],
         engines: {
           node: '>=20.9.0',
+        },
+        funding: {
+          url: 'https://opencollective.com/libvips',
         },
         optionalDependencies: {
           '@img/sharp-libvips-linux-arm': '1.3.4',
@@ -677,6 +715,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>=20.9.0',
         },
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
         optionalDependencies: {
           '@img/sharp-libvips-linux-arm64': '1.3.4',
         },
@@ -693,6 +734,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         os: ['linux'],
         engines: {
           node: '>=20.9.0',
+        },
+        funding: {
+          url: 'https://opencollective.com/libvips',
         },
         optionalDependencies: {
           '@img/sharp-libvips-linux-ppc64': '1.3.4',
@@ -711,6 +755,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>=20.9.0',
         },
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
         optionalDependencies: {
           '@img/sharp-libvips-linux-riscv64': '1.3.4',
         },
@@ -728,6 +775,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>=20.9.0',
         },
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
         optionalDependencies: {
           '@img/sharp-libvips-linux-s390x': '1.3.4',
         },
@@ -743,6 +793,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         os: ['linux'],
         engines: {
           node: '>=20.9.0',
+        },
+        funding: {
+          url: 'https://opencollective.com/libvips',
         },
         optionalDependencies: {
           '@img/sharp-libvips-linux-x64': '1.3.4',
@@ -761,6 +814,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>=20.9.0',
         },
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
         optionalDependencies: {
           '@img/sharp-libvips-linuxmusl-arm64': '1.3.4',
         },
@@ -777,6 +833,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         os: ['linux'],
         engines: {
           node: '>=20.9.0',
+        },
+        funding: {
+          url: 'https://opencollective.com/libvips',
         },
         optionalDependencies: {
           '@img/sharp-libvips-linuxmusl-x64': '1.3.4',
@@ -795,6 +854,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>=20.9.0',
         },
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-webcontainers-wasm32': {
         version: '0.35.5',
@@ -811,6 +873,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>=20.9.0',
         },
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-win32-arm64': {
         version: '0.35.5',
@@ -825,6 +890,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>=20.9.0',
         },
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-win32-ia32': {
         version: '0.35.5',
@@ -838,6 +906,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '^20.9.0',
         },
+        funding: {
+          url: 'https://opencollective.com/libvips',
+        },
       },
       'node_modules/@img/sharp-win32-x64': {
         version: '0.35.5',
@@ -850,6 +921,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         os: ['win32'],
         engines: {
           node: '>=20.9.0',
+        },
+        funding: {
+          url: 'https://opencollective.com/libvips',
         },
       },
       'node_modules/@protobufjs/aspromise': {
@@ -919,10 +993,10 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'BSD-3-Clause',
       },
       'node_modules/@types/node': {
-        version: '26.6.6',
-        resolved: 'https://registry.npmjs.org/@types/node/-/node-26.6.6.tgz',
+        version: '26.6.11',
+        resolved: 'https://registry.npmjs.org/@types/node/-/node-26.6.11.tgz',
         integrity:
-          'sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==',
+          'sha512-uUyQ2XLEz+EXh34lmS3GhKrkqn/8FU7KUiKRpk347At2bmnMVWss45yz8b4FG/tUtmV1tV/+TVkITItPROyeeQ==',
         license: 'MIT',
         dependencies: {
           'undici-types': '~8.9.0',
@@ -953,6 +1027,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>= 0.4',
         },
+        funding: {
+          url: 'https://github.com/sponsors/ljharb',
+        },
       },
       'node_modules/define-properties': {
         version: '1.2.1',
@@ -967,6 +1044,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         },
         engines: {
           node: '>= 0.4',
+        },
+        funding: {
+          url: 'https://github.com/sponsors/ljharb',
         },
       },
       'node_modules/detect-libc': {
@@ -1009,6 +1089,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>=10',
         },
+        funding: {
+          url: 'https://github.com/sponsors/sindresorhus',
+        },
       },
       'node_modules/flatbuffers': {
         version: '25.9.23',
@@ -1018,10 +1101,10 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'Apache-2.0',
       },
       'node_modules/global-agent': {
-        version: '4.1.6',
-        resolved: 'https://registry.npmjs.org/global-agent/-/global-agent-4.1.6.tgz',
+        version: '4.1.8',
+        resolved: 'https://registry.npmjs.org/global-agent/-/global-agent-4.1.8.tgz',
         integrity:
-          'sha512-V9u791atI/bS7RryfRTK2oixDWo6/RCrIikjwuQ4kADPRZZml1C6LUJXc7y6qRhaAF8geo3bIvE/siAGJCw38A==',
+          'sha512-w0d9uka6hldJV85fYj/FsKNsGoUNQzJiWdUxWYYbIlHZVoZEhybFJO4XlkJ6uhAG2qytMfNOyLhN8zQxXYjfjg==',
         license: 'BSD-3-Clause',
         dependencies: {
           globalthis: '^1.0.2',
@@ -1046,6 +1129,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>= 0.4',
         },
+        funding: {
+          url: 'https://github.com/sponsors/ljharb',
+        },
       },
       'node_modules/gopd': {
         version: '1.2.0',
@@ -1055,6 +1141,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'MIT',
         engines: {
           node: '>= 0.4',
+        },
+        funding: {
+          url: 'https://github.com/sponsors/ljharb',
         },
       },
       'node_modules/guid-typescript': {
@@ -1073,6 +1162,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: 'MIT',
         dependencies: {
           'es-define-property': '^1.0.0',
+        },
+        funding: {
+          url: 'https://github.com/sponsors/ljharb',
         },
       },
       'node_modules/long': {
@@ -1093,6 +1185,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         },
         engines: {
           node: '>=10',
+        },
+        funding: {
+          url: 'https://github.com/sponsors/sindresorhus',
         },
       },
       'node_modules/object-keys': {
@@ -1206,6 +1301,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         engines: {
           node: '>=10',
         },
+        funding: {
+          url: 'https://github.com/sponsors/sindresorhus',
+        },
       },
       'node_modules/sharp': {
         version: '0.35.5',
@@ -1220,6 +1318,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         },
         engines: {
           node: '>=20.9.0',
+        },
+        funding: {
+          url: 'https://opencollective.com/libvips',
         },
         optionalDependencies: {
           '@img/sharp-darwin-arm64': '0.35.5',
@@ -1270,6 +1371,9 @@ export const OPTIONAL_DEPENDENCY_LOCKS = {
         license: '(MIT OR CC0-1.0)',
         engines: {
           node: '>=10',
+        },
+        funding: {
+          url: 'https://github.com/sponsors/sindresorhus',
         },
       },
       'node_modules/undici-types': {
@@ -1327,51 +1431,51 @@ export interface CodePins {
  */
 export const OPTIONAL_DEPENDENCY_CODE_PINS: Partial<Record<string, CodePins>> = {
   '@anthropic-ai/claude-agent-sdk': {
-    version: '0.3.319',
+    version: '0.3.332',
     entry: {
       file: 'sdk.mjs',
-      sha256: '71460e29f72859dbc65a613e3737c834b4afa4b6411716fd7b596f9c5e129b76',
+      sha256: '85ec12e4c475c08740ec15ab1bb1e9076291a6671aea51fc151019a66f7e17c0',
     },
     binaries: {
       '@anthropic-ai/claude-agent-sdk-darwin-arm64': {
         file: 'claude',
-        sha256: '1f53587e92dee8e089fa349188a4cda64fa34ace6e7b0ca2ee278ddaa3cc2ebd',
+        sha256: '5b8214f8f082f3187420b27b4063b9b4f4d9412cd66ea436d6d1966ad582700f',
       },
       '@anthropic-ai/claude-agent-sdk-darwin-x64': {
         file: 'claude',
-        sha256: 'af6f1f5510ae98d56a155bf8f007aa9d5b44efccc9c10c8e10ef35039e95a940',
+        sha256: '3ceb285194091d45b150561ac5d58ab5a58cddcdc6d086f883039a652c037cfa',
       },
       '@anthropic-ai/claude-agent-sdk-linux-arm64': {
         file: 'claude',
-        sha256: 'a7e687fd1cb054d651c7588223de3786c99d4c682365e3c3ae1e59ce7f3a591f',
+        sha256: '50c305fcb8912851ce774429131d94ed6f84edbe3d8d0ed7a59dade5d893acc0',
       },
       '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': {
         file: 'claude',
-        sha256: '244e1aaedb73cb73571c2d5f2380f7ad251ba7e010d2747a203d631a1e7bd2e8',
+        sha256: '122dd3751257a9e769d8c08b19d16e45f3e86c43a09e18d7182fc01c81143246',
       },
       '@anthropic-ai/claude-agent-sdk-linux-x64': {
         file: 'claude',
-        sha256: 'dabafec82ca1319fa43d8be36a10fc61b1d11821cb98ad5df04ad95e199b8eed',
+        sha256: 'a2df1f41bb00250992926420d0063f89b127cb81abdd284dbefb80c50ff1d026',
       },
       '@anthropic-ai/claude-agent-sdk-linux-x64-musl': {
         file: 'claude',
-        sha256: 'b0f74e3c97fc4df46101bc7bcd0054d0f63733261cd63e5a0413cd50d66197f2',
+        sha256: '81f466623d672aed9504ad29b8bb2f240b24f3cc05c255054649250720a1900f',
       },
       '@anthropic-ai/claude-agent-sdk-win32-arm64': {
         file: 'claude.exe',
-        sha256: '59b1ace11fad7f95c17a4ba01cf50eb48af20cd133df93129b34aa8e633bd6b1',
+        sha256: '3e5f5a60279364592f2be7b35a7812f8474e5c8ac809203ceb0a4b12bcd02f32',
       },
       '@anthropic-ai/claude-agent-sdk-win32-x64': {
         file: 'claude.exe',
-        sha256: '2e055732c9d03d22700d9046251a8370b673607bfcc9e4d16a1b0e8fb1345cbd',
+        sha256: 'e6652f9170a07df45f1db3e0520f1df0f7b385181ff74f70f49398a67b5fd320',
       },
     },
   },
   '@huggingface/transformers': {
-    version: '4.3.0',
+    version: '4.3.2',
     entry: {
       file: 'dist/transformers.node.cjs',
-      sha256: 'cb1ded8e49422a53cf70fe6abb6b73d8f6df9ec952492f309e84502c4bd12458',
+      sha256: 'daaa615b3d336b7e3abb61bcc6bcd07f8068311e2147587d3019bcde81e2d100',
     },
   },
   'monofence-ai': {
