@@ -4,6 +4,11 @@
   "type": "module",
   "description": "Code intelligence engine for monomind — tree-sitter WASM grammars + SQLite knowledge graph, no native builds",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monoes/monomind.git",
+    "directory": "packages/@monomind/monograph"
+  },
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "exports": {

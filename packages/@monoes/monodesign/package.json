@@ -2,6 +2,11 @@
   "name": "@monoes/monodesign",
   "version": "2.24.3",
   "description": "Frontend design intelligence for AI agents — design tokens, antipattern detection, and the monodesign skill",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monoes/monomind.git",
+    "directory": "packages/@monoes/monodesign"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -3,6 +3,11 @@
   "version": "2.24.2",
   "description": "Semantic task-to-agent routing for monomind",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monoes/monomind.git",
+    "directory": "packages/@monomind/routing"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

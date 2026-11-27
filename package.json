@@ -81,7 +81,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/monoes/monomind.git"
+    "url": "git+https://github.com/monoes/monomind.git"
   },
   "keywords": [
     "claude",

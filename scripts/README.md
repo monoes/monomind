@@ -14,6 +14,7 @@ Index of repo utility scripts. Groups: **release** (publish guards), **ci** (lin
 | `check-package-bumps.mjs`                                             | release | Changed package source needs a version bump                  | root `package.json`                                  |
 | `check-publish-versions.mjs`                                          | release | Umbrella shim pins the real CLI version                      | root `package.json`, release org                     |
 | `check-published-pins.mjs`                                            | release | `workspace:*` pins resolve to published versions             | root `package.json`                                  |
+| `check-repository-field.mjs`                                          | release | Publishable packages declare the GitHub `repository.url`     | `check:versions`                                     |
 | `check-workspace-protocol.mjs`                                        | release | Sibling deps must use `workspace:`                           | root `package.json`                                  |
 | `check-workspace-publish.mjs`                                         | release | Packages with `workspace:` deps must publish via pnpm        | monodesign and hooks `prepublishOnly`                |
 | `claude-sdk-maintenance.mjs`                                          | ci      | Refresh the pinned Claude SDK                                | `claude-sdk-refresh.yml`                             |

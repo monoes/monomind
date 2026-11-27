@@ -32,6 +32,10 @@ export const CHECKS = [
   },
   { script: 'check-package-bumps.mjs', what: 'changed packages are bumped, no unearned major' },
   { script: 'check-workspace-protocol.mjs', what: 'internal deps use workspace:*' },
+  {
+    script: 'check-repository-field.mjs',
+    what: 'publishable packages declare repository.url (npm provenance E422)',
+  },
   { script: 'check-overrides-source.mjs', what: 'overrides come from the right source' },
   {
     script: 'check-published-pins.mjs',
