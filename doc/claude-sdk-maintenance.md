@@ -8,6 +8,8 @@ The **Claude SDK refresh** GitHub Actions workflow runs weekly on Monday and can
 
 The generator downloads tarballs from the npm registry and verifies each against its lockfile integrity before hashing the SDK entry and platform executables. On Linux x64 it runs the verified bundled executable with `--version` to derive the Claude Code version; it does not infer that version from the SDK version number. Refresh fails before changing source files if a download, integrity check, expected package entry, or native version probe fails.
 
+The same refresh also re-pins the other exact-pinned optional packages, `@huggingface/transformers` and `@puppeteer/browsers` (#851): pin, lockfile, the SHA-256 of the entry file where one is pinned, and the devDependency are updated together.
+
 Run a refresh locally in an isolated Linux x64 checkout:
 
 ```sh

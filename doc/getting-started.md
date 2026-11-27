@@ -280,6 +280,8 @@ Use `monomind init --target codex` (or `--codex`) to initialize only Codex. See 
 
 > **Native module install blocked?** If `doctor` reports a missing `better-sqlite3` binding (`Could not locate the bindings file`, or npm logs an install script that was "blocked because it is not covered by allowScripts"), your npm's `allowScripts` policy blocked its native build — this isn't a Monomind bug. Run `npm install-scripts approve better-sqlite3 && npm rebuild better-sqlite3`, then re-run `monomind doctor --fix`. `doctor --fix` now checks that the rebuilt binding actually loads, and `monograph_build` explains an open native-module failure instead of failing silently.
 
+> **npm 12 and projects created by an older `init`.** `init` now writes `npm_config_allow_scripts=better-sqlite3` into the MCP server env it generates (#853), so npm 12 can build the native `better-sqlite3` binding when the server starts through `npx`. Projects initialised before 2.29.5 keep the old launch entry: re-run `monomind init`, or add `"npm_config_allow_scripts": "better-sqlite3"` to the `env` of the `monomind` server in `.mcp.json`.
+
 Open Claude Code. The core `/mastermind:*` workflows are available (all <!-- doc-count:mastermind-commands -->40<!-- /doc-count:mastermind-commands --> come with `monomind packs add` or `init --all-packs`):
 
 ```bash
