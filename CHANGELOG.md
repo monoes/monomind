@@ -4,9 +4,42 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.29.5] — 2026-11-27
+
+Covers v2.29.4..HEAD. Published with it: `@monoes/mcp` 2.24.8, `@monoes/monobrowse` 2.24.8, `@monoes/hooks` 2.24.4, `@monoes/monograph` 2.25.11, `@monoes/memory` 2.24.6, `@monoes/monodesign` 2.24.3.
+
 ### Security
 
-- **The standalone WebSocket MCP transport (`monomind mcp start -t websocket`) now checks the upgrade's Origin and Host, as the HTTP transport already did.** Without `MONOMIND_MCP_TOKEN` it accepted a browser connection from any web origin on loopback. Cross-origin upgrades and foreign Host names now get 403; clients that send no Origin, loopback origins and configured allow-list entries are unchanged (GHSA-7wvv-m3mq-m5j3).
+- The standalone WebSocket transport now validates Origin and Host like the HTTP transport (5953db0e8).
+
+### Upgrade notes
+
+- **npm 12 (#853, ff1cb4927).** `monomind init` now writes `npm_config_allow_scripts=better-sqlite3` into the MCP server env so better-sqlite3 can build under npm 12. Existing projects must re-run `monomind init` or add `npm_config_allow_scripts=better-sqlite3` to the MCP server env.
+- **Linux, confined org roles.** The Linux authority mask hides the user runtime dir, so push-level confined org roles whose `gh` login is stored in the keyring now need `GH_TOKEN` in the environment.
+
+### Added
+
+- **Pluggable decision providers and the decision org role (#835; 1acf5055e, 04907b8f9, 09344c63d, 0be23b359 and the PRs before them).** A decision role can act as autonomy decider and gate resolver, with provider kinds including hf-zeroshot. `mono-agent` advertises the capability `org-decision-roles` (doc/agent-exec-protocol.md 7.5); docs, dashboard and org report cover it.
+- **Native Windows authority mask (#852; 137386ecd, f64fe21e1).** Restricted token and marker SIDs, with a real native-Windows CI job.
+- **Dashboard.** Read-only Mesh view of agents on this machine (aba173706), Health view running `monomind doctor` (a39e75b37), usable narrow-screen layout (a815c34db); Activity rows show forwarded run text (2b6a936c8); org routes read the files the runtime and server write (58900d31a); header refresh keeps runtimeStatus (b94c4e1e5); handler arguments with quotes (097fe4240).
+
+### Changed
+
+- **vitest 5 (#850, 2d97f5142).** Dev dependency only.
+- **SDK refresh re-pins `@huggingface/transformers` and `@puppeteer/browsers` (#851, b0411a47d).**
+- **Release checks (#797, 2b84eded1, 5b54a1260).** `check-versions` flags released packages without npm provenance; `release.yml` verifies provenance. Also a preflight check of the pinned Claude SDK and tree generator (d9ae64c07, #789), a logo-version check (677c35c2b, #794) and a release lock that recovers from a dead holder on macOS (537845db7).
+- **Authority mask:** isolated pid namespace and runtime dir (2309a5eca); the masked role's session leader is checked.
+- **Dependencies:** helmet 8.3.0 in `@monoes/mcp` (2bc7b426c), tree-sitter group, better-sqlite3 13, `@monoes/monograph` build-lock change.
+
+### Fixed
+
+- `monograph_build` failures are reported as `isError` and counted (935592efa, #790); missing-binary note matches the package manager (29c8b7223, #793); read-only deps error tightened (173f3ac83, #791, #792, #795); `monograph watch` says why it cannot watch (be359c5fa); build lock and health worker survive a denied uptime read (4ab206bd9, 8bf82189c); `generate-claude-trees` warns on git fallback (8e6e3c3fb, #796); vercel/browse xai factory name and commander adapter argv (99e45745d).
+- Many test and CI changes for restricted hosts and macOS (#798, #795), including skips where `ps` is denied.
+
+### Internal
+
+- **Eval harness (#723; c1afae6d6, e14eded96, 90d794e1b, 3b5fdad56).** A/B tasks as pinned open-source slices; nothing ships.
+- Documentation and site brought in line with the code (4aaf9a412, b3d4d0f72, 0cb94818c, 40c6d3ad8, 10ebaeb7c and others).
 
 ## [2.29.4] — 2026-11-17
 
